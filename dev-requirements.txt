@@ -1,0 +1,4 @@
+hashin
+pytest
+pytest-flask
+yapf

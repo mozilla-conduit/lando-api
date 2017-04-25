@@ -1,0 +1,87 @@
+swagger: '2.0'
+info:
+  title: Lando API
+  description: Turn Phabricator revisions into Mercurial commits.
+  version: "0.1.0"
+produces:
+  - application/json
+paths:
+  /:
+    get:
+      summary: Redirect to the API UI and documentation
+      responses:
+        302:
+          description: Redirect to the UI
+          headers:
+            Location:
+              description: Where to redirect to
+              type: string
+  /revisions/:
+    get:
+      summary: Phabricator revisions that may be landed.
+      description: |
+        TODO
+      responses:
+        200:
+          description: OK
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+  /revisions/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          type: string
+          description: |
+            ID of a candidate revision for landing.
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Revision'
+        403:
+          description: Client is not authorized to view this revision
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        404:
+          description: Revision does not exist
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+definitions:
+  Revision:
+    type: object
+    properties:
+      id:
+        type: string
+        description: |
+          TBD
+  # RFS7807 Problem Details for HTTP APIs (https://tools.ietf.org/html/rfc7807)
+  # is used for error messages. Extensions to the error can be speced using an
+  # "allOf" schema keyword along with additional schema definition
+  Error:
+    type: object
+    properties:
+      status:
+        type: integer
+      type:
+        type: string
+      title:
+        type: string
+      detail:
+        type: string
+      instance:
+        type: string
