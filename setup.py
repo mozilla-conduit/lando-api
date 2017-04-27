@@ -17,7 +17,7 @@ setup(
     version='0.1',
     description='Turn Phabricator revisions into Mercurial commits.',
     long_description=long_description,
-    url='https://mozilla-version-control-tools.readthedocs.io/',
+    url='https://github.com/mozilla-conduit/lando-api',
     author='Mozilla',
     author_email='dev-version-control@lists.mozilla.org',
     license='MPL 2.0',
