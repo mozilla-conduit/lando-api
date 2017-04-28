@@ -1,0 +1,21 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+version: '2'
+services:
+  lando-api:
+    build:
+      context: ./
+      dockerfile: ./docker/Dockerfile-dev
+    volumes:
+      - ./:/app
+    environment:
+      - PORT=80
+      - VERSION_PATH=/version.json
+  py3-linter:
+    build:
+      context: ./
+      dockerfile: ./docker/py3-linter-dockerfile
+    volumes:
+     - ./:/code/

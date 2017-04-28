@@ -1,0 +1,20 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+FROM python:3.5-alpine
+
+RUN addgroup -g 1001 app && \
+    adduser -D -u 1001 -G app -s /usr/sbin/nologin app
+
+COPY requirements.txt /requirements.txt
+RUN pip install --no-cache -r /requirements.txt
+
+COPY . /app
+RUN pip install --no-cache /app
+
+# run as non priviledged user
+USER app
+
+# TODO allow ops to use this as a wsgi app
+WORKDIR /app

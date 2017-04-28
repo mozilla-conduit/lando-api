@@ -1,0 +1,12 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+FROM python:3.5-alpine
+
+RUN pip install yapf==0.16.0 && pip install flake8==3.3.0 && pip install pytest==3.0.6
+
+ADD . /code/
+WORKDIR /code/
+
+CMD ["python"]
