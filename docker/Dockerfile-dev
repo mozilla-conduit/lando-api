@@ -1,0 +1,29 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+FROM python:3.5-alpine
+
+ADD requirements.txt /requirements.txt
+RUN pip install --no-cache -r /requirements.txt
+ADD dev-requirements.txt /dev-requirements.txt
+RUN pip install --no-cache -r /dev-requirements.txt
+
+# Create a Dockerflow version file at the root so
+# we don't map over it below.
+RUN echo '{\
+    "source": "https://github.com/mozilla-conduit/lando-api",\
+    "version": "0.0.0",\
+    "commit": "",\
+    "build": "dev"\
+}' >> /version.json
+
+ADD . /app
+WORKDIR /app
+
+# We install outside of the app directory to create the .egg-info in a
+# location that will not be mounted over. This means /app needs to be
+# added to PYTHONPATH though.
+ENV PYTHONPATH /app
+RUN cd / && pip install --no-cache /app
+CMD ["lando-api-dev"]
