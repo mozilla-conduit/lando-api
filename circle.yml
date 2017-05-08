@@ -45,5 +45,5 @@ deployment:
     commands:
       - "[ ! -z $DOCKERHUB_REPO ]"
       - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-      - "docker tag lando-api:build ${DOCKERHUB_REPO}:lando-api-${CIRCLE_SHA1}"
-      - "docker push ${DOCKERHUB_REPO}:lando-api-${CIRCLE_SHA1}"
+      - "docker tag ${DOCKERHUB_REPO} ${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
+      - "docker push ${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
