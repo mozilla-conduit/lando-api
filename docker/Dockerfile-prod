@@ -7,6 +7,10 @@ FROM python:3.5-alpine
 RUN addgroup -g 1001 app && \
     adduser -D -u 1001 -G app -s /usr/sbin/nologin app
 
+# Runtime dependencies
+RUN apk --no-cache --update add \
+	mercurial
+
 COPY requirements.txt /requirements.txt
 RUN pip install --no-cache -r /requirements.txt
 

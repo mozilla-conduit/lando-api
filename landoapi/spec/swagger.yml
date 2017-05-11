@@ -29,6 +29,18 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+    post:
+      summary: Add Phabricator revision to be landed.
+      description: |
+        TODO
+      responses:
+        200:
+          description: OK
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
   /revisions/{id}:
     get:
       parameters:
