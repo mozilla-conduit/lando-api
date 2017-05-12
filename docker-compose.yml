@@ -13,6 +13,7 @@ services:
     environment:
       - PORT=80
       - VERSION_PATH=/version.json
+      - PHABRICATOR_URI=http://phabricator.dev:7788/
   py3-linter:
     build:
       context: ./

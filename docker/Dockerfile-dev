@@ -4,6 +4,9 @@
 
 FROM python:3.5-alpine
 
+# Runtime dependencies
+RUN apk --no-cache --update add \
+	mercurial
 ADD requirements.txt /requirements.txt
 RUN pip install --no-cache -r /requirements.txt
 ADD dev-requirements.txt /dev-requirements.txt
@@ -17,6 +20,20 @@ RUN echo '{\
     "commit": "",\
     "build": "dev"\
 }' >> /version.json
+
+ENV REPOSITORY_HOME /repos/
+
+# Create a fake repo
+# It will not be a part of PR
+# This is just the simplest way of creating the repo for now
+ENV STUB_REPOSITORY stub-repository
+RUN mkdir -p /repos/stub-repository
+RUN chmod 777 /repos/stub-repository
+RUN cd /repos/stub-repository
+RUN echo foo > foo
+RUN hg init
+RUN hg add foo
+RUN cd /
 
 ADD . /app
 WORKDIR /app
