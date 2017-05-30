@@ -10,9 +10,12 @@ services:
       dockerfile: ./docker/Dockerfile-dev
     volumes:
       - ./:/app
+    ports:
+      - "8888:80"
     environment:
       - PORT=80
       - VERSION_PATH=/version.json
+      - PHABRICATOR_URL=https://mozphab.dev.mozaws.net
   py3-linter:
     build:
       context: ./

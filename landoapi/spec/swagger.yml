@@ -1,7 +1,7 @@
 swagger: '2.0'
 info:
   title: Lando API
-  description: Turn Phabricator revisions into Mercurial commits.
+  description: An API to get and land Phabricator revisions.
   version: "0.1.0"
 produces:
   - application/json
@@ -16,41 +16,30 @@ paths:
             Location:
               description: Where to redirect to
               type: string
-  /revisions/:
+  /revisions/{revision_id}:
     get:
-      summary: Phabricator revisions that may be landed.
       description: |
-        TODO
-      responses:
-        200:
-          description: OK
-        default:
-          description: Unexpected error
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-  /revisions/{id}:
-    get:
+        Gets a revision's information as well as the information of
+        all of its parent revisions.
       parameters:
-        - name: id
+        - name: revision_id
           in: path
           type: string
           description: |
-            ID of a candidate revision for landing.
+            The id of the revision to get. This can either be in form of
+            'D12345' (as seen in Phabricator URLs), or just the id number.
+          required: true
+        - name: api_key
+          in: query
+          type: string
+          description: |
+            A Phabricator Conduit API key to use to get the revision.
           required: true
       responses:
         200:
           description: OK
           schema:
-            type: object
-            properties:
-              data:
-                $ref: '#/definitions/Revision'
-        403:
-          description: Client is not authorized to view this revision
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
+            $ref: '#/definitions/Revision'
         404:
           description: Revision does not exist
           schema:
@@ -65,10 +54,103 @@ definitions:
   Revision:
     type: object
     properties:
-      id:
+      revision_id:
+        type: integer
+        description: |
+          The id of the revision.
+      phid:
         type: string
         description: |
-          TBD
+          The phid of the revision.
+      url:
+        type: string
+        description: |
+          A url to the revision on Phabricator.
+      date_created:
+        type: integer
+        description: |
+          The date that the revision was created as a unix timestamp.
+      date_modified:
+        type: integer
+        description: |
+          The date that the revision was last modified as a unix timestamp.
+      status:
+        type: integer
+        description: |
+          An integer representing the review status of the revision.
+          0 - Not reviewed.
+          1 - Changes requested.
+          2 - Approved.
+          Phabricator may use other integers to represent other statuses, but,
+          these are not known at this time.
+      status_name:
+        type: string
+        description: |
+          A string representation of the status as determined by Phabricator.
+      summary:
+        type: string
+        description: |
+          The summary provided on the revision.
+      test_plan:
+        type: string
+        description: |
+          The test plan provided on the revision.
+      author:
+        $ref: '#/definitions/User'
+      repo:
+        $ref: '#/definitions/Repo'
+      parent_revisions:
+        type: array
+        items:
+          $ref: '#/definitions/Revision'
+        description: |
+          A list of revisions which this revision depends on. I.e. this revision
+          cannot land until its parents have landed. This list will almost
+          always contain just one revision. That revision may itself also have
+          parent revisions. Traverse each parent revision until one without any
+          parent is found to determine the full dependancy chain.
+  User:
+    type: object
+    properties:
+      phid:
+        type: string
+        description: |
+          The phid of the user.
+      username:
+        type: string
+        description: |
+          The user's username on Phabricator.
+      real_name:
+        type: string
+        description: |
+          The user's real name as they set it on Phabricator.
+      url:
+        type: string
+        description: |
+          A url pointing to the user on Phabricator.
+      image_url:
+        type: string
+        description: |
+          A url pointing to the user's Phabricator avatar.
+  Repo:
+    type: object
+    properties:
+      phid:
+        type: string
+        description: |
+          The phid of the repo.
+      short_name:
+        type: string
+        description: |
+          A short representation of the repo name.
+      full_name:
+        type: string
+        description: |
+          The full name of the repo.
+      url:
+        type: string
+        description: |
+          A url pointing to the repo on Phabricator.
   # RFS7807 Problem Details for HTTP APIs (https://tools.ietf.org/html/rfc7807)
   # is used for error messages. Extensions to the error can be speced using an
   # "allOf" schema keyword along with additional schema definition
