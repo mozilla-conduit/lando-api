@@ -47,3 +47,4 @@ MarkupSafe==1.0 \
 connexion==1.1.9 \
     --hash=sha256:68d021028d7d2bf36542fe0be00c5d958975eaae3583ae292b984724c3dc0350 \
     --hash=sha256:4508d6d5bb2db18c8b421dbf6f1a276e2f7e262c8e2846752c0874f1e41065ad
+    
