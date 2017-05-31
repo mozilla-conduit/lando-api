@@ -4,36 +4,7 @@
 
 import json
 
-import pytest
-from landoapi.app import create_app
-
-
-@pytest.fixture
-def versionfile(tmpdir):
-    """Provide a temporary version.json on disk."""
-    v = tmpdir.mkdir('app').join('version.json')
-    v.write(
-        json.dumps(
-            {
-                'source': 'https://github.com/mozilla-conduit/lando-api',
-                'version': '0.0.0',
-                'commit': '',
-                'build': 'test',
-            }
-        )
-    )
-    return v
-
-
-@pytest.fixture
-def app(versionfile):
-    """Needed for pytest-flask."""
-    app = create_app(versionfile.strpath)
-    return app.app
-
-
-def test_app(client):
-    assert client.get('/revisions/').status_code == 200
+from tests.utils import versionfile, app
 
 
 def test_dockerflow_lb_endpoint_returns_200(client):
