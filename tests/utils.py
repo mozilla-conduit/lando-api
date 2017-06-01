@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import json
-
+import os
 import pytest
 
 from landoapi.app import create_app
@@ -31,3 +31,8 @@ def app(versionfile):
     """Needed for pytest-flask."""
     app = create_app(versionfile.strpath)
     return app.app
+
+
+def phab_url(path):
+    """ Utility to generate a url to Phabricator's API """
+    return '%s/api/%s' % (os.getenv('PHABRICATOR_URL'), path)
