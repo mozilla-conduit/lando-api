@@ -12,7 +12,7 @@ CANNED_LANDO_REVISION_1 = {
         "username": "imadueme_admin"
     },
     "date_created": 1495638270,
-    "date_modifed": 1496239141,
+    "date_modified": 1496239141,
     "id": 1,
     "parent_revisions": [],
     "phid": "PHID-DREV-1",
@@ -39,7 +39,7 @@ CANNED_LANDO_REVISION_2 = {
         "username": "imadueme_admin"
     },
     "date_created": 1495638280,
-    "date_modifed": 1496239151,
+    "date_modified": 1496239151,
     "id": 2,
     "parent_revisions": [
         CANNED_LANDO_REVISION_1
