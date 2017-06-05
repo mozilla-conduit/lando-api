@@ -93,7 +93,7 @@ def _format_revision(
         'phid': revision['phid'],
         'url': revision['uri'],
         'date_created': int(revision['dateCreated']),
-        'date_modifed': int(revision['dateModified']),
+        'date_modified': int(revision['dateModified']),
         'status': int(revision['status']),
         'status_name': revision['statusName'],
         'summary': revision['summary'],
