@@ -9,7 +9,7 @@ from connexion import problem
 from landoapi.phabricator_client import PhabricatorClient
 
 
-def get(api_key, revision_id):
+def get(revision_id, api_key=None):
     """ API endpoint at /revisions/{id} to get revision data. """
     phab = PhabricatorClient(api_key)
     revision = phab.get_revision(id=revision_id)

@@ -33,8 +33,10 @@ paths:
           in: query
           type: string
           description: |
-            A Phabricator Conduit API key to use to get the revision.
-          required: true
+            A Phabricator Conduit API key to use to get the revision. If not
+            provided, then a default api key capable of getting public revisions
+            only will be used instead.
+          required: false
       responses:
         200:
           description: OK
