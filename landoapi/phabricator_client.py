@@ -18,7 +18,10 @@ class PhabricatorClient:
 
     def __init__(self, api_key):
         self.api_url = os.getenv('PHABRICATOR_URL') + '/api'
-        self.api_key = api_key
+        if api_key:
+            self.api_key = api_key
+        else:
+            self.api_key = os.getenv('PHABRICATOR_UNPRIVILEGED_API_KEY')
 
     def get_revision(self, id=None, phid=None):
         """ Gets a revision as defined by the Phabricator API.

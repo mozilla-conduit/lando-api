@@ -16,6 +16,7 @@ services:
       - PORT=80
       - VERSION_PATH=/version.json
       - PHABRICATOR_URL=https://mozphab.dev.mozaws.net
+      - PHABRICATOR_UNPRIVILEGED_API_KEY=api-123456789
   py3-linter:
     build:
       context: ./
