@@ -64,6 +64,10 @@ definitions:
         type: string
         description: |
           The phid of the revision.
+      title:
+        type: string
+        description: |
+          The title of the revision.
       url:
         type: string
         description: |

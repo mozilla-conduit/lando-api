@@ -24,6 +24,7 @@ CANNED_LANDO_REVISION_1 = {
     },
     "status": 1,
     "status_name": "Needs Revision",
+    "title": "My test diff 1",
     "summary": "Summary 1",
     "test_plan": "Test Plan 1",
     "url": "https://mozphab.dev.mozaws.net/D1"
@@ -53,6 +54,7 @@ CANNED_LANDO_REVISION_2 = {
     },
     "status": 1,
     "status_name": "Needs Revision",
+    "title": "My test diff 2",
     "summary": "Summary 2",
     "test_plan": "Test Plan 2",
     "url": "https://mozphab.dev.mozaws.net/D2"

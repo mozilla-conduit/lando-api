@@ -91,6 +91,7 @@ def _format_revision(
     return {
         'id': int(revision['id']),
         'phid': revision['phid'],
+        'title': revision['title'],
         'url': revision['uri'],
         'date_created': int(revision['dateCreated']),
         'date_modified': int(revision['dateModified']),
