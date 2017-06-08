@@ -44,7 +44,14 @@ def land(revision_id, api_key=None):
     revision = _format_revision(phab, revision, include_parents=True)
 
     trans = TransplantClient()
+<<<<<<< HEAD
     id = trans.land('ldap_username@example.com', revision)
+=======
+    id = trans.land(
+        'ldap_username@example.com', revision['repo']['url'], 'patch',
+        'destination', 'push_bookmark', 'http://pingback.url'
+    )
+>>>>>>> Land revision to a stub Transplant API (bug 1372538)
     return {}, 202
 
 
