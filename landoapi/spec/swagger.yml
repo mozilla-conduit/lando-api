@@ -52,7 +52,46 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /revisions/{revision_id}/transplants:
+    post:
+      operationId: landoapi.api.revisions.land
+      description: |
+        Sends request to transplant service and responds just the status code
+      parameters:
+        - name: revision_id
+          in: path
+          type: string
+          description: |
+            The id of the revision to land. This can either be in form of
+            'D12345' (as seen in Phabricator URLs), or just the id number.
+          required: true
+        - name: api_key
+          in: query
+          type: string
+          description: |
+            A Phabricator Conduit API key to use to get the revision.
+          required: false
+      responses:
+        202:
+          description: OK
+        404:
+          description: Revision does not exist
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
 definitions:
+  Transplant:
+    type: object
+    properties:
+      request_id:
+        type: integer
+        description: |
+          The id of the request in Transplant service
   Revision:
     type: object
     properties:
