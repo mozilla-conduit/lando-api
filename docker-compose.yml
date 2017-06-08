@@ -17,6 +17,7 @@ services:
       - VERSION_PATH=/version.json
       - PHABRICATOR_URL=https://mozphab.dev.mozaws.net
       - PHABRICATOR_UNPRIVILEGED_API_KEY=api-123456789
+      - TRANSPLANT_URL=https://stub.transplant.example.com
   py3-linter:
     build:
       context: ./

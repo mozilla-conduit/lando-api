@@ -63,6 +63,38 @@ def test_get_revision_returns_404(client):
         assert response.json == CANNED_LANDO_REVISION_NOT_FOUND
 
 
+def test_landing_revision(client):
+    with requests_mock.mock() as m:
+        m.get(phab_url('user.query'), status_code=200, json=CANNED_USER_1)
+        m.get(
+            phab_url('differential.query'),
+            status_code=200,
+            json=__phabricator_revision_stub
+        )
+        m.get(
+            phab_url('phid.query'),
+            status_code=200,
+            json=CANNED_REPO_MOZCENTRAL
+        )
+        response = client.post('/revisions/D1/transplants?api_key=api-key')
+        assert response.status_code == 202
+        assert response.content_type == 'application/json'
+        assert response.json == {}
+
+
+def test_land_nonexisting_revision_returns_404(client):
+    with requests_mock.mock() as m:
+        m.get(
+            phab_url('differential.query'),
+            status_code=200,
+            json=CANNED_REVISION_EMPTY
+        )
+        response = client.post('/revisions/D9000/transplants?api_key=api-key')
+        assert response.status_code == 404
+        assert response.content_type == 'application/problem+json'
+        assert response.json == CANNED_LANDO_REVISION_NOT_FOUND
+
+
 def __phabricator_revision_stub(request, context):
     form = parse_qs(request.text)
     if form.get('ids[]') and form['ids[]'][0]:
