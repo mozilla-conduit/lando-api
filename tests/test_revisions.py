@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import json
 import pytest
 from tests.canned_responses.lando_api.revisions import *
 from tests.utils import phid_for_response
@@ -41,22 +42,6 @@ def test_get_revision_with_parents(client, phabfactory):
 
 def test_get_revision_returns_404(client, phabfactory):
     response = client.get('/revisions/D9000?api_key=api-key')
-    assert response.status_code == 404
-    assert response.content_type == 'application/problem+json'
-    assert response.json == CANNED_LANDO_REVISION_NOT_FOUND
-
-
-def test_landing_revision(client, phabfactory):
-    phabfactory.user()
-    phabfactory.revision()
-    response = client.post('/revisions/D1/transplants?api_key=api-key')
-    assert response.status_code == 202
-    assert response.content_type == 'application/json'
-    assert response.json == {}
-
-
-def test_land_nonexisting_revision_returns_404(client, phabfactory):
-    response = client.post('/revisions/D9000/transplants?api_key=api-key')
     assert response.status_code == 404
     assert response.content_type == 'application/problem+json'
     assert response.json == CANNED_LANDO_REVISION_NOT_FOUND

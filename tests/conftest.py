@@ -15,6 +15,7 @@ def docker_env_vars(monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
     monkeypatch.setenv('PHABRICATOR_URL', 'http://phabricator.test')
     monkeypatch.setenv('TRANSPLANT_URL', 'http://autoland.test')
+    monkeypatch.setenv('DATABASE_URL', 'sqlite://')
 
 
 @pytest.fixture
@@ -42,7 +43,7 @@ def versionfile(tmpdir):
 
 
 @pytest.fixture
-def app(versionfile):
+def app(versionfile, docker_env_vars):
     """Needed for pytest-flask."""
     app = create_app(versionfile.strpath)
     return app.app

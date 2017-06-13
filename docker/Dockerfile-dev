@@ -4,6 +4,10 @@
 
 FROM python:3.5-alpine
 
+RUN apk --update --no-cache add \
+	sqlite
+RUN mkdir /db
+
 ADD requirements.txt /requirements.txt
 RUN pip install --no-cache -r /requirements.txt
 ADD dev-requirements.txt /dev-requirements.txt

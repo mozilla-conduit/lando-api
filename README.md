@@ -15,6 +15,12 @@ our code management microservice ecosystem.
 
 ##### Running the development server
 
+To create a database schema:
+
+```bash
+$ invoke create_db
+```
+
 To build and start the development services' containers: 
 
 ```bash
@@ -53,3 +59,12 @@ Server: Werkzeug/0.12.1 Python/3.5.3
 
 Start a development server and expose its ports as documented above, and visit 
 `http://localhost:8000/ui/` in your browser to view the API documentation.
+
+## Testing
+
+We're using `pytest` with `pytest-flask`. All tests are placed in `./tests/`
+To run the tests please call
+
+```bash
+$ invoke test
+```

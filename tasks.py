@@ -89,11 +89,20 @@ def imageid(ctx):
     )
 
 
+@task(name='create_db')
+def create_db(ctx):
+    """Call `create_all` on a SQLAlchemy database."""
+    ctx.run(
+        "docker-compose run --rm lando-api "
+        "python landoapi/manage.py create_db"
+    )
+
+
 namespace = Collection(
     Collection(
         'lint',
         lint_all,
         lint_flake8,
         lint_yapf,
-    ), build, format, imageid, test, version
+    ), build, create_db, format, imageid, test, version
 )

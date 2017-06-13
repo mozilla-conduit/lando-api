@@ -7,6 +7,11 @@ FROM python:3.5-alpine
 RUN addgroup -g 1001 app && \
     adduser -D -u 1001 -G app -s /usr/sbin/nologin app
 
+RUN apk --update --no-cache add \
+	sqlite
+RUN mkdir /db
+RUN chown app:app /db
+
 COPY requirements.txt /requirements.txt
 RUN pip install --no-cache -r /requirements.txt
 

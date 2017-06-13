@@ -14,7 +14,7 @@ class TransplantClient:
         self.api_url = os.getenv('TRANSPLANT_URL')
 
     @requests_mock.mock()
-    def land(self, ldap_username, revision, request):
+    def land(self, ldap_username, tree, request):
         """ Sends a push request to Transplant API to land a revision.
 
         Returns request_id received from Transplant API.
@@ -30,7 +30,7 @@ class TransplantClient:
         result = self._POST(
             '/autoland', {
                 'ldap_username': ldap_username,
-                'tree': revision['repo']['url'],
+                'tree': tree,
                 'rev': 'rev',
                 'destination': 'destination',
                 'push_bookmark': 'push_bookmark',
@@ -40,7 +40,6 @@ class TransplantClient:
         )
 
         # Transplant API is responding with a created request_id of the job
-        # TODO do not fail silently - return 502 code if no result.
         return result.get('request_id') if result else None
 
     def _request(self, url, data=None, params=None, method='GET'):
