@@ -7,11 +7,13 @@ See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 from connexion import problem
 from landoapi.phabricator_client import PhabricatorClient
-from landoapi.transplant_client import TransplantClient
 
 
 def get(revision_id, api_key=None):
-    """ API endpoint at /revisions/{id} to get revision data. """
+    """ Gets revision from Phabricator.
+
+    Returns None or revision.
+    """
     phab = PhabricatorClient(api_key)
     revision = phab.get_revision(id=revision_id)
 
@@ -25,34 +27,6 @@ def get(revision_id, api_key=None):
         )
 
     return _format_revision(phab, revision, include_parents=True), 200
-
-
-def land(revision_id, api_key=None):
-    """ API endpoint at /revisions/{id}/transplants to land revision. """
-    phab = PhabricatorClient(api_key)
-    revision = phab.get_revision(id=revision_id)
-
-    if not revision:
-        # We could not find a matching revision.
-        return problem(
-            404,
-            'Revision not found',
-            'The requested revision does not exist',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
-        )
-
-    revision = _format_revision(phab, revision, include_parents=True)
-
-    trans = TransplantClient()
-<<<<<<< HEAD
-    id = trans.land('ldap_username@example.com', revision)
-=======
-    id = trans.land(
-        'ldap_username@example.com', revision['repo']['url'], 'patch',
-        'destination', 'push_bookmark', 'http://pingback.url'
-    )
->>>>>>> Land revision to a stub Transplant API (bug 1372538)
-    return {}, 202
 
 
 def _format_revision(

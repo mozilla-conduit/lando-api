@@ -50,3 +50,10 @@ connexion==1.1.9 \
 requests-mock==1.3.0 \
     --hash=sha256:bd86970d6c52cc97071f5185aa594de6a997a5ca63b3bb36aceb9bb9db49294b \
     --hash=sha256:23edd6f7926aa13b88bf79cb467632ba2dd5a253034e9f41563f60ed305620c7
+SQLAlchemy==1.1.10 \
+    --hash=sha256:dbd92b8af2306d600efa98ed36262d73aad227440a758c8dc3a067ca30096bd3
+Flask-SQLAlchemy==2.2 \
+    --hash=sha256:f0d8241efba723d7b878f73550f5d3c0fbb042416123b52b36640b7491fa208b \
+    --hash=sha256:fa3bd6343de231b2b3376a276df6d331c63c766449b660fc04d375a1c21312ac
+Flask-Script==2.0.5 \
+    --hash=sha256:cef76eac751396355429a14c38967bb14d4973c53e07dec94af5cc8fb017107f

@@ -18,9 +18,12 @@ services:
       - PHABRICATOR_URL=https://mozphab.dev.mozaws.net
       - PHABRICATOR_UNPRIVILEGED_API_KEY=api-123456789
       - TRANSPLANT_URL=https://stub.transplant.example.com
+      - DATABASE_URL=sqlite:////db/sqlite.db
+    volumes:
+      - ./.db/:/db/
   py3-linter:
     build:
       context: ./
       dockerfile: ./docker/py3-linter-dockerfile
     volumes:
-     - ./:/code/
+      - ./:/code/

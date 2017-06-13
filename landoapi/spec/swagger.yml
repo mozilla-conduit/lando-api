@@ -52,19 +52,56 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
-  /revisions/{revision_id}/transplants:
+  /landings:
+    get:
+      operationId: landoapi.api.landings.get_list
+      description: |
+        Get list of jobs scheduled to land depending on the revision
+        and/or status
+      parameters:
+        - name: revision_id
+          in: query
+          type: string
+        - name: status
+          in: query
+          type: string
+      responses:
+        200:
+          description: OK
+          schema:
+            type: array
+            items: 
+              $ref: '#/definitions/Landing'
+        404:
+          description: Revision does not exist
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+
     post:
-      operationId: landoapi.api.revisions.land
+      operationId: landoapi.api.landings.land
       description: |
         Sends request to transplant service and responds just the status code
       parameters:
-        - name: revision_id
-          in: path
-          type: string
+        - name: data
+          required: true
+          in: body
           description: |
             The id of the revision to land. This can either be in form of
             'D12345' (as seen in Phabricator URLs), or just the id number.
           required: true
+          schema:
+            type: object
+            required:
+              - revision_id
+            properties:
+              revision_id:
+                type: string
         - name: api_key
           in: query
           type: string
@@ -84,14 +121,53 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /landings/{landing_id}:
+    get:
+      description: |
+        Request the status of the landing job.
+      parameters:
+        - name: landing_id
+          in: path
+          type: string
+          description: |
+            The id of the landing to return
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/Landing'
+        404:
+          description: Landing does not exist
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
 definitions:
-  Transplant:
+  Landing:
     type: object
     properties:
+      id:
+        type: integer
+        description: |
+          The id of the Landing
       request_id:
         type: integer
         description: |
-          The id of the request in Transplant service
+          The id of the Request in Transplant service
+      status:
+        type: string
+        default: 'started'
+        description: |
+          Status of the landing job in Transplant service
+      revision_id:
+        type: integer
+        description: |
+          The id of the Revision
   Revision:
     type: object
     properties:

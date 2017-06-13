@@ -7,6 +7,7 @@ import click
 import connexion
 from connexion.resolver import RestyResolver
 from landoapi.dockerflow import dockerflow
+from landoapi.models.storage import db
 
 
 def create_app(version_path):
@@ -17,8 +18,13 @@ def create_app(version_path):
     # Get the Flask app being wrapped by the Connexion app.
     flask_app = app.app
     flask_app.config['VERSION_PATH'] = version_path
-    flask_app.register_blueprint(dockerflow)
+    flask_app.config.setdefault(
+        'SQLALCHEMY_DATABASE_URI', os.environ.get('DATABASE_URL', 'sqlite://')
+    )
+    flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+    flask_app.register_blueprint(dockerflow)
+    db.init_app(flask_app)
     return app
 
 
