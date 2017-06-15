@@ -11,6 +11,8 @@ from tests.canned_responses.phabricator.users import *
 from tests.canned_responses.phabricator.repos import *
 from tests.canned_responses.lando_api.revisions import *
 
+pytestmark = pytest.mark.usefixtures('docker_env_vars')
+
 
 def test_get_revision_with_no_parents(client):
     with requests_mock.mock() as m:

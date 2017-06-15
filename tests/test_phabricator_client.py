@@ -16,6 +16,8 @@ from tests.canned_responses.phabricator.users import *
 from tests.canned_responses.phabricator.repos import *
 from tests.canned_responses.phabricator.errors import *
 
+pytestmark = pytest.mark.usefixtures('docker_env_vars')
+
 
 def test_get_revision_with_200_response():
     phab = PhabricatorClient(api_key='api-key')
