@@ -2,12 +2,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
+from unittest.mock import MagicMock
+
 import pytest
 
+from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.models.storage import db as _db
 from landoapi.models.landing import (Landing, TRANSPLANT_JOB_STARTED)
+from landoapi.phabricator_client import PhabricatorClient
+from landoapi.transplant_client import TransplantClient
 
-from tests.canned_responses.phabricator.revisions import *
 from tests.canned_responses.lando_api.revisions import *
 from tests.canned_responses.lando_api.landings import *
 
@@ -24,7 +28,7 @@ def db(app):
         _db.drop_all()
 
 
-def test_landing_revision(db, client, phabfactory):
+def test_landing_revision_saves_data_in_db(db, client, phabfactory):
     phabfactory.user()
     phabfactory.revision()
     response = client.post(
@@ -66,6 +70,38 @@ def test_landing_revision(db, client, phabfactory):
         'revision_id': 'D1',
         'status': TRANSPLANT_JOB_STARTED
     }
+
+
+def test_landing_revision_calls_transplant_service(
+    db, client, phabfactory, monkeypatch
+):
+    # Mock the phabricator response data
+    phabfactory.user()
+    phabfactory.revision()
+
+    # Build the patch we expect to see
+    phabclient = PhabricatorClient('someapi')
+    revision = phabclient.get_revision('D1')
+    gitdiff = phabclient.get_latest_revision_diff_text(revision)
+    author = phabclient.get_revision_author(revision)
+    hgpatch = build_patch_for_revision(gitdiff, author, revision)
+
+    # The repo we expect to see
+    repo_uri = phabclient.get_revision_repo(revision)['uri']
+
+    tsclient = MagicMock(spec=TransplantClient)
+    monkeypatch.setattr('landoapi.models.landing.TransplantClient', tsclient)
+
+    client.post(
+        '/landings?api_key=api-key',
+        data=json.dumps({
+            'revision_id': 'D1'
+        }),
+        content_type='application/json'
+    )
+    tsclient().land.assert_called_once_with(
+        'ldap_username@example.com', hgpatch, repo_uri
+    )
 
 
 def test_get_transplant_status(db, client):

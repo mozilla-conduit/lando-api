@@ -29,20 +29,46 @@ class PhabResponseFactory:
 
     def install_404_responses(self):
         """Install catch-all 404 response handlers for API queries."""
-        query_urls = ['differential.query', 'phid.query', 'user.query']
+        query_urls = [
+            'differential.query', 'phid.query', 'user.query',
+            'differential.getrawdiff'
+        ]
         for query_url in query_urls:
             self.mock.get(
                 phab_url(query_url), status_code=404, json=CANNED_EMPTY_RESULT
             )
 
-    def user(self):
+    def user(self, username=None, phid=None):
         """Return a Phabricator User."""
-        user = deepcopy(CANNED_USER_1)
-        self.mock.get(phab_url('user.query'), status_code=200, json=user)
-        return user
+        response = deepcopy(CANNED_USER_1)
+        user = first_result_in_response(response)
+        if username:
+            user['userName'] = username
+        if phid:
+            user['phid'] = phid
+
+        self.mock.get(
+            phab_url('user.query'),
+            status_code=200,
+            additional_matcher=form_matcher('phids[]', user['phid']),
+            json=response
+        )
+        return response
 
     def revision(self, **kwargs):
-        """Return a Phabricator Revision."""
+        """Return a Phabricator Revision.
+
+        Args:
+            id: String ID to give the generated revision. E.g. 'D2233'.
+            depends_on: Response data for a Revision this revision should depend
+                on.
+            active_diff: Response data for a Diff that should be this
+                Revision's "active diff" (usually this Revision's most recently
+                uploaded patch).
+
+        Returns:
+            The full JSON response dict for the generated Revision.
+        """
         result_json = deepcopy(CANNED_REVISION_1)
         revision = first_result_in_response(result_json)
 
@@ -52,6 +78,9 @@ class PhabResponseFactory:
             num_id = str_id[1:]
             revision['id'] = num_id
             revision['phid'] = "PHID-DREV-%s" % num_id
+
+        if 'author_phid' in kwargs:
+            revision['authorPHID'] = kwargs['author_phid']
 
         if 'depends_on' in kwargs:
             parent_revision_response_data = kwargs['depends_on']
@@ -65,11 +94,11 @@ class PhabResponseFactory:
             revision['auxiliary']['phabricator:depends-on'] = new_value
 
         # Revisions have at least one Diff.
-        diff = self.diff()
-        diffID = extract_rawdiff_id_from_uri(
-            first_result_in_response(diff)['uri']
-        )
-        rawdiff = self.rawdiff(diffID=str(diffID))
+        if 'active_diff' in kwargs:
+            diff = kwargs['active_diff']
+        else:
+            diff = self.diff()
+
         revision['activeDiffPHID'] = phid_for_response(diff)
 
         # Revisions may have a Repo.
@@ -94,15 +123,32 @@ class PhabResponseFactory:
 
         return result_json
 
-    def diff(self):
+    def diff(self, **kwargs):
         """Return a Revision Diff."""
         diff = deepcopy(CANNED_REVISION_1_DIFF)
+        result = first_result_in_response(diff)
+
+        if 'uri' in kwargs:
+            result['uri'] = kwargs['uri']
+
+        diffID = extract_rawdiff_id_from_uri(result['uri'])
+
+        # All Diffs have an associated rawdiff.
+        if 'patch' in kwargs:
+            self.rawdiff(diffID=str(diffID), patch=kwargs['patch'])
+        else:
+            self.rawdiff(diffID=str(diffID))
+
         self.phid(diff)
         return diff
 
-    def rawdiff(self, diffID='12345'):
+    def rawdiff(self, diffID='12345', patch=None):
         """Return raw diff text for a Revision Diff."""
         rawdiff = deepcopy(CANNED_REVISION_1_RAW_DIFF)
+
+        if patch is not None:
+            rawdiff['result'] = patch
+
         self.mock.get(
             phab_url('differential.getrawdiff'),
             status_code=200,

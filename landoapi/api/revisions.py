@@ -6,6 +6,8 @@ Revision API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 from connexion import problem
+
+from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.phabricator_client import PhabricatorClient
 
 

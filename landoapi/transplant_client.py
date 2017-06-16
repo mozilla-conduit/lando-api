@@ -17,7 +17,7 @@ class TransplantClient:
         self.api_url = os.getenv('TRANSPLANT_URL')
 
     @requests_mock.mock()
-    def land(self, ldap_username, tree, request):
+    def land(self, ldap_username, hgpatch, tree, request):
         """ Sends a push request to Transplant API to land a revision.
 
         Returns request_id received from Transplant API.
@@ -40,6 +40,7 @@ class TransplantClient:
                 'ldap_username': ldap_username,
                 'tree': tree,
                 'rev': 'rev',
+                'patch': hgpatch,
                 'destination': 'destination',
                 'push_bookmark': 'push_bookmark',
                 'commit_descriptions': 'commit_descriptions',

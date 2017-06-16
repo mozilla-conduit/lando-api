@@ -20,16 +20,12 @@ from tests.canned_responses.phabricator.errors import *
 pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
 
-def test_get_revision_with_200_response():
+def test_get_revision_with_200_response(phabfactory):
+    revision_response = phabfactory.revision(id='D1234')
+    expected_revision = first_result_in_response(revision_response)
     phab = PhabricatorClient(api_key='api-key')
-    with requests_mock.mock() as m:
-        m.get(
-            phab_url('differential.query'),
-            status_code=200,
-            json=CANNED_REVISION_1
-        )
-        revision = phab.get_revision(id=CANNED_REVISION_1['result'][0]['id'])
-        assert revision == CANNED_REVISION_1['result'][0]
+    revision = phab.get_revision(id=1234)
+    assert revision == expected_revision
 
 
 def test_get_current_user_with_200_response():
@@ -44,15 +40,18 @@ def test_get_current_user_with_200_response():
         assert user == CANNED_USER_WHOAMI_1['result']
 
 
-def test_get_user_returns_with_200_response():
+def test_get_user_returns_with_200_response(phabfactory):
+    user_response = phabfactory.user()
+    expected_user = first_result_in_response(user_response)
+    phid = phid_for_response(user_response)
+
     phab = PhabricatorClient(api_key='api-key')
-    with requests_mock.mock() as m:
-        m.get(phab_url('user.query'), status_code=200, json=CANNED_USER_1)
-        user = phab.get_user(phid=CANNED_USER_1['result'][0]['phid'])
-        assert user == CANNED_USER_1['result'][0]
+    user = phab.get_user(phid)
+
+    assert user == expected_user
 
 
-def test_get_repo_returns_with_200_response():
+def test_get_repo_returns_with_200_response(phabfactory):
     phab = PhabricatorClient(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
@@ -64,6 +63,63 @@ def test_get_repo_returns_with_200_response():
             list(CANNED_REPO_MOZCENTRAL['result'].values())[0]
         repo = phab.get_repo(phid=canned_response_repo['phid'])
         assert repo == canned_response_repo
+
+
+def test_get_author_for_revision(phabfactory):
+    user_response = phabfactory.user()
+    phabfactory.revision(id='D5')
+    expected_user = first_result_in_response(user_response)
+
+    phab = PhabricatorClient(api_key='api-key')
+    revision = phab.get_revision(id='D5')
+    author = phab.get_revision_author(revision)
+
+    assert author == expected_user
+
+
+def test_get_repo_for_revision(phabfactory):
+    repo_response = phabfactory.repo()
+    phabfactory.revision(id='D5')
+    expected_repo = first_result_in_response(repo_response)
+
+    phab = PhabricatorClient(api_key='api-key')
+    revision = phab.get_revision(id='D5')
+    repo = phab.get_revision_repo(revision)
+
+    assert repo == expected_repo
+
+
+def test_get_diff_by_phid(phabfactory):
+    diff_response = phabfactory.diff()
+    phid = phid_for_response(diff_response)
+    expected_diff = first_result_in_response(diff_response)
+
+    phab = PhabricatorClient(api_key='api-key')
+    diff = phab.get_diff(phid)
+
+    assert diff == expected_diff
+
+
+def test_get_rawdiff_by_id(phabfactory):
+    patch = "diff --git a/hello.c b/hello.c..."
+    # The raw patch's diffID is encoded in the Diff URI.
+    uri = "https://secure.phabricator.com/differential/diff/12357/"
+    phabfactory.diff(patch=patch, uri=uri)
+    phab = PhabricatorClient(api_key='api-key')
+    returned_patch = phab.get_rawdiff("12357")
+    assert returned_patch == patch
+
+
+def test_get_latest_patch_for_revision(phabfactory):
+    patch = "diff --git a/hello.c b/hello.c..."
+    diff = phabfactory.diff(patch=patch)
+    response_data = phabfactory.revision(active_diff=diff)
+    revision_data = first_result_in_response(response_data)
+
+    phab = PhabricatorClient(api_key='api-key')
+    returned_patch = phab.get_latest_revision_diff_text(revision_data)
+
+    assert returned_patch == patch
 
 
 def test_phabricator_exception():
