@@ -1,38 +1,13 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.models.storage import db
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 
 TRANSPLANT_JOB_STARTED = 'started'
 TRANSPLANT_JOB_FINISHED = 'finished'
-
-
-def _get_revision(revision_id, api_key=None):
-    """ Gets revision from Phabricator.
-
-    Returns None or revision.
-    """
-    phab = PhabricatorClient(api_key)
-    revision = phab.get_revision(id=revision_id)
-    if not revision:
-        return None
-
-    raw_repo = phab.get_repo(revision['repositoryPHID'])
-    return {
-        'id': int(revision['id']),
-        'phid': revision['phid'],
-        'repo_url': raw_repo['uri'],
-        'title': revision['title'],
-        'url': revision['uri'],
-        'date_created': int(revision['dateCreated']),
-        'date_modified': int(revision['dateModified']),
-        'status': int(revision['status']),
-        'status_name': revision['statusName'],
-        'summary': revision['summary'],
-        'test_plan': revision['testPlan'],
-    }
 
 
 class Landing(db.Model):
@@ -53,13 +28,25 @@ class Landing(db.Model):
     @classmethod
     def create(cls, revision_id, phabricator_api_key=None, save=True):
         """ Land revision and create a Transplant item in storage. """
-        revision = _get_revision(revision_id, phabricator_api_key)
+        phab = PhabricatorClient(phabricator_api_key)
+        revision = phab.get_revision(id=revision_id)
+
         if not revision:
             raise RevisionNotFoundException(revision_id)
 
+        git_diff = phab.get_latest_revision_diff_text(revision)
+        author = phab.get_revision_author(revision)
+        hgpatch = build_patch_for_revision(git_diff, author, revision)
+
+        repo = phab.get_revision_repo(revision)
+
         trans = TransplantClient()
+        # The LDAP username used here has to be the username of the patch
+        # pusher.
+        # FIXME: what value do we use here?
+        # FIXME: This client, or the person who pushed the 'Land it!' button?
         request_id = trans.land(
-            'ldap_username@example.com', revision['repo_url']
+            'ldap_username@example.com', hgpatch, repo['uri']
         )
         if not request_id:
             raise LandingNotCreatedException
