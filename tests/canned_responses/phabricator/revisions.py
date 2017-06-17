@@ -85,3 +85,35 @@ CANNED_REVISION_EMPTY = {
     "error_code": None,
     "error_info": None
 }
+
+CANNED_REVISION_1_DIFF = {
+    "result": {
+        "PHID-DIFF-ebpygi3y26uokg4ebqde": {
+            "phid": "PHID-DIFF-ebpygi3y26uokg4ebqde",
+            "uri": "https://secure.phabricator.com/differential/diff/43480/",
+            "typeName": "Differential Diff",
+            "type": "DIFF",
+            "name": "Diff 43480",
+            "fullName": "Diff 43480",
+            "status": "open"
+        }
+    },
+    "error_code": None,
+    "error_info": None,
+}
+
+CANNED_REVISION_1_RAW_DIFF = {
+    "result": """diff --git a/hello.c b/hello.c
+--- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
++++ b/hello.c   Mon May 05 01:20:46 2008 +0200
+@@ -12,5 +12,6 @@
+ int main(int argc, char **argv)
+ {
+        printf("hello, world!\n");
++       printf("sure am glad I'm using Mercurial!\n");
+        return 0;
+ }
+""",
+    "error_code": None,
+    "error_info": None
+}
