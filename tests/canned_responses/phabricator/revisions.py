@@ -80,7 +80,7 @@ CANNED_REVISION_2 = {
     "error_info": None,
 }
 
-CANNED_REVISION_EMPTY = {
+CANNED_EMPTY_RESULT = {
     "result": [],
     "error_code": None,
     "error_info": None

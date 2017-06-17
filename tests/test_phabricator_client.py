@@ -9,6 +9,7 @@ import requests_mock
 
 from landoapi.phabricator_client import PhabricatorClient, \
     PhabricatorAPIException
+from landoapi.utils import extract_rawdiff_id_from_uri
 
 from tests.utils import *
 from tests.canned_responses.phabricator.revisions import *
@@ -80,3 +81,16 @@ def test_phabricator_exception():
             phab.get_revision(id=CANNED_REVISION_1['result'][0]['id'])
         assert e_info.value.error_code == CANNED_ERROR_1['error_code']
         assert e_info.value.error_info == CANNED_ERROR_1['error_info']
+
+
+def test_extracting_rawdiff_id_from_properly_formatted_uri():
+    # Raw diff ID is '43480'
+    uri = "https://secure.phabricator.com/differential/diff/43480/"
+    rawdiff_id = extract_rawdiff_id_from_uri(uri)
+    assert rawdiff_id == 43480
+
+
+def test_raises_error_if_rawdiff_uri_segments_change():
+    uri = "https://secure.phabricator.com/differential/SOMETHINGNEW/43480/"
+    with pytest.raises(RuntimeError):
+        extract_rawdiff_id_from_uri(uri)

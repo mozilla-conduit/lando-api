@@ -2,37 +2,46 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import json
 import os
-import pytest
-
-from landoapi.app import create_app
-
-
-@pytest.fixture
-def versionfile(tmpdir):
-    """Provide a temporary version.json on disk."""
-    v = tmpdir.mkdir('app').join('version.json')
-    v.write(
-        json.dumps(
-            {
-                'source': 'https://github.com/mozilla-conduit/lando-api',
-                'version': '0.0.0',
-                'commit': '',
-                'build': 'test',
-            }
-        )
-    )
-    return v
-
-
-@pytest.fixture
-def app(versionfile):
-    """Needed for pytest-flask."""
-    app = create_app(versionfile.strpath)
-    return app.app
+from urllib.parse import parse_qs
 
 
 def phab_url(path):
     """ Utility to generate a url to Phabricator's API """
     return '%s/api/%s' % (os.getenv('PHABRICATOR_URL'), path)
+
+
+def first_result_in_response(response_json):
+    """Unpack a Phabricator response JSON's first result.
+
+    Returns:
+        For {result: {'someid': {values}}} returns the {values} dict.  For
+        {result: [{values}, ...]} returns the {values} dict for the first item
+        in the result list.
+    """
+    maybe_list = response_json['result']
+    try:
+        return maybe_list[0]
+    except KeyError:
+        # Got a dict of values instead, like from phid.query.
+        return list(maybe_list.values()).pop()
+
+
+def phid_for_response(response_json):
+    """Return the PHID field of the first object in a Phabricator result JSON.
+
+    Which result in the JSON is returned follows the rules from the `uncan()`
+    function.
+    """
+    return first_result_in_response(response_json)['phid']
+
+
+def form_matcher(key, value):
+    """Return a requests-mock matcher that matches a key and value in form data.
+    """
+
+    def match_form_data(request):
+        qs = parse_qs(request.text)
+        return value in qs.get(key, '')
+
+    return match_form_data
