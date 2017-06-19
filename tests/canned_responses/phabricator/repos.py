@@ -7,7 +7,7 @@ CANNED_REPO_MOZCENTRAL = {
     "result": {
         "PHID-REPO-mozillacentral": {
             "phid": "PHID-REPO-mozillacentral",
-            "uri": "https://mozphab.dev.mozaws.net/source/mozilla-central/",
+            "uri": "http://phabricator.test/source/mozilla-central/",
             "typeName": "Repository",
             "type": "REPO",
             "name": "rMOZILLACENTRAL",
