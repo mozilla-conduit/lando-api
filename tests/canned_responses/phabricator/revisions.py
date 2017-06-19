@@ -29,6 +29,7 @@ CANNED_REVISION_1 = {
             "ccs": [],
             "hashes": [],
             "auxiliary": {
+                "bugzilla.bug-id": "1",
                 "phabricator:projects": [],
                 "phabricator:depends-on": []
             },
@@ -67,6 +68,7 @@ CANNED_REVISION_2 = {
             "ccs": [],
             "hashes": [],
             "auxiliary": {
+                "bugzilla.bug-id": "1",
                 "phabricator:projects": [],
                 "phabricator:depends-on": ["PHID-DREV-1"]
             },

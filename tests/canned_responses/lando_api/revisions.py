@@ -15,6 +15,7 @@ CANNED_LANDO_REVISION_1 = {
     "date_modified": 1496239141,
     "id": 1,
     "parent_revisions": [],
+    "bug_id": 1,
     "phid": "PHID-DREV-1",
     "repo": {
         "full_name": "rMOZILLACENTRAL mozilla-central",
@@ -41,6 +42,7 @@ CANNED_LANDO_REVISION_2 = {
     },
     "date_created": 1495638280,
     "date_modified": 1496239151,
+    "bug_id": 1,
     "id": 2,
     "parent_revisions": [
         CANNED_LANDO_REVISION_1

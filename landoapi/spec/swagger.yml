@@ -103,6 +103,11 @@ definitions:
         type: string
         description: |
           The phid of the revision.
+      bug_id:
+        type: integer
+        description: |
+          The ID of the Bugzilla bug this revision belongs to. Or null if
+          it is not attached to a specific bug.
       title:
         type: string
         description: |

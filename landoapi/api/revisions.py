@@ -110,9 +110,16 @@ def _format_revision(
                     _format_revision(phab, parent_revision_data, True)
                 )
 
+    bug_id = revision['auxiliary'].get('bugzilla.bug-id', None)
+    try:
+        bug_id = int(bug_id)
+    except (TypeError, ValueError):
+        bug_id = None
+
     return {
         'id': int(revision['id']),
         'phid': revision['phid'],
+        'bug_id': bug_id,
         'title': revision['title'],
         'url': revision['uri'],
         'date_created': int(revision['dateCreated']),
