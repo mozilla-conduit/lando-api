@@ -86,16 +86,19 @@ def _format_revision(
         }
 
     # Load the repo if it isn't the same as the child revision's repo.
-    if last_repo and revision['repositoryPHID'] == last_repo['phid']:
-        repo = last_repo
+    if revision['repositoryPHID']:
+        if last_repo and revision['repositoryPHID'] == last_repo['phid']:
+            repo = last_repo
+        else:
+            raw_repo = phab.get_repo(revision['repositoryPHID'])
+            repo = {
+                'phid': raw_repo['phid'],
+                'short_name': raw_repo['name'],
+                'full_name': raw_repo['fullName'],
+                'url': raw_repo['uri'],
+            }
     else:
-        raw_repo = phab.get_repo(revision['repositoryPHID'])
-        repo = {
-            'phid': raw_repo['phid'],
-            'short_name': raw_repo['name'],
-            'full_name': raw_repo['fullName'],
-            'url': raw_repo['uri'],
-        }
+        repo = None
 
     # This recursively loads the parent of a revision, and the parents of
     # that parent, and so on, ultimately creating a linked-list type structure
