@@ -10,7 +10,7 @@ CANNED_USER_1 = {
             "userName": "imadueme_admin",
             "realName": "Israel Madueme",
             "image": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png",
-            "uri": "https://mozphab.dev.mozaws.net/p/imadueme_admin/",
+            "uri": "http://phabricator.test/p/imadueme_admin/",
             "roles": [
                 "admin",
                 "verified",
@@ -29,7 +29,7 @@ CANNED_USER_WHOAMI_1 = {
     "userName": "imadueme_admin",
     "realName": "Israel Madueme",
     "image": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png",
-    "uri": "https://mozphab.dev.mozaws.net/p/imadueme_admin/",
+    "uri": "http://phabricator.test/p/imadueme_admin/",
     "roles": [
       "admin",
       "verified",

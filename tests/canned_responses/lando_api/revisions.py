@@ -8,7 +8,7 @@ CANNED_LANDO_REVISION_1 = {
         "image_url": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png",
         "phid": "PHID-USER-imaduemeadmin",
         "real_name": "Israel Madueme",
-        "url": "https://mozphab.dev.mozaws.net/p/imadueme_admin/",
+        "url": "http://phabricator.test/p/imadueme_admin/",
         "username": "imadueme_admin"
     },
     "date_created": 1495638270,
@@ -21,14 +21,14 @@ CANNED_LANDO_REVISION_1 = {
         "full_name": "rMOZILLACENTRAL mozilla-central",
         "phid": "PHID-REPO-mozillacentral",
         "short_name": "rMOZILLACENTRAL",
-        "url": "https://mozphab.dev.mozaws.net/source/mozilla-central/"
+        "url": "http://phabricator.test/source/mozilla-central/"
     },
     "status": 1,
     "status_name": "Needs Revision",
     "title": "My test diff 1",
     "summary": "Summary 1",
     "test_plan": "Test Plan 1",
-    "url": "https://mozphab.dev.mozaws.net/D1"
+    "url": "http://phabricator.test/D1"
 }
 
 
@@ -37,7 +37,7 @@ CANNED_LANDO_REVISION_2 = {
         "image_url": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png",
         "phid": "PHID-USER-imaduemeadmin",
         "real_name": "Israel Madueme",
-        "url": "https://mozphab.dev.mozaws.net/p/imadueme_admin/",
+        "url": "http://phabricator.test/p/imadueme_admin/",
         "username": "imadueme_admin"
     },
     "date_created": 1495638280,
@@ -52,14 +52,14 @@ CANNED_LANDO_REVISION_2 = {
         "full_name": "rMOZILLACENTRAL mozilla-central",
         "phid": "PHID-REPO-mozillacentral",
         "short_name": "rMOZILLACENTRAL",
-        "url": "https://mozphab.dev.mozaws.net/source/mozilla-central/"
+        "url": "http://phabricator.test/source/mozilla-central/"
     },
     "status": 1,
     "status_name": "Needs Revision",
     "title": "My test diff 2",
     "summary": "Summary 2",
     "test_plan": "Test Plan 2",
-    "url": "https://mozphab.dev.mozaws.net/D2"
+    "url": "http://phabricator.test/D2"
 }
 
 CANNED_LANDO_REVISION_NOT_FOUND = {
