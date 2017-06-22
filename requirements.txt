@@ -70,3 +70,5 @@ python-dateutil==2.6.0 \
 Flask-Alembic==2.0.1 \
     --hash=sha256:05a1e6f4148dbfcc9280a393373bfbd250af6f9f4f0ca9f744ef8f7376a3deec \
     --hash=sha256:7e67740b0b08d58dcae0c701d56b56e60f5fa4af907bb82b4cb0469229ba94ff
+uWSGI==2.0.15 \
+    --hash=sha256:572ef9696b97595b4f44f6198fe8c06e6f4e6351d930d22e5330b071391272ff
