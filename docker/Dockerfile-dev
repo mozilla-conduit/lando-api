@@ -8,10 +8,26 @@ RUN apk --update --no-cache add \
 	sqlite
 RUN mkdir /db
 
-ADD requirements.txt /requirements.txt
-RUN pip install --no-cache -r /requirements.txt
-ADD dev-requirements.txt /dev-requirements.txt
-RUN pip install --no-cache -r /dev-requirements.txt
+COPY requirements.txt dev-requirements.txt /
+
+RUN set -ex \
+    && apk add --no-cache --virtual .build-deps \
+           gcc \
+           libc-dev \
+           musl-dev \
+           linux-headers \
+           pcre-dev \
+    && pip install --no-cache -r /requirements.txt \
+    && pip install --no-cache -r /dev-requirements.txt \
+	&& runDeps="$( \
+		scanelf --needed --nobanner --recursive /usr/local \
+			| awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
+			| sort -u \
+			| xargs -r apk info --installed \
+			| sort -u \
+	)" \
+	&& apk add --virtual .python-rundeps $runDeps \
+    && apk del .build-deps
 
 # Create a Dockerflow version file at the root so
 # we don't map over it below.

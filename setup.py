@@ -31,6 +31,7 @@ setup(
     ],
     keywords='mozilla commits development conduit',
     packages=find_packages(exclude=['docs', 'tests']),
+    package_data={'landoapi': ['spec/swagger.yml']},
     install_requires=[],
     extras_require={},
     entry_points={
