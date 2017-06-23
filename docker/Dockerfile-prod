@@ -12,6 +12,8 @@ RUN apk --update --no-cache add \
 RUN mkdir /db
 RUN chown app:app /db
 
+COPY migrations /migrations
+
 COPY requirements.txt /requirements.txt
 RUN pip install --no-cache -r /requirements.txt
 

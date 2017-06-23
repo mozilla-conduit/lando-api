@@ -6,6 +6,9 @@ import os
 import requests
 import requests_mock
 
+from sqlalchemy import text
+from landoapi.models.storage import db
+
 
 class TransplantClient:
     """ A class to interface with Transplant's API. """
@@ -19,10 +22,15 @@ class TransplantClient:
 
         Returns request_id received from Transplant API.
         """
+        # get the number of Landing objects to create the unique request_id
+        sql = text('SELECT COUNT(*) FROM landings')
+        result = db.session.execute(sql).fetchone()
+        request_id = result[0] + 1
+
         # Connect to stubbed Transplant service
         request.post(
             self.api_url + '/autoland',
-            json={'request_id': 1},
+            json={'request_id': request_id},
             status_code=200
         )
 

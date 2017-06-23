@@ -8,8 +8,6 @@ services:
     build:
       context: ./
       dockerfile: ./docker/Dockerfile-dev
-    volumes:
-      - ./:/app
     ports:
       - "8888:80"
     environment:
@@ -20,7 +18,9 @@ services:
       - TRANSPLANT_URL=https://stub.transplant.example.com
       - DATABASE_URL=sqlite:////db/sqlite.db
     volumes:
+      - ./:/app
       - ./.db/:/db/
+      - ./migrations/:/migrations/
   py3-linter:
     build:
       context: ./
