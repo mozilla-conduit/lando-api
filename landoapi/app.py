@@ -5,9 +5,10 @@ import os
 
 import click
 import connexion
+
 from connexion.resolver import RestyResolver
 from landoapi.dockerflow import dockerflow
-from landoapi.models.storage import db
+from landoapi.models.storage import alembic, db
 
 
 def create_app(version_path):
@@ -22,9 +23,16 @@ def create_app(version_path):
         'SQLALCHEMY_DATABASE_URI', os.environ.get('DATABASE_URL', 'sqlite://')
     )
     flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    flask_app.config['ALEMBIC'] = {'script_location': '/migrations/'}
 
     flask_app.register_blueprint(dockerflow)
+
+    # Initialize database
     db.init_app(flask_app)
+
+    # Intialize the alembic extension
+    alembic.init_app(app.app)
+
     return app
 
 

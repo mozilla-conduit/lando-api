@@ -71,7 +71,7 @@ def version(ctx):
     print(json.dumps(version))
 
 
-@task(name='build')
+@task
 def build(ctx):
     """Build the production docker image."""
     ctx.run(
@@ -89,12 +89,21 @@ def imageid(ctx):
     )
 
 
-@task(name='create_db')
-def create_db(ctx):
-    """Call `create_all` on a SQLAlchemy database."""
+@task(name='add-migration')
+def add_migration(ctx, msg):
+    """Call Alembic to create a migration revision"""
     ctx.run(
         "docker-compose run --rm lando-api "
-        "python landoapi/manage.py create_db"
+        "python landoapi/manage.py revision '%s'" % msg
+    )
+
+
+@task
+def upgrade(ctx):
+    """Call Alembic to run all available migration upgrades."""
+    ctx.run(
+        "docker-compose run --rm lando-api "
+        "python landoapi/manage.py upgrade"
     )
 
 
@@ -104,5 +113,5 @@ namespace = Collection(
         lint_all,
         lint_flake8,
         lint_yapf,
-    ), build, create_db, format, imageid, test, version
+    ), add_migration, build, format, imageid, test, upgrade, version
 )

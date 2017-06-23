@@ -15,10 +15,10 @@ our code management microservice ecosystem.
 
 ##### Running the development server
 
-To create a database schema:
+To create a database:
 
 ```bash
-$ invoke create_db
+$ invoke upgrade
 ```
 
 To build and start the development services' containers: 

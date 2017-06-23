@@ -47,6 +47,26 @@ def test_landing_revision(db, client, phabfactory):
         'status': TRANSPLANT_JOB_STARTED
     }
 
+    response = client.post(
+        '/landings?api_key=api-key',
+        data=json.dumps({
+            'revision_id': 'D1'
+        }),
+        content_type='application/json'
+    )
+    assert response.status_code == 202
+    assert response.content_type == 'application/json'
+    assert response.json == {'id': 2}
+
+    # test saved data
+    landing = Landing.query.get(2)
+    assert landing.serialize() == {
+        'id': 2,
+        'request_id': 2,
+        'revision_id': 'D1',
+        'status': TRANSPLANT_JOB_STARTED
+    }
+
 
 def test_get_transplant_status(db, client):
     Landing(1, 'D1', 'started').save(True)
