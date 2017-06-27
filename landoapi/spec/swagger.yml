@@ -111,8 +111,69 @@ paths:
       responses:
         202:
           description: OK
+          schema:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: |
+                  A newly created Landing id
         404:
           description: Revision does not exist
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+  /landings/{landing_id}/update:
+    post:
+      operationId: landoapi.api.landings.update
+      description: |
+        Sends request to transplant service and responds with just the
+        status code
+      parameters:
+        - name: data
+          in: body
+          description: |
+            Retrieve status of the landing job
+          required: true
+          schema:
+            type: object
+            required:
+              - request_id
+            properties:
+              request_id:
+                type: integer
+              tree:
+                type: string
+              rev:
+                type: string
+              patch:
+                type: string
+              destination:
+                type: string
+              trysyntax:
+                type: string
+              landed:
+                type: boolean
+              error_msg:
+                type: string
+              result:
+                type: string
+        - name: landing_id
+          in: path
+          type: string
+          description: |
+            The id of the landing to return
+          required: true
+      responses:
+        202:
+          description: OK
+        404:
+          description: Landing does not exist
           schema:
             allOf:
               - $ref: '#/definitions/Error'
@@ -168,6 +229,14 @@ definitions:
         type: integer
         description: |
           The id of the Revision
+      result:
+        type: string
+        description: |
+          revision (sha) of push if landed == true
+      error:
+        type: string
+        description: |
+          Error message if landing failed
   Revision:
     type: object
     properties:

@@ -17,6 +17,7 @@ services:
       - PHABRICATOR_UNPRIVILEGED_API_KEY=api-123456789
       - TRANSPLANT_URL=https://stub.transplant.example.com
       - DATABASE_URL=sqlite:////db/sqlite.db
+      - HOST_URL=https://lando-api.test
     volumes:
       - ./:/app
       - ./.db/:/db/

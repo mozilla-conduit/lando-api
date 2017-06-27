@@ -7,11 +7,10 @@ See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 from connexion import problem
 from flask import request
+from sqlalchemy.orm.exc import NoResultFound
 from landoapi.models.landing import (
-    Landing,
-    LandingNotCreatedException,
-    LandingNotFoundException,
-    RevisionNotFoundException,
+    Landing, LandingNotCreatedException, RevisionNotFoundException,
+    TRANSPLANT_JOB_FAILED, TRANSPLANT_JOB_LANDED
 )
 
 
@@ -60,9 +59,8 @@ def get_list(revision_id=None, status=None):
 def get(landing_id):
     """ API endpoint at /landings/{landing_id} to return stored Landing.
     """
-    try:
-        landing = Landing.get(landing_id)
-    except LandingNotFoundException:
+    landing = Landing.query.get(landing_id)
+    if not landing:
         return problem(
             404,
             'Landing not found',
@@ -71,3 +69,46 @@ def get(landing_id):
         )
 
     return landing.serialize(), 200
+
+
+def update(landing_id, data):
+    """Update landing on pingback from Transplant.
+
+    data contains following fields:
+    request_id: integer
+        id of the landing request in Transplant
+    tree: string
+        tree name as per treestatus
+    rev: string
+        matching phabricator revision identifier
+    destination: string
+        full url of destination repo
+    trysyntax: string
+        change will be pushed to try or empty string
+    landed: boolean;
+        true when operation was successful
+    error_msg: string
+        error message if landed == false
+        empty string if landed == true
+    result: string
+        revision (sha) of push if landed == true
+        empty string if landed == false
+    """
+    try:
+        landing = Landing.query.filter_by(
+            id=landing_id, request_id=data['request_id']
+        ).one()
+    except NoResultFound:
+        return problem(
+            404,
+            'Landing not found',
+            'The requested Landing does not exist',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+        )
+
+    landing.error = data.get('error_msg', '')
+    landing.result = data.get('result', '')
+    landing.status = TRANSPLANT_JOB_LANDED if data['landed'
+                                                  ] else TRANSPLANT_JOB_FAILED
+    landing.save()
+    return {}, 202
