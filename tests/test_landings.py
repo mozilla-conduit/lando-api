@@ -2,13 +2,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
-from unittest.mock import MagicMock
-
+import os
 import pytest
 
+from unittest.mock import MagicMock
+
 from landoapi.hgexportbuilder import build_patch_for_revision
+from landoapi.models.landing import (
+    Landing, TRANSPLANT_JOB_STARTED, TRANSPLANT_JOB_LANDED
+)
 from landoapi.models.storage import db as _db
-from landoapi.models.landing import (Landing, TRANSPLANT_JOB_STARTED)
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 
@@ -44,12 +47,7 @@ def test_landing_revision_saves_data_in_db(db, client, phabfactory):
 
     # test saved data
     landing = Landing.query.get(1)
-    assert landing.serialize() == {
-        'id': 1,
-        'request_id': 1,
-        'revision_id': 'D1',
-        'status': TRANSPLANT_JOB_STARTED
-    }
+    assert landing.serialize() == CANNED_LANDING_1
 
     response = client.post(
         '/landings?api_key=api-key',
@@ -64,12 +62,7 @@ def test_landing_revision_saves_data_in_db(db, client, phabfactory):
 
     # test saved data
     landing = Landing.query.get(2)
-    assert landing.serialize() == {
-        'id': 2,
-        'request_id': 2,
-        'revision_id': 'D1',
-        'status': TRANSPLANT_JOB_STARTED
-    }
+    assert landing.serialize() == CANNED_LANDING_2
 
 
 def test_landing_revision_calls_transplant_service(
@@ -100,12 +93,13 @@ def test_landing_revision_calls_transplant_service(
         content_type='application/json'
     )
     tsclient().land.assert_called_once_with(
-        'ldap_username@example.com', hgpatch, repo_uri
+        'ldap_username@example.com', hgpatch, repo_uri,
+        '%s/landings/1/update' % os.environ['HOST_URL']
     )
 
 
 def test_get_transplant_status(db, client):
-    Landing(1, 'D1', 'started').save(True)
+    Landing(1, 'D1', 'started').save()
     response = client.get('/landings/1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
@@ -126,11 +120,11 @@ def test_land_nonexisting_revision_returns_404(db, client, phabfactory):
 
 
 def test_get_jobs(db, client):
-    Landing(1, 'D1', 'started').save(True)
-    Landing(2, 'D1', 'finished').save(True)
-    Landing(3, 'D2', 'started').save(True)
-    Landing(4, 'D1', 'started').save(True)
-    Landing(5, 'D2', 'finished').save(True)
+    Landing(1, 'D1', 'started').save()
+    Landing(2, 'D1', 'finished').save()
+    Landing(3, 'D2', 'started').save()
+    Landing(4, 'D1', 'started').save()
+    Landing(5, 'D2', 'finished').save()
 
     response = client.get('/landings')
     assert response.status_code == 200
@@ -148,3 +142,53 @@ def test_get_jobs(db, client):
     response = client.get('/landings?revision_id=D1&status=finished')
     assert response.status_code == 200
     assert len(response.json) == 1
+
+
+def test_update_landing(db, client):
+    Landing(1, 'D1', 'started').save()
+
+    response = client.post(
+        '/landings/1/update',
+        data=json.dumps({
+            'request_id': 1,
+            'landed': True,
+            'result': 'sha123'
+        }),
+        content_type='application/json'
+    )
+
+    assert response.status_code == 202
+    response = client.get('/landings/1')
+    assert response.json['status'] == TRANSPLANT_JOB_LANDED
+
+
+def test_update_landing_bad_id(db, client):
+    Landing(1, 'D1', 'started').save()
+
+    response = client.post(
+        '/landings/2/update',
+        data=json.dumps({
+            'request_id': 1,
+            'landed': True,
+            'result': 'sha123'
+        }),
+        content_type='application/json'
+    )
+
+    assert response.status_code == 404
+
+
+def test_update_landing_bad_request_id(db, client):
+    Landing(1, 'D1', 'started').save()
+
+    response = client.post(
+        '/landings/1/update',
+        data=json.dumps({
+            'request_id': 2,
+            'landed': True,
+            'result': 'sha123'
+        }),
+        content_type='application/json'
+    )
+
+    assert response.status_code == 404

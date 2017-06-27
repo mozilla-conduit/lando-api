@@ -7,17 +7,23 @@ CANNED_LANDING_LIST_1 = [
         'id': 1,
         'request_id': 1,
         'revision_id': 'D1',
-        'status': 'started'
+        'status': 'started',
+        'error_msg': '',
+        'result': None,
     }, {
         'id': 2,
         'request_id': 2,
         'revision_id': 'D1',
-        'status': 'finished'
+        'status': 'finished',
+        'error_msg': '',
+        'result': None,
     }, {
         'id': 4,
         'request_id': 4,
         'revision_id': 'D1',
-        'status': 'started'
+        'status': 'started',
+        'error_msg': '',
+        'result': None,
     }
 ]
 
@@ -25,5 +31,16 @@ CANNED_LANDING_1 = {
     'id': 1,
     'status': 'started',
     'request_id': 1,
-    'revision_id': 'D1'
+    'revision_id': 'D1',
+    'error_msg': '',
+    'result': None,
+}
+
+CANNED_LANDING_2 = {
+    'id': 2,
+    'status': 'started',
+    'request_id': 2,
+    'revision_id': 'D1',
+    'error_msg': '',
+    'result': None,
 }

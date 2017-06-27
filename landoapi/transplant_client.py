@@ -17,7 +17,7 @@ class TransplantClient:
         self.api_url = os.getenv('TRANSPLANT_URL')
 
     @requests_mock.mock()
-    def land(self, ldap_username, hgpatch, tree, request):
+    def land(self, ldap_username, hgpatch, tree, pingback, request):
         """ Sends a push request to Transplant API to land a revision.
 
         Returns request_id received from Transplant API.
@@ -25,7 +25,7 @@ class TransplantClient:
         # get the number of Landing objects to create the unique request_id
         sql = text('SELECT COUNT(*) FROM landings')
         result = db.session.execute(sql).fetchone()
-        request_id = result[0] + 1
+        request_id = result[0]
 
         # Connect to stubbed Transplant service
         request.post(
@@ -44,7 +44,7 @@ class TransplantClient:
                 'destination': 'destination',
                 'push_bookmark': 'push_bookmark',
                 'commit_descriptions': 'commit_descriptions',
-                'pingback_url': 'http://pingback.url/'
+                'pingback_url': pingback
             }
         )
 
