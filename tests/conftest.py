@@ -43,7 +43,21 @@ def versionfile(tmpdir):
 
 
 @pytest.fixture
-def app(versionfile, docker_env_vars):
+def disable_migrations(monkeypatch):
+    """Disable the Alembic DB migrations system in the app during testing."""
+
+    class StubAlembic:
+        def __init__(self):
+            pass
+
+        def init_app(self, app):
+            pass
+
+    monkeypatch.setattr('landoapi.app.alembic', StubAlembic())
+
+
+@pytest.fixture
+def app(versionfile, docker_env_vars, disable_migrations):
     """Needed for pytest-flask."""
     app = create_app(versionfile.strpath)
     return app.app
