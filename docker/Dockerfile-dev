@@ -44,6 +44,6 @@ WORKDIR /app
 # We install outside of the app directory to create the .egg-info in a
 # location that will not be mounted over. This means /app needs to be
 # added to PYTHONPATH though.
-ENV PYTHONPATH /app
 RUN cd / && pip install --no-cache /app
+ENV PYTHONPATH /app
 CMD ["lando-api-dev"]
