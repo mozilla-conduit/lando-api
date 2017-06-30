@@ -4,7 +4,9 @@
 """
 Tests for the PhabricatorClient
 """
+
 import pytest
+import requests
 import requests_mock
 
 from landoapi.phabricator_client import PhabricatorClient, \
@@ -120,6 +122,57 @@ def test_get_latest_patch_for_revision(phabfactory):
     returned_patch = phab.get_latest_revision_diff_text(revision_data)
 
     assert returned_patch == patch
+
+
+def test_check_connection_success():
+    phab = PhabricatorClient(api_key='api-key')
+    success_json = CANNED_EMPTY_RESULT.copy()
+    with requests_mock.mock() as m:
+        m.get(phab_url('conduit.ping'), status_code=200, json=success_json)
+        phab.check_connection()
+        assert m.called
+
+
+def test_raise_exception_if_ping_encounters_connection_error():
+    phab = PhabricatorClient(api_key='api-key')
+    with requests_mock.mock() as m:
+        # Test with the generic ConnectionError, which is a superclass for
+        # other connection error types.
+        m.get(phab_url('conduit.ping'), exc=requests.ConnectionError)
+
+        with pytest.raises(PhabricatorAPIException):
+            phab.check_connection()
+        assert m.called
+
+
+def test_raise_exception_if_api_ping_times_out():
+    phab = PhabricatorClient(api_key='api-key')
+    with requests_mock.mock() as m:
+        # Test with the generic Timeout exception, which all other timeout
+        # exceptions derive from.
+        m.get(phab_url('conduit.ping'), exc=requests.Timeout)
+
+        with pytest.raises(PhabricatorAPIException):
+            phab.check_connection()
+        assert m.called
+
+
+def test_raise_exception_if_api_returns_error_json_response():
+    phab = PhabricatorClient(api_key='api-key')
+    error_json = {
+        "result": None,
+        "error_code": "ERR-CONDUIT-CORE",
+        "error_info": "BOOM"
+    }
+
+    with requests_mock.mock() as m:
+        # Test with the generic Timeout exception, which all other timeout
+        # exceptions derive from.
+        m.get(phab_url('conduit.ping'), status_code=500, json=error_json)
+
+        with pytest.raises(PhabricatorAPIException):
+            phab.check_connection()
+        assert m.called
 
 
 def test_phabricator_exception():

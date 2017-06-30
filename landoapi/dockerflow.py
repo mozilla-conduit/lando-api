@@ -7,8 +7,15 @@ specification.  See https://github.com/mozilla-services/Dockerflow for details.
 """
 
 import json
+import logging
 
+import requests
 from flask import Blueprint, current_app, jsonify
+
+from landoapi.phabricator_client import PhabricatorClient, \
+    PhabricatorAPIException
+
+logger = logging.getLogger(__name__)
 
 dockerflow = Blueprint('dockerflow', __name__)
 
@@ -21,8 +28,16 @@ def heartbeat():
     and return a 200 iff those services and the app itself are
     performing normally. Return a 5XX if something goes wrong.
     """
-    # TODO check backing services
-    return '', 200
+    phab = PhabricatorClient(api_key='')
+    try:
+        phab.check_connection()
+    except PhabricatorAPIException as exc:
+        logger.warning(
+            'heartbeat: problem, Phabricator API connection', exc_info=exc
+        )
+        return 'heartbeat: problem', 502
+    logger.info('heartbeat: ok, all services are up')
+    return 'heartbeat: ok', 200
 
 
 @dockerflow.route('/__lbheartbeat__')
