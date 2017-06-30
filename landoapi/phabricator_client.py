@@ -2,10 +2,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import logging
 import os
 import requests
 
 from landoapi.utils import extract_rawdiff_id_from_uri
+
+logger = logging.getLogger(__name__)
 
 
 class PhabricatorClient:
@@ -144,6 +147,21 @@ class PhabricatorClient:
             A dictionary of Phabricator Repository data.
         """
         return self.get_repo(revision['repositoryPHID'])
+
+    def check_connection(self):
+        """Test the Phabricator API connection with conduit.ping.
+
+        Will return success iff the response has a HTTP status code of 200, the
+        JSON response is a well-formed Phabricator API response, and if there
+        is no connection error (like a hostname lookup error or timeout).
+
+        Raises a PhabricatorAPIException on error.
+        """
+        try:
+            self._GET('/conduit.ping')
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            logging.debug("error calling 'conduit.ping': %s", exc)
+            raise PhabricatorAPIException from exc
 
     def _request(self, url, data=None, params=None, method='GET'):
         data = data if data else {}
