@@ -70,3 +70,6 @@ python-dateutil==2.6.0 \
 Flask-Alembic==2.0.1 \
     --hash=sha256:05a1e6f4148dbfcc9280a393373bfbd250af6f9f4f0ca9f744ef8f7376a3deec \
     --hash=sha256:7e67740b0b08d58dcae0c701d56b56e60f5fa4af907bb82b4cb0469229ba94ff
+mozlogging==0.1.0 \
+    --hash=sha256:2fc3d520a17b048c8723abdba19f6c01f2bcaf4182944aaac5906f28bd5b7d77 \
+    --hash=sha256:2e1362b80418b845164d8d47337da838dade05720dbaf17956d1cafebc511b94
