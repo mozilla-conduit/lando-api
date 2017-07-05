@@ -38,7 +38,8 @@ RUN chown app:app /db
 
 COPY migrations /migrations
 
-COPY requirements.txt /requirements.txt
+RUN mkdir /python_requirements
+COPY requirements/* /python_requirements/
 
 # Install pure-Python, compiled, and OS package dependencies.  Use scanelf to
 # uninstall any compile-time OS package dependencies and keep only the run-time
@@ -50,7 +51,8 @@ RUN set -ex \
            musl-dev \
            linux-headers \
            pcre-dev \
-    && pip install --no-cache -r /requirements.txt \
+    && pip install --no-cache -r /python_requirements/common.txt \
+    && pip install --no-cache -r /python_requirements/production.txt \
 	&& runDeps="$( \
 		scanelf --needed --nobanner --recursive /usr/local \
 			| awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
