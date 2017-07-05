@@ -5,7 +5,11 @@
 Transplant API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
+import hmac
+import json
 import logging
+import os
+
 from connexion import problem
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
@@ -15,6 +19,7 @@ from landoapi.models.landing import (
 )
 
 logger = logging.getLogger(__name__)
+TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
 
 
 def land(data, api_key=None):
@@ -96,6 +101,15 @@ def get(landing_id):
     return landing.serialize(), 200
 
 
+def _not_authorized_problem():
+    return problem(
+        403,
+        'Not Authorized',
+        'You\'re not authorized to proceed.',
+        type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'
+    )
+
+
 def update(landing_id, data):
     """Update landing on pingback from Transplant.
 
@@ -118,7 +132,33 @@ def update(landing_id, data):
     result: string
         revision (sha) of push if landed == true
         empty string if landed == false
+
+    API-Key header is required to authenticate Transplant API
     """
+    if os.getenv('PINGBACK_ENABLED', 'n') != 'y':
+        logger.warning(
+            {
+                'request_id': data.get('request_id', None),
+                'landing_id': landing_id,
+                'remote_addr': request.remote_addr,
+                'msg': 'Attempt to access a disabled pingback',
+            }, 'pingback.warning'
+        )
+        return _not_authorized_problem()
+
+    if not hmac.compare_digest(
+        request.headers.get('API-Key', ''), TRANSPLANT_API_KEY
+    ):
+        logger.warning(
+            {
+                'request_id': data.get('request_id', None),
+                'landing_id': landing_id,
+                'remote_addr': request.remote_addr,
+                'msg': 'Wrong API Key',
+            }, 'pingback.error'
+        )
+        return _not_authorized_problem()
+
     try:
         landing = Landing.query.filter_by(
             id=landing_id, request_id=data['request_id']

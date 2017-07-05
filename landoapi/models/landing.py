@@ -63,14 +63,18 @@ class Landing(db.Model):
         # save landing to make sure we've got the callback
         landing = cls(revision_id=revision_id, diff_id=diff_id).save()
 
-        trans = TransplantClient()
-        callback = '%s/landings/%s/update' % (
-            os.getenv('HOST_URL'), landing.id
+        # Define the pingback URL with the port
+        callback = '{host_url}:{pingback_port}/landings/{id}/update'.format(
+            host_url=os.getenv('HOST_URL'),
+            pingback_port=os.getenv('PINGBACK_PORT', 80),
+            id=landing.id
         )
+
+        trans = TransplantClient()
         # The LDAP username used here has to be the username of the patch
-        # pusher.
-        # FIXME: what value do we use here?
-        # FIXME: This client, or the person who pushed the 'Land it!' button?
+        # pusher (the person who pushed the 'Land it!' button).
+        # FIXME: change ldap_username@example.com to the real data retrieved
+        #        from Auth0 userinfo
         request_id = trans.land(
             'ldap_username@example.com', hgpatch, repo['uri'], callback
         )
