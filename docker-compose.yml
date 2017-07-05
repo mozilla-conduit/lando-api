@@ -20,6 +20,8 @@ services:
       - HOST_URL=https://lando-api.test
       - ENV=localdev
       - SENTRY_DSN=
+      - TRANSPLANT_API_KEY=set-api-key
+      - PINGBACK_ENABLED=y
     volumes:
       - ./:/app
       - ./.db/:/db/

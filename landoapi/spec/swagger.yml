@@ -139,6 +139,11 @@ paths:
         Sends request to transplant service and responds with just the
         status code
       parameters:
+        - name: API-Key
+          description: A Transplant API key
+          in: header
+          required: true
+          type: string
         - name: data
           in: body
           description: |
@@ -176,6 +181,11 @@ paths:
       responses:
         202:
           description: OK
+        403:
+          description: Service not authorized
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
         404:
           description: Landing does not exist
           schema:

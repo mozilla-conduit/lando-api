@@ -80,7 +80,7 @@ def test_landing_revision_calls_transplant_service(
     )
     tsclient().land.assert_called_once_with(
         'ldap_username@example.com', hgpatch, repo_uri,
-        '%s/landings/1/update' % os.environ['HOST_URL']
+        '{}:80/landings/1/update'.format(os.getenv('HOST_URL'))
     )
 
 
@@ -141,6 +141,7 @@ def test_update_landing(db, client):
             'landed': True,
             'result': 'sha123'
         }),
+        headers=[('API-Key', 'someapikey')],
         content_type='application/json'
     )
 
@@ -159,6 +160,7 @@ def test_update_landing_bad_id(db, client):
             'landed': True,
             'result': 'sha123'
         }),
+        headers=[('API-Key', 'someapikey')],
         content_type='application/json'
     )
 
@@ -175,7 +177,60 @@ def test_update_landing_bad_request_id(db, client):
             'landed': True,
             'result': 'sha123'
         }),
+        headers=[('API-Key', 'someapikey')],
         content_type='application/json'
     )
 
     assert response.status_code == 404
+
+
+def test_update_landing_bad_api_key(db, client):
+    Landing(1, 'D1', 'started').save()
+
+    response = client.post(
+        '/landings/1/update',
+        data=json.dumps({
+            'request_id': 1,
+            'landed': True,
+            'result': 'sha123'
+        }),
+        headers=[('API-Key', 'wrongapikey')],
+        content_type='application/json'
+    )
+
+    assert response.status_code == 403
+
+
+def test_update_landing_no_api_key(db, client):
+    Landing(1, 'D1', 'started').save()
+
+    response = client.post(
+        '/landings/1/update',
+        data=json.dumps({
+            'request_id': 1,
+            'landed': True,
+            'result': 'sha123'
+        }),
+        content_type='application/json'
+    )
+
+    assert response.status_code == 400
+
+
+def test_pingback_disabled(db, client, monkeypatch):
+    monkeypatch.setenv('PINGBACK_ENABLED', 'n')
+
+    Landing(1, 'D1', 1, 'started').save()
+
+    response = client.post(
+        '/landings/1/update',
+        data=json.dumps({
+            'request_id': 1,
+            'landed': True,
+            'result': 'sha123'
+        }),
+        headers=[('API-Key', 'someapikey')],
+        content_type='application/json'
+    )
+
+    assert response.status_code == 403

@@ -18,6 +18,8 @@ def docker_env_vars(monkeypatch):
     monkeypatch.setenv('TRANSPLANT_URL', 'http://autoland.test')
     monkeypatch.setenv('DATABASE_URL', 'sqlite://')
     monkeypatch.setenv('HOST_URL', 'http://lando-api.test')
+    monkeypatch.setenv('TRANSPLANT_API_KEY', 'someapikey')
+    monkeypatch.setenv('PINGBACK_ENABLED', 'y')
 
 
 @pytest.fixture
