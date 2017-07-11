@@ -31,12 +31,14 @@ def heartbeat():
     phab = PhabricatorClient(api_key='')
     try:
         phab.check_connection()
-    except PhabricatorAPIException as exc:
+    except PhabricatorAPIException:
         logger.warning(
-            'heartbeat: problem, Phabricator API connection', exc_info=exc
+            {
+                'msg': 'problem connecting to Phabricator',
+            }, 'heartbeat'
         )
         return 'heartbeat: problem', 502
-    logger.info('heartbeat: ok, all services are up')
+    logger.info({'msg': 'ok, all services are up'}, 'heartbeat')
     return 'heartbeat: ok', 200
 
 
