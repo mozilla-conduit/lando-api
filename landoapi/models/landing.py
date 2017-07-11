@@ -12,7 +12,7 @@ from landoapi.transplant_client import TransplantClient
 
 logger = logging.getLogger(__name__)
 
-TRANSPLANT_JOB_STARTING = 'pending'
+TRANSPLANT_JOB_PENDING = 'pending'
 TRANSPLANT_JOB_STARTED = 'started'
 TRANSPLANT_JOB_LANDED = 'landed'
 TRANSPLANT_JOB_FAILED = 'failed'
@@ -24,6 +24,7 @@ class Landing(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     request_id = db.Column(db.Integer, unique=True)
     revision_id = db.Column(db.String(30))
+    diff_id = db.Column(db.Integer)
     status = db.Column(db.Integer)
     error = db.Column(db.String(128), default='')
     result = db.Column(db.String(128))
@@ -32,14 +33,16 @@ class Landing(db.Model):
         self,
         request_id=None,
         revision_id=None,
-        status=TRANSPLANT_JOB_STARTING
+        diff_id=None,
+        status=TRANSPLANT_JOB_PENDING
     ):
         self.request_id = request_id
         self.revision_id = revision_id
+        self.diff_id = diff_id
         self.status = status
 
     @classmethod
-    def create(cls, revision_id, phabricator_api_key=None):
+    def create(cls, revision_id, phabricator_api_key=None, diff_id=None):
         """ Land revision and create a Transplant item in storage. """
         phab = PhabricatorClient(phabricator_api_key)
         revision = phab.get_revision(id=revision_id)
@@ -47,16 +50,18 @@ class Landing(db.Model):
         if not revision:
             raise RevisionNotFoundException(revision_id)
 
-        git_diff = phab.get_latest_revision_diff_text(revision)
+        if not diff_id:
+            diff_id = phab.get_diff_id(revision['activeDiffPHID'])
+
+        git_diff = phab.get_rawdiff(diff_id)
+
         author = phab.get_revision_author(revision)
         hgpatch = build_patch_for_revision(git_diff, author, revision)
 
         repo = phab.get_revision_repo(revision)
 
         # save landing to make sure we've got the callback
-        landing = cls(
-            revision_id=revision_id,
-        ).save()
+        landing = cls(revision_id=revision_id, diff_id=diff_id).save()
 
         trans = TransplantClient()
         callback = '%s/landings/%s/update' % (
@@ -103,6 +108,7 @@ class Landing(db.Model):
             'id': self.id,
             'revision_id': self.revision_id,
             'request_id': self.request_id,
+            'diff_id': self.diff_id,
             'status': self.status,
             'error_msg': self.error,
             'result': self.result

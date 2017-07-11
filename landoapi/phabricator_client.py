@@ -6,9 +6,27 @@ import logging
 import os
 import requests
 
-from landoapi.utils import extract_rawdiff_id_from_uri
-
 logger = logging.getLogger(__name__)
+
+
+def extract_rawdiff_id_from_uri(uri):
+    """Extract a raw diff ID from a Diff uri."""
+    # The raw diff is part of a URI, such as
+    # "https://secure.phabricator.com/differential/diff/43480/".
+    parts = uri.rsplit('/', 4)
+
+    # Check that the URI Path is something we understand.  Fail if the
+    # URI path changed (signalling that the raw diff part of the URI may
+    # be in a different segment of the URI string).
+    if parts[1:-2] != ['differential', 'diff']:
+        raise RuntimeError(
+            "Phabricator Raw Diff URI parsing error: The "
+            "URI {} is not in a format we "
+            "understand!".format(uri)
+        )
+
+    # Take the second-last member because of the trailing slash on the URL.
+    return int(parts[-2])
 
 
 class PhabricatorClient:
@@ -118,13 +136,23 @@ class PhabricatorClient:
             A string holding the Git Diff of the Revision's latest Diff.
         """
         latest_diff_phid = revision['activeDiffPHID']
-        diff = self.get_diff(latest_diff_phid)
+        rawdiff_id = self.get_diff_id(latest_diff_phid)
+        return self.get_rawdiff(rawdiff_id)
 
+    def get_diff_id(self, diff_phid):
+        """Return raw diff id.
+
+        Args:
+            phid: The phid of the diff to use
+
+        Returns:
+            An integer representing the id of the raw diff
+        """
+        diff = self.get_diff(diff_phid)
         # We got a raw diff ID as part of a URI, such as
         # "https://secure.phabricator.com/differential/diff/43480/". We need to
         # parse out the raw diff ID so we can call differential.rawdiff.
-        rawdiff_id = extract_rawdiff_id_from_uri(diff['uri'])
-        return self.get_rawdiff(rawdiff_id)
+        return extract_rawdiff_id_from_uri(diff['uri'])
 
     def get_revision_author(self, revision):
         """Return the Phabricator User data for a revision's author.

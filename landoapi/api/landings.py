@@ -21,6 +21,7 @@ def land(data, api_key=None):
     """ API endpoint at /revisions/{id}/transplants to land revision. """
     # get revision_id from body
     revision_id = data['revision_id']
+    diff_id = data['diff_id']
     logger.info(
         {
             'path': request.path,
@@ -30,7 +31,7 @@ def land(data, api_key=None):
         }, 'landing.invoke'
     )
     try:
-        landing = Landing.create(revision_id, api_key)
+        landing = Landing.create(revision_id, api_key, diff_id)
     except RevisionNotFoundException:
         # We could not find a matching revision.
         logger.info(

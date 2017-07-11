@@ -10,8 +10,7 @@ import requests
 import requests_mock
 
 from landoapi.phabricator_client import PhabricatorClient, \
-    PhabricatorAPIException
-from landoapi.utils import extract_rawdiff_id_from_uri
+    PhabricatorAPIException, extract_rawdiff_id_from_uri
 
 from tests.utils import *
 from tests.canned_responses.phabricator.revisions import *

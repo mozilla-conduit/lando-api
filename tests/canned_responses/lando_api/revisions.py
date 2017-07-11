@@ -17,6 +17,7 @@ CANNED_LANDO_REVISION_1 = {
     "parent_revisions": [],
     "bug_id": 1,
     "phid": "PHID-DREV-1",
+    "diff_id": 43480,
     "repo": {
         "full_name": "rMOZILLACENTRAL mozilla-central",
         "phid": "PHID-REPO-mozillacentral",
