@@ -8,9 +8,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from landoapi.hgexportbuilder import build_patch_for_revision
-from landoapi.models.landing import (
-    Landing, TRANSPLANT_JOB_STARTED, TRANSPLANT_JOB_LANDED
-)
+from landoapi.models.landing import Landing, TRANSPLANT_JOB_LANDED
 from landoapi.models.storage import db as _db
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
@@ -37,7 +35,8 @@ def test_landing_revision_saves_data_in_db(db, client, phabfactory):
     response = client.post(
         '/landings?api_key=api-key',
         data=json.dumps({
-            'revision_id': 'D1'
+            'revision_id': 'D1',
+            'diff_id': 1
         }),
         content_type='application/json'
     )
@@ -47,22 +46,7 @@ def test_landing_revision_saves_data_in_db(db, client, phabfactory):
 
     # test saved data
     landing = Landing.query.get(1)
-    assert landing.serialize() == CANNED_LANDING_1
-
-    response = client.post(
-        '/landings?api_key=api-key',
-        data=json.dumps({
-            'revision_id': 'D1'
-        }),
-        content_type='application/json'
-    )
-    assert response.status_code == 202
-    assert response.content_type == 'application/json'
-    assert response.json == {'id': 2}
-
-    # test saved data
-    landing = Landing.query.get(2)
-    assert landing.serialize() == CANNED_LANDING_2
+    assert landing.serialize() == CANNED_LANDING_FACTORY_1
 
 
 def test_landing_revision_calls_transplant_service(
@@ -75,6 +59,7 @@ def test_landing_revision_calls_transplant_service(
     # Build the patch we expect to see
     phabclient = PhabricatorClient('someapi')
     revision = phabclient.get_revision('D1')
+    diff_id = phabclient.get_diff_id(revision['activeDiffPHID'])
     gitdiff = phabclient.get_latest_revision_diff_text(revision)
     author = phabclient.get_revision_author(revision)
     hgpatch = build_patch_for_revision(gitdiff, author, revision)
@@ -83,12 +68,14 @@ def test_landing_revision_calls_transplant_service(
     repo_uri = phabclient.get_revision_repo(revision)['uri']
 
     tsclient = MagicMock(spec=TransplantClient)
+    tsclient().land.return_value = 1
     monkeypatch.setattr('landoapi.models.landing.TransplantClient', tsclient)
 
     client.post(
         '/landings?api_key=api-key',
         data=json.dumps({
-            'revision_id': 'D1'
+            'revision_id': 'D1',
+            'diff_id': diff_id
         }),
         content_type='application/json'
     )
@@ -99,7 +86,7 @@ def test_landing_revision_calls_transplant_service(
 
 
 def test_get_transplant_status(db, client):
-    Landing(1, 'D1', 'started').save()
+    Landing(1, 'D1', 1, 'started').save()
     response = client.get('/landings/1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
@@ -110,7 +97,8 @@ def test_land_nonexisting_revision_returns_404(db, client, phabfactory):
     response = client.post(
         '/landings?api_key=api-key',
         data=json.dumps({
-            'revision_id': 'D900'
+            'revision_id': 'D900',
+            'diff_id': 1
         }),
         content_type='application/json'
     )
@@ -120,11 +108,11 @@ def test_land_nonexisting_revision_returns_404(db, client, phabfactory):
 
 
 def test_get_jobs(db, client):
-    Landing(1, 'D1', 'started').save()
-    Landing(2, 'D1', 'finished').save()
-    Landing(3, 'D2', 'started').save()
-    Landing(4, 'D1', 'started').save()
-    Landing(5, 'D2', 'finished').save()
+    Landing(1, 'D1', 1, 'started').save()
+    Landing(2, 'D1', 2, 'finished').save()
+    Landing(3, 'D2', 3, 'started').save()
+    Landing(4, 'D1', 4, 'started').save()
+    Landing(5, 'D2', 5, 'finished').save()
 
     response = client.get('/landings')
     assert response.status_code == 200
@@ -145,7 +133,7 @@ def test_get_jobs(db, client):
 
 
 def test_update_landing(db, client):
-    Landing(1, 'D1', 'started').save()
+    Landing(1, 'D1', 1, 'started').save()
 
     response = client.post(
         '/landings/1/update',
@@ -163,7 +151,7 @@ def test_update_landing(db, client):
 
 
 def test_update_landing_bad_id(db, client):
-    Landing(1, 'D1', 'started').save()
+    Landing(1, 'D1', 1, 'started').save()
 
     response = client.post(
         '/landings/2/update',
@@ -179,7 +167,7 @@ def test_update_landing_bad_id(db, client):
 
 
 def test_update_landing_bad_request_id(db, client):
-    Landing(1, 'D1', 'started').save()
+    Landing(1, 'D1', 1, 'started').save()
 
     response = client.post(
         '/landings/1/update',

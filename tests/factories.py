@@ -6,7 +6,7 @@ Data factories for writing integration tests.
 """
 from copy import deepcopy
 
-from landoapi.utils import extract_rawdiff_id_from_uri
+from landoapi.phabricator_client import extract_rawdiff_id_from_uri
 from tests.canned_responses.phabricator.repos import CANNED_REPO_MOZCENTRAL
 from tests.canned_responses.phabricator.revisions import CANNED_EMPTY_RESULT, \
     CANNED_REVISION_1, CANNED_REVISION_1_DIFF, CANNED_REVISION_1_RAW_DIFF

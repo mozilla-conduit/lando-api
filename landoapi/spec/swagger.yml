@@ -92,16 +92,20 @@ paths:
           required: true
           in: body
           description: |
-            The id of the revision to land. This can either be in form of
-            'D12345' (as seen in Phabricator URLs), or just the id number.
+            The id of the revision and a diff to land. This can either be in
+            form of 'D12345' (as seen in Phabricator URLs), or just the id
+            number.
           required: true
           schema:
             type: object
             required:
               - revision_id
+              - diff_id
             properties:
               revision_id:
                 type: string
+              diff_id:
+                type: integer
         - name: api_key
           in: query
           type: string
@@ -229,6 +233,10 @@ definitions:
         type: integer
         description: |
           The id of the Revision
+      diff_id:
+        type: integer
+        description: |
+          diff id used to land
       result:
         type: string
         description: |
@@ -248,6 +256,11 @@ definitions:
         type: string
         description: |
           The phid of the revision.
+      diff_id:
+        type: integer
+        description: |
+          most recent diff id as retrieved from the 'active diff' field from 
+          Phabricator
       bug_id:
         type: integer
         description: |

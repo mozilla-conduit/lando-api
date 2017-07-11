@@ -105,6 +105,7 @@ def _format_revision(
     return {
         'id': int(revision['id']),
         'phid': revision['phid'],
+        'diff_id': phab.get_diff_id(revision['activeDiffPHID']),
         'bug_id': bug_id,
         'title': revision['title'],
         'url': revision['uri'],
