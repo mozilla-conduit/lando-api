@@ -3,11 +3,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+
+import logging
 import requests
 import requests_mock
 
 from sqlalchemy import text
 from landoapi.models.storage import db
+
+logger = logging.getLogger(__name__)
 
 
 class TransplantClient:
@@ -48,8 +52,26 @@ class TransplantClient:
             }
         )
 
-        # Transplant API is responding with a created request_id of the job
-        return result.get('request_id') if result else None
+        if result:
+            logger.info(
+                {
+                    'service': 'transplant',
+                    'username': ldap_username,
+                    'msg': 'patch sent to transplant service',
+                }, 'transplant.success'
+            )
+            return result.get('request_id')
+        else:
+            # Transplant API responded with no data, indicating an error of
+            # some sort.
+            logger.info(
+                {
+                    'service': 'transplant',
+                    'username': ldap_username,
+                    'msg': 'received an empty response from the transplant service',
+                }, 'transplant.failure'
+            )   # yapf: disable
+            return None
 
     def _request(self, url, data=None, params=None, method='GET'):
         data = data if data else {}
@@ -63,6 +85,16 @@ class TransplantClient:
 
         status_code = response.status_code
         response = response.json()
+
+        logger.info(
+            {
+                'code': status_code,
+                'method': method,
+                'service': 'transplant',
+                'url': self.api_url,
+                'path': url,
+            }, 'request.summary'
+        )
 
         if 'error' in response:
             exp = TransplantAPIException()

@@ -3,10 +3,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
 
+import logging
+
 from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.models.storage import db
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
+
+logger = logging.getLogger(__name__)
 
 TRANSPLANT_JOB_STARTING = 'pending'
 TRANSPLANT_JOB_STARTED = 'started'
@@ -71,6 +75,14 @@ class Landing(db.Model):
         landing.request_id = request_id
         landing.status = TRANSPLANT_JOB_STARTED
         landing.save()
+
+        logger.info(
+            {
+                'revision': revision_id,
+                'landing': landing.id,
+                'msg': 'landing created for revision'
+            }, 'landing.success'
+        )
 
         return landing
 

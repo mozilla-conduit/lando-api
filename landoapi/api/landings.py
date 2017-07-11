@@ -5,6 +5,7 @@
 Transplant API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
+import logging
 from connexion import problem
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
@@ -13,23 +14,46 @@ from landoapi.models.landing import (
     TRANSPLANT_JOB_FAILED, TRANSPLANT_JOB_LANDED
 )
 
+logger = logging.getLogger(__name__)
+
 
 def land(data, api_key=None):
     """ API endpoint at /revisions/{id}/transplants to land revision. """
     # get revision_id from body
     revision_id = data['revision_id']
+    logger.info(
+        {
+            'path': request.path,
+            'method': request.method,
+            'data': data,
+            'msg': 'landing requested by user'
+        }, 'landing.invoke'
+    )
     try:
         landing = Landing.create(revision_id, api_key)
     except RevisionNotFoundException:
         # We could not find a matching revision.
+        logger.info(
+            {
+                'revision': revision_id,
+                'msg': 'revision not found'
+            }, 'landing.failure'
+        )
         return problem(
             404,
             'Revision not found',
             'The requested revision does not exist',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
-    except LandingNotCreatedException:
+    except LandingNotCreatedException as exc:
         # We could not find a matching revision.
+        logger.info(
+            {
+                'revision': revision_id,
+                'exc': exc,
+                'msg': 'error creating landing',
+            }, 'landing.error'
+        )
         return problem(
             502,
             'Landing not created',
