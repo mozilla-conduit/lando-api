@@ -16,6 +16,7 @@ def docker_env_vars(monkeypatch):
     monkeypatch.setenv('PHABRICATOR_URL', 'http://phabricator.test')
     monkeypatch.setenv('TRANSPLANT_URL', 'http://autoland.test')
     monkeypatch.setenv('DATABASE_URL', 'sqlite://')
+    monkeypatch.setenv('HOST_URL', 'http://lando-api.test')
 
 
 @pytest.fixture
