@@ -1,6 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import json
 import os
 
 import click
@@ -8,11 +9,15 @@ import connexion
 import logging
 
 from connexion.resolver import RestyResolver
+from raven.contrib.flask import Sentry
+
 from landoapi.dockerflow import dockerflow
 from landoapi.models.storage import alembic, db
 from mozlogging import MozLogFormatter
 
 logger = logging.getLogger(__name__)
+
+sentry = Sentry()
 
 
 def create_app(version_path):
@@ -24,8 +29,15 @@ def create_app(version_path):
 
     # Get the Flask app being wrapped by the Connexion app.
     flask_app = app.app
+
     flask_app.config['VERSION_PATH'] = version_path
     log_config_change('VERSION_PATH', version_path)
+
+    version_info = json.load(open(version_path))
+    logger.info(version_info, 'app.version')
+
+    this_app_version = version_info['version']
+    initialize_sentry(flask_app, this_app_version)
 
     db_uri = flask_app.config.setdefault(
         'SQLALCHEMY_DATABASE_URI', os.environ.get('DATABASE_URL', 'sqlite://')
@@ -44,6 +56,39 @@ def create_app(version_path):
     alembic.init_app(app.app)
 
     return app
+
+
+def initialize_sentry(flask_app, release):
+    """Initialize Sentry application monitoring.
+
+    See https://docs.sentry.io/clients/python/advanced/#client-arguments for
+    details about what this function's arguments mean to Sentry.
+
+    Args:
+        flask_app: A Flask() instance.
+        release: A string representing this application release number (such as
+            a git sha).  Will be used as the Sentry "release" identifier. See
+            the Sentry client configuration docs for details.
+    """
+    sentry_dsn = os.environ.get('SENTRY_DSN', None)
+    if sentry_dsn:
+        log_config_change('SENTRY_DSN', sentry_dsn)
+    else:
+        log_config_change('SENTRY_DSN', 'none (sentry disabled)')
+
+    # Do this after logging the DSN so if there is a DSN URL parsing error
+    # the logs will record the configured value before the Sentry client
+    # kills the app.
+    sentry = Sentry(flask_app, dsn=sentry_dsn)
+
+    # Set these attributes directly because their keyword arguments can't be
+    # passed into Sentry.__init__() or make_client().
+    sentry.client.release = release
+    log_config_change('SENTRY_LOG_RELEASE_AS', release)
+
+    environment = os.environ.get('ENV', None)
+    sentry.client.environment = environment
+    log_config_change('SENTRY_LOG_ENVIRONMENT_AS', environment)
 
 
 def initialize_logging():
