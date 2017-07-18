@@ -17,8 +17,6 @@ from mozlogging import MozLogFormatter
 
 logger = logging.getLogger(__name__)
 
-sentry = Sentry()
-
 
 def create_app(version_path):
     """Construct an application instance."""
