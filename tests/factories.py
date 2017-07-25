@@ -4,12 +4,16 @@
 """
 Data factories for writing integration tests.
 """
+import os
 from copy import deepcopy
 
-from landoapi.phabricator_client import extract_rawdiff_id_from_uri
+from tests.canned_responses.phabricator.diffs import CANNED_DIFF_1
+from tests.canned_responses.phabricator.errors import CANNED_EMPTY_RESULT
+from tests.canned_responses.phabricator.phid_queries import \
+    CANNED_DIFF_PHID_QUERY_RESULT_1
+from tests.canned_responses.phabricator.raw_diffs import CANNED_RAW_DIFF_1
 from tests.canned_responses.phabricator.repos import CANNED_REPO_MOZCENTRAL
-from tests.canned_responses.phabricator.revisions import CANNED_EMPTY_RESULT, \
-    CANNED_REVISION_1, CANNED_REVISION_1_DIFF, CANNED_REVISION_1_RAW_DIFF
+from tests.canned_responses.phabricator.revisions import CANNED_REVISION_1
 from tests.canned_responses.phabricator.users import CANNED_USER_1
 from tests.utils import phab_url, first_result_in_response, phid_for_response, \
     form_matcher
@@ -25,18 +29,7 @@ class PhabResponseFactory:
         """
         self.mock = requestmocker
         self.mock_responses = {}
-        self.install_404_responses()
-
-    def install_404_responses(self):
-        """Install catch-all 404 response handlers for API queries."""
-        query_urls = [
-            'differential.query', 'phid.query', 'user.query',
-            'differential.getrawdiff'
-        ]
-        for query_url in query_urls:
-            self.mock.get(
-                phab_url(query_url), status_code=404, json=CANNED_EMPTY_RESULT
-            )
+        self._install_404_responses()
 
     def user(self, username=None, phid=None):
         """Return a Phabricator User."""
@@ -56,20 +49,28 @@ class PhabResponseFactory:
         return response
 
     def revision(self, **kwargs):
-        """Return a Phabricator Revision.
+        """Create a Phabricator Revision along with stub API endpoints.
 
-        Args:
+        Use the kwargs to customize the revision being created. If they are not
+        provided, a default template will be used instead.
+
+        kwargs:
             id: String ID to give the generated revision. E.g. 'D2233'.
+            template: A template revision to base this on from.
             depends_on: Response data for a Revision this revision should depend
                 on.
             active_diff: Response data for a Diff that should be this
                 Revision's "active diff" (usually this Revision's most recently
-                uploaded patch).
+                uploaded patch). If you manually set an active diff, it must
+                have been made with this factory.
 
         Returns:
             The full JSON response dict for the generated Revision.
         """
-        result_json = deepcopy(CANNED_REVISION_1)
+        if 'template' in kwargs:
+            result_json = deepcopy(kwargs['template'])
+        else:
+            result_json = deepcopy(CANNED_REVISION_1)
         revision = first_result_in_response(result_json)
 
         if 'id' in kwargs:
@@ -99,7 +100,9 @@ class PhabResponseFactory:
         else:
             diff = self.diff()
 
-        revision['activeDiffPHID'] = phid_for_response(diff)
+        revision['activeDiffPHID'] = 'PHID-DIFF-{}'.format(
+            first_result_in_response(diff)['id']
+        )
 
         # Revisions may have a Repo.
         repo = self.repo()
@@ -117,35 +120,61 @@ class PhabResponseFactory:
             json=result_json,
             additional_matcher=match_revision
         )
-
-        # Revisions can also be looked up by phid.query.
-        self.phid(result_json)
-
         return result_json
 
     def diff(self, **kwargs):
-        """Return a Revision Diff."""
-        diff = deepcopy(CANNED_REVISION_1_DIFF)
-        result = first_result_in_response(diff)
+        """Create a Phabricator Diff along with stub API endpoints.
 
-        if 'uri' in kwargs:
-            result['uri'] = kwargs['uri']
+        Use the kwargs to customize the diff being created. If they are not
+        provided, a default template will be used instead.
 
-        diffID = extract_rawdiff_id_from_uri(result['uri'])
+        kwargs:
+            id: The integer diff id to be used. The diff's phid will be
+                based on this.
+            patch: The patch file to be used when generating the diff's
+                rawdiff. All diffs must have a corresponding rawdiff.
 
-        # All Diffs have an associated rawdiff.
-        if 'patch' in kwargs:
-            self.rawdiff(diffID=str(diffID), patch=kwargs['patch'])
+        Returns:
+            The full JSON response dict for the generated Diff.
+        """
+        diff = deepcopy(CANNED_DIFF_1)
+        if 'id' in kwargs:
+            diff_id = kwargs['id']
         else:
-            self.rawdiff(diffID=str(diffID))
+            diff_id = first_result_in_response(diff)['id']
+        diff = self._replace_key(diff, 'id', diff_id)
 
-        self.phid(diff)
+        # Create the mock PHID endpoint.
+        diff_phid = 'PHID-DIFF-{diff_id}'.format(diff_id=diff_id)
+        diff_phid_resp = self._replace_key(
+            CANNED_DIFF_PHID_QUERY_RESULT_1, 'phid', diff_phid
+        )
+        diff_phid_resp['uri'] = "{url}/differential/diff/{diff_id}/".format(
+            url=os.getenv('PHABRICATOR_URL'), diff_id=diff_id
+        )
+        diff_phid_resp['name'] = "Diff {diff_id}".format(diff_id=diff_id)
+        diff_phid_resp['full_name'] = diff_phid_resp['name']
+        self.phid(diff_phid_resp)
+
+        # Create the mock raw diff endpoint.
+        if 'patch' in kwargs:
+            self.rawdiff(diff_id=diff_id, patch=kwargs['patch'])
+        else:
+            self.rawdiff(diff_id=diff_id)
+
+        # Create the mock diff endpoint.
+        self.mock.get(
+            phab_url('differential.querydiffs'),
+            status_code=200,
+            json=diff,
+            additional_matcher=form_matcher('ids[]', str(diff_id))
+        )
+
         return diff
 
-    def rawdiff(self, diffID='12345', patch=None):
+    def rawdiff(self, diff_id='1', patch=None):
         """Return raw diff text for a Revision Diff."""
-        rawdiff = deepcopy(CANNED_REVISION_1_RAW_DIFF)
-
+        rawdiff = deepcopy(CANNED_RAW_DIFF_1)
         if patch is not None:
             rawdiff['result'] = patch
 
@@ -153,7 +182,7 @@ class PhabResponseFactory:
             phab_url('differential.getrawdiff'),
             status_code=200,
             json=rawdiff,
-            additional_matcher=form_matcher('diffID', diffID)
+            additional_matcher=form_matcher('diffID', str(diff_id))
         )
         return rawdiff
 
@@ -173,3 +202,43 @@ class PhabResponseFactory:
             additional_matcher=form_matcher('phids[]', phid),
             json=response_data
         )
+
+    def _install_404_responses(self):
+        """Install catch-all 404 response handlers for API queries."""
+        query_urls = [
+            'differential.query', 'phid.query', 'user.query',
+            'differential.getrawdiff', 'differential.querydiffs'
+        ]
+        for query_url in query_urls:
+            self.mock.get(
+                phab_url(query_url), status_code=404, json=CANNED_EMPTY_RESULT
+            )
+
+    @staticmethod
+    def _replace_key(old_response, key_name, new_value):
+        """ Helper method to update the key name in a phabricator response dict.
+
+        Phabricator's API decides to return a hash of keyed entries instead
+        of an array of hashes which contain the key for each entry. This means
+        that the key is located in two places and must be updated twice when
+        creating dummy data, as shown below (phid is the key_name below).
+
+        Before: { 'result': { 'EXP-PHID-1': { 'phid': 'EXP-PHID-1', ...} }, ...}
+        _replace_key(Before, 'phid', 'NEW-PHID-X')
+        After:  { 'result': { 'NEW-PHID-X': { 'phid': 'NEW-PHID-X', ...} }, ...}
+
+        Args:
+            old_response: The dict containing the phabricator query response.
+            key_name: The name of the key which should be updated.
+            new_value: The new key value that should be set.
+
+        Returns:
+            A new deep-copied dict with the correct data.
+        """
+        old_value = list(old_response['result'].keys())[0]
+        response = deepcopy(old_response)
+        if new_value != old_value and response['result']:
+            response['result'][old_value][key_name] = new_value
+            response['result'][str(new_value)] = response['result'][old_value]
+            del response['result'][old_value]
+        return response

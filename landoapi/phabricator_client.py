@@ -9,26 +9,6 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-def extract_rawdiff_id_from_uri(uri):
-    """Extract a raw diff ID from a Diff uri."""
-    # The raw diff is part of a URI, such as
-    # "https://secure.phabricator.com/differential/diff/43480/".
-    parts = uri.rsplit('/', 4)
-
-    # Check that the URI Path is something we understand.  Fail if the
-    # URI path changed (signalling that the raw diff part of the URI may
-    # be in a different segment of the URI string).
-    if parts[1:-2] != ['differential', 'diff']:
-        raise RuntimeError(
-            "Phabricator Raw Diff URI parsing error: The "
-            "URI {} is not in a format we "
-            "understand!".format(uri)
-        )
-
-    # Take the second-last member because of the trailing slash on the URL.
-    return int(parts[-2])
-
-
 class PhabricatorClient:
     """ A class to interface with Phabricator's Conduit API.
 
@@ -68,6 +48,46 @@ class PhabricatorClient:
             result = self._GET('/differential.query', {'phids[]': [phid]})
         return result[0] if result else None
 
+    def get_rawdiff(self, diff_id):
+        """ Get the raw git diff text by diff id.
+
+        Args:
+            diff_id: The integer ID of the diff.
+
+        Returns:
+            A string holding a Git Diff.
+        """
+        result = self._GET('/differential.getrawdiff', {'diffID': diff_id})
+        return result if result else None
+
+    def get_diff(self, id=None, phid=None):
+        """ Get a diff by either integer id or phid.
+
+        Args:
+            id: The integer id of the diff.
+            phid: The PHID of the diff. This will be used instead if provided.
+
+        Returns
+            A hash containing the full information about the diff exactly
+            as returned by Phabricator's API.
+
+            Note: Due to the nature of Phabricator's API, the diff request may
+            be very large if the diff itself is large. This is because
+            Phabricator includes the line by line changes in the JSON payload.
+            Be aware of this, as it can lead to large and long requests.
+        """
+        diff_id = int(id) if id else None
+        if phid:
+            phid_query_result = self._GET('/phid.query', {'phids[]': [phid]})
+            if phid_query_result:
+                diff_uri = phid_query_result[phid]['uri']
+                diff_id = self._extract_diff_id_from_uri(diff_uri)
+            else:
+                return None
+
+        result = self._GET('/differential.querydiffs', {'ids[]': [diff_id]})
+        return result[str(diff_id)] if result else None
+
     def get_current_user(self):
         """ Gets the information of the user making this request.
 
@@ -90,30 +110,6 @@ class PhabricatorClient:
         result = self._GET('/user.query', {'phids[]': [phid]})
         return result[0] if result else None
 
-    def get_diff(self, phid):
-        """ Get basic information about a Diff based on the Diff phid.
-
-        Args:
-            phid: The phid of the Diff to lookup.
-
-        Returns:
-            A hash containing the Diff info, or None if the Diff isn't found.
-        """
-        result = self._GET('/phid.query', {'phids[]': [phid]})
-        return result.get(phid) if result else None
-
-    def get_rawdiff(self, diff_id):
-        """ Get a raw diff text by raw diff ID.
-
-        Args:
-            diff_id: The integer ID of the raw diff.
-
-        Returns:
-            A string holding a Git Diff.
-        """
-        result = self._GET('/differential.getrawdiff', {'diffID': diff_id})
-        return result if result else None
-
     def get_repo(self, phid):
         """ Get basic information about a repo based on its phid.
 
@@ -125,34 +121,6 @@ class PhabricatorClient:
         """
         result = self._GET('/phid.query', {'phids[]': [phid]})
         return result.get(phid) if result else None
-
-    def get_latest_revision_diff_text(self, revision):
-        """Return the raw diff text for the latest Diff on a Revision.
-
-        Args:
-            revision: A dictionary representation of phabricator revision data.
-
-        Returns:
-            A string holding the Git Diff of the Revision's latest Diff.
-        """
-        latest_diff_phid = revision['activeDiffPHID']
-        rawdiff_id = self.get_diff_id(latest_diff_phid)
-        return self.get_rawdiff(rawdiff_id)
-
-    def get_diff_id(self, diff_phid):
-        """Return raw diff id.
-
-        Args:
-            phid: The phid of the diff to use
-
-        Returns:
-            An integer representing the id of the raw diff
-        """
-        diff = self.get_diff(diff_phid)
-        # We got a raw diff ID as part of a URI, such as
-        # "https://secure.phabricator.com/differential/diff/43480/". We need to
-        # parse out the raw diff ID so we can call differential.rawdiff.
-        return extract_rawdiff_id_from_uri(diff['uri'])
 
     def get_revision_author(self, revision):
         """Return the Phabricator User data for a revision's author.
@@ -190,6 +158,25 @@ class PhabricatorClient:
         except (requests.ConnectionError, requests.Timeout) as exc:
             logging.debug("error calling 'conduit.ping': %s", exc)
             raise PhabricatorAPIException from exc
+
+    def _extract_diff_id_from_uri(self, uri):
+        """Extract a diff ID from a Diff uri."""
+        # The diff is part of a URI, such as
+        # "https://secure.phabricator.com/differential/diff/43480/".
+        parts = uri.rsplit('/', 4)
+
+        # Check that the URI Path is something we understand.  Fail if the
+        # URI path changed (signalling that the diff id part of the URI may
+        # be in a different segment of the URI string).
+        if parts[1:-2] != ['differential', 'diff']:
+            raise RuntimeError(
+                "Phabricator Diff URI parsing error: The "
+                "URI {} is not in a format we "
+                "understand!".format(uri)
+            )
+
+        # Take the second-last member because of the trailing slash on the URL.
+        return int(parts[-2])
 
     def _request(self, url, data=None, params=None, method='GET'):
         data = data if data else {}

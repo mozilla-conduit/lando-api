@@ -59,8 +59,8 @@ def test_landing_revision_calls_transplant_service(
     # Build the patch we expect to see
     phabclient = PhabricatorClient('someapi')
     revision = phabclient.get_revision('D1')
-    diff_id = phabclient.get_diff_id(revision['activeDiffPHID'])
-    gitdiff = phabclient.get_latest_revision_diff_text(revision)
+    diff_id = phabclient.get_diff(phid=revision['activeDiffPHID'])['id']
+    gitdiff = phabclient.get_rawdiff(diff_id)
     author = phabclient.get_revision_author(revision)
     hgpatch = build_patch_for_revision(gitdiff, author, revision)
 
@@ -70,12 +70,11 @@ def test_landing_revision_calls_transplant_service(
     tsclient = MagicMock(spec=TransplantClient)
     tsclient().land.return_value = 1
     monkeypatch.setattr('landoapi.models.landing.TransplantClient', tsclient)
-
     client.post(
         '/landings?api_key=api-key',
         data=json.dumps({
             'revision_id': 'D1',
-            'diff_id': diff_id
+            'diff_id': int(diff_id)
         }),
         content_type='application/json'
     )

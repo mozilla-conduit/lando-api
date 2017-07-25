@@ -10,13 +10,14 @@ import requests
 import requests_mock
 
 from landoapi.phabricator_client import PhabricatorClient, \
-    PhabricatorAPIException, extract_rawdiff_id_from_uri
+    PhabricatorAPIException
 
-from tests.utils import *
-from tests.canned_responses.phabricator.revisions import *
-from tests.canned_responses.phabricator.users import *
-from tests.canned_responses.phabricator.repos import *
-from tests.canned_responses.phabricator.errors import *
+from tests.utils import first_result_in_response, phab_url, phid_for_response
+from tests.canned_responses.phabricator.users import CANNED_USER_WHOAMI_1
+from tests.canned_responses.phabricator.revisions import CANNED_REVISION_1
+from tests.canned_responses.phabricator.errors import CANNED_EMPTY_RESULT, \
+    CANNED_ERROR_1
+from tests.canned_responses.phabricator.repos import CANNED_REPO_MOZCENTRAL
 
 pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
@@ -90,37 +91,20 @@ def test_get_repo_for_revision(phabfactory):
     assert repo == expected_repo
 
 
-def test_get_diff_by_phid(phabfactory):
-    diff_response = phabfactory.diff()
-    phid = phid_for_response(diff_response)
-    expected_diff = first_result_in_response(diff_response)
-
-    phab = PhabricatorClient(api_key='api-key')
-    diff = phab.get_diff(phid)
-
-    assert diff == expected_diff
-
-
 def test_get_rawdiff_by_id(phabfactory):
     patch = "diff --git a/hello.c b/hello.c..."
     # The raw patch's diffID is encoded in the Diff URI.
-    uri = "https://secure.phabricator.com/differential/diff/12357/"
-    phabfactory.diff(patch=patch, uri=uri)
+    phabfactory.diff(id='12345', patch=patch)
     phab = PhabricatorClient(api_key='api-key')
-    returned_patch = phab.get_rawdiff("12357")
+    returned_patch = phab.get_rawdiff('12345')
     assert returned_patch == patch
 
 
-def test_get_latest_patch_for_revision(phabfactory):
-    patch = "diff --git a/hello.c b/hello.c..."
-    diff = phabfactory.diff(patch=patch)
-    response_data = phabfactory.revision(active_diff=diff)
-    revision_data = first_result_in_response(response_data)
-
+def test_get_diff_by_id(phabfactory):
+    expected = phabfactory.diff(id='9001')
     phab = PhabricatorClient(api_key='api-key')
-    returned_patch = phab.get_latest_revision_diff_text(revision_data)
-
-    assert returned_patch == patch
+    result = phab.get_diff(id='9001')
+    assert result == expected['result']['9001']
 
 
 def test_check_connection_success():
@@ -189,16 +173,3 @@ def test_phabricator_exception():
             phab.get_revision(id=CANNED_REVISION_1['result'][0]['id'])
         assert e_info.value.error_code == CANNED_ERROR_1['error_code']
         assert e_info.value.error_info == CANNED_ERROR_1['error_info']
-
-
-def test_extracting_rawdiff_id_from_properly_formatted_uri():
-    # Raw diff ID is '43480'
-    uri = "https://secure.phabricator.com/differential/diff/43480/"
-    rawdiff_id = extract_rawdiff_id_from_uri(uri)
-    assert rawdiff_id == 43480
-
-
-def test_raises_error_if_rawdiff_uri_segments_change():
-    uri = "https://secure.phabricator.com/differential/SOMETHINGNEW/43480/"
-    with pytest.raises(RuntimeError):
-        extract_rawdiff_id_from_uri(uri)
