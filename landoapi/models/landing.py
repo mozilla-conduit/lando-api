@@ -51,7 +51,7 @@ class Landing(db.Model):
             raise RevisionNotFoundException(revision_id)
 
         if not diff_id:
-            diff_id = phab.get_diff_id(revision['activeDiffPHID'])
+            diff_id = phab.get_diff(phid=revision['activeDiffPHID'])['id']
 
         git_diff = phab.get_rawdiff(diff_id)
 

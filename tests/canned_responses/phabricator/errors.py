@@ -3,6 +3,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # yapf: disable
 
+CANNED_EMPTY_RESULT = {
+    "result": [],
+    "error_code": None,
+    "error_info": None
+}
+
 CANNED_ERROR_1 = {
   "result": None,
   "error_code": "ERR-CONDUIT-CORE",

@@ -7,7 +7,6 @@ See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 from connexion import problem
 
-from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.phabricator_client import PhabricatorClient
 
 
@@ -105,7 +104,7 @@ def _format_revision(
     return {
         'id': int(revision['id']),
         'phid': revision['phid'],
-        'diff_id': phab.get_diff_id(revision['activeDiffPHID']),
+        'diff_id': int(phab.get_diff(phid=revision['activeDiffPHID'])['id']),
         'bug_id': bug_id,
         'title': revision['title'],
         'url': revision['uri'],

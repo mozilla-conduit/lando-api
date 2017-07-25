@@ -3,11 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import json
-import requests
 
 import requests_mock
 
-from tests.canned_responses.phabricator.revisions import CANNED_EMPTY_RESULT
+from tests.canned_responses.phabricator.errors import CANNED_EMPTY_RESULT
 from tests.utils import phab_url
 
 
