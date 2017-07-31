@@ -16,7 +16,7 @@ from tests.canned_responses.phabricator.repos import CANNED_REPO_MOZCENTRAL
 from tests.canned_responses.phabricator.revisions import CANNED_REVISION_1
 from tests.canned_responses.phabricator.users import CANNED_USER_1
 from tests.utils import phab_url, first_result_in_response, phid_for_response, \
-    form_matcher
+    form_matcher, trans_url
 
 
 class PhabResponseFactory:
@@ -242,3 +242,22 @@ class PhabResponseFactory:
             response['result'][str(new_value)] = response['result'][old_value]
             del response['result'][old_value]
         return response
+
+
+class TransResponseFactory:
+    """Mock Transplant service responses."""
+
+    def __init__(self, requestmocker):
+        """
+        Args:
+            requestmocker: A requests Mocker object.
+        """
+        self.mock = requestmocker
+
+    def create_autoland_response(self, request_id=1):
+        """Add response to autoland endpoint."""
+        self.mock.post(
+            trans_url('autoland'),
+            json={'request_id': request_id},
+            status_code=200
+        )

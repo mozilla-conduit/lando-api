@@ -8,7 +8,7 @@ import pytest
 import requests_mock
 
 from landoapi.app import create_app
-from tests.factories import PhabResponseFactory
+from tests.factories import PhabResponseFactory, TransResponseFactory
 
 
 @pytest.fixture
@@ -23,10 +23,22 @@ def docker_env_vars(monkeypatch):
 
 
 @pytest.fixture
-def phabfactory():
-    """Mock the Phabricator service and build fake response objects."""
+def request_mocker():
+    """Yield a requests Mocker for response factories."""
     with requests_mock.mock() as m:
-        yield PhabResponseFactory(m)
+        yield m
+
+
+@pytest.fixture
+def phabfactory(request_mocker):
+    """Mock the Phabricator service and build fake response objects."""
+    yield PhabResponseFactory(request_mocker)
+
+
+@pytest.fixture
+def transfactory(request_mocker):
+    """Mock Transplant service."""
+    yield TransResponseFactory(request_mocker)
 
 
 @pytest.fixture

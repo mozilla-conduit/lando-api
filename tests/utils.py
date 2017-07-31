@@ -11,6 +11,11 @@ def phab_url(path):
     return '%s/api/%s' % (os.getenv('PHABRICATOR_URL'), path)
 
 
+def trans_url(path):
+    """ Utility to generate a url to Transplant's API """
+    return '%s/%s' % (os.getenv('TRANSPLANT_URL'), path)
+
+
 def first_result_in_response(response_json):
     """Unpack a Phabricator response JSON's first result.
 

@@ -6,9 +6,9 @@ import os
 
 import logging
 import requests
-import requests_mock
 
 from sqlalchemy import text
+
 from landoapi.models.storage import db
 
 logger = logging.getLogger(__name__)
@@ -20,8 +20,7 @@ class TransplantClient:
     def __init__(self):
         self.api_url = os.getenv('TRANSPLANT_URL')
 
-    @requests_mock.mock()
-    def land(self, ldap_username, hgpatch, tree, pingback, request):
+    def land(self, ldap_username, hgpatch, tree, pingback):
         """ Sends a push request to Transplant API to land a revision.
 
         Returns request_id received from Transplant API.
@@ -30,13 +29,6 @@ class TransplantClient:
         sql = text('SELECT COUNT(*) FROM landings')
         result = db.session.execute(sql).fetchone()
         request_id = result[0]
-
-        # Connect to stubbed Transplant service
-        request.post(
-            self.api_url + '/autoland',
-            json={'request_id': request_id},
-            status_code=200
-        )
 
         # API structure from VCT/testing/autoland_mach_commands.py
         result = self._POST(
@@ -75,6 +67,7 @@ class TransplantClient:
 
     def _request(self, url, data=None, params=None, method='GET'):
         data = data if data else {}
+
         response = requests.request(
             method=method,
             url=self.api_url + url,

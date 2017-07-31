@@ -43,9 +43,9 @@ CANNED_LANDING_1 = {
 CANNED_LANDING_FACTORY_1 = {
     'id': 1,
     'status': 'started',
-    'request_id': 1,
+    'request_id': 3,
     'revision_id': 'D1',
-    'diff_id': 1,
+    'diff_id': 2,
     'error_msg': '',
     'result': None,
 }
