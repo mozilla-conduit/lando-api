@@ -29,23 +29,38 @@ def db(app):
         _db.drop_all()
 
 
-def test_landing_revision_saves_data_in_db(db, client, phabfactory):
+def test_landing_revision_saves_data_in_db(
+    db, client, phabfactory, transfactory
+):
+    # Id of the landing in Autoland is created as a result of a POST request to
+    # /autoland endpoint. It is provided by Transplant API
+    land_request_id = 3
+    # Id of a Landing object is created as a result of a POST request to
+    # /landings endpoint of Lando API
+    landing_id = 1
+    # Id of the diff existing in Phabricator
+    diff_id = 2
+
     phabfactory.user()
     phabfactory.revision()
+    transfactory.create_autoland_response(land_request_id)
+
     response = client.post(
         '/landings?api_key=api-key',
         data=json.dumps({
             'revision_id': 'D1',
-            'diff_id': 1
+            'diff_id': diff_id
         }),
         content_type='application/json'
     )
     assert response.status_code == 202
     assert response.content_type == 'application/json'
-    assert response.json == {'id': 1}
+    # Id of the Landing object in Lando API
+    assert response.json == {'id': landing_id}
 
-    # test saved data
-    landing = Landing.query.get(1)
+    # Get Landing object by its id
+    landing = Landing.query.get(landing_id)
+    landing.request_id = land_request_id
     assert landing.serialize() == CANNED_LANDING_FACTORY_1
 
 
