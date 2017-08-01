@@ -256,11 +256,6 @@ definitions:
         type: string
         description: |
           The phid of the revision.
-      diff_id:
-        type: integer
-        description: |
-          most recent diff id as retrieved from the 'active diff' field from 
-          Phabricator
       bug_id:
         type: integer
         description: |
@@ -303,6 +298,10 @@ definitions:
         type: string
         description: |
           The test plan provided on the revision.
+      diff:
+        $ref: '#/definitions/Diff'
+        description: |
+          The most recent diff for the revision.
       author:
         $ref: '#/definitions/User'
       repo:
@@ -359,6 +358,42 @@ definitions:
         type: string
         description: |
           A url pointing to the repo on Phabricator.
+  Diff:
+    type: object
+    properties:
+      id:
+        type: integer
+        description: |
+          The integer id of the Diff.
+      revision_id:
+        type: integer
+        description: |
+          The integer id of the Revision that this Diff belongs to.
+      date_created:
+        type: integer
+        description: |
+          The date this Diff was created as a unix timestamp.
+      date_modified:
+        type: integer
+        description: |
+          The date this Diff was last modified as a unix timestamp.
+      vcs_base_revision:
+        type: string
+        description: |
+          The commit hash id of the commit that this Diff was based on. I.e.
+          the parent commit of the commits used to make this Diff.
+      authors:
+        type: array
+        description: |
+          An array of the authors for each commit that was used in creating
+          this diff, sorted by tip commit first.
+        items:
+          type: object
+          properties:
+            name:
+              type: string
+            email:
+              type: string
   # RFS7807 Problem Details for HTTP APIs (https://tools.ietf.org/html/rfc7807)
   # is used for error messages. Extensions to the error can be speced using an
   # "allOf" schema keyword along with additional schema definition

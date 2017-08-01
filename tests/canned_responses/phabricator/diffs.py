@@ -71,7 +71,22 @@ CANNED_DIFF_1 = {
                         ],
                         "summary": "Remove CLOBBER file.",
                         "message": "Remove CLOBBER file.\n\nMozReview-Commit-ID: 1Fys7LV1jIw",
-                        "authorEmail": "mcote@mozilla.com"
+                        "authorEmail": "mcote@mozilla.example"
+                    },
+                    "4e0642eb92ed75989c3e9e90b0c6b1e0498e7387": {
+                        "author": "Byron Jones",
+                        "time": 1498687122,
+                        "branch": "default",
+                        "tag": "",
+                        "commit": "4e0642eb92ed75989c3e9e90b0c6b1e0498e7387",
+                        "rev": "4e0642eb92ed75989c3e9e90b0c6b1e0498e7387",
+                        "local": "362117",
+                        "parents": [
+                            "39d5cc0fda5e16c49a59d29d4ca186a5534cc88b"
+                        ],
+                        "summary": "Bug 00000 - Get Sync engines and the Sync service working with promises/tasks. r?rnewman.",
+                        "message": "Bug 00000 - Get Sync engines and the Sync service working with promises/tasks. r?rnewman. Etc Etc",
+                        "authorEmail": "glob@mozilla.example"
                     }
                 }
             },
