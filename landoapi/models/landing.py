@@ -64,10 +64,8 @@ class Landing(db.Model):
         landing = cls(revision_id=revision_id, diff_id=diff_id).save()
 
         # Define the pingback URL with the port
-        callback = '{host_url}:{pingback_port}/landings/{id}/update'.format(
-            host_url=os.getenv('HOST_URL'),
-            pingback_port=os.getenv('PINGBACK_PORT', 80),
-            id=landing.id
+        callback = '{host_url}/landings/{id}/update'.format(
+            host_url=os.getenv('PINGBACK_HOST_URL'), id=landing.id
         )
 
         trans = TransplantClient()
