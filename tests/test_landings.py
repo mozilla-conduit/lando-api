@@ -95,7 +95,7 @@ def test_landing_revision_calls_transplant_service(
     )
     tsclient().land.assert_called_once_with(
         'ldap_username@example.com', hgpatch, repo_uri,
-        '{}:80/landings/1/update'.format(os.getenv('HOST_URL'))
+        '{}/landings/1/update'.format(os.getenv('PINGBACK_HOST_URL'))
     )
 
 
