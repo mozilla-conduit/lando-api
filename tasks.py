@@ -6,7 +6,7 @@ import os
 
 from invoke import Collection, task, run
 
-DOCKER_IMAGE_NAME = os.getenv('DOCKERHUB_REPO', 'lando-api')
+DOCKER_IMAGE_NAME = os.getenv('DOCKERHUB_REPO', 'mozilla/landoapi')
 project_root = os.path.dirname(__file__)
 
 
