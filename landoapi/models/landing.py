@@ -85,8 +85,8 @@ class Landing(db.Model):
 
         logger.info(
             {
-                'revision': revision_id,
-                'landing': landing.id,
+                'revision_id': revision_id,
+                'landing_id': landing.id,
                 'msg': 'landing created for revision'
             }, 'landing.success'
         )
