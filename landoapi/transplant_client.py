@@ -49,21 +49,24 @@ class TransplantClient:
                 {
                     'service': 'transplant',
                     'username': ldap_username,
+                    'pingback_url': pingback,
+                    'request_id': result.get('request_id'),
                     'msg': 'patch sent to transplant service',
                 }, 'transplant.success'
             )
             return result.get('request_id')
-        else:
-            # Transplant API responded with no data, indicating an error of
-            # some sort.
-            logger.info(
-                {
-                    'service': 'transplant',
-                    'username': ldap_username,
-                    'msg': 'received an empty response from the transplant service',
-                }, 'transplant.failure'
-            )   # yapf: disable
-            return None
+
+        # Transplant API responded with no data, indicating an error of
+        # some sort.
+        logger.info(
+            {
+                'service': 'transplant',
+                'username': ldap_username,
+                'pingback_url': pingback,
+                'msg': 'received an empty response from the transplant service',
+            }, 'transplant.failure'
+        )   # yapf: disable
+        return None
 
     def _request(self, url, data=None, params=None, method='GET'):
         data = data if data else {}
