@@ -2,14 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import os
-
 import logging
+import os
 import requests
-
-from sqlalchemy import text
-
-from landoapi.models.storage import db
 
 logger = logging.getLogger(__name__)
 
@@ -20,23 +15,18 @@ class TransplantClient:
     def __init__(self):
         self.api_url = os.getenv('TRANSPLANT_URL')
 
-    def land(self, ldap_username, hgpatch, tree, pingback):
+    def land(self, ldap_username, patch_url, tree, pingback):
         """ Sends a push request to Transplant API to land a revision.
 
         Returns request_id received from Transplant API.
         """
-        # get the number of Landing objects to create the unique request_id
-        sql = text('SELECT COUNT(*) FROM landings')
-        result = db.session.execute(sql).fetchone()
-        request_id = result[0]
-
         # API structure from VCT/testing/autoland_mach_commands.py
         result = self._POST(
             '/autoland', {
                 'ldap_username': ldap_username,
                 'tree': tree,
                 'rev': 'rev',
-                'patch': hgpatch,
+                'patch_url': patch_url,
                 'destination': 'destination',
                 'push_bookmark': 'push_bookmark',
                 'commit_descriptions': 'commit_descriptions',

@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from landoapi.app import create_app
-from landoapi.models.storage import alembic
+from landoapi.storage import alembic
 
 from flask_script import Manager
 
