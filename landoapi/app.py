@@ -12,7 +12,7 @@ from connexion.resolver import RestyResolver
 from raven.contrib.flask import Sentry
 
 from landoapi.dockerflow import dockerflow
-from landoapi.models.storage import alembic, db
+from landoapi.storage import alembic, db
 from mozlogging import MozLogFormatter
 
 logger = logging.getLogger(__name__)

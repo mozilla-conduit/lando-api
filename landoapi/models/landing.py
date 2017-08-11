@@ -1,12 +1,13 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import os
-
+import boto3
 import logging
+import os
+import tempfile
 
 from landoapi.hgexportbuilder import build_patch_for_revision
-from landoapi.models.storage import db
+from landoapi.storage import db
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 
@@ -58,6 +59,9 @@ class Landing(db.Model):
         author = phab.get_revision_author(revision)
         hgpatch = build_patch_for_revision(git_diff, author, revision)
 
+        # Upload patch to S3
+        patch_url = _upload_patch_to_s3(hgpatch, revision_id, diff_id)
+
         repo = phab.get_revision_repo(revision)
 
         # save landing to make sure we've got the callback
@@ -74,7 +78,7 @@ class Landing(db.Model):
         # FIXME: change ldap_username@example.com to the real data retrieved
         #        from Auth0 userinfo
         request_id = trans.land(
-            'ldap_username@example.com', hgpatch, repo['uri'], callback
+            'ldap_username@example.com', patch_url, repo['uri'], callback
         )
         if not request_id:
             raise LandingNotCreatedException
@@ -128,3 +132,38 @@ class RevisionNotFoundException(Exception):
     def __init__(self, revision_id):
         super().__init__()
         self.revision_id = revision_id
+
+
+def _upload_patch_to_s3(patch, revision_id, diff_id):
+    """Save patch in S3 bucket.
+
+    Creates a temporary file and uploads it to an S3 bucket.
+    Requires PATCH_BUCKET_NAME to be provided as an environment variable.
+
+    Args:
+        patch: Text to be saved
+        revision_id: String ID of the revision (ex. 'D123')
+        diff_id: The integer ID of the raw diff
+
+    Returns
+        String representing the patch's URL in S3
+        (ex. 's3://{bucket_name}/D123_1.patch')
+    """
+    s3 = boto3.resource(
+        's3',
+        # access and secret should be only provided for development
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY', None),
+        aws_secret_access_key=os.getenv('AWS_SECRET_KEY', None)
+    )
+    bucket = os.getenv('PATCH_BUCKET_NAME')
+    patch_name = '{revision_id}_{diff_id}.patch'.format(
+        revision_id=revision_id, diff_id=diff_id
+    )
+    patch_url = 's3://{bucket}/{patch_name}'.format(
+        bucket=bucket, patch_name=patch_name
+    )
+    with tempfile.TemporaryFile() as patchfile:
+        patchfile.write(patch.encode('utf-8'))
+        patchfile.seek(0)
+        s3.meta.client.upload_fileobj(patchfile, bucket, patch_name)
+    return patch_url

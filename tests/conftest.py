@@ -1,13 +1,17 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import boto3
 import json
-
 import logging
+import os
 import pytest
 import requests_mock
 
+from moto import mock_s3
+
 from landoapi.app import create_app
+from landoapi.storage import db as _db
 from tests.factories import PhabResponseFactory, TransResponseFactory
 
 
@@ -20,6 +24,9 @@ def docker_env_vars(monkeypatch):
     monkeypatch.setenv('TRANSPLANT_API_KEY', 'someapikey')
     monkeypatch.setenv('PINGBACK_ENABLED', 'y')
     monkeypatch.setenv('PINGBACK_HOST_URL', 'http://lando-api.test')
+    monkeypatch.setenv('PATCH_BUCKET_NAME', 'landoapi.test.bucket')
+    monkeypatch.setenv('AWS_ACCESS_KEY', None)
+    monkeypatch.setenv('AWS_SECRET_KEY', None)
 
 
 @pytest.fixture
@@ -83,3 +90,26 @@ def app(versionfile, docker_env_vars, disable_migrations, disable_log_output):
     """Needed for pytest-flask."""
     app = create_app(versionfile.strpath)
     return app.app
+
+
+@pytest.fixture
+def db(app):
+    """Reset database for each test."""
+    with app.app_context():
+        _db.init_app(app)
+        _db.create_all()
+        # we just created.
+        yield _db
+        _db.session.remove()
+        _db.drop_all()
+
+
+@pytest.fixture
+def s3():
+    """Provide s3 mocked connection."""
+    bucket = os.getenv('PATCH_BUCKET_NAME')
+    with mock_s3():
+        s3 = boto3.resource('s3')
+        # We need to create the bucket since this is all in Moto's 'virtual' AWS account
+        s3.create_bucket(Bucket=bucket)
+        yield s3

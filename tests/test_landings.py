@@ -9,7 +9,6 @@ from unittest.mock import MagicMock
 
 from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.models.landing import Landing, TRANSPLANT_JOB_LANDED
-from landoapi.models.storage import db as _db
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 
@@ -17,20 +16,8 @@ from tests.canned_responses.lando_api.revisions import *
 from tests.canned_responses.lando_api.landings import *
 
 
-@pytest.fixture
-def db(app):
-    """Reset database for each test."""
-    with app.app_context():
-        _db.init_app(app)
-        _db.create_all()
-        # we just created.
-        yield _db
-        _db.session.remove()
-        _db.drop_all()
-
-
 def test_landing_revision_saves_data_in_db(
-    db, client, phabfactory, transfactory
+    db, client, phabfactory, transfactory, s3
 ):
     # Id of the landing in Autoland is created as a result of a POST request to
     # /autoland endpoint. It is provided by Transplant API
@@ -65,7 +52,7 @@ def test_landing_revision_saves_data_in_db(
 
 
 def test_landing_revision_calls_transplant_service(
-    db, client, phabfactory, monkeypatch
+    db, client, phabfactory, monkeypatch, s3
 ):
     # Mock the phabricator response data
     phabfactory.user()
@@ -78,6 +65,7 @@ def test_landing_revision_calls_transplant_service(
     gitdiff = phabclient.get_rawdiff(diff_id)
     author = phabclient.get_revision_author(revision)
     hgpatch = build_patch_for_revision(gitdiff, author, revision)
+    patch_url = 's3://landoapi.test.bucket/D1_1.patch'
 
     # The repo we expect to see
     repo_uri = phabclient.get_revision_repo(revision)['uri']
@@ -94,9 +82,12 @@ def test_landing_revision_calls_transplant_service(
         content_type='application/json'
     )
     tsclient().land.assert_called_once_with(
-        'ldap_username@example.com', hgpatch, repo_uri,
+        'ldap_username@example.com', patch_url, repo_uri,
         '{}/landings/1/update'.format(os.getenv('PINGBACK_HOST_URL'))
     )
+    body = s3.Object('landoapi.test.bucket',
+                     'D1_1.patch').get()['Body'].read().decode("utf-8")
+    assert body == hgpatch
 
 
 def test_get_transplant_status(db, client):
@@ -107,7 +98,7 @@ def test_get_transplant_status(db, client):
     assert response.json == CANNED_LANDING_1
 
 
-def test_land_nonexisting_revision_returns_404(db, client, phabfactory):
+def test_land_nonexisting_revision_returns_404(db, client, phabfactory, s3):
     response = client.post(
         '/landings?api_key=api-key',
         data=json.dumps({
