@@ -105,7 +105,7 @@ def db(app):
 
 
 @pytest.fixture
-def s3():
+def s3(docker_env_vars):
     """Provide s3 mocked connection."""
     bucket = os.getenv('PATCH_BUCKET_NAME')
     with mock_s3():
