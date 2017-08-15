@@ -166,4 +166,11 @@ def _upload_patch_to_s3(patch, revision_id, diff_id):
         patchfile.write(patch.encode('utf-8'))
         patchfile.seek(0)
         s3.meta.client.upload_fileobj(patchfile, bucket, patch_name)
+
+    logger.info(
+        {
+            'patch_url': patch_url,
+            'msg': 'Patch file uploaded'
+        }, 'landing.file_uploaded'
+    )
     return patch_url
