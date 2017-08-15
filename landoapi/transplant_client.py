@@ -16,9 +16,17 @@ class TransplantClient:
         self.api_url = os.getenv('TRANSPLANT_URL')
 
     def land(self, ldap_username, patch_url, tree, pingback):
-        """ Sends a push request to Transplant API to land a revision.
+        """ Sends a POST request to Transplant API to land a patch
 
-        Returns request_id received from Transplant API.
+        Args:
+            ldap_username: user landing the patch
+            patch_url: patch URL in S3
+                       (ex. 's3://{bucket_name}/D123_1.patch')
+            tree: tree name as per treestatus
+            pingback: The URL of the endpoint to POST landing updates
+
+        Returns:
+            Integer request_id received from Transplant API.
         """
         # API structure from VCT/testing/autoland_mach_commands.py
         result = self._POST(
