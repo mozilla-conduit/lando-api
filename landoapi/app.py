@@ -45,6 +45,19 @@ def create_app(version_path):
     flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     flask_app.config['ALEMBIC'] = {'script_location': '/migrations/'}
 
+    flask_app.config['PATCH_BUCKET_NAME'] = os.getenv('PATCH_BUCKET_NAME')
+    log_config_change(
+        'PATCH_BUCKET_NAME', flask_app.config['PATCH_BUCKET_NAME']
+    )
+    flask_app.config['PINGBACK_HOST_URL'] = os.getenv('PINGBACK_HOST_URL')
+    log_config_change(
+        'PINGBACK_HOST_URL', flask_app.config['PINGBACK_HOST_URL']
+    )
+
+    # AWS credentials should be only provided if needed in development
+    flask_app.config['AWS_ACCESS_KEY'] = os.getenv('AWS_ACCESS_KEY', None)
+    flask_app.config['AWS_SECRET_KEY'] = os.getenv('AWS_SECRET_KEY', None)
+
     flask_app.register_blueprint(dockerflow)
 
     # Initialize database

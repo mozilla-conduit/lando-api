@@ -30,6 +30,7 @@ def test_landing_revision_saves_data_in_db(
 
     phabfactory.user()
     phabfactory.revision()
+    phabfactory.rawdiff(diff_id)
     transfactory.create_autoland_response(land_request_id)
 
     response = client.post(
@@ -65,7 +66,7 @@ def test_landing_revision_calls_transplant_service(
     gitdiff = phabclient.get_rawdiff(diff_id)
     author = phabclient.get_revision_author(revision)
     hgpatch = build_patch_for_revision(gitdiff, author, revision)
-    patch_url = 's3://landoapi.test.bucket/D1_1.patch'
+    patch_url = 's3://landoapi.test.bucket/L1_D1_1.patch'
 
     # The repo we expect to see
     repo_uri = phabclient.get_revision_repo(revision)['uri']
@@ -86,7 +87,7 @@ def test_landing_revision_calls_transplant_service(
         '{}/landings/1/update'.format(os.getenv('PINGBACK_HOST_URL'))
     )
     body = s3.Object('landoapi.test.bucket',
-                     'D1_1.patch').get()['Body'].read().decode("utf-8")
+                     'L1_D1_1.patch').get()['Body'].read().decode("utf-8")
     assert body == hgpatch
 
 
@@ -110,6 +111,22 @@ def test_land_nonexisting_revision_returns_404(db, client, phabfactory, s3):
     assert response.status_code == 404
     assert response.content_type == 'application/problem+json'
     assert response.json == CANNED_LANDO_REVISION_NOT_FOUND
+
+
+def test_land_nonexisting_diff_returns_404(db, client, phabfactory, s3):
+    phabfactory.user()
+    phabfactory.revision()
+    response = client.post(
+        '/landings?api_key=api-key',
+        data=json.dumps({
+            'revision_id': 'D1',
+            'diff_id': 9000
+        }),
+        content_type='application/json'
+    )
+    assert response.status_code == 404
+    assert response.content_type == 'application/problem+json'
+    assert response.json == CANNED_LANDO_DIFF_NOT_FOUND
 
 
 def test_get_jobs(db, client):

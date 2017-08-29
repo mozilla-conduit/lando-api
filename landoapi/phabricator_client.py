@@ -1,7 +1,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 import logging
 import os
 import requests
@@ -10,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class PhabricatorClient:
-    """ A class to interface with Phabricator's Conduit API.
+    """A class to interface with Phabricator's Conduit API.
 
     All request methods in this class will throw a PhabricatorAPIException if
     Phabricator returns an error response. If there is an actual problem with
@@ -27,7 +26,7 @@ class PhabricatorClient:
             self.api_key = os.getenv('PHABRICATOR_UNPRIVILEGED_API_KEY')
 
     def get_revision(self, id=None, phid=None):
-        """ Gets a revision as defined by the Phabricator API.
+        """Gets a revision as defined by the Phabricator API.
 
         Args:
             id: The id of the revision if known. This can be in the form of
@@ -49,7 +48,7 @@ class PhabricatorClient:
         return result[0] if result else None
 
     def get_rawdiff(self, diff_id):
-        """ Get the raw git diff text by diff id.
+        """Get the raw git diff text by diff id.
 
         Args:
             diff_id: The integer ID of the diff.
@@ -61,7 +60,7 @@ class PhabricatorClient:
         return result if result else None
 
     def get_diff(self, id=None, phid=None):
-        """ Get a diff by either integer id or phid.
+        """Get a diff by either integer id or phid.
 
         Args:
             id: The integer id of the diff.
@@ -78,18 +77,35 @@ class PhabricatorClient:
         """
         diff_id = int(id) if id else None
         if phid:
-            phid_query_result = self._GET('/phid.query', {'phids[]': [phid]})
-            if phid_query_result:
-                diff_uri = phid_query_result[phid]['uri']
-                diff_id = self._extract_diff_id_from_uri(diff_uri)
-            else:
-                return None
+            diff_id = self.diff_phid_to_id(phid)
+
+        if not diff_id:
+            return None
 
         result = self._GET('/differential.querydiffs', {'ids[]': [diff_id]})
         return result[str(diff_id)] if result else None
 
+    def diff_phid_to_id(self, phid):
+        """Convert Diff PHID to the Diff id.
+
+        Send a request to Phabricator's `phid.query` API.
+        Extract Diff id from URI provided in result.
+
+        Args:
+            phid: The PHID of the diff.
+
+        Returns:
+            Integer representing the Diff id in Phabricator
+        """
+        phid_query_result = self._GET('/phid.query', {'phids[]': [phid]})
+        if phid_query_result:
+            diff_uri = phid_query_result[phid]['uri']
+            return self._extract_diff_id_from_uri(diff_uri)
+        else:
+            return None
+
     def get_current_user(self):
-        """ Gets the information of the user making this request.
+        """Gets the information of the user making this request.
 
         Returns:
             A hash containing the information of the user that owns the api key
@@ -98,7 +114,7 @@ class PhabricatorClient:
         return self._GET('/user.whoami')
 
     def get_user(self, phid):
-        """ Gets the information of the user based on their phid.
+        """Gets the information of the user based on their phid.
 
         Args:
             phid: The phid of the user to lookup.
@@ -111,7 +127,7 @@ class PhabricatorClient:
         return result[0] if result else None
 
     def get_repo(self, phid):
-        """ Get basic information about a repo based on its phid.
+        """Get basic information about a repo based on its phid.
 
         Args:
             phid: The phid of the repo to lookup.
@@ -205,6 +221,6 @@ class PhabricatorClient:
 
 
 class PhabricatorAPIException(Exception):
-    """ An exception class to handle errors from the Phabricator API """
+    """An exception class to handle errors from the Phabricator API."""
     error_code = None
     error_info = None

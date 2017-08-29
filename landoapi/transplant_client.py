@@ -10,13 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class TransplantClient:
-    """ A class to interface with Transplant's API. """
+    """A class to interface with Transplant's API."""
 
     def __init__(self):
         self.api_url = os.getenv('TRANSPLANT_URL')
 
     def land(self, ldap_username, patch_url, tree, pingback):
-        """ Sends a POST request to Transplant API to land a patch
+        """Sends a POST request to Transplant API to land a patch
 
         Args:
             ldap_username: user landing the patch
@@ -106,6 +106,6 @@ class TransplantClient:
 
 
 class TransplantAPIException(Exception):
-    """ An exception class to handle errors from the Transplant API """
+    """An exception class to handle errors from the Transplant API."""
     error_code = None
     error_info = None

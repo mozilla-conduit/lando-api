@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
-Transplant API
+Landing API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 import hmac
@@ -17,13 +17,14 @@ from landoapi.models.landing import (
     Landing, LandingNotCreatedException, RevisionNotFoundException,
     TRANSPLANT_JOB_FAILED, TRANSPLANT_JOB_LANDED
 )
+from landoapi.models.patch import DiffNotFoundException
 
 logger = logging.getLogger(__name__)
 TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
 
 
 def land(data, api_key=None):
-    """ API endpoint at /revisions/{id}/transplants to land revision. """
+    """API endpoint at POST /landings to land revision."""
     # get revision_id from body
     revision_id = data['revision_id']
     diff_id = data['diff_id']
@@ -36,7 +37,7 @@ def land(data, api_key=None):
         }, 'landing.invoke'
     )
     try:
-        landing = Landing.create(revision_id, api_key, diff_id)
+        landing = Landing.create(revision_id, diff_id, api_key)
     except RevisionNotFoundException:
         # We could not find a matching revision.
         logger.info(
@@ -49,6 +50,20 @@ def land(data, api_key=None):
             404,
             'Revision not found',
             'The requested revision does not exist',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+        )
+    except DiffNotFoundException:
+        # We could not find a matching diff
+        logger.info(
+            {
+                'diff': diff_id,
+                'msg': 'diff not found'
+            }, 'landing.failure'
+        )
+        return problem(
+            404,
+            'Diff not found',
+            'The requested diff does not exist',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
     except LandingNotCreatedException as exc:
@@ -72,9 +87,7 @@ def land(data, api_key=None):
 
 
 def get_list(revision_id=None, status=None):
-    """ API endpoint at /landings to return all Landing objects related to a
-    Revision or of specific status.
-    """
+    """API endpoint at GET /landings to return a list of Landing objects."""
     kwargs = {}
     if revision_id:
         kwargs['revision_id'] = revision_id
@@ -87,8 +100,7 @@ def get_list(revision_id=None, status=None):
 
 
 def get(landing_id):
-    """ API endpoint at /landings/{landing_id} to return stored Landing.
-    """
+    """API endpoint at /landings/{landing_id} to return stored Landing."""
     landing = Landing.query.get(landing_id)
     if not landing:
         return problem(
@@ -113,27 +125,27 @@ def _not_authorized_problem():
 def update(landing_id, data):
     """Update landing on pingback from Transplant.
 
-    data contains following fields:
-    request_id: integer
-        id of the landing request in Transplant
-    tree: string
-        tree name as per treestatus
-    rev: string
-        matching phabricator revision identifier
-    destination: string
-        full url of destination repo
-    trysyntax: string
-        change will be pushed to try or empty string
-    landed: boolean;
-        true when operation was successful
-    error_msg: string
-        error message if landed == false
-        empty string if landed == true
-    result: string
-        revision (sha) of push if landed == true
-        empty string if landed == false
-
     API-Key header is required to authenticate Transplant API
+
+    data contains following fields:
+        request_id: integer
+            id of the landing request in Transplant
+        tree: string
+            tree name as per treestatus
+        rev: string
+            matching phabricator revision identifier
+        destination: string
+            full url of destination repo
+        trysyntax: string
+            change will be pushed to try or empty string
+        landed: boolean;
+            true when operation was successful
+        error_msg: string
+            error message if landed == false
+            empty string if landed == true
+        result: string
+            revision (sha) of push if landed == true
+            empty string if landed == false
     """
     if os.getenv('PINGBACK_ENABLED', 'n') != 'y':
         logger.warning(

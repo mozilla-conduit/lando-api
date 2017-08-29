@@ -90,3 +90,10 @@ CANNED_LANDO_REVISION_NOT_FOUND = {
     "title": "Revision not found",
     "type": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404"
 }
+
+CANNED_LANDO_DIFF_NOT_FOUND = {
+    "detail": "The requested diff does not exist",
+    "status": 404,
+    "title": "Diff not found",
+    "type": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404"
+}

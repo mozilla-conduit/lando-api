@@ -11,7 +11,7 @@ from landoapi.phabricator_client import PhabricatorClient
 
 
 def get(revision_id, api_key=None):
-    """ Gets revision from Phabricator.
+    """Gets revision from Phabricator.
 
     Returns None or revision.
     """
@@ -40,7 +40,7 @@ def _format_revision(
     last_author=None,
     last_repo=None
 ):
-    """ Formats a revision given by Phabricator to match Lando's spec.
+    """Formats a revision given by Phabricator to match Lando's spec.
 
     See the swagger.yml spec for the Revision definition.
 
@@ -107,7 +107,7 @@ def _format_revision(
 
 
 def _build_diff(phab, revision):
-    """ Helper method to build the repo json for a revision response.
+    """Helper method to build the repo json for a revision response.
 
     Args:
         phab: The PhabricatorClient to use to make additional requests.
@@ -142,7 +142,7 @@ def _build_diff(phab, revision):
 
 
 def _build_author(phab, revision, last_author):
-    """ Helper method to build the author json for a revision response.
+    """Helper method to build the author json for a revision response.
 
     Args:
         phab: The PhabricatorClient to use to make additional requests.
@@ -165,7 +165,7 @@ def _build_author(phab, revision, last_author):
 
 
 def _build_repo(phab, revision, last_repo):
-    """ Helper method to build the repo json for a revision response.
+    """Helper method to build the repo json for a revision response.
 
     Args:
         phab: The PhabricatorClient to use to make additional requests.
@@ -190,7 +190,7 @@ def _build_repo(phab, revision, last_repo):
 
 
 def _extract_bug_id(revision):
-    """ Helper method to extract the bug id from a Phabricator revision """
+    """Helper method to extract the bug id from a Phabricator revision."""
     bug_id = revision['auxiliary'].get('bugzilla.bug-id', None)
     try:
         return int(bug_id)
