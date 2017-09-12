@@ -176,4 +176,4 @@ def update(landing_id, data):
     landing.status = TRANSPLANT_JOB_LANDED if data['landed'
                                                   ] else TRANSPLANT_JOB_FAILED
     landing.save()
-    return {}, 202
+    return {}, 200

@@ -151,7 +151,7 @@ def test_update_landing(db, client):
         content_type='application/json'
     )
 
-    assert response.status_code == 202
+    assert response.status_code == 200
     response = client.get('/landings/1')
     assert response.json['status'] == TRANSPLANT_JOB_LANDED
 

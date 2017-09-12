@@ -179,7 +179,7 @@ paths:
             The id of the landing to return
           required: true
       responses:
-        202:
+        200:
           description: OK
         403:
           description: Service not authorized
