@@ -70,7 +70,7 @@ paths:
           description: OK
           schema:
             type: array
-            items: 
+            items:
               $ref: '#/definitions/Landing'
         404:
           description: Revision does not exist
@@ -84,7 +84,6 @@ paths:
               - $ref: '#/definitions/Error'
 
     post:
-      operationId: landoapi.api.landings.land
       description: |
         Sends request to transplant service and responds just the status code
       parameters:
@@ -106,6 +105,14 @@ paths:
                 type: string
               diff_id:
                 type: integer
+              force_override_of_diff_id:
+                type: integer
+                description: |
+                  An optional field. Diff id to override. Landing of an
+                  inactive diff is possible if this field is equal to the
+                  active diff id for the revision. If not provided or not equal
+                  to the active diff id an attempt to land an inactive diff
+                  will be prevented.
         - name: api_key
           in: query
           type: string
@@ -124,6 +131,11 @@ paths:
                   A newly created Landing id
         404:
           description: Revision does not exist
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        409:
+          description: Unsuccessful attempt to land an inactive diff.
           schema:
             allOf:
               - $ref: '#/definitions/Error'

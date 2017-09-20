@@ -6,16 +6,17 @@ Landing API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 import hmac
-import json
 import logging
 import os
 
 from connexion import problem
 from flask import request
 from sqlalchemy.orm.exc import NoResultFound
+
 from landoapi.models.landing import (
-    Landing, LandingNotCreatedException, RevisionNotFoundException,
-    TRANSPLANT_JOB_FAILED, TRANSPLANT_JOB_LANDED
+    InactiveDiffException, Landing, LandingNotCreatedException,
+    OverrideDiffException, RevisionNotFoundException, TRANSPLANT_JOB_FAILED,
+    TRANSPLANT_JOB_LANDED
 )
 from landoapi.models.patch import DiffNotFoundException
 
@@ -23,11 +24,12 @@ logger = logging.getLogger(__name__)
 TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
 
 
-def land(data, api_key=None):
+def post(data, api_key=None):
     """API endpoint at POST /landings to land revision."""
     # get revision_id from body
     revision_id = data['revision_id']
     diff_id = data['diff_id']
+    override_diff_id = data.get('force_override_of_diff_id')
     logger.info(
         {
             'path': request.path,
@@ -37,7 +39,12 @@ def land(data, api_key=None):
         }, 'landing.invoke'
     )
     try:
-        landing = Landing.create(revision_id, diff_id, api_key)
+        landing = Landing.create(
+            revision_id,
+            diff_id,
+            phabricator_api_key=api_key,
+            override_diff_id=override_diff_id
+        )
     except RevisionNotFoundException:
         # We could not find a matching revision.
         logger.info(
@@ -65,6 +72,39 @@ def land(data, api_key=None):
             'Diff not found',
             'The requested diff does not exist',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+        )
+    except InactiveDiffException as exc:
+        # Attempt to land an inactive diff
+        logger.info(
+            {
+                'revision': revision_id,
+                'diff_id': exc.diff_id,
+                'active_diff_id': exc.active_diff_id,
+                'msg': 'Requested to land an inactive diff'
+            }, 'landing.failure'
+        )
+        return problem(
+            409,
+            'Inactive Diff',
+            'The requested diff is not the active one for this revision.',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409'
+        )
+    except OverrideDiffException as exc:
+        # Wrong diff chosen to override.
+        logger.info(
+            {
+                'revision': revision_id,
+                'diff_id': exc.diff_id,
+                'active_diff_id': exc.active_diff_id,
+                'override_diff_id': exc.override_diff_id,
+                'msg': 'Requested override_diff_id is not the active one'
+            }, 'landing.failure'
+        )
+        return problem(
+            409,
+            'Overriding inactive diff',
+            'The diff to override is not the active one for this revision.',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409'
         )
     except LandingNotCreatedException as exc:
         # We could not find a matching revision.

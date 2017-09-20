@@ -27,12 +27,15 @@ class Landing(db.Model):
     landing in Autoland. It is done before landing request to construct
     required "pingback URL" and save related Patch objects.
     To update the Landing status Transplant is calling provided pingback URL.
+    Active Diff Id is stored on creation if it is different than diff_id.
 
     Attributes:
         id: Primary Key
         request_id: Id of the request in Autoland
         revision_id: Phabricator id of the revision to be landed
         diff_id: Phabricator id of the diff to be landed
+        active_diff_id: Phabricator id of the diff active at the moment of
+            landing
         status: Status of the landing. Modified by `update` API
         error: Text describing the error if not landed
         result: Revision (sha) of push
@@ -43,6 +46,7 @@ class Landing(db.Model):
     request_id = db.Column(db.Integer, unique=True)
     revision_id = db.Column(db.String(30))
     diff_id = db.Column(db.Integer)
+    active_diff_id = db.Column(db.Integer)
     status = db.Column(db.String(30))
     error = db.Column(db.String(128), default='')
     result = db.Column(db.String(128))
@@ -52,15 +56,23 @@ class Landing(db.Model):
         request_id=None,
         revision_id=None,
         diff_id=None,
+        active_diff_id=None,
         status=TRANSPLANT_JOB_PENDING
     ):
         self.request_id = request_id
         self.revision_id = revision_id
         self.diff_id = diff_id
+        self.active_diff_id = active_diff_id
         self.status = status
 
     @classmethod
-    def create(cls, revision_id, diff_id, phabricator_api_key=None):
+    def create(
+        cls,
+        revision_id,
+        diff_id,
+        phabricator_api_key=None,
+        override_diff_id=None
+    ):
         """Land revision.
 
         A typical successful story:
@@ -75,6 +87,8 @@ class Landing(db.Model):
             revision_id: The id of the revision to be landed
             diff_id: The id of the diff to be landed
             phabricator_api_key: API Key to identify in Phabricator
+            override_diff_id: override this diff id (should be equal to the
+                active diff id)
 
         Returns:
             A new Landing object
@@ -82,6 +96,10 @@ class Landing(db.Model):
         Raises:
             RevisionNotFoundException: PhabricatorClient returned no revision
                 for given revision_id
+            InactiveDiffException: Diff is not the active one and no
+                override_diff_id has been provided
+            OverrideDiffException: id of the diff to override is not the
+                active one.
             LandingNotCreatedException: landing request in Transplant failed
         """
         phab = PhabricatorClient(phabricator_api_key)
@@ -90,15 +108,42 @@ class Landing(db.Model):
         if not revision:
             raise RevisionNotFoundException(revision_id)
 
-        repo = phab.get_revision_repo(revision)
+        # Validate overriding of the diff id.
+        active_id = phab.diff_phid_to_id(revision['activeDiffPHID'])
+        # If diff used to land revision is not the active one Lando API will
+        # fail with a 409 error. The client will then inform the user that
+        # Lando API might be forced to land that diff if that's what the user
+        # wants.
+        # In such case the client will request a new landing with a
+        # force_override_of_diff_id parameter equal to the active diff id.
+        # API will proceed with the landing.
+        if override_diff_id:
+            if override_diff_id != active_id:
+                raise OverrideDiffException(
+                    diff_id, active_id, override_diff_id
+                )
+            logger.warning(
+                {
+                    'revision_id': revision_id,
+                    'diff_id': diff_id,
+                    'active_diff_id': active_id,
+                    'override_diff_id': override_diff_id,
+                    'msg': 'Forced to override the active Diff'
+                }, 'landing.warning'
+            )
+        elif diff_id != active_id:
+            raise InactiveDiffException(diff_id, active_id)
 
-        # Save landing to make sure we've got the callback URL.
-        landing = cls(revision_id=revision_id, diff_id=diff_id)
+        landing = cls(
+            revision_id=revision_id, diff_id=diff_id, active_diff_id=active_id
+        )
         landing.save()
 
+        # Create a patch and upload it to S3
         patch = Patch(landing.id, revision, diff_id)
         patch.upload(phab)
 
+        repo = phab.get_revision_repo(revision)
         trans = TransplantClient()
         # The LDAP username used here has to be the username of the patch
         # pusher (the person who pushed the 'Land it!' button).
@@ -142,6 +187,7 @@ class Landing(db.Model):
             'revision_id': self.revision_id,
             'request_id': self.request_id,
             'diff_id': self.diff_id,
+            'active_diff_id': self.active_diff_id,
             'status': self.status,
             'error_msg': self.error,
             'result': self.result
@@ -157,5 +203,30 @@ class RevisionNotFoundException(Exception):
     """Phabricator returned 404 for a given revision id."""
 
     def __init__(self, revision_id):
-        super().__init__()
+        super().__init__('Revision {} not found'.format(revision_id))
         self.revision_id = revision_id
+
+
+class InactiveDiffException(Exception):
+    """Diff chosen to land is not the active one."""
+
+    def __init__(self, diff_id, active_diff_id):
+        super().__init__(
+            'Diff chosen to land ({}) is not the active one ({})'.
+            format(diff_id, active_diff_id)
+        )
+        self.diff_id = diff_id
+        self.active_diff_id = active_diff_id
+
+
+class OverrideDiffException(Exception):
+    """Diff chosen to override is not the active one."""
+
+    def __init__(self, diff_id, active_diff_id, override_diff_id):
+        super().__init__(
+            'Diff chosen to override ({}) is not the active one ({})'
+            .format(override_diff_id, active_diff_id)
+        )
+        self.diff_id = diff_id
+        self.active_diff_id = active_diff_id
+        self.override_diff_id = override_diff_id

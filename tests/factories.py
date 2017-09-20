@@ -161,11 +161,14 @@ class PhabResponseFactory:
         diff_phid_resp = self._replace_key(
             CANNED_DIFF_PHID_QUERY_RESULT_1, 'phid', diff_phid
         )
-        diff_phid_resp['uri'] = "{url}/differential/diff/{diff_id}/".format(
+        diff_phid_resp['result'][diff_phid][
+            'uri'
+        ] = "{url}/differential/diff/{diff_id}/".format(
             url=os.getenv('PHABRICATOR_URL'), diff_id=diff_id
         )
-        diff_phid_resp['name'] = "Diff {diff_id}".format(diff_id=diff_id)
-        diff_phid_resp['full_name'] = diff_phid_resp['name']
+        name = "Diff {diff_id}".format(diff_id=diff_id)
+        diff_phid_resp['result'][diff_phid]['name'] = name
+        diff_phid_resp['result'][diff_phid]['full_name'] = name
         self.phid(diff_phid_resp)
 
         # Create the mock raw diff endpoint.

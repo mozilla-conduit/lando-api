@@ -14,6 +14,7 @@ from landoapi.transplant_client import TransplantClient
 
 from tests.canned_responses.lando_api.revisions import *
 from tests.canned_responses.lando_api.landings import *
+from tests.utils import phab_url, form_matcher
 
 
 def test_landing_revision_saves_data_in_db(
@@ -28,8 +29,8 @@ def test_landing_revision_saves_data_in_db(
     # Id of the diff existing in Phabricator
     diff_id = 2
 
-    phabfactory.revision()
-    phabfactory.rawdiff(diff_id)
+    diff = phabfactory.diff(id=diff_id)
+    phabfactory.revision(active_diff=diff)
     transfactory.create_autoland_response(land_request_id)
 
     response = client.post(
@@ -90,7 +91,7 @@ def test_landing_revision_calls_transplant_service(
 
 
 def test_get_transplant_status(db, client):
-    Landing(1, 'D1', 1, 'started').save()
+    Landing(1, 'D1', 1, active_diff_id=1, status='started').save()
     response = client.get('/landings/1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
@@ -111,9 +112,29 @@ def test_land_nonexisting_revision_returns_404(db, client, phabfactory, s3):
     assert response.json == CANNED_LANDO_REVISION_NOT_FOUND
 
 
-def test_land_nonexisting_diff_returns_404(db, client, phabfactory, s3):
-    phabfactory.user()
-    phabfactory.revision()
+def test_land_nonexisting_diff_returns_404(db, client, phabfactory):
+    # This shouldn't really happen - it would be a bug in Phabricator.
+    # There is a repository which active diff does not exist.
+    diff = {
+        'id': '9000',
+        'uri': '{url}/differential/diff/9000/'.format(
+            url=os.getenv('PHABRICATOR_URL')
+        )
+    }  # yapf: disable
+    phabfactory.revision(active_diff={'result': {'9000': diff}})
+    phabfactory.mock.get(
+        phab_url('phid.query'),
+        status_code=404,
+        additional_matcher=form_matcher('phids[]', 'PHID-DIFF-9000'),
+        json={
+            'error_info': '',
+            'error_code': None,
+            'result': {
+                'PHID-DIFF-9000': diff
+            }
+        }
+    )
+
     response = client.post(
         '/landings?api_key=api-key',
         data=json.dumps({
@@ -127,12 +148,76 @@ def test_land_nonexisting_diff_returns_404(db, client, phabfactory, s3):
     assert response.json == CANNED_LANDO_DIFF_NOT_FOUND
 
 
+def test_land_inactive_diff_returns_409(db, client, phabfactory, transfactory):
+    phabfactory.diff(id=1)
+    d2 = phabfactory.diff(id=2)
+    phabfactory.revision(active_diff=d2)
+    transfactory.create_autoland_response()
+    response = client.post(
+        '/landings?api_key=api-key',
+        data=json.dumps({
+            'revision_id': 'D1',
+            'diff_id': 1
+        }),
+        content_type='application/json'
+    )
+    assert response.status_code == 409
+    assert response.content_type == 'application/problem+json'
+    assert response.json['title'] == 'Inactive Diff'
+
+
+def test_override_inactive_diff(db, client, phabfactory, transfactory):
+    phabfactory.diff(id=1)
+    phabfactory.diff(id=2)
+    d3 = phabfactory.diff(id=3)
+    phabfactory.revision(active_diff=d3)
+    transfactory.create_autoland_response()
+    response = client.post(
+        '/landings?api_key=api-key',
+        data=json.dumps(
+            {
+                'revision_id': 'D1',
+                'diff_id': 1,
+                'force_override_of_diff_id': 2
+            }
+        ),
+        content_type='application/json'
+    )
+    assert response.status_code == 409
+    assert response.content_type == 'application/problem+json'
+    assert response.json['title'] == 'Overriding inactive diff'
+
+
+def test_override_active_diff(db, client, phabfactory, transfactory, s3):
+    phabfactory.diff(id=1)
+    d2 = phabfactory.diff(id=2)
+    phabfactory.revision(active_diff=d2)
+    transfactory.create_autoland_response()
+    response = client.post(
+        '/landings?api_key=api-key',
+        data=json.dumps(
+            {
+                'revision_id': 'D1',
+                'diff_id': 1,
+                'force_override_of_diff_id': 2
+            }
+        ),
+        content_type='application/json'
+    )
+    assert response.status_code == 202
+
+    landing = Landing.query.get(1)
+    assert landing.status == 'started'
+    assert landing.active_diff_id == 2
+    assert landing.diff_id == 1
+
+
 def test_get_jobs(db, client):
-    Landing(1, 'D1', 1, 'started').save()
-    Landing(2, 'D1', 2, 'finished').save()
-    Landing(3, 'D2', 3, 'started').save()
-    Landing(4, 'D1', 4, 'started').save()
-    Landing(5, 'D2', 5, 'finished').save()
+    Landing(1, 'D1', 1, active_diff_id=1, status='started').save()
+    Landing(2, 'D1', 2, active_diff_id=2, status='finished').save()
+    Landing(3, 'D2', 3, active_diff_id=3, status='started').save()
+    Landing(4, 'D1', 4, active_diff_id=4, status='started').save()
+    Landing(5, 'D2', 5, active_diff_id=5, status='finished').save()
 
     response = client.get('/landings')
     assert response.status_code == 200
@@ -153,7 +238,7 @@ def test_get_jobs(db, client):
 
 
 def test_update_landing(db, client):
-    Landing(1, 'D1', 1, 'started').save()
+    Landing(1, 'D1', 1, status='started').save()
 
     response = client.post(
         '/landings/update',
@@ -172,7 +257,7 @@ def test_update_landing(db, client):
 
 
 def test_update_landing_bad_request_id(db, client):
-    Landing(1, 'D1', 1, 'started').save()
+    Landing(1, 'D1', 1, status='started').save()
 
     response = client.post(
         '/landings/update',
@@ -189,7 +274,7 @@ def test_update_landing_bad_request_id(db, client):
 
 
 def test_update_landing_bad_api_key(db, client):
-    Landing(1, 'D1', 'started').save()
+    Landing(1, 'D1', 1, status='started').save()
 
     response = client.post(
         '/landings/update',
@@ -206,7 +291,7 @@ def test_update_landing_bad_api_key(db, client):
 
 
 def test_update_landing_no_api_key(db, client):
-    Landing(1, 'D1', 'started').save()
+    Landing(1, 'D1', status='started').save()
 
     response = client.post(
         '/landings/update',
@@ -224,7 +309,7 @@ def test_update_landing_no_api_key(db, client):
 def test_pingback_disabled(db, client, monkeypatch):
     monkeypatch.setenv('PINGBACK_ENABLED', 'n')
 
-    Landing(1, 'D1', 1, 'started').save()
+    Landing(1, 'D1', 1, status='started').save()
 
     response = client.post(
         '/landings/update',

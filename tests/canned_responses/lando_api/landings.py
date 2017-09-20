@@ -8,6 +8,7 @@ CANNED_LANDING_LIST_1 = [
         'request_id': 1,
         'revision_id': 'D1',
         'diff_id': 1,
+        'active_diff_id': 1,
         'status': 'started',
         'error_msg': '',
         'result': None,
@@ -16,6 +17,7 @@ CANNED_LANDING_LIST_1 = [
         'request_id': 2,
         'revision_id': 'D1',
         'diff_id': 2,
+        'active_diff_id': 2,
         'status': 'finished',
         'error_msg': '',
         'result': None,
@@ -24,6 +26,7 @@ CANNED_LANDING_LIST_1 = [
         'request_id': 4,
         'revision_id': 'D1',
         'diff_id': 4,
+        'active_diff_id': 4,
         'status': 'started',
         'error_msg': '',
         'result': None,
@@ -36,6 +39,7 @@ CANNED_LANDING_1 = {
     'request_id': 1,
     'revision_id': 'D1',
     'diff_id': 1,
+    'active_diff_id': 1,
     'error_msg': '',
     'result': None,
 }
@@ -46,6 +50,7 @@ CANNED_LANDING_FACTORY_1 = {
     'request_id': 3,
     'revision_id': 'D1',
     'diff_id': 2,
+    'active_diff_id': 2,
     'error_msg': '',
     'result': None,
 }
@@ -56,6 +61,7 @@ CANNED_LANDING_FACTORY_2 = {
     'request_id': 2,
     'revision_id': 'D1',
     'diff_id': 1,
+    'active_diff_id': 1,
     'error_msg': '',
     'result': None,
 }
