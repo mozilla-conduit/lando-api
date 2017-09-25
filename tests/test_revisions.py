@@ -12,7 +12,6 @@ pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
 
 def test_get_revision(client, phabfactory):
-    phabfactory.user()
     phabfactory.revision()
     response = client.get('/revisions/D1?api_key=api-key')
     assert response.status_code == 200
@@ -21,7 +20,6 @@ def test_get_revision(client, phabfactory):
 
 
 def test_get_revision_with_no_parents(client, phabfactory):
-    phabfactory.user()
     phabfactory.revision(depends_on=[])
     response = client.get('/revisions/D1?api_key=api-key')
     assert response.status_code == 200
@@ -30,7 +28,6 @@ def test_get_revision_with_no_parents(client, phabfactory):
 
 
 def test_get_revision_with_parents(client, phabfactory):
-    phabfactory.user()
     rev1 = phabfactory.revision(id='D1')
     phabfactory.revision(id='D2', template=CANNED_REVISION_2, depends_on=rev1)
     response = client.get('/revisions/D2?api_key=api-key')

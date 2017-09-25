@@ -24,7 +24,7 @@ CANNED_REVISION_1 = {
             "diffs": ["2"],
             "commits": [],
             "reviewers": {
-                "PHID-USER-egtmqukxexnsgko4dhkm": "PHID-USER-egtmqukxexnsgko4dhkm"
+                "PHID-USER-review_bot": "PHID-USER-review_bot"
             },
             "ccs": [],
             "hashes": [],
@@ -63,7 +63,7 @@ CANNED_REVISION_2 = {
             "diffs": ["2"],
             "commits": [],
             "reviewers": {
-                "PHID-USER-egtmqukxexnsgko4dhkm": "PHID-USER-egtmqukxexnsgko4dhkm"
+                "PHID-USER-review_bot": "PHID-USER-review_bot"
             },
             "ccs": [],
             "hashes": [],

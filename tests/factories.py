@@ -37,6 +37,8 @@ class PhabResponseFactory:
         user = first_result_in_response(response)
         if username:
             user['userName'] = username
+            user['realName'] = "{} Name".format(username)
+            user['uri'] = 'http://phabricator.test/p/{}'.format(username)
         if phid:
             user['phid'] = phid
 
@@ -56,6 +58,8 @@ class PhabResponseFactory:
 
         kwargs:
             id: String ID to give the generated revision. E.g. 'D2233'.
+            author_phid: PHID of the author user to use, instead of making a
+                default user.
             template: A template revision to base this on from.
             depends_on: Response data for a Revision this revision should depend
                 on.
@@ -82,6 +86,8 @@ class PhabResponseFactory:
 
         if 'author_phid' in kwargs:
             revision['authorPHID'] = kwargs['author_phid']
+        else:
+            self.user()
 
         if 'depends_on' in kwargs:
             parent_revision_response_data = kwargs['depends_on']
@@ -93,6 +99,12 @@ class PhabResponseFactory:
                 # revision has no parent revisions."
                 new_value = []
             revision['auxiliary']['phabricator:depends-on'] = new_value
+
+        # Create default reviewer for the Revision
+        self.user(username='review_bot', phid='PHID-USER-review_bot')
+        revision['reviewers'] = {
+            'PHID-USER-review_bot': 'PHID-USER-review_bot'
+        }
 
         # Revisions have at least one Diff.
         if 'active_diff' in kwargs:

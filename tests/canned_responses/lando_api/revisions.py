@@ -9,6 +9,7 @@ CANNED_LANDO_REVISION_1 = {
     "title": "My test diff 1",
     "summary": "Summary 1",
     "test_plan": "Test Plan 1",
+    "commit_message_preview": "Bug 1 - My test diff 1 r=review_bot",
     "url": "http://phabricator.test/D1",
     "date_created": 1495638270,
     "date_modified": 1496239141,
@@ -81,6 +82,7 @@ CANNED_LANDO_REVISION_2 = {
     "title": "My test diff 2",
     "summary": "Summary 2",
     "test_plan": "Test Plan 2",
+    "commit_message_preview": "Bug 1 - My test diff 2 r=review_bot",
     "url": "http://phabricator.test/D2"
 }
 

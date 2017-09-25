@@ -308,6 +308,12 @@ definitions:
         type: string
         description: |
           The test plan provided on the revision.
+      commit_message_preview:
+        type: string
+        description: |
+          The default first line of the commit message that will be used
+          when landing the revision. This line is formatted to include the
+          Revision title, bug id, and any reviewers.
       diff:
         $ref: '#/definitions/Diff'
         description: |

@@ -8,6 +8,7 @@ See the OpenAPI Specification for this API in the spec/swagger.yml file.
 from connexion import problem
 
 from landoapi.phabricator_client import PhabricatorClient
+from landoapi.utils import format_commit_message
 
 
 def get(revision_id, api_key=None):
@@ -63,6 +64,7 @@ def _format_revision(
         A hash of the formatted revision information.
     """
     bug_id = _extract_bug_id(revision)
+    commit_message = _create_commit_message(phab, revision, bug_id)
     diff = _build_diff(phab, revision) if include_diff else None
     author = _build_author(phab, revision, last_author)
     repo = _build_repo(phab, revision, last_repo)
@@ -99,6 +101,7 @@ def _format_revision(
         'status_name': revision['statusName'],
         'summary': revision['summary'],
         'test_plan': revision['testPlan'],
+        'commit_message_preview': commit_message,
         'diff': diff,
         'author': author,
         'repo': repo,
@@ -196,3 +199,15 @@ def _extract_bug_id(revision):
         return int(bug_id)
     except (TypeError, ValueError):
         return None
+
+
+def _create_commit_message(phab, revision, bug_id):
+    """ Helper method to create the initial commit message for a Revision """
+    title = revision['title']
+    reviewers = revision['reviewers']
+    reviewer_usernames = None
+    if reviewers:
+        reviewer_usernames = map(
+            lambda r: phab.get_user(r)['userName'], list(reviewers.keys())
+        )
+    return format_commit_message(title, bug_id, reviewer_usernames)
