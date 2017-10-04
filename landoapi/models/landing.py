@@ -43,7 +43,7 @@ class Landing(db.Model):
     request_id = db.Column(db.Integer, unique=True)
     revision_id = db.Column(db.String(30))
     diff_id = db.Column(db.Integer)
-    status = db.Column(db.Integer)
+    status = db.Column(db.String(30))
     error = db.Column(db.String(128), default='')
     result = db.Column(db.String(128))
 

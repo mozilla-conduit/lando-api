@@ -31,10 +31,8 @@ ENV UWSGI_MODULE=landoapi.wsgi:app \
     # Die if the application threw an exception on startup
     UWSGI_NEED_APP=1
 
-RUN apk --update --no-cache add \
-	sqlite
-RUN mkdir /db
-RUN chown app:app /db
+COPY docker/entrypoint.sh /
+ENTRYPOINT ['/entrypoint.sh']
 
 COPY migrations /migrations
 
@@ -51,6 +49,7 @@ RUN set -ex \
            musl-dev \
            linux-headers \
            pcre-dev \
+           postgresql-dev \
     && pip install --no-cache -r /python_requirements/common.txt \
     && pip install --no-cache -r /python_requirements/production.txt \
 	&& runDeps="$( \
