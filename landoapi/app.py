@@ -49,10 +49,11 @@ def create_app(version_path):
     log_config_change(
         'PATCH_BUCKET_NAME', flask_app.config['PATCH_BUCKET_NAME']
     )
-    flask_app.config['PINGBACK_HOST_URL'] = os.getenv('PINGBACK_HOST_URL')
-    log_config_change(
-        'PINGBACK_HOST_URL', flask_app.config['PINGBACK_HOST_URL']
+    # Set the pingback url
+    flask_app.config['PINGBACK_URL'] = '{host_url}/landings/update'.format(
+        host_url=os.getenv('PINGBACK_HOST_URL')
     )
+    log_config_change('PINGBACK_URL', flask_app.config['PINGBACK_URL'])
 
     # AWS credentials should be only provided if needed in development
     flask_app.config['AWS_ACCESS_KEY'] = os.getenv('AWS_ACCESS_KEY', None)

@@ -132,7 +132,7 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
-  /landings/{landing_id}/update:
+  /landings/update:
     post:
       operationId: landoapi.api.landings.update
       description: |
@@ -153,6 +153,7 @@ paths:
             type: object
             required:
               - request_id
+              - landed
             properties:
               request_id:
                 type: integer
@@ -172,12 +173,6 @@ paths:
                 type: string
               result:
                 type: string
-        - name: landing_id
-          in: path
-          type: string
-          description: |
-            The id of the landing to return
-          required: true
       responses:
         200:
           description: OK

@@ -122,14 +122,16 @@ def _not_authorized_problem():
     )
 
 
-def update(landing_id, data):
+def update(data):
     """Update landing on pingback from Transplant.
 
     API-Key header is required to authenticate Transplant API
 
     data contains following fields:
-        request_id: integer
+        request_id: integer (required)
             id of the landing request in Transplant
+        landed: boolean (required)
+            true when operation was successful
         tree: string
             tree name as per treestatus
         rev: string
@@ -138,8 +140,6 @@ def update(landing_id, data):
             full url of destination repo
         trysyntax: string
             change will be pushed to try or empty string
-        landed: boolean;
-            true when operation was successful
         error_msg: string
             error message if landed == false
             empty string if landed == true
@@ -150,8 +150,7 @@ def update(landing_id, data):
     if os.getenv('PINGBACK_ENABLED', 'n') != 'y':
         logger.warning(
             {
-                'request_id': data.get('request_id', None),
-                'landing_id': landing_id,
+                'data': data,
                 'remote_addr': request.remote_addr,
                 'msg': 'Attempt to access a disabled pingback',
             }, 'pingback.warning'
@@ -163,8 +162,7 @@ def update(landing_id, data):
     ):
         logger.warning(
             {
-                'request_id': data.get('request_id', None),
-                'landing_id': landing_id,
+                'data': data,
                 'remote_addr': request.remote_addr,
                 'msg': 'Wrong API Key',
             }, 'pingback.error'
@@ -172,9 +170,7 @@ def update(landing_id, data):
         return _not_authorized_problem()
 
     try:
-        landing = Landing.query.filter_by(
-            id=landing_id, request_id=data['request_id']
-        ).one()
+        landing = Landing.query.filter_by(request_id=data['request_id']).one()
     except NoResultFound:
         return problem(
             404,

@@ -82,7 +82,7 @@ def test_landing_revision_calls_transplant_service(
     )
     tsclient().land.assert_called_once_with(
         'ldap_username@example.com', patch_url, repo_uri,
-        '{}/landings/1/update'.format(os.getenv('PINGBACK_HOST_URL'))
+        '{}/landings/update'.format(os.getenv('PINGBACK_HOST_URL'))
     )
     body = s3.Object('landoapi.test.bucket',
                      'L1_D1_1.patch').get()['Body'].read().decode("utf-8")
@@ -156,7 +156,7 @@ def test_update_landing(db, client):
     Landing(1, 'D1', 1, 'started').save()
 
     response = client.post(
-        '/landings/1/update',
+        '/landings/update',
         data=json.dumps({
             'request_id': 1,
             'landed': True,
@@ -171,28 +171,11 @@ def test_update_landing(db, client):
     assert response.json['status'] == TRANSPLANT_JOB_LANDED
 
 
-def test_update_landing_bad_id(db, client):
-    Landing(1, 'D1', 1, 'started').save()
-
-    response = client.post(
-        '/landings/2/update',
-        data=json.dumps({
-            'request_id': 1,
-            'landed': True,
-            'result': 'sha123'
-        }),
-        headers=[('API-Key', 'someapikey')],
-        content_type='application/json'
-    )
-
-    assert response.status_code == 404
-
-
 def test_update_landing_bad_request_id(db, client):
     Landing(1, 'D1', 1, 'started').save()
 
     response = client.post(
-        '/landings/1/update',
+        '/landings/update',
         data=json.dumps({
             'request_id': 2,
             'landed': True,
@@ -209,7 +192,7 @@ def test_update_landing_bad_api_key(db, client):
     Landing(1, 'D1', 'started').save()
 
     response = client.post(
-        '/landings/1/update',
+        '/landings/update',
         data=json.dumps({
             'request_id': 1,
             'landed': True,
@@ -226,7 +209,7 @@ def test_update_landing_no_api_key(db, client):
     Landing(1, 'D1', 'started').save()
 
     response = client.post(
-        '/landings/1/update',
+        '/landings/update',
         data=json.dumps({
             'request_id': 1,
             'landed': True,
@@ -244,7 +227,7 @@ def test_pingback_disabled(db, client, monkeypatch):
     Landing(1, 'D1', 1, 'started').save()
 
     response = client.post(
-        '/landings/1/update',
+        '/landings/update',
         data=json.dumps({
             'request_id': 1,
             'landed': True,

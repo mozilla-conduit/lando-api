@@ -99,18 +99,14 @@ class Landing(db.Model):
         patch = Patch(landing.id, revision, diff_id)
         patch.upload(phab)
 
-        # Define the pingback URL with the port.
-        callback = '{host_url}/landings/{id}/update'.format(
-            host_url=current_app.config['PINGBACK_HOST_URL'], id=landing.id
-        )
-
         trans = TransplantClient()
         # The LDAP username used here has to be the username of the patch
         # pusher (the person who pushed the 'Land it!' button).
         # FIXME: change ldap_username@example.com to the real data retrieved
         #        from Auth0 userinfo
         request_id = trans.land(
-            'ldap_username@example.com', patch.s3_url, repo['uri'], callback
+            'ldap_username@example.com', patch.s3_url, repo['uri'],
+            current_app.config['PINGBACK_URL']
         )
         if not request_id:
             raise LandingNotCreatedException
