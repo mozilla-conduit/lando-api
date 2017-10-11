@@ -15,13 +15,13 @@ class TransplantClient:
     def __init__(self):
         self.api_url = os.getenv('TRANSPLANT_URL')
 
-    def land(self, ldap_username, patch_url, tree, pingback):
+    def land(self, ldap_username, patch_urls, tree, pingback):
         """Sends a POST request to Transplant API to land a patch
 
         Args:
             ldap_username: user landing the patch
-            patch_url: patch URL in S3
-                       (ex. 's3://{bucket_name}/D123_1.patch')
+            patch_urls: list of patch URLs in S3
+                       (ex. ['s3://{bucket_name}/L15_D123_1.patch'])
             tree: tree name as per treestatus
             pingback: The URL of the endpoint to POST landing updates
 
@@ -34,7 +34,7 @@ class TransplantClient:
                 'ldap_username': ldap_username,
                 'tree': tree,
                 'rev': 'rev',
-                'patch_url': patch_url,
+                'patch_urls': patch_urls,
                 'destination': 'destination',
                 'push_bookmark': 'push_bookmark',
                 'commit_descriptions': 'commit_descriptions',

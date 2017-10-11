@@ -105,7 +105,7 @@ class Landing(db.Model):
         # FIXME: change ldap_username@example.com to the real data retrieved
         #        from Auth0 userinfo
         request_id = trans.land(
-            'ldap_username@example.com', patch.s3_url, repo['uri'],
+            'ldap_username@example.com', [patch.s3_url], repo['uri'],
             current_app.config['PINGBACK_URL']
         )
         if not request_id:

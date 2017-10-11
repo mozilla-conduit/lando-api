@@ -81,7 +81,7 @@ def test_landing_revision_calls_transplant_service(
         content_type='application/json'
     )
     tsclient().land.assert_called_once_with(
-        'ldap_username@example.com', patch_url, repo_uri,
+        'ldap_username@example.com', [patch_url], repo_uri,
         '{}/landings/update'.format(os.getenv('PINGBACK_HOST_URL'))
     )
     body = s3.Object('landoapi.test.bucket',
