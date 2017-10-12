@@ -1,13 +1,13 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import boto3
 import json
 import logging
 import os
+
+import boto3
 import pytest
 import requests_mock
-
 from moto import mock_s3
 
 from landoapi.app import create_app
@@ -98,7 +98,6 @@ def db(app):
     with app.app_context():
         _db.init_app(app)
         _db.create_all()
-        # we just created.
         yield _db
         _db.session.remove()
         _db.drop_all()
@@ -110,6 +109,7 @@ def s3(docker_env_vars):
     bucket = os.getenv('PATCH_BUCKET_NAME')
     with mock_s3():
         s3 = boto3.resource('s3')
-        # We need to create the bucket since this is all in Moto's 'virtual' AWS account
+        # We need to create the bucket since this is all in Moto's
+        # 'virtual' AWS account
         s3.create_bucket(Bucket=bucket)
         yield s3
