@@ -32,12 +32,11 @@ ENV UWSGI_MODULE=landoapi.wsgi:app \
     UWSGI_NEED_APP=1
 
 COPY docker/entrypoint.sh /
-ENTRYPOINT ['/entrypoint.sh']
+ENTRYPOINT ["/entrypoint.sh"]
 
 COPY migrations /migrations
 
-RUN mkdir /python_requirements
-COPY requirements/* /python_requirements/
+COPY requirements /python_requirements
 
 # Install pure-Python, compiled, and OS package dependencies.  Use scanelf to
 # uninstall any compile-time OS package dependencies and keep only the run-time
