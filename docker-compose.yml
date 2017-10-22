@@ -25,6 +25,8 @@ services:
       - PINGBACK_ENABLED=y
       - PINGBACK_HOST_URL=https://lando-api.test
       - PATCH_BUCKET_NAME=
+      - OIDC_IDENTIFIER=
+      - OIDC_DOMAIN=
       # Leave AWS credentials unconfigured in production
       - AWS_ACCESS_KEY=
       - AWS_SECRET_KEY=

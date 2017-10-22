@@ -59,6 +59,19 @@ def create_app(version_path):
     flask_app.config['AWS_ACCESS_KEY'] = os.getenv('AWS_ACCESS_KEY', None)
     flask_app.config['AWS_SECRET_KEY'] = os.getenv('AWS_SECRET_KEY', None)
 
+    # OIDC Configuration:
+    # OIDC_IDENTIFIER should be the custom api identifier defined in auth0.
+    flask_app.config['OIDC_IDENTIFIER'] = os.environ['OIDC_IDENTIFIER']
+    # OIDC_DOMAIN should be the domain assigned to the auth0 orgnaization.
+    flask_app.config['OIDC_DOMAIN'] = os.environ['OIDC_DOMAIN']
+    # ODIC_JWKS_URL should be the url to the set of JSON Web Keys used by
+    # auth0 to sign access_tokens.
+    flask_app.config['OIDC_JWKS_URL'] = (
+        'https://{oidc_domain}/.well-known/jwks.json'.format(
+            oidc_domain=flask_app.config['OIDC_DOMAIN']
+        )
+    )
+
     flask_app.register_blueprint(dockerflow)
 
     # Initialize database

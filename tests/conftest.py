@@ -27,6 +27,8 @@ def docker_env_vars(monkeypatch):
     monkeypatch.setenv('PATCH_BUCKET_NAME', 'landoapi.test.bucket')
     monkeypatch.setenv('AWS_ACCESS_KEY', None)
     monkeypatch.setenv('AWS_SECRET_KEY', None)
+    monkeypatch.setenv('OIDC_IDENTIFIER', 'lando-api')
+    monkeypatch.setenv('OIDC_DOMAIN', 'lando-api.auth0.test')
 
 
 @pytest.fixture
