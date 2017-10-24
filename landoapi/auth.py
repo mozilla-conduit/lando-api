@@ -161,3 +161,107 @@ def require_access_token(f):
         return f(*args, **kwargs)
 
     return wrapped
+
+
+def get_auth0_userinfo(access_token):
+    """Return userinfo data from auth0."""
+    url = 'https://{oidc_domain}/userinfo'.format(
+        oidc_domain=current_app.config['OIDC_DOMAIN']
+    )
+    return requests.get(
+        url, headers={'Authorization': 'Bearer {}'.format(access_token)}
+    )
+
+
+def require_auth0_userinfo(f):
+    """Decorator which verifies Auth0 access_token and fetches userinfo.
+
+    Using this decorator implies require_access_token and everything
+    that comes along with it.
+
+    The provided access_token verified by require_access_token will
+    then be used to request userinfo from auth0. This request must
+    succeed and the returned userinfo can be accessed from
+    flask.g.current_userinfo.
+    """
+
+    @functools.wraps(f)
+    def wrapped(*args, **kwargs):
+        """Fetches userinfo before calling provided function.
+
+        This wrapped function assumes it is wrapped by
+        `require_access_token`.
+        """
+
+        try:
+            resp = get_auth0_userinfo(g.access_token)
+        except requests.exceptions.Timeout:
+            raise ProblemException(
+                500,
+                'Auth0 Timeout',
+                'Authentication server timed out, try again later',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+            )  # yapf: disable
+        except requests.exceptions.ConnectionError:
+            raise ProblemException(
+                500,
+                'Auth0 Connection Problem',
+                'Can\'t connect to authentication server, try again later',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+            )  # yapf: disable
+        except requests.exceptions.HTTPError:
+            raise ProblemException(
+                500,
+                'Auth0 Response Error',
+                'Authentication server response was invalid, try again later',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+            )  # yapf: disable
+        except requests.exceptions.RequestException:
+            raise ProblemException(
+                500,
+                'Auth0 Error',
+                'Problem communicating with Auth0, try again later',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+            )  # yapf: disable
+
+        if resp.status_code == 429:
+            # TODO: We should be caching the userinfo to avoid hitting the
+            # rate limit here. It might be important to hash the token for
+            # the cache key rather than using it directly, look into this.
+            raise ProblemException(
+                429,
+                'Auth0 Rate Limit',
+                'Authentication rate limit hit, please wait before retrying',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429' # noqa
+            )  # yapf: disable
+
+        if resp.status_code == 401:
+            raise ProblemException(
+                401,
+                'Auth0 Userinfo Unauthorized',
+                'Unauthorized to access userinfo, check openid scope',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
+            )  # yapf: disable
+
+        if resp.status_code != 200:
+            raise ProblemException(
+                403,
+                'Authorization Failure',
+                'You do not have permission to access this resource',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403' # noqa
+            )  # yapf: disable
+
+        try:
+            parsed_userinfo = resp.json()
+        except ValueError:
+            raise ProblemException(
+                500,
+                'Auth0 Response Error',
+                'Authentication server response was invalid, try again later',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+            )  # yapf: disable
+
+        g.current_userinfo = parsed_userinfo
+        return f(*args, **kwargs)
+
+    return require_access_token(wrapped)
