@@ -3,6 +3,11 @@ info:
   title: Lando API
   description: An API to get and land Phabricator revisions.
   version: "0.1.0"
+securityDefinitions:
+   PhabricatorAPIKeyHeader:
+     type: apiKey
+     in: header
+     name: X-Phabricator-API-Key
 produces:
   - application/json
 paths:
@@ -20,7 +25,13 @@ paths:
     get:
       description: |
         Gets a revision's information as well as the information of
-        all of its parent revisions.
+        all of its parent Revisions. By default only public revisions are
+        accessible. If a Phabricator API key is set in the X-Phabricator-API-Key
+        header, then you may access private Revisions which the owner of the api
+        key has access to.
+      security:
+        - {}
+        - PhabricatorAPIKeyHeader: []
       parameters:
         - name: revision_id
           in: path
@@ -29,14 +40,6 @@ paths:
             The id of the revision to get. This can either be in form of
             'D12345' (as seen in Phabricator URLs), or just the id number.
           required: true
-        - name: api_key
-          in: query
-          type: string
-          description: |
-            A Phabricator Conduit API key to use to get the revision. If not
-            provided, then a default api key capable of getting public revisions
-            only will be used instead.
-          required: false
       responses:
         200:
           description: OK
@@ -85,7 +88,13 @@ paths:
 
     post:
       description: |
-        Sends request to transplant service and responds just the status code
+        Sends request to transplant service and responds just the status code.
+        By default only public revisions are accessible. If a Phabricator API
+        key is set in the X-Phabricator-API-Key header, then you may access
+        private Revisions which the owner of the api key has access to.
+      security:
+        - {}
+        - PhabricatorAPIKeyHeader: []
       parameters:
         - name: data
           required: true
@@ -113,12 +122,6 @@ paths:
                   active diff id for the revision. If not provided or not equal
                   to the active diff id an attempt to land an inactive diff
                   will be prevented.
-        - name: api_key
-          in: query
-          type: string
-          description: |
-            A Phabricator Conduit API key to use to get the revision.
-          required: false
       responses:
         202:
           description: OK

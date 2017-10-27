@@ -13,7 +13,7 @@ pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
 def test_get_revision(client, phabfactory):
     phabfactory.revision()
-    response = client.get('/revisions/D1?api_key=api-key')
+    response = client.get('/revisions/D1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
     assert response.json == CANNED_LANDO_REVISION_1
@@ -21,7 +21,7 @@ def test_get_revision(client, phabfactory):
 
 def test_get_revision_with_no_parents(client, phabfactory):
     phabfactory.revision(depends_on=[])
-    response = client.get('/revisions/D1?api_key=api-key')
+    response = client.get('/revisions/D1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
     assert response.json['parent_revisions'] == []
@@ -30,7 +30,7 @@ def test_get_revision_with_no_parents(client, phabfactory):
 def test_get_revision_with_parents(client, phabfactory):
     rev1 = phabfactory.revision(id='D1')
     phabfactory.revision(id='D2', template=CANNED_REVISION_2, depends_on=rev1)
-    response = client.get('/revisions/D2?api_key=api-key')
+    response = client.get('/revisions/D2')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
     assert len(response.json['parent_revisions']) == 1
@@ -40,7 +40,7 @@ def test_get_revision_with_parents(client, phabfactory):
 
 
 def test_get_revision_returns_404(client, phabfactory):
-    response = client.get('/revisions/D9000?api_key=api-key')
+    response = client.get('/revisions/D9000')
     assert response.status_code == 404
     assert response.content_type == 'application/problem+json'
     assert response.json == CANNED_LANDO_REVISION_NOT_FOUND

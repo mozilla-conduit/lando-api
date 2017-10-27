@@ -175,6 +175,18 @@ class PhabricatorClient:
             logging.debug("error calling 'conduit.ping': %s", exc)
             raise PhabricatorAPIException from exc
 
+    def verify_api_key(self):
+        """ Verifies that the api key this instance was created with is valid.
+
+        Returns False if Phabricator returns an error code when checking this
+        api key. Returns True if no errors are found.
+        """
+        try:
+            self.get_current_user()
+        except PhabricatorAPIException:
+            return False
+        return True
+
     def _extract_diff_id_from_uri(self, uri):
         """Extract a diff ID from a Diff uri."""
         # The diff is part of a URI, such as

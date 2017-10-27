@@ -34,7 +34,7 @@ def test_landing_revision_saves_data_in_db(
     transfactory.create_autoland_response(land_request_id)
 
     response = client.post(
-        '/landings?api_key=api-key',
+        '/landings',
         data=json.dumps({
             'revision_id': 'D1',
             'diff_id': diff_id
@@ -74,7 +74,7 @@ def test_landing_revision_calls_transplant_service(
     tsclient().land.return_value = 1
     monkeypatch.setattr('landoapi.models.landing.TransplantClient', tsclient)
     client.post(
-        '/landings?api_key=api-key',
+        '/landings',
         data=json.dumps({
             'revision_id': 'D1',
             'diff_id': int(diff_id)
@@ -100,7 +100,7 @@ def test_get_transplant_status(db, client):
 
 def test_land_nonexisting_revision_returns_404(client, phabfactory, s3):
     response = client.post(
-        '/landings?api_key=api-key',
+        '/landings',
         data=json.dumps({
             'revision_id': 'D900',
             'diff_id': 1
@@ -136,7 +136,7 @@ def test_land_nonexisting_diff_returns_404(db, client, phabfactory):
     )
 
     response = client.post(
-        '/landings?api_key=api-key',
+        '/landings',
         data=json.dumps({
             'revision_id': 'D1',
             'diff_id': 9000
@@ -154,7 +154,7 @@ def test_land_inactive_diff_returns_409(db, client, phabfactory, transfactory):
     phabfactory.revision(active_diff=d2)
     transfactory.create_autoland_response()
     response = client.post(
-        '/landings?api_key=api-key',
+        '/landings',
         data=json.dumps({
             'revision_id': 'D1',
             'diff_id': 1
@@ -173,7 +173,7 @@ def test_override_inactive_diff(db, client, phabfactory, transfactory):
     phabfactory.revision(active_diff=d3)
     transfactory.create_autoland_response()
     response = client.post(
-        '/landings?api_key=api-key',
+        '/landings',
         data=json.dumps(
             {
                 'revision_id': 'D1',
@@ -194,7 +194,7 @@ def test_override_active_diff(db, client, phabfactory, transfactory, s3):
     phabfactory.revision(active_diff=d2)
     transfactory.create_autoland_response()
     response = client.post(
-        '/landings?api_key=api-key',
+        '/landings',
         data=json.dumps(
             {
                 'revision_id': 'D1',

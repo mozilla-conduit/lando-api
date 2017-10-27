@@ -10,9 +10,10 @@ import logging
 import os
 
 from connexion import problem
-from flask import request
+from flask import g, request
 from sqlalchemy.orm.exc import NoResultFound
 
+from landoapi.decorators import require_phabricator_api_key
 from landoapi.models.landing import (
     InactiveDiffException, Landing, LandingNotCreatedException,
     OverrideDiffException, RevisionNotFoundException, TRANSPLANT_JOB_FAILED,
@@ -24,7 +25,8 @@ logger = logging.getLogger(__name__)
 TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
 
 
-def post(data, api_key=None):
+@require_phabricator_api_key(optional=True)
+def post(data):
     """API endpoint at POST /landings to land revision."""
     # get revision_id from body
     revision_id = data['revision_id']
@@ -42,7 +44,7 @@ def post(data, api_key=None):
         landing = Landing.create(
             revision_id,
             diff_id,
-            phabricator_api_key=api_key,
+            g.phabricator,
             override_diff_id=override_diff_id
         )
     except RevisionNotFoundException:

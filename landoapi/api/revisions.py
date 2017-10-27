@@ -6,17 +6,19 @@ Revision API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 from connexion import problem
+from flask import g
 
-from landoapi.phabricator_client import PhabricatorClient
+from landoapi.decorators import require_phabricator_api_key
 from landoapi.utils import format_commit_message
 
 
-def get(revision_id, api_key=None):
+@require_phabricator_api_key(optional=True)
+def get(revision_id):
     """Gets revision from Phabricator.
 
     Returns None or revision.
     """
-    phab = PhabricatorClient(api_key)
+    phab = g.phabricator
     revision = phab.get_revision(id=revision_id)
 
     if not revision:

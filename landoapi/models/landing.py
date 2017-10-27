@@ -66,13 +66,7 @@ class Landing(db.Model):
         self.status = status
 
     @classmethod
-    def create(
-        cls,
-        revision_id,
-        diff_id,
-        phabricator_api_key=None,
-        override_diff_id=None
-    ):
+    def create(cls, revision_id, diff_id, phab, override_diff_id=None):
         """Land revision.
 
         A typical successful story:
@@ -86,7 +80,7 @@ class Landing(db.Model):
         Args:
             revision_id: The id of the revision to be landed
             diff_id: The id of the diff to be landed
-            phabricator_api_key: API Key to identify in Phabricator
+            phab: The PhabricatorClient instance to use
             override_diff_id: override this diff id (should be equal to the
                 active diff id)
 
@@ -102,7 +96,6 @@ class Landing(db.Model):
                 active one.
             LandingNotCreatedException: landing request in Transplant failed
         """
-        phab = PhabricatorClient(phabricator_api_key)
         revision = phab.get_revision(id=revision_id)
 
         if not revision:
