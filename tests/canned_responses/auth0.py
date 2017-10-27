@@ -1,8 +1,12 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+import copy
+
 # yapf: disable
-CANNED_USERINFO_1 = {
+# flake8: noqa
+CANNED_USERINFO_STANDARD = {
     'sub': 'ad|Example-LDAP|testuser',
     'name': 'Test User',
     'given_name': 'Test',
@@ -29,3 +33,20 @@ CANNED_USERINFO_1 = {
         'placeholder': 'empty',
     },
 }
+
+CANNED_USERINFO = { 'STANDARD': CANNED_USERINFO_STANDARD }
+
+CANNED_USERINFO['NO_CUSTOM_CLAIMS'] = copy.deepcopy({
+    key: value for key, value in CANNED_USERINFO_STANDARD.items() if
+    not key.startswith('https://sso.mozilla.com/claim')
+})
+
+CANNED_USERINFO['SINGLE_GROUP'] = copy.deepcopy(CANNED_USERINFO_STANDARD)
+CANNED_USERINFO['SINGLE_GROUP'].update({
+    'https://sso.mozilla.com/claim/groups': ['all_scm_level_1'],
+})
+
+CANNED_USERINFO['STRING_GROUP'] = copy.deepcopy(CANNED_USERINFO_STANDARD)
+CANNED_USERINFO['STRING_GROUP'].update({
+    'https://sso.mozilla.com/claim/groups': 'all_scm_level_1',
+})

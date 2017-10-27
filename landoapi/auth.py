@@ -92,7 +92,7 @@ def require_access_token(f):
 
     Decorated functions may assume the Authorization header is present
     containing a Bearer token, flask.g.access_token contains the verified
-    access_token, and flask.g.current_user contains the decoded jwt
+    access_token, and flask.g.access_token_payload contains the decoded jwt
     payload.
     """
 
@@ -157,7 +157,7 @@ def require_access_token(f):
         # At this point the access_token has been validated and payload
         # contains the parsed token.
         g.access_token = token
-        g.current_user = payload
+        g.access_token_payload = payload
         return f(*args, **kwargs)
 
     return wrapped
@@ -181,8 +181,8 @@ def require_auth0_userinfo(f):
 
     The provided access_token verified by require_access_token will
     then be used to request userinfo from auth0. This request must
-    succeed and the returned userinfo can be accessed from
-    flask.g.current_userinfo.
+    succeed and the returned userinfo will be used to construct
+    an A0User object, which is accessed using flask.g.auth0_user.
     """
 
     @functools.wraps(f)
@@ -261,7 +261,39 @@ def require_auth0_userinfo(f):
                 type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
             )  # yapf: disable
 
-        g.current_userinfo = parsed_userinfo
+        g.auth0_user = A0User(g.access_token, parsed_userinfo)
         return f(*args, **kwargs)
 
     return require_access_token(wrapped)
+
+
+class A0User:
+    """Represents a Mozilla auth0 user.
+
+    It is assumed that the access_token provided to __init__ has
+    already been verified properly.
+    """
+    _GROUPS_CLAIM_KEY = 'https://sso.mozilla.com/claim/groups'
+
+    def __init__(self, access_token, userinfo):
+        self.access_token = access_token
+
+        # We should discourage touching userinfo directly
+        # outside of this class to keep information about
+        # its structure contained, hopefully making it
+        # easier to react to changes.
+        self._userinfo = userinfo
+        self._groups = None
+
+    @property
+    def groups(self):
+        if self._groups is None:
+            groups = self._userinfo.get(self._GROUPS_CLAIM_KEY, [])
+            groups = [groups] if isinstance(groups, str) else groups
+            self._groups = set(groups)
+
+        return self._groups
+
+    def is_in_groups(self, *args):
+        """Return True if the user is in all provided groups."""
+        return set(args).issubset(self.groups)

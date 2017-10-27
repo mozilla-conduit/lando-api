@@ -10,15 +10,17 @@ import requests
 import requests_mock
 from connexion import ProblemException
 from connexion.lifecycle import ConnexionResponse
+from flask import g
 from jose import jwt
 
 from landoapi.auth import (
+    A0User,
     get_auth0_userinfo,
     require_access_token,
     require_auth0_userinfo,
 )
 
-from tests.canned_responses.auth0 import CANNED_USERINFO_1
+from tests.canned_responses.auth0 import CANNED_USERINFO
 
 
 TEST_KEY_PUB = {
@@ -178,7 +180,9 @@ def test_require_access_token_valid(
 def test_get_auth0_userinfo(app):
     with app.app_context():
         with requests_mock.mock() as m:
-            m.get('/userinfo', status_code=200, json=CANNED_USERINFO_1)
+            m.get(
+                '/userinfo', status_code=200, json=CANNED_USERINFO['STANDARD']
+            )
             resp = get_auth0_userinfo(create_access_token())
 
     assert resp.status_code == 200
@@ -250,8 +254,46 @@ def test_require_auth0_userinfo_succeeded(jwks, app):
     headers = [('Authorization', 'Bearer {}'.format(token))]
     with app.test_request_context('/', headers=headers):
         with requests_mock.mock() as m:
-            m.get('/userinfo', status_code=200, json=CANNED_USERINFO_1)
-
+            m.get(
+                '/userinfo', status_code=200, json=CANNED_USERINFO['STANDARD']
+            )
             resp = require_auth0_userinfo(noop)()
 
+        assert isinstance(g.auth0_user, A0User)
+
     assert resp.status_code == 200
+
+
+@pytest.mark.parametrize(
+    'userinfo,groups,result', [
+        (CANNED_USERINFO['STANDARD'], ('bogus', ), False),
+        (CANNED_USERINFO['STANDARD'], ('active_scm_level_1', 'bogus'), False),
+        (CANNED_USERINFO['STANDARD'], ('active_scm_level_1', ), True),
+        (
+            CANNED_USERINFO['STANDARD'],
+            ('active_scm_level_1', 'all_scm_level_1'), True
+        ),
+        (CANNED_USERINFO['NO_CUSTOM_CLAIMS'], ('active_scm_level_1', ), False),
+        (
+            CANNED_USERINFO['NO_CUSTOM_CLAIMS'],
+            ('active_scm_level_1', 'bogus'), False
+        ),
+        (CANNED_USERINFO['SINGLE_GROUP'], ('all_scm_level_1', ), True),
+        (CANNED_USERINFO['SINGLE_GROUP'], ('active_scm_level_1', ), False),
+        (
+            CANNED_USERINFO['SINGLE_GROUP'],
+            ('active_scm_level_1', 'all_scm_level_1'), False
+        ),
+        (CANNED_USERINFO['STRING_GROUP'], ('all_scm_level_1', ), True),
+        (CANNED_USERINFO['STRING_GROUP'], ('active_scm_level_1', ), False),
+        (
+            CANNED_USERINFO['STRING_GROUP'],
+            ('active_scm_level_1', 'all_scm_level_1'), False
+        ),
+        (CANNED_USERINFO['STANDARD'], (), True),
+    ]
+)
+def test_user_is_in_groups(userinfo, groups, result):
+    token = create_access_token()
+    user = A0User(token, userinfo)
+    assert user.is_in_groups(*groups) == result
