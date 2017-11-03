@@ -1,7 +1,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import datetime
 import logging
 
 from flask import current_app
@@ -40,8 +39,6 @@ class Landing(db.Model):
         status: Status of the landing. Modified by `update` API
         error: Text describing the error if not landed
         result: Revision (sha) of push
-        created: DateTime of the creation
-        updated: DateTime of the last save
     """
     __tablename__ = "landings"
 
@@ -53,8 +50,6 @@ class Landing(db.Model):
     status = db.Column(db.String(30))
     error = db.Column(db.String(128), default='')
     result = db.Column(db.String(128))
-    created = db.Column(db.DateTime(), nullable=False)
-    updated = db.Column(db.DateTime(), nullable=False)
 
     def __init__(
         self,
@@ -69,7 +64,6 @@ class Landing(db.Model):
         self.diff_id = diff_id
         self.active_diff_id = active_diff_id
         self.status = status
-        self.created = datetime.datetime.utcnow()
 
     @classmethod
     def create(
@@ -178,7 +172,6 @@ class Landing(db.Model):
 
     def save(self):
         """Save objects in storage."""
-        self.updated = datetime.datetime.utcnow()
         if not self.id:
             db.session.add(self)
 
@@ -197,9 +190,7 @@ class Landing(db.Model):
             'active_diff_id': self.active_diff_id,
             'status': self.status,
             'error_msg': self.error,
-            'result': self.result,
-            'created': self.created.isoformat(),
-            'updated': self.updated.isoformat()
+            'result': self.result
         }
 
 

@@ -12,8 +12,6 @@ CANNED_LANDING_LIST_1 = [
         'status': 'started',
         'error_msg': '',
         'result': None,
-        'created': '2017-11-02T00:00:00',
-        'updated': '2017-11-02T00:00:00'
     }, {
         'id': 2,
         'request_id': 2,
@@ -23,8 +21,6 @@ CANNED_LANDING_LIST_1 = [
         'status': 'finished',
         'error_msg': '',
         'result': None,
-        'created': '2017-11-02T00:00:00',
-        'updated': '2017-11-02T00:00:00'
     }, {
         'id': 4,
         'request_id': 4,
@@ -34,8 +30,6 @@ CANNED_LANDING_LIST_1 = [
         'status': 'started',
         'error_msg': '',
         'result': None,
-        'created': '2017-11-02T00:00:00',
-        'updated': '2017-11-02T00:00:00'
     }
 ]
 
@@ -48,8 +42,6 @@ CANNED_LANDING_1 = {
     'active_diff_id': 1,
     'error_msg': '',
     'result': None,
-    'created': '2017-11-02T00:00:00',
-    'updated': '2017-11-02T00:00:00'
 }
 
 CANNED_LANDING_FACTORY_1 = {
@@ -61,8 +53,6 @@ CANNED_LANDING_FACTORY_1 = {
     'active_diff_id': 2,
     'error_msg': '',
     'result': None,
-    'created': '2017-11-02T00:00:00',
-    'updated': '2017-11-02T00:00:00'
 }
 
 CANNED_LANDING_FACTORY_2 = {
@@ -74,6 +64,4 @@ CANNED_LANDING_FACTORY_2 = {
     'active_diff_id': 1,
     'error_msg': '',
     'result': None,
-    'created': '2017-11-02T00:00:00',
-    'updated': '2017-11-02T00:00:00'
 }
