@@ -12,13 +12,14 @@ from landoapi.models.landing import Landing, TRANSPLANT_JOB_LANDED
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 
+from tests.canned_responses.auth0 import CANNED_USERINFO
 from tests.canned_responses.lando_api.revisions import *
 from tests.canned_responses.lando_api.landings import *
 from tests.utils import phab_url, form_matcher
 
 
 def test_landing_revision_saves_data_in_db(
-    db, client, phabfactory, transfactory, s3
+    db, client, phabfactory, transfactory, s3, auth0_mock
 ):
     # Id of the landing in Autoland is created as a result of a POST request to
     # /autoland endpoint. It is provided by Transplant API
@@ -39,6 +40,7 @@ def test_landing_revision_saves_data_in_db(
             'revision_id': 'D1',
             'diff_id': diff_id
         }),
+        headers=auth0_mock.mock_headers,
         content_type='application/json'
     )
     assert response.status_code == 202
@@ -52,8 +54,25 @@ def test_landing_revision_saves_data_in_db(
     assert landing.serialize() == CANNED_LANDING_FACTORY_1
 
 
+def test_landing_without_auth0_permissions(
+    db, client, phabfactory, transfactory, s3, auth0_mock
+):
+    auth0_mock.userinfo = CANNED_USERINFO['NO_CUSTOM_CLAIMS']
+
+    response = client.post(
+        '/landings',
+        data=json.dumps({
+            'revision_id': 'D1',
+            'diff_id': 1,
+        }),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json'
+    )
+    assert response.status_code == 403
+
+
 def test_landing_revision_calls_transplant_service(
-    db, client, phabfactory, monkeypatch, s3
+    db, client, phabfactory, monkeypatch, s3, auth0_mock
 ):
     # Mock the phabricator response data
     phabfactory.revision()
@@ -79,6 +98,7 @@ def test_landing_revision_calls_transplant_service(
             'revision_id': 'D1',
             'diff_id': int(diff_id)
         }),
+        headers=auth0_mock.mock_headers,
         content_type='application/json'
     )
     tsclient().land.assert_called_once_with(
@@ -98,13 +118,16 @@ def test_get_transplant_status(db, client):
     assert response.json == CANNED_LANDING_1
 
 
-def test_land_nonexisting_revision_returns_404(client, phabfactory, s3):
+def test_land_nonexisting_revision_returns_404(
+    client, phabfactory, s3, auth0_mock
+):
     response = client.post(
         '/landings',
         data=json.dumps({
             'revision_id': 'D900',
             'diff_id': 1
         }),
+        headers=auth0_mock.mock_headers,
         content_type='application/json'
     )
     assert response.status_code == 404
@@ -112,7 +135,9 @@ def test_land_nonexisting_revision_returns_404(client, phabfactory, s3):
     assert response.json == CANNED_LANDO_REVISION_NOT_FOUND
 
 
-def test_land_nonexisting_diff_returns_404(db, client, phabfactory):
+def test_land_nonexisting_diff_returns_404(
+    db, client, phabfactory, auth0_mock
+):
     # This shouldn't really happen - it would be a bug in Phabricator.
     # There is a repository which active diff does not exist.
     diff = {
@@ -141,6 +166,7 @@ def test_land_nonexisting_diff_returns_404(db, client, phabfactory):
             'revision_id': 'D1',
             'diff_id': 9000
         }),
+        headers=auth0_mock.mock_headers,
         content_type='application/json'
     )
     assert response.status_code == 404
@@ -148,7 +174,9 @@ def test_land_nonexisting_diff_returns_404(db, client, phabfactory):
     assert response.json == CANNED_LANDO_DIFF_NOT_FOUND
 
 
-def test_land_inactive_diff_returns_409(db, client, phabfactory, transfactory):
+def test_land_inactive_diff_returns_409(
+    db, client, phabfactory, transfactory, auth0_mock
+):
     phabfactory.diff(id=1)
     d2 = phabfactory.diff(id=2)
     phabfactory.revision(active_diff=d2)
@@ -159,6 +187,7 @@ def test_land_inactive_diff_returns_409(db, client, phabfactory, transfactory):
             'revision_id': 'D1',
             'diff_id': 1
         }),
+        headers=auth0_mock.mock_headers,
         content_type='application/json'
     )
     assert response.status_code == 409
@@ -166,7 +195,9 @@ def test_land_inactive_diff_returns_409(db, client, phabfactory, transfactory):
     assert response.json['title'] == 'Inactive Diff'
 
 
-def test_override_inactive_diff(db, client, phabfactory, transfactory):
+def test_override_inactive_diff(
+    db, client, phabfactory, transfactory, auth0_mock
+):
     phabfactory.diff(id=1)
     phabfactory.diff(id=2)
     d3 = phabfactory.diff(id=3)
@@ -181,6 +212,7 @@ def test_override_inactive_diff(db, client, phabfactory, transfactory):
                 'force_override_of_diff_id': 2
             }
         ),
+        headers=auth0_mock.mock_headers,
         content_type='application/json'
     )
     assert response.status_code == 409
@@ -188,7 +220,9 @@ def test_override_inactive_diff(db, client, phabfactory, transfactory):
     assert response.json['title'] == 'Overriding inactive diff'
 
 
-def test_override_active_diff(db, client, phabfactory, transfactory, s3):
+def test_override_active_diff(
+    db, client, phabfactory, transfactory, s3, auth0_mock
+):
     phabfactory.diff(id=1)
     d2 = phabfactory.diff(id=2)
     phabfactory.revision(active_diff=d2)
@@ -202,6 +236,7 @@ def test_override_active_diff(db, client, phabfactory, transfactory, s3):
                 'force_override_of_diff_id': 2
             }
         ),
+        headers=auth0_mock.mock_headers,
         content_type='application/json'
     )
     assert response.status_code == 202

@@ -4,10 +4,19 @@ info:
   description: An API to get and land Phabricator revisions.
   version: "0.1.0"
 securityDefinitions:
-   PhabricatorAPIKeyHeader:
-     type: apiKey
-     in: header
-     name: X-Phabricator-API-Key
+  PhabricatorAPIKeyHeader:
+    type: apiKey
+    in: header
+    name: X-Phabricator-API-Key
+  Auth0AccessToken:
+    type: apiKey
+    in: header
+    name: Authorization
+    description: An Auth0 access token with the proper lando-api audience. Note
+                 that the value of this header should be a Bearer token, but
+                 it is not possible to define that with swagger 2.0. Please
+                 pass the api key value as "Bearer access_token".
+
 produces:
   - application/json
 paths:
@@ -93,8 +102,9 @@ paths:
         key is set in the X-Phabricator-API-Key header, then you may access
         private Revisions which the owner of the api key has access to.
       security:
-        - {}
-        - PhabricatorAPIKeyHeader: []
+        - Auth0AccessToken: []
+        - Auth0AccessToken: []
+          PhabricatorAPIKeyHeader: []
       parameters:
         - name: data
           required: true

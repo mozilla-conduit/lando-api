@@ -4,6 +4,7 @@
 import json
 import logging
 import os
+from types import SimpleNamespace
 
 import boto3
 import pytest
@@ -12,6 +13,7 @@ from moto import mock_s3
 
 from landoapi.app import create_app
 from landoapi.storage import db as _db
+from tests.auth import MockAuth0, TEST_JWKS
 from tests.factories import PhabResponseFactory, TransResponseFactory
 
 
@@ -115,3 +117,23 @@ def s3(docker_env_vars):
         # 'virtual' AWS account
         s3.create_bucket(Bucket=bucket)
         yield s3
+
+
+@pytest.fixture
+def jwks(monkeypatch):
+    monkeypatch.setattr(
+        'landoapi.auth.get_jwks', lambda *args, **kwargs: TEST_JWKS
+    )
+
+
+@pytest.fixture
+def auth0_mock(jwks, monkeypatch):
+    mock_auth0 = MockAuth0()
+    mock_userinfo_response = SimpleNamespace(
+        status_code=200, json=lambda: mock_auth0.userinfo
+    )
+    monkeypatch.setattr(
+        'landoapi.auth.get_auth0_userinfo',
+        lambda token: mock_userinfo_response
+    )
+    return mock_auth0

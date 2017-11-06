@@ -13,6 +13,7 @@ from connexion import problem
 from flask import g, request
 from sqlalchemy.orm.exc import NoResultFound
 
+from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.models.landing import (
     InactiveDiffException, Landing, LandingNotCreatedException,
@@ -25,9 +26,18 @@ logger = logging.getLogger(__name__)
 TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
 
 
+@auth.require_auth0_userinfo
 @require_phabricator_api_key(optional=True)
 def post(data):
     """API endpoint at POST /landings to land revision."""
+    if not g.auth0_user.can_land_changes():
+        return problem(
+            403,
+            'Not Authorized',
+            'You do not have the required permissions to request landing.',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'
+        )
+
     # get revision_id from body
     revision_id = data['revision_id']
     diff_id = data['diff_id']
@@ -128,6 +138,8 @@ def post(data):
     return {'id': landing.id}, 202
 
 
+# TODO: SECURITY - We need to require an access_token here and ensure that
+# the user is only viewing landings that are public or they own.
 def get_list(revision_id=None, status=None):
     """API endpoint at GET /landings to return a list of Landing objects."""
     kwargs = {}
@@ -141,6 +153,8 @@ def get_list(revision_id=None, status=None):
     return list(map(lambda l: l.serialize(), landings)), 200
 
 
+# TODO: SECURITY - We need to require an access_token here and ensure that
+# the user is only viewing a landing that is public or they own.
 def get(landing_id):
     """API endpoint at /landings/{landing_id} to return stored Landing."""
     landing = Landing.query.get(landing_id)
