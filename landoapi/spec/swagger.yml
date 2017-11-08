@@ -271,10 +271,20 @@ definitions:
         type: string
         description: |
           revision (sha) of push if landed == true
-      error:
+      error_msg:
         type: string
         description: |
           Error message if landing failed
+      created_at:
+        type: string
+        format: date-time
+        description: |
+          UTC time of creation
+      updated_at:
+        type: string
+        format: date-time
+        description: |
+          UTC time of the last update
   Revision:
     type: object
     properties:

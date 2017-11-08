@@ -5,6 +5,7 @@ import json
 import os
 import pytest
 
+from freezegun import freeze_time
 from unittest.mock import MagicMock
 
 from landoapi.hgexportbuilder import build_patch_for_revision
@@ -18,6 +19,7 @@ from tests.canned_responses.lando_api.landings import *
 from tests.utils import phab_url, form_matcher
 
 
+@freeze_time('2017-11-02T00:00:00')
 def test_landing_revision_saves_data_in_db(
     db, client, phabfactory, transfactory, s3, auth0_mock
 ):
@@ -110,6 +112,7 @@ def test_landing_revision_calls_transplant_service(
     assert body == hgpatch
 
 
+@freeze_time('2017-11-02T00:00:00')
 def test_get_transplant_status(db, client):
     Landing(1, 'D1', 1, active_diff_id=1, status='started').save()
     response = client.get('/landings/1')
@@ -247,6 +250,7 @@ def test_override_active_diff(
     assert landing.diff_id == 1
 
 
+@freeze_time('2017-11-02T00:00:00')
 def test_get_jobs(db, client):
     Landing(1, 'D1', 1, active_diff_id=1, status='started').save()
     Landing(2, 'D1', 2, active_diff_id=2, status='finished').save()
@@ -309,7 +313,6 @@ def test_update_landing_bad_request_id(db, client):
 
 
 def test_update_landing_bad_api_key(client):
-
     response = client.post(
         '/landings/update',
         data=json.dumps({
