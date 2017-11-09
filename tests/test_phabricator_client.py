@@ -13,11 +13,17 @@ from landoapi.phabricator_client import PhabricatorClient, \
     PhabricatorAPIException
 
 from tests.utils import first_result_in_response, phab_url, phid_for_response
-from tests.canned_responses.phabricator.users import CANNED_USER_WHOAMI_1
-from tests.canned_responses.phabricator.revisions import CANNED_REVISION_1
-from tests.canned_responses.phabricator.errors import CANNED_EMPTY_RESULT, \
-    CANNED_ERROR_1
+from tests.canned_responses.phabricator.errors import (
+    CANNED_EMPTY_RESULT, CANNED_ERROR_1
+)
+from tests.canned_responses.phabricator.revisions import (
+    CANNED_EMPTY_REVIEWERS_ATT_RESPONSE, CANNED_REVISION_1,
+    CANNED_EMPTY_REVISION_SEARCH, CANNED_TWO_REVIEWERS_SEARCH_RESPONSE
+)
 from tests.canned_responses.phabricator.repos import CANNED_REPO_MOZCENTRAL
+from tests.canned_responses.phabricator.users import (
+    CANNED_USER_SEARCH_TWO_USERS, CANNED_USER_WHOAMI_1, CANNED_USER_SEARCH_1
+)
 
 pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
@@ -173,3 +179,75 @@ def test_phabricator_exception():
             phab.get_revision(id=CANNED_REVISION_1['result'][0]['id'])
         assert e_info.value.error_code == CANNED_ERROR_1['error_code']
         assert e_info.value.error_info == CANNED_ERROR_1['error_info']
+
+
+def test_get_reviewers_no_revision():
+    phab = PhabricatorClient(api_key='api-key')
+    with requests_mock.mock() as m:
+        m.get(
+            phab_url('differential.revision.search'),
+            status_code=200,
+            json=CANNED_EMPTY_REVISION_SEARCH
+        )
+        result = phab.get_reviewers(1)
+
+    assert result == {}
+
+
+def test_get_reviewers_no_reviewers():
+    phab = PhabricatorClient(api_key='api-key')
+    with requests_mock.mock() as m:
+        m.get(
+            phab_url('differential.revision.search'),
+            status_code=200,
+            json=CANNED_EMPTY_REVIEWERS_ATT_RESPONSE
+        )
+        result = phab.get_reviewers(1)
+
+    assert result == {}
+
+
+def test_get_reviewers_two_reviewers():
+    phab = PhabricatorClient(api_key='api-key')
+    with requests_mock.mock() as m:
+        m.get(
+            phab_url('differential.revision.search'),
+            status_code=200,
+            json=CANNED_TWO_REVIEWERS_SEARCH_RESPONSE
+        )
+        m.get(
+            phab_url('user.search'),
+            status_code=200,
+            json=CANNED_USER_SEARCH_TWO_USERS
+        )
+        result = phab.get_reviewers(1)
+
+    assert len(result.keys()) == 2
+    assert result['PHID-USER-2']['fields']['username'] == 'foo'
+    assert result['PHID-USER-3']['fields']['username'] == 'bar'
+
+
+def test_get_reviewers_reviewers_and_users_dont_match():
+    phab = PhabricatorClient(api_key='api-key')
+    with requests_mock.mock() as m:
+        # Returns 2 reviewers
+        m.get(
+            phab_url('differential.revision.search'),
+            status_code=200,
+            json=CANNED_TWO_REVIEWERS_SEARCH_RESPONSE
+        )
+        # returns only 1 reviewer
+        m.get(
+            phab_url('user.search'),
+            status_code=200,
+            json=CANNED_USER_SEARCH_1
+        )
+        result = phab.get_reviewers(1)
+
+    assert len(result.keys()) == 2
+    assert result['PHID-USER-2']['fields']['username'] == 'johndoe'
+    assert result['PHID-USER-2']['phid'] == 'PHID-USER-2'
+    assert result['PHID-USER-2']['reviewerPHID'] == 'PHID-USER-2'
+    assert 'fields' not in result['PHID-USER-3']
+    assert 'phid' not in result['PHID-USER-3']
+    assert result['PHID-USER-3']['reviewerPHID'] == 'PHID-USER-3'

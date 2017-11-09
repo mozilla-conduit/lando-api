@@ -9,14 +9,21 @@ from copy import deepcopy
 
 from tests.canned_responses.phabricator.diffs import CANNED_DIFF_1
 from tests.canned_responses.phabricator.errors import CANNED_EMPTY_RESULT
-from tests.canned_responses.phabricator.phid_queries import \
+from tests.canned_responses.phabricator.phid_queries import (
     CANNED_DIFF_PHID_QUERY_RESULT_1
+)
 from tests.canned_responses.phabricator.raw_diffs import CANNED_RAW_DIFF_1
 from tests.canned_responses.phabricator.repos import CANNED_REPO_MOZCENTRAL
-from tests.canned_responses.phabricator.revisions import CANNED_REVISION_1
-from tests.canned_responses.phabricator.users import CANNED_USER_1
-from tests.utils import phab_url, first_result_in_response, phid_for_response, \
-    form_matcher, trans_url
+from tests.canned_responses.phabricator.revisions import (
+    CANNED_EMPTY_REVIEWERS_ATT_RESPONSE, CANNED_REVISION_1
+)
+from tests.canned_responses.phabricator.users import (
+    CANNED_EMPTY_USER_SEARCH_RESPONSE, CANNED_USER_1, CANNED_USER_SEARCH_1
+)
+from tests.utils import (
+    first_result_in_response, form_matcher, phab_url, phid_for_response,
+    trans_url
+)
 
 
 class PhabResponseFactory:
@@ -67,6 +74,16 @@ class PhabResponseFactory:
                 Revision's "active diff" (usually this Revision's most recently
                 uploaded patch). If you manually set an active diff, it must
                 have been made with this factory.
+            reviewers: List of dicts with reviewer info. A default reviewer
+                will be created if not provided. No reviewer is added
+                to the revision if equals to empty list. Keys:
+                - username: (required) username of the reviewer.
+                - id: ID of the reviewer, optional, but suggested if more than
+                    one reviewer is created.
+                - isBlocking: (boolean) is the reviewer blocking
+                - phid: PHID of the reviewer.
+                - status: Status in revision (added, accepted, blocking,
+                    rejected, resigned).
 
         Returns:
             The full JSON response dict for the generated Revision.
@@ -100,11 +117,13 @@ class PhabResponseFactory:
                 new_value = []
             revision['auxiliary']['phabricator:depends-on'] = new_value
 
-        # Create default reviewer for the Revision
-        self.user(username='review_bot', phid='PHID-USER-review_bot')
-        revision['reviewers'] = {
-            'PHID-USER-review_bot': 'PHID-USER-review_bot'
+        default_reviewer = {
+            'username': 'review_bot',
+            'phid': 'PHID-USER-review_bot'
         }
+        revision['reviewers'] = self._reviewers(
+            revision['id'], kwargs.get('reviewers', [default_reviewer])
+        )
 
         # Revisions have at least one Diff.
         if 'active_diff' in kwargs:
@@ -133,6 +152,87 @@ class PhabResponseFactory:
             additional_matcher=match_revision
         )
         return result_json
+
+    def _reviewers(self, revision_id, reviewers):
+        """Add mocks for reviewers.
+
+        Mocks a differential.revision.search api response containing the
+        reviewers attachment.
+        Mocks user.search api to get the reviewers in one request.
+
+        Attributes:
+            revision_id: an id of the revision
+            reviewers: a list of dict about reviewer.
+
+        Returns:
+            dict in the form of {phid: phid} to append to revision['reviewers']
+        """
+        revision_response = deepcopy(CANNED_EMPTY_REVIEWERS_ATT_RESPONSE)
+        revision_atts = revision_response['result']['data'][0]['attachments']
+        users_response = deepcopy(CANNED_EMPTY_USER_SEARCH_RESPONSE)
+        revision_reviewers = {}
+
+        for reviewer in reviewers:
+            phid = reviewer.get(
+                'phid', 'PHID-USER-Reviewer-{}'.format(reviewer['username'])
+            )
+            # Update differential.revision.search response
+            revision_atts['reviewers']['reviewers'].append(
+                {
+                    'reviewerPHID': phid,
+                    'status': reviewer.get('status', 'added'),
+                    'isBlocking': reviewer.get('isBlocking', False),
+                    'actorPHID': phid
+                }
+            )
+            # Update user.search response
+            user = deepcopy(CANNED_USER_SEARCH_1['result']['data'][0])
+            user['id'] = reviewer.get('id', user['id'])
+            user['phid'] = phid
+            user['fields']['username'] = reviewer['username']
+            user['fields']['realName'] = "{} Name".format(reviewer['username'])
+            users_response['result']['data'].append(user)
+
+            # Update revision.query response
+            revision_reviewers[phid] = phid
+
+        # Mock differential.revision.search
+        def revision_matcher(request):
+            """Match revision search with reviewers attachment."""
+            find_revision = form_matcher('constraints[ids][]',
+                                         revision_id)(request)
+            wants_reviewers = form_matcher('attachments[reviewers]',
+                                           '1')(request)
+            return find_revision and wants_reviewers
+
+        self.mock.get(
+            phab_url('differential.revision.search'),
+            status_code=200,
+            json=revision_response,
+            additional_matcher=revision_matcher
+        )
+
+        # We don't search for user info if no reviewers found
+        if not reviewers:
+            return {}
+
+        # Mock user.search
+        def users_matcher(request):
+            """Match search user requests with all phids."""
+            matches = [
+                form_matcher('constraints[phids][]', phid)(request)
+                for phid in revision_reviewers
+            ]
+            return all(matches)
+
+        self.mock.get(
+            phab_url('user.search'),
+            status_code=200,
+            json=users_response,
+            additional_matcher=users_matcher
+        )
+
+        return revision_reviewers
 
     def diff(self, **kwargs):
         """Create a Phabricator Diff along with stub API endpoints.

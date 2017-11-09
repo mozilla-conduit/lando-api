@@ -41,3 +41,92 @@ CANNED_USER_WHOAMI_1 = {
     "error_code": None,
     "error_info": None
 }
+
+CANNED_USER_SEARCH_1 = {
+    "result": {
+        "data": [
+            {
+                "id": 2,
+                "type": "USER",
+                "phid": "PHID-USER-2",
+                "fields": {
+                    "username": "johndoe",
+                    "realName": "John Doe",
+                    "roles": [
+                        "verified",
+                        "approved",
+                        "activated"
+                    ],
+                    "dateCreated": 1504618477,
+                    "dateModified": 1504882856,
+                    "policy": {
+                        "view": "public",
+                        "edit": "no-one"
+                    }
+                },
+                "attachments": {}
+            },
+        ]
+    },
+    "error_code": None,
+    "error_info": None
+}
+
+CANNED_EMPTY_USER_SEARCH_RESPONSE = {
+    'result': {
+        'data': []
+    },
+    'error_code': None,
+    'error_info': None
+}
+
+
+CANNED_USER_SEARCH_TWO_USERS = {
+    "result": {
+        "data": [
+            {
+                "id": 2,
+                "type": "USER",
+                "phid": "PHID-USER-2",
+                "fields": {
+                    "username": "foo",
+                    "realName": "Foo Foo",
+                    "roles": [
+                        "verified",
+                        "approved",
+                        "activated"
+                    ],
+                    "dateCreated": 1504618477,
+                    "dateModified": 1504882856,
+                    "policy": {
+                        "view": "public",
+                        "edit": "no-one"
+                    }
+                },
+                "attachments": {}
+            }, {
+                "id": 3,
+                "type": "USER",
+                "phid": "PHID-USER-3",
+                "fields": {
+                    "username": "bar",
+                    "realName": "Bar Bar",
+                    "roles": [
+                        "verified",
+                        "approved",
+                        "activated"
+                    ],
+                    "dateCreated": 1504618477,
+                    "dateModified": 1504882856,
+                    "policy": {
+                        "view": "public",
+                        "edit": "no-one"
+                    }
+                },
+                "attachments": {}
+            },
+        ]
+    },
+    "error_code": None,
+    "error_info": None
+}

@@ -66,7 +66,12 @@ def _format_revision(
         A hash of the formatted revision information.
     """
     bug_id = _extract_bug_id(revision)
-    commit_message = _create_commit_message(phab, revision, bug_id)
+    revision_id = int(revision['id'])
+    reviewers = _build_reviewers(phab, revision_id)
+    commit_message = format_commit_message(
+        revision['title'], bug_id,
+        [r['username'] for r in reviewers if r['username']]
+    )
     diff = _build_diff(phab, revision) if include_diff else None
     author = _build_author(phab, revision, last_author)
     repo = _build_repo(phab, revision, last_repo)
@@ -92,7 +97,7 @@ def _format_revision(
                 )
 
     return {
-        'id': int(revision['id']),
+        'id': revision_id,
         'phid': revision['phid'],
         'bug_id': bug_id,
         'title': revision['title'],
@@ -107,6 +112,7 @@ def _format_revision(
         'diff': diff,
         'author': author,
         'repo': repo,
+        'reviewers': reviewers,
         'parent_revisions': parent_revisions,
     }
 
@@ -158,15 +164,43 @@ def _build_author(phab, revision, last_author):
     """
     if last_author and revision['authorPHID'] == last_author['phid']:
         return last_author
-    else:
-        raw_author = phab.get_user(revision['authorPHID'])
-        return {
-            'phid': raw_author['phid'],
-            'username': raw_author['userName'],
-            'real_name': raw_author['realName'],
-            'url': raw_author['uri'],
-            'image_url': raw_author['image'],
-        }
+
+    raw_author = phab.get_user(revision['authorPHID'])
+    return {
+        'phid': raw_author['phid'],
+        'username': raw_author['userName'],
+        'real_name': raw_author['realName'],
+        'url': raw_author['uri'],
+        'image_url': raw_author['image'],
+    }
+
+
+def _build_reviewers(phab, revision_id):
+    """Helper method to build the reviewers list for a revision response.
+
+    Calls `phab.get_reviewers` to request reviewers and corresponding users
+    data from Phabricator. If user is not found for the reviewer's PHID, an
+    empty string is set as a value of username and real_name keys.
+
+    Args:
+        phab: The PhabricatorClient to make additional requests.
+        revision_id: The id of the revision in Phabricator.
+
+    Returns:
+        List of the reviewers data sorted by the phid
+    """
+    reviewers_data = phab.get_reviewers(revision_id)
+    reviewers = [
+        {
+            'phid': phid,
+            # fields key is empty if user info not found for reviewer
+            'username': r['fields']['username'] if r.get('fields') else '',
+            'status': r['status'],
+            'real_name': r['fields']['realName'] if r.get('fields') else '',
+            'is_blocking': r['isBlocking']
+        } for phid, r in reviewers_data.items()
+    ]
+    return sorted(reviewers, key=lambda r: r['phid'])
 
 
 def _build_repo(phab, revision, last_repo):
@@ -182,16 +216,16 @@ def _build_repo(phab, revision, last_repo):
     if revision['repositoryPHID']:
         if last_repo and revision['repositoryPHID'] == last_repo['phid']:
             return last_repo
-        else:
-            raw_repo = phab.get_repo(revision['repositoryPHID'])
-            return {
-                'phid': raw_repo['phid'],
-                'short_name': raw_repo['name'],
-                'full_name': raw_repo['fullName'],
-                'url': raw_repo['uri'],
-            }
-    else:
-        return None
+
+        raw_repo = phab.get_repo(revision['repositoryPHID'])
+        return {
+            'phid': raw_repo['phid'],
+            'short_name': raw_repo['name'],
+            'full_name': raw_repo['fullName'],
+            'url': raw_repo['uri'],
+        }
+
+    return None
 
 
 def _extract_bug_id(revision):
@@ -201,15 +235,3 @@ def _extract_bug_id(revision):
         return int(bug_id)
     except (TypeError, ValueError):
         return None
-
-
-def _create_commit_message(phab, revision, bug_id):
-    """ Helper method to create the initial commit message for a Revision """
-    title = revision['title']
-    reviewers = revision['reviewers']
-    reviewer_usernames = None
-    if reviewers:
-        reviewer_usernames = map(
-            lambda r: phab.get_user(r)['userName'], list(reviewers.keys())
-        )
-    return format_commit_message(title, bug_id, reviewer_usernames)

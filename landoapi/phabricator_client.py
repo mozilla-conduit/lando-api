@@ -104,6 +104,67 @@ class PhabricatorClient:
         else:
             return None
 
+    def get_reviewers(self, revision_id):
+        """Gets reviewers of the revision.
+
+        Requests `revision.search` to get the reviewers data. Then - with the
+        received reviewerPHID keys - a new request is made to `user.search`
+        to get the user info. A new dict indexed by phid is created with keys
+        and values from both requests.
+
+        Attributes:
+            revision_id: integer, ID of the revision in Phabricator
+
+        Returns:
+            A dict indexed by phid of combined reviewers and users info.
+        """
+        # Get basic information about the reviewers
+        # reviewerPHID, actorPHID, status, and isBlocking is provided
+        result = self._GET(
+            '/differential.revision.search', {
+                'constraints[ids][]': [revision_id],
+                'attachments[reviewers]': 1,
+            }
+        )
+
+        has_reviewers = (
+            result['data'] and
+            result['data'][0]['attachments']['reviewers']['reviewers']
+        )
+        if not has_reviewers:
+            return {}
+
+        reviewers_data = (
+            result['data'][0]['attachments']['reviewers']['reviewers']
+        )
+
+        # Get user info of all revision reviewers
+        reviewers_phids = [r['reviewerPHID'] for r in reviewers_data]
+        result = self._GET(
+            '/user.search', {'constraints[phids][]': reviewers_phids}
+        )
+        reviewers_info = result['data']
+
+        if len(reviewers_data) != len(reviewers_info):
+            logger.warning(
+                {
+                    'reviewers_phids': reviewers_phids,
+                    'users_phids': [r['phid'] for r in reviewers_info],
+                    'revision_id': revision_id,
+                    'msg': 'Number of reviewers and user accounts do not match'
+                }, 'get_reviewers.warning'
+            )
+
+        # Create a dict of all reviewers and users info identified by PHID.
+        reviewers_dict = {}
+        for data in reviewers_data, reviewers_info:
+            for reviewer in data:
+                phid = reviewer.get('reviewerPHID') or reviewer.get('phid')
+                reviewers_dict[phid] = reviewers_dict.get(phid, {})
+                reviewers_dict[phid].update(reviewer)
+
+        return reviewers_dict
+
     def get_current_user(self):
         """Gets the information of the user making this request.
 

@@ -41,6 +41,15 @@ CANNED_LANDO_REVISION_1 = {
         "short_name": "rMOZILLACENTRAL",
         "url": "http://phabricator.test/source/mozilla-central/"
     },
+    'reviewers': [
+        {
+            'phid': 'PHID-USER-review_bot',
+            'is_blocking': False,
+            'real_name': 'review_bot Name',
+            'status': 'added',
+            'username': 'review_bot'
+        }
+    ]
 }
 
 
@@ -77,6 +86,15 @@ CANNED_LANDO_REVISION_2 = {
         "short_name": "rMOZILLACENTRAL",
         "url": "http://phabricator.test/source/mozilla-central/"
     },
+    'reviewers': [
+        {
+            'phid': 'PHID-USER-review_bot',
+            'is_blocking': False,
+            'real_name': 'review_bot Name',
+            'status': 'added',
+            'username': 'review_bot'
+        }
+    ],
     "status": 1,
     "status_name": "Needs Revision",
     "title": "My test diff 2",
@@ -99,3 +117,35 @@ CANNED_LANDO_DIFF_NOT_FOUND = {
     "title": "Diff not found",
     "type": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404"
 }
+
+CANNED_LANDO_REVIEWERS_PARTIAL = [
+    {
+        'phid': 'PHID-USER-Reviewer-foo',
+        'is_blocking': False,
+        'real_name': 'foo Name',
+        'status': 'added',
+        'username': 'foo'
+    }, {
+        'phid': 'PHID-USER-forced-in-test',
+        'is_blocking': True,
+        'real_name': 'bar Name',
+        'status': 'rejected',
+        'username': 'bar'
+    }
+]
+
+CANNED_REVIEWERS_USER_DONT_MATCH_PARTIAL = [
+    {
+        'status': 'accepted',
+        'is_blocking': False,
+        'username': 'johndoe',
+        'phid': 'PHID-USER-2',
+        'real_name': 'John Doe'
+    }, {
+        'status': 'accepted',
+        'is_blocking': False,
+        'username': '',
+        'phid': 'PHID-USER-3',
+        'real_name': ''
+    }
+]
