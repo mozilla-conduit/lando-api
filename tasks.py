@@ -4,7 +4,7 @@
 import json
 import os
 
-from invoke import Collection, task, run
+from invoke import Collection, run, task
 
 DOCKER_IMAGE_NAME = os.getenv('DOCKERHUB_REPO', 'mozilla/landoapi')
 project_root = os.path.dirname(__file__)

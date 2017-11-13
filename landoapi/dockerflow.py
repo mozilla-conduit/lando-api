@@ -11,8 +11,10 @@ import logging
 
 from flask import Blueprint, current_app, jsonify
 
-from landoapi.phabricator_client import PhabricatorClient, \
-    PhabricatorAPIException
+from landoapi.phabricator_client import (
+    PhabricatorClient,
+    PhabricatorAPIException,
+)
 
 logger = logging.getLogger(__name__)
 
