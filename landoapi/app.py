@@ -130,8 +130,8 @@ def initialize_logging():
     app_logger = logging.getLogger('landoapi')
 
     # Stop our specially-formatted log messages from bubbling up to any
-    # Flask-installed loggers that may be present.  They will throw an exception
-    # if they handle our messages.
+    # Flask-installed loggers that may be present.  They will throw an
+    # exception if they handle our messages.
     app_logger.propagate = False
 
     app_logger.addHandler(mozlog_handler)

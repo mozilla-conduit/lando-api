@@ -7,7 +7,6 @@ import logging
 from flask import current_app
 
 from landoapi.models.patch import Patch
-from landoapi.phabricator_client import PhabricatorClient
 from landoapi.storage import db
 from landoapi.transplant_client import TransplantClient
 

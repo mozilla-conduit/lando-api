@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import os
-import pytest
 
 from freezegun import freeze_time
 from unittest.mock import MagicMock
@@ -14,8 +13,15 @@ from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 
 from tests.canned_responses.auth0 import CANNED_USERINFO
-from tests.canned_responses.lando_api.revisions import *
-from tests.canned_responses.lando_api.landings import *
+from tests.canned_responses.lando_api.revisions import (
+    CANNED_LANDO_DIFF_NOT_FOUND,
+    CANNED_LANDO_REVISION_NOT_FOUND,
+)
+from tests.canned_responses.lando_api.landings import (
+    CANNED_LANDING_1,
+    CANNED_LANDING_FACTORY_1,
+    CANNED_LANDING_LIST_1,
+)
 from tests.utils import phab_url, form_matcher
 
 

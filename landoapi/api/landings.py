@@ -16,9 +16,13 @@ from sqlalchemy.orm.exc import NoResultFound
 from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.models.landing import (
-    InactiveDiffException, Landing, LandingNotCreatedException,
-    OverrideDiffException, RevisionNotFoundException, TRANSPLANT_JOB_FAILED,
-    TRANSPLANT_JOB_LANDED
+    InactiveDiffException,
+    Landing,
+    LandingNotCreatedException,
+    OverrideDiffException,
+    RevisionNotFoundException,
+    TRANSPLANT_JOB_FAILED,
+    TRANSPLANT_JOB_LANDED,
 )
 from landoapi.models.patch import DiffNotFoundException
 
@@ -237,7 +241,8 @@ def update(data):
 
     landing.error = data.get('error_msg', '')
     landing.result = data.get('result', '')
-    landing.status = TRANSPLANT_JOB_LANDED if data['landed'
-                                                  ] else TRANSPLANT_JOB_FAILED
+    landing.status = (
+        TRANSPLANT_JOB_LANDED if data['landed'] else TRANSPLANT_JOB_FAILED
+    )
     landing.save()
     return {}, 200

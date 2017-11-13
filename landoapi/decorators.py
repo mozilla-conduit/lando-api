@@ -1,7 +1,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 import functools
 
 from connexion import (
@@ -17,8 +16,8 @@ class require_phabricator_api_key:
     """Decorator which requires and verifies the phabricator API Key.
 
     Using this decorator on a connexion handler will require a phabricator
-    api key be sent in the `X-Phabricator-API-Key` header of the request. If the
-    header is not provided an HTTP 401 response will be sent.
+    api key be sent in the `X-Phabricator-API-Key` header of the request. If
+    the header is not provided an HTTP 401 response will be sent.
 
     The provided API key will be verified to be valid, if it is not an
     HTTP 403 response will be sent.
@@ -43,8 +42,9 @@ class require_phabricator_api_key:
                 return problem(
                     401,
                     'X-Phabricator-API-Key Required',
-                    'Phabricator api key not provided in X-Phabricator-API-Key header',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401'
+                    ('Phabricator api key not provided in '
+                     'X-Phabricator-API-Key header'),
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa: E501
                 )  # yapf: disable
 
             g.phabricator = PhabricatorClient(api_key=api_key)
@@ -53,7 +53,7 @@ class require_phabricator_api_key:
                     403,
                     'X-Phabricator-API-Key Invalid',
                     'Phabricator api key is not valid',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403' # noqa: E501
                 )  # yapf: disable
 
             return f(*args, **kwargs)

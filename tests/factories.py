@@ -68,8 +68,8 @@ class PhabResponseFactory:
             author_phid: PHID of the author user to use, instead of making a
                 default user.
             template: A template revision to base this on from.
-            depends_on: Response data for a Revision this revision should depend
-                on.
+            depends_on: Response data for a Revision this revision should
+                depend on.
             active_diff: Response data for a Diff that should be this
                 Revision's "active diff" (usually this Revision's most recently
                 uploaded patch). If you manually set an active diff, it must
@@ -338,9 +338,9 @@ class PhabResponseFactory:
         that the key is located in two places and must be updated twice when
         creating dummy data, as shown below (phid is the key_name below).
 
-        Before: { 'result': { 'EXP-PHID-1': { 'phid': 'EXP-PHID-1', ...} }, ...}
+        Before: {'result': {'EXP-PHID-1': {'phid': 'EXP-PHID-1', ...}}, ...}
         _replace_key(Before, 'phid', 'NEW-PHID-X')
-        After:  { 'result': { 'NEW-PHID-X': { 'phid': 'NEW-PHID-X', ...} }, ...}
+        After:  {'result': {'NEW-PHID-X': {'phid': 'NEW-PHID-X', ...}}, ...}
 
         Args:
             old_response: The dict containing the phabricator query response.

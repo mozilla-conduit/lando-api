@@ -13,6 +13,7 @@ from landoapi.phabricator_client import PhabricatorClient
 def noop(*args, **kwargs):
     return ConnexionResponse(status_code=200)
 
+
 @pytest.mark.parametrize(
     'optional,valid_key,status', [
         (False, None, 401),
@@ -22,7 +23,7 @@ def noop(*args, **kwargs):
         (True, False, 403),
         (True, True, 200)
     ]
-) # yapf: disable
+)  # yapf: disable
 def test_require_phabricator_api_key(
     monkeypatch, app, optional, valid_key, status
 ):

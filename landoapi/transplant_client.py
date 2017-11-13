@@ -61,7 +61,8 @@ class TransplantClient:
                 'service': 'transplant',
                 'username': ldap_username,
                 'pingback_url': pingback,
-                'msg': 'received an empty response from the transplant service',
+                'msg': ('received an empty response from the transplant '
+                        'service'),
             }, 'transplant.failure'
         )   # yapf: disable
         return None
