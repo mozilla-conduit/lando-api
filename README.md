@@ -1,19 +1,34 @@
 # Lando API
 
-A microservice that turns Phabricator revisions into Mercurial commits.
+A microservice that transforms Phabricator revisions into Autoland
+[Transplant][] requests.
 
-Part of Mozilla [Conduit](https://wiki.mozilla.org/EngineeringProductivity/Projects/Conduit),
-our code management microservice ecosystem.
+Part of Mozilla [Conduit][], our code-management microservice ecosystem.
 
 ## Building the service
 
-##### Prerequisites
+### Prerequisites
 
- * `docker` (on OS X you will want `docker-machine`, too)
- * `docker-compose`
- * `pyinvoke` (v0.13+, can be installed on OS X with a [Homebrew formula](http://brewformulas.org/pyinvoke))
+* `docker` and `docker-compose` (on OS X and Windows you should use
+  the full [Docker for Mac][] or [Docker for Windows][] systems,
+  respectively)
+* `docker-compose`
+* `pyinvoke`
+  * Because `pyinvoke` currently has no backwards-compatibility guarantees,
+    it is suggested that you install exactly version 0.21.0 via `pip`:
+    `pip install invoke==0.21.0` or `pip install --user invoke==0.21.0`.
+  * You can use a virtualenv instead of installing it system wide, but you
+    should create the virtualenv *outside* of the lando-api source directory so
+    that the linter doesn't check the virtualenv files.
+  * If you are running Windows, you will need a special file in your user
+    directory (typically `C:\Users\<username>\`) called `.invoke.yml`.  It
+    should contain the following:
+    ```yaml
+    run:
+            shell: C:\Windows\System32\cmd.exe
+    ```
 
-##### Running the development server
+### Running the development server
 
 To create a database:
 
@@ -21,16 +36,16 @@ To create a database:
 $ invoke upgrade
 ```
 
-To build and start the development services' containers:
+To build and start all the services:
 
 ```bash
 $ docker-compose up
 ```
 
-##### Accessing the development server
+### Accessing the development server
 
 You need to tell docker-compose to map the webservice's exposed port to a port
-on your docker host system.  Create a file named [docker-compose.override.yml](https://docs.docker.com/compose/extends/)
+on your docker host system.  Create a file named [docker-compose.override.yml][]
 in the project root with these contents:
 
 ```yaml
@@ -43,7 +58,7 @@ services:
 
 Now run `docker-compose up` in the project root.
 
-You can use a tool like [httpie](http://httpie.org/) to test the service.
+You can use a tool like [httpie][] to test the service.
 
 ```
 $ http localhost:8000
@@ -55,23 +70,27 @@ Location: http://localhost:8000/ui/
 Server: Werkzeug/0.12.1 Python/3.5.3
 ```
 
-## Browsing the API documentation
+## Running the tests
 
-Start a development server and expose its ports as documented above, and visit
-`http://localhost:8000/ui/` in your browser to view the API documentation.
-
-## Testing
-
-We're using `pytest` with `pytest-flask`. All tests are placed in `./tests/`
-To run the tests please call
+lando-api's tests use `pytest` with `pytest-flask`, executed within a
+Docker container.  The tests are located in `./tests/`.  You can run
+all of them via `invoke`:
 
 ```bash
 $ invoke test
 ```
 
-## Migrations
+Subsets of the tests, e.g. linters, and other commands are also available.  Run
+`invoke -l` to see all tasks.
 
-#### Developer machine
+## Browsing the API documentation
+
+Start a development server and expose its ports as documented above, and visit
+`http://localhost:8000/ui/` in your browser to view the API documentation.
+
+## Database migrations
+
+### Developer machine
 
 Add a new migration:
 
@@ -85,10 +104,18 @@ Upgrade to the newest revision:
 $ invoke upgrade
 ```
 
-#### Deployed server
+### Deployed server
 
 Upgrade to the newest migration:
 
 ```
 $ docker run [OPTIONS] IMAGE upgrade_db
 ```
+
+[Transplant]: https://hg.mozilla.org/hgcustom/version-control-tools/file/tip/autoland
+[Conduit]: https://wiki.mozilla.org/EngineeringProductivity/Projects/Conduit
+[Docker for Mac]: https://docs.docker.com/docker-for-mac/install/
+[Docker for Windows]: https://docs.docker.com/docker-for-windows/install/
+[Homebrew formula]: http://brewformulas.org/pyinvoke
+[docker-compose.override.yml]: https://docs.docker.com/compose/extends/
+[httpie]: http://httpie.org/
