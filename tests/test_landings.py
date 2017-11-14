@@ -107,8 +107,10 @@ def test_landing_revision_calls_transplant_service(
         content_type='application/json'
     )
     tsclient().land.assert_called_once_with(
-        'ldap_username@example.com', [patch_url], 'mozilla-central',
-        '{}/landings/update'.format(os.getenv('PINGBACK_HOST_URL'))
+        ldap_username='land_requester_ldap_email@example.com',
+        patch_urls=[patch_url],
+        tree='mozilla-central',
+        pingback='{}/landings/update'.format(os.getenv('PINGBACK_HOST_URL'))
     )
     body = s3.Object('landoapi.test.bucket',
                      'L1_D1_1.patch').get()['Body'].read().decode("utf-8")
@@ -117,7 +119,7 @@ def test_landing_revision_calls_transplant_service(
 
 @freeze_time('2017-11-02T00:00:00')
 def test_get_transplant_status(db, client):
-    Landing(1, 'D1', 1, active_diff_id=1, status='started').save()
+    _create_landing(1, 'D1', 1, status='started')
     response = client.get('/landings/1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
@@ -255,11 +257,11 @@ def test_override_active_diff(
 
 @freeze_time('2017-11-02T00:00:00')
 def test_get_jobs(db, client):
-    Landing(1, 'D1', 1, active_diff_id=1, status='started').save()
-    Landing(2, 'D1', 2, active_diff_id=2, status='finished').save()
-    Landing(3, 'D2', 3, active_diff_id=3, status='started').save()
-    Landing(4, 'D1', 4, active_diff_id=4, status='started').save()
-    Landing(5, 'D2', 5, active_diff_id=5, status='finished').save()
+    _create_landing(1, 'D1', 1, status='started')
+    _create_landing(2, 'D1', 2, status='finished')
+    _create_landing(3, 'D2', 3, status='started')
+    _create_landing(4, 'D1', 4, status='started')
+    _create_landing(5, 'D2', 5, status='finished')
 
     response = client.get('/landings')
     assert response.status_code == 200
@@ -280,7 +282,7 @@ def test_get_jobs(db, client):
 
 
 def test_update_landing(db, client):
-    Landing(1, 'D1', 1, status='started').save()
+    _create_landing(1, 'D1', 1, status='started')
 
     response = client.post(
         '/landings/update',
@@ -299,7 +301,7 @@ def test_update_landing(db, client):
 
 
 def test_update_landing_bad_request_id(db, client):
-    Landing(1, 'D1', 1, status='started').save()
+    _create_landing(1, 'D1', 1, status='started')
 
     response = client.post(
         '/landings/update',
@@ -359,3 +361,25 @@ def test_pingback_disabled(client, monkeypatch):
     )
 
     assert response.status_code == 403
+
+
+def _create_landing(
+    request_id=1,
+    revision_id='D1',
+    diff_id=1,
+    active_diff_id=None,
+    requester_email='land_requester_ldap_email@example.com',
+    tree='mozilla-central',
+    status='started'
+):
+    landing = Landing(
+        request_id=request_id,
+        revision_id=revision_id,
+        diff_id=diff_id,
+        active_diff_id=(active_diff_id or diff_id),
+        requester_email=requester_email,
+        tree=tree,
+        status=status
+    )
+    landing.save()
+    return landing

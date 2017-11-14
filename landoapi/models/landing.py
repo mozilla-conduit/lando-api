@@ -39,6 +39,8 @@ class Landing(db.Model):
         status: Status of the landing. Modified by `update` API
         error: Text describing the error if not landed
         result: Revision (sha) of push
+        requester_email: The email address of the requester of the landing.
+        tree: The hg.mozilla.org tree name the revision is to land to.
         created_at: DateTime of the creation
         updated_at: DateTime of the last save
     """
@@ -52,6 +54,8 @@ class Landing(db.Model):
     status = db.Column(db.String(30))
     error = db.Column(db.String(128), default='')
     result = db.Column(db.String(128))
+    requester_email = db.Column(db.String(128))
+    tree = db.Column(db.String(128))
     created_at = db.Column(db.DateTime(), nullable=False)
     updated_at = db.Column(db.DateTime(), nullable=False)
 
@@ -61,12 +65,16 @@ class Landing(db.Model):
         revision_id=None,
         diff_id=None,
         active_diff_id=None,
+        requester_email=None,
+        tree=None,
         status=TRANSPLANT_JOB_PENDING
     ):
         self.request_id = request_id
         self.revision_id = revision_id
         self.diff_id = diff_id
         self.active_diff_id = active_diff_id
+        self.requester_email = requester_email
+        self.tree = tree
         self.status = status
         self.created_at = datetime.datetime.utcnow()
 
@@ -132,8 +140,18 @@ class Landing(db.Model):
         elif diff_id != active_id:
             raise InactiveDiffException(diff_id, active_id)
 
+        # Save the initial landing request
+        repo = phab.get_revision_repo(revision)
+        # TODO: handle non-existent repo
+        tree = repo['fields']['shortName']
+        # TODO: change land_requester_ldap_email@example.com to the real
+        # email from the Auth0 userinfo.
         landing = cls(
-            revision_id=revision_id, diff_id=diff_id, active_diff_id=active_id
+            revision_id=revision_id,
+            diff_id=diff_id,
+            active_diff_id=active_id,
+            requester_email='land_requester_ldap_email@example.com',
+            tree=tree
         )
         landing.save()
 
@@ -141,15 +159,13 @@ class Landing(db.Model):
         patch = Patch(landing.id, revision, diff_id)
         patch.upload(phab)
 
-        repo = phab.get_revision_repo(revision)
+        # Send the request to transplant for landing
         trans = TransplantClient()
-        # The LDAP username used here has to be the username of the patch
-        # pusher (the person who pushed the 'Land it!' button).
-        # FIXME: change ldap_username@example.com to the real data retrieved
-        #        from Auth0 userinfo
         request_id = trans.land(
-            'ldap_username@example.com', [patch.s3_url],
-            repo['fields']['shortName'], current_app.config['PINGBACK_URL']
+            ldap_username=landing.requester_email,
+            patch_urls=[patch.s3_url],
+            tree=tree,
+            pingback=current_app.config['PINGBACK_URL']
         )
         if not request_id:
             raise LandingNotCreatedException
@@ -190,6 +206,8 @@ class Landing(db.Model):
             'status': self.status,
             'error_msg': self.error,
             'result': self.result,
+            'requester_email': self.requester_email,
+            'tree': self.tree,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }

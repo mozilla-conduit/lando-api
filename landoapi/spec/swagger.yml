@@ -275,6 +275,14 @@ definitions:
         type: string
         description: |
           Error message if landing failed
+      requester_email:
+        type: string
+        description: |
+          Email of the requester
+      tree:
+        type: string
+        description: |
+          The repo the revision will land to
       created_at:
         type: string
         format: date-time
