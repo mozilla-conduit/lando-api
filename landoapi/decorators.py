@@ -44,7 +44,7 @@ class require_phabricator_api_key:
                     'X-Phabricator-API-Key Required',
                     ('Phabricator api key not provided in '
                      'X-Phabricator-API-Key header'),
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa: E501
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401'  # noqa: E501
                 )  # yapf: disable
 
             g.phabricator = PhabricatorClient(api_key=api_key)
@@ -53,7 +53,7 @@ class require_phabricator_api_key:
                     403,
                     'X-Phabricator-API-Key Invalid',
                     'Phabricator api key is not valid',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403' # noqa: E501
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'  # noqa: E501
                 )  # yapf: disable
 
             return f(*args, **kwargs)
