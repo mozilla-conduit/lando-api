@@ -100,7 +100,7 @@ class Landing(db.Model):
               and status `submitted`. It is then saved and returned.
 
         Args:
-            revision_id: The id of the revision to be landed
+            revision_id: The integer id of the revision to be landed
             diff_id: The id of the diff to be landed
             phab: The PhabricatorClient instance to use
             override_diff_id: override this diff id (should be equal to the
@@ -171,6 +171,7 @@ class Landing(db.Model):
         # Send the request to transplant for landing
         trans = TransplantClient()
         request_id = trans.land(
+            revision_id=revision_id,
             ldap_username=landing.requester_email,
             patch_urls=[patch.s3_url],
             tree=tree,

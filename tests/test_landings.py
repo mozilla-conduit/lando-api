@@ -104,6 +104,7 @@ def test_landing_revision_calls_transplant_service(
         content_type='application/json'
     )
     tsclient().land.assert_called_once_with(
+        revision_id=1,
         ldap_username='land_requester_ldap_email@example.com',
         patch_urls=[patch_url],
         tree='mozilla-central',

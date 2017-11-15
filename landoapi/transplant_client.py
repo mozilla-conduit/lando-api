@@ -14,25 +14,40 @@ class TransplantClient:
     def __init__(self):
         self.api_url = os.getenv('TRANSPLANT_URL')
 
-    def land(self, ldap_username, patch_urls, tree, pingback):
+    def land(self, revision_id, ldap_username, patch_urls, tree, pingback):
         """Sends a POST request to Transplant API to land a patch
 
         Args:
+            revision_id: integer id of the revision being landed
             ldap_username: user landing the patch
-            patch_urls: list of patch URLs in S3
-                       (ex. ['s3://{bucket_name}/L15_D123_1.patch'])
+            patch_urls: list of patch URLs in S3, currently restricted to 1
+                entry. (ex. ['s3://{bucket_name}/L15_D123_1.patch'])
             tree: tree name as per treestatus
             pingback: The URL of the endpoint to POST landing updates
 
         Returns:
             Integer request_id received from Transplant API.
         """
+        # TODO: Although transplant accepts multiple patch urls to land
+        # our use of a single revision in 'rev' would open up a number
+        # of broken edge cases. Make sure we're not landing more than
+        # one patch before this has been fixed.
+        assert len(patch_urls) == 1
+
         # API structure from VCT/testing/autoland_mach_commands.py
         result = self._POST(
-            '/autoland', {
+            '/autoland',
+            {
                 'ldap_username': ldap_username,
                 'tree': tree,
-                'rev': 'rev',
+                # This must be unique but consistent for the
+                # landing. This is important as 'rev' is the
+                # field used to prevent requesting the same
+                # thing land when it is already queued. After
+                # the landing is processed and has succeeded or
+                # failed 'rev' may be reused for a new landing
+                # request.
+                'rev': 'D{}'.format(revision_id),
                 'patch_urls': patch_urls,
                 'destination': 'destination',
                 'push_bookmark': 'push_bookmark',
