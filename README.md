@@ -9,7 +9,7 @@ Part of Mozilla [Conduit][], our code-management microservice ecosystem.
 
 ### Prerequisites
 
-* `docker` and `docker-compose` (on OS X and Windows you should use
+* [docker][] and [docker-compose][] (on OS X and Windows you should use
   the full [Docker for Mac][] or [Docker for Windows][] systems,
   respectively)
 * `pyinvoke`
@@ -24,7 +24,7 @@ Part of Mozilla [Conduit][], our code-management microservice ecosystem.
     should contain the following:
     ```yaml
     run:
-            shell: C:\Windows\System32\cmd.exe
+      shell: C:\Windows\System32\cmd.exe
     ```
 
 ### Running the development server
@@ -113,6 +113,8 @@ $ docker run [OPTIONS] IMAGE upgrade_db
 
 [Transplant]: https://hg.mozilla.org/hgcustom/version-control-tools/file/tip/autoland
 [Conduit]: https://wiki.mozilla.org/EngineeringProductivity/Projects/Conduit
+[docker]: https://docs.docker.com/engine/installation/
+[docker-compose]: https://docs.docker.com/compose/install/
 [Docker for Mac]: https://docs.docker.com/docker-for-mac/install/
 [Docker for Windows]: https://docs.docker.com/docker-for-windows/install/
 [Homebrew formula]: http://brewformulas.org/pyinvoke
