@@ -12,7 +12,6 @@ Part of Mozilla [Conduit][], our code-management microservice ecosystem.
 * `docker` and `docker-compose` (on OS X and Windows you should use
   the full [Docker for Mac][] or [Docker for Windows][] systems,
   respectively)
-* `docker-compose`
 * `pyinvoke`
   * Because `pyinvoke` currently has no backwards-compatibility guarantees,
     it is suggested that you install exactly version 0.21.0 via `pip`:
