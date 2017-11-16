@@ -87,7 +87,7 @@ def test_landing_revision_calls_transplant_service(
 
     # Build the patch we expect to see
     phabclient = PhabricatorClient('someapi')
-    revision = phabclient.get_revision('D1')
+    revision = phabclient.get_revision(1)
     diff_id = phabclient.get_diff(phid=revision['activeDiffPHID'])['id']
     gitdiff = phabclient.get_rawdiff(diff_id)
     author = phabclient.get_revision_author(revision)
@@ -117,6 +117,30 @@ def test_landing_revision_calls_transplant_service(
     assert body == hgpatch
 
 
+def test_land_wrong_revision_id_format(db, client, phabfactory, auth0_mock):
+    phabfactory.revision()
+    response = client.post(
+        '/landings',
+        data=json.dumps({
+            'revision_id': 1,
+            'diff_id': 1
+        }),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json'
+    )
+    assert response.status_code == 400
+    response = client.post(
+        '/landings',
+        data=json.dumps({
+            'revision_id': '1',
+            'diff_id': 1
+        }),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json'
+    )
+    assert response.status_code == 400
+
+
 def test_land_diff_not_in_revision(db, client, phabfactory, s3, auth0_mock):
     diff_id = 111
     phabfactory.revision()
@@ -139,7 +163,7 @@ def test_land_diff_not_in_revision(db, client, phabfactory, s3, auth0_mock):
 
 @freeze_time('2017-11-02T00:00:00')
 def test_get_transplant_status(db, client):
-    _create_landing(1, 'D1', 1, status=LandingStatus.submitted)
+    _create_landing(1, 1, 1, status=LandingStatus.submitted)
     response = client.get('/landings/1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
@@ -277,11 +301,11 @@ def test_override_active_diff(
 
 @freeze_time('2017-11-02T00:00:00')
 def test_get_jobs(db, client):
-    _create_landing(1, 'D1', 1, status=LandingStatus.submitted)
-    _create_landing(2, 'D1', 2, status=LandingStatus.landed)
-    _create_landing(3, 'D2', 3, status=LandingStatus.submitted)
-    _create_landing(4, 'D1', 4, status=LandingStatus.submitted)
-    _create_landing(5, 'D2', 5, status=LandingStatus.landed)
+    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    _create_landing(2, 1, 2, status=LandingStatus.landed)
+    _create_landing(3, 2, 3, status=LandingStatus.submitted)
+    _create_landing(4, 1, 4, status=LandingStatus.submitted)
+    _create_landing(5, 2, 5, status=LandingStatus.landed)
 
     response = client.get('/landings')
     assert response.status_code == 200
@@ -305,8 +329,17 @@ def test_get_jobs(db, client):
     assert response.status_code == 400
 
 
+def test_get_jobs_wrong_revision_id_format(db, client):
+    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    response = client.get('/landings?revision_id=1')
+    assert response.status_code == 400
+
+    response = client.get('/landings?revision_id=d1')
+    assert response.status_code == 400
+
+
 def test_update_landing(db, client):
-    _create_landing(1, 'D1', 1, status=LandingStatus.submitted)
+    _create_landing(1, 1, 1, status=LandingStatus.submitted)
     response = client.post(
         '/landings/update',
         data=json.dumps({
@@ -324,7 +357,7 @@ def test_update_landing(db, client):
 
 
 def test_update_landing_bad_request_id(db, client):
-    _create_landing(1, 'D1', 1, status=LandingStatus.submitted)
+    _create_landing(1, 1, 1, status=LandingStatus.submitted)
     response = client.post(
         '/landings/update',
         data=json.dumps({
@@ -385,9 +418,13 @@ def test_pingback_disabled(client, monkeypatch):
     assert response.status_code == 403
 
 
+def test_typecasting():
+    Landing(revision_id='x', diff_id=1, active_diff_id=1)
+
+
 def _create_landing(
     request_id=1,
-    revision_id='D1',
+    revision_id=1,
     diff_id=1,
     active_diff_id=None,
     requester_email='land_requester_ldap_email@example.com',

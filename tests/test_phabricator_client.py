@@ -82,7 +82,7 @@ def test_get_author_for_revision(phabfactory):
     expected_user = first_result_in_response(user_response)
 
     phab = PhabricatorClient(api_key='api-key')
-    revision = phab.get_revision(id='D5')
+    revision = phab.get_revision(id=5)
     author = phab.get_revision_author(revision)
 
     assert author == expected_user
@@ -121,7 +121,7 @@ def test_get_repo_for_revision(phabfactory):
     expected_repo = CANNED_REPO_SEARCH_MOZCENTRAL['result']['data'][0]
 
     phab = PhabricatorClient(api_key='api-key')
-    revision = phab.get_revision(id='D5')
+    revision = phab.get_revision(id=5)
     repo = phab.get_revision_repo(revision)
 
     assert repo == expected_repo

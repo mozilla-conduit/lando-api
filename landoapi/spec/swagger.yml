@@ -46,8 +46,7 @@ paths:
           in: path
           type: string
           description: |
-            The id of the revision to get. This can either be in form of
-            'D12345' (as seen in Phabricator URLs), or just the id number.
+            The id of the revision in the form of 'D{number}', e.g. 'D12345'.
           required: true
       responses:
         200:
@@ -258,9 +257,9 @@ definitions:
         description: |
           Status of the landing job in Transplant service
       revision_id:
-        type: integer
+        type: string
         description: |
-          The id of the Revision
+          The id of the Revision in the form of D{number}
       diff_id:
         type: integer
         description: |
@@ -295,9 +294,9 @@ definitions:
     type: object
     properties:
       revision_id:
-        type: integer
+        type: string
         description: |
-          The id of the revision.
+          The id of the revision in the form of D{number}
       phid:
         type: string
         description: |
@@ -452,9 +451,9 @@ definitions:
         description: |
           The integer id of the Diff.
       revision_id:
-        type: integer
+        type: string
         description: |
-          The integer id of the Revision that this Diff belongs to.
+          The id of the Revision that this Diff belongs to e.g. 'D123'.
       date_created:
         type: integer
         description: |

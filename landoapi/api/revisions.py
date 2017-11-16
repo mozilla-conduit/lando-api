@@ -10,6 +10,7 @@ from flask import g
 
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.utils import format_commit_message
+from landoapi.validation import revision_id_to_int
 
 
 @require_phabricator_api_key(optional=True)
@@ -19,6 +20,7 @@ def get(revision_id):
     Returns None or revision.
     """
     phab = g.phabricator
+    revision_id = revision_id_to_int(revision_id)
     revision = phab.get_revision(id=revision_id)
 
     if not revision:
@@ -97,7 +99,7 @@ def _format_revision(
                 )
 
     return {
-        'id': revision_id,
+        'id': 'D{}'.format(revision_id),
         'phid': revision['phid'],
         'bug_id': bug_id,
         'title': revision['title'],
@@ -128,7 +130,7 @@ def _build_diff(phab, revision):
         raw_diff = phab.get_diff(phid=revision['activeDiffPHID'])
         diff = {
             'id': int(raw_diff['id']),
-            'revision_id': int(raw_diff['revisionID']),
+            'revision_id': 'D{}'.format(raw_diff['revisionID']),
             'date_created': int(raw_diff['dateCreated']),
             'date_modified': int(raw_diff['dateModified']),
             'vcs_base_revision': raw_diff['sourceControlBaseRevision'],

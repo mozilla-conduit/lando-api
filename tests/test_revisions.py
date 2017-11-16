@@ -58,6 +58,15 @@ def test_get_revision_returns_404(client, phabfactory):
     assert response.json == CANNED_LANDO_REVISION_NOT_FOUND
 
 
+def test_revision_id_format(client, phabfactory):
+    phabfactory.revision()
+    response = client.get('/revisions/1')
+    assert response.status_code == 400
+    assert response.json['title'] == 'Bad Request'
+    response = client.get('/revisions/d1')
+    assert response.status_code == 400
+
+
 def test_get_revision_no_reviewers(client, phabfactory):
     phabfactory.revision(reviewers=[])
     response = client.get('/revisions/D1')

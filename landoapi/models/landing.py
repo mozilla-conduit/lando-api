@@ -56,7 +56,7 @@ class Landing(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     request_id = db.Column(db.Integer, unique=True)
-    revision_id = db.Column(db.String(30))
+    revision_id = db.Column(db.Integer)
     diff_id = db.Column(db.Integer)
     active_diff_id = db.Column(db.Integer)
     status = db.Column(db.Enum(LandingStatus), nullable=False)
@@ -69,19 +69,19 @@ class Landing(db.Model):
 
     def __init__(
         self,
+        revision_id,
+        diff_id,
+        active_diff_id,
         request_id=None,
-        revision_id=None,
-        diff_id=None,
-        active_diff_id=None,
         requester_email=None,
         tree=None,
         # status will remain aborted only if landing request will fail
         status=LandingStatus.aborted
     ):
-        self.request_id = request_id
         self.revision_id = revision_id
         self.diff_id = diff_id
         self.active_diff_id = active_diff_id
+        self.request_id = request_id
         self.requester_email = requester_email
         self.tree = tree
         self.status = status
@@ -156,9 +156,9 @@ class Landing(db.Model):
         # TODO: change land_requester_ldap_email@example.com to the real
         # email from the Auth0 userinfo.
         landing = cls(
-            revision_id=revision_id,
             diff_id=diff_id,
             active_diff_id=active_id,
+            revision_id=revision_id,
             requester_email='land_requester_ldap_email@example.com',
             tree=tree
         )
@@ -208,7 +208,7 @@ class Landing(db.Model):
         """Serialize to JSON compatible dictionary."""
         return {
             'id': self.id,
-            'revision_id': self.revision_id,
+            'revision_id': 'D{}'.format(self.revision_id),
             'request_id': self.request_id,
             'diff_id': self.diff_id,
             'active_diff_id': self.active_diff_id,

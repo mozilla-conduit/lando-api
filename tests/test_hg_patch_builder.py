@@ -40,7 +40,7 @@ def test_build_patch(phabfactory, docker_env_vars):
     phabfactory.revision(id='D5', author_phid='PHID-USER-mpm')
 
     phab = PhabricatorClient(api_key='api-key')
-    revision = phab.get_revision(id='D5')
+    revision = phab.get_revision(id=5)
     revision['summary'] = "Express great joy at existence of Mercurial"
     author = phab.get_revision_author(revision)
 

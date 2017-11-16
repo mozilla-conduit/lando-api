@@ -41,8 +41,7 @@ class PhabricatorClient:
         """
         result = None
         if id:
-            id_num = str(id).strip().replace('D', '')
-            result = self._GET('/differential.query', {'ids[]': [id_num]})
+            result = self._GET('/differential.query', {'ids[]': [id]})
         elif phid:
             result = self._GET('/differential.query', {'phids[]': [phid]})
         return result[0] if result else None

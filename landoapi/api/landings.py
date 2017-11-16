@@ -26,6 +26,7 @@ from landoapi.models.landing import (
 from landoapi.models.patch import (
     DiffNotFoundException, DiffNotInRevisionException
 )
+from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
 TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
@@ -44,7 +45,7 @@ def post(data):
         )
 
     # get revision_id from body
-    revision_id = data['revision_id']
+    revision_id = revision_id_to_int(data['revision_id'])
     diff_id = data['diff_id']
     override_diff_id = data.get('force_override_of_diff_id')
     logger.info(
@@ -164,7 +165,7 @@ def get_list(revision_id=None, status=None):
     """API endpoint at GET /landings to return a list of Landing objects."""
     kwargs = {}
     if revision_id:
-        kwargs['revision_id'] = revision_id
+        kwargs['revision_id'] = revision_id_to_int(revision_id)
 
     if status:
         kwargs['status'] = LandingStatus(status)
