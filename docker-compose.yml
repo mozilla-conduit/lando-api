@@ -18,7 +18,7 @@ services:
       # create a new Conduit API token and add it here.
       - PHABRICATOR_UNPRIVILEGED_API_KEY=api-123456789
       - TRANSPLANT_URL=https://fake-transplant.herokuapp.com/
-      - DATABASE_URL=sqlite:////db/sqlite.db
+      - DATABASE_URL=postgresql://postgres:password@lando-api.db/lando_api_dev
       - ENV=localdev
       - SENTRY_DSN=
       - TRANSPLANT_API_KEY=set-api-key
@@ -32,11 +32,24 @@ services:
       - AWS_SECRET_KEY=
     volumes:
       - ./:/app
-      - ./.db/:/db/
       - ./migrations/:/migrations/
+    depends_on:
+      - lando-api.db
   py3-linter:
     build:
       context: ./
       dockerfile: ./docker/py3-linter-dockerfile
     volumes:
       - ./:/code/
+  lando-api.db:
+    image: postgres:alpine
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=postgres
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
+      - ./docker/postgres-init-scripts/:/docker-entrypoint-initdb.d/
+    ports:
+      - "54321:5432"
+volumes:
+  postgres_db:
