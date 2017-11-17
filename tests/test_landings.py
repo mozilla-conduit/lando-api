@@ -8,7 +8,7 @@ from freezegun import freeze_time
 from unittest.mock import MagicMock
 
 from landoapi.hgexportbuilder import build_patch_for_revision
-from landoapi.models.landing import Landing, TRANSPLANT_JOB_LANDED
+from landoapi.models.landing import Landing, LandingStatus
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 
@@ -139,7 +139,7 @@ def test_land_diff_not_in_revision(db, client, phabfactory, s3, auth0_mock):
 
 @freeze_time('2017-11-02T00:00:00')
 def test_get_transplant_status(db, client):
-    _create_landing(1, 'D1', 1, status='started')
+    _create_landing(1, 'D1', 1, status=LandingStatus.submitted)
     response = client.get('/landings/1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
@@ -270,18 +270,18 @@ def test_override_active_diff(
     assert response.status_code == 202
 
     landing = Landing.query.get(1)
-    assert landing.status == 'started'
+    assert landing.status == LandingStatus.submitted
     assert landing.active_diff_id == 2
     assert landing.diff_id == 1
 
 
 @freeze_time('2017-11-02T00:00:00')
 def test_get_jobs(db, client):
-    _create_landing(1, 'D1', 1, status='started')
-    _create_landing(2, 'D1', 2, status='finished')
-    _create_landing(3, 'D2', 3, status='started')
-    _create_landing(4, 'D1', 4, status='started')
-    _create_landing(5, 'D2', 5, status='finished')
+    _create_landing(1, 'D1', 1, status=LandingStatus.submitted)
+    _create_landing(2, 'D1', 2, status=LandingStatus.landed)
+    _create_landing(3, 'D2', 3, status=LandingStatus.submitted)
+    _create_landing(4, 'D1', 4, status=LandingStatus.submitted)
+    _create_landing(5, 'D2', 5, status=LandingStatus.landed)
 
     response = client.get('/landings')
     assert response.status_code == 200
@@ -292,18 +292,21 @@ def test_get_jobs(db, client):
     assert len(response.json) == 3
     assert response.json == CANNED_LANDING_LIST_1
 
-    response = client.get('/landings?status=finished')
+    response = client.get('/landings?status=landed')
     assert response.status_code == 200
     assert len(response.json) == 2
 
-    response = client.get('/landings?revision_id=D1&status=finished')
+    response = client.get('/landings?revision_id=D1&status=landed')
     assert response.status_code == 200
     assert len(response.json) == 1
 
+    # connexion prevents from using wrong statuses
+    response = client.get('/landings?revision_id=D1&status=nonexisting')
+    assert response.status_code == 400
+
 
 def test_update_landing(db, client):
-    _create_landing(1, 'D1', 1, status='started')
-
+    _create_landing(1, 'D1', 1, status=LandingStatus.submitted)
     response = client.post(
         '/landings/update',
         data=json.dumps({
@@ -316,13 +319,12 @@ def test_update_landing(db, client):
     )
 
     assert response.status_code == 200
-    response = client.get('/landings/1')
-    assert response.json['status'] == TRANSPLANT_JOB_LANDED
+    landing = Landing.query.get(1)
+    assert landing.status == LandingStatus.landed
 
 
 def test_update_landing_bad_request_id(db, client):
-    _create_landing(1, 'D1', 1, status='started')
-
+    _create_landing(1, 'D1', 1, status=LandingStatus.submitted)
     response = client.post(
         '/landings/update',
         data=json.dumps({

@@ -26,5 +26,5 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_column('landings', 'result')
-    op.drop_column('landings', 'error')
+    op.drop_column('landings', 'requester_email')
+    op.drop_column('landings', 'tree')

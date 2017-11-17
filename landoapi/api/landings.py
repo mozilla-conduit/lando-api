@@ -19,10 +19,9 @@ from landoapi.models.landing import (
     InactiveDiffException,
     Landing,
     LandingNotCreatedException,
+    LandingStatus,
     OverrideDiffException,
     RevisionNotFoundException,
-    TRANSPLANT_JOB_FAILED,
-    TRANSPLANT_JOB_LANDED,
 )
 from landoapi.models.patch import (
     DiffNotFoundException, DiffNotInRevisionException
@@ -168,10 +167,10 @@ def get_list(revision_id=None, status=None):
         kwargs['revision_id'] = revision_id
 
     if status:
-        kwargs['status'] = status
+        kwargs['status'] = LandingStatus(status)
 
     landings = Landing.query.filter_by(**kwargs).all()
-    return list(map(lambda l: l.serialize(), landings)), 200
+    return [l.serialize() for l in landings], 200
 
 
 # TODO: SECURITY - We need to require an access_token here and ensure that
@@ -256,10 +255,10 @@ def update(data):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
 
-    landing.error = data.get('error_msg', '')
-    landing.result = data.get('result', '')
-    landing.status = (
-        TRANSPLANT_JOB_LANDED if data['landed'] else TRANSPLANT_JOB_FAILED
+    landing.update_from_transplant(
+        data['landed'],
+        error=data.get('error_msg', ''),
+        result=data.get('result', '')
     )
     landing.save()
     return {}, 200

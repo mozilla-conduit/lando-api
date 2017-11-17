@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import datetime
+import enum
 import logging
 
 from flask import current_app
@@ -12,10 +13,17 @@ from landoapi.transplant_client import TransplantClient
 
 logger = logging.getLogger(__name__)
 
-TRANSPLANT_JOB_PENDING = 'pending'
-TRANSPLANT_JOB_STARTED = 'started'
-TRANSPLANT_JOB_LANDED = 'landed'
-TRANSPLANT_JOB_FAILED = 'failed'
+
+@enum.unique
+class LandingStatus(enum.Enum):
+    """Status of the landing request."""
+    # Default value - stays in database only if landing request was aborted.
+    aborted = 'aborted'
+
+    # Set from pingback
+    submitted = 'submitted'
+    landed = 'landed'
+    failed = 'failed'
 
 
 class Landing(db.Model):
@@ -51,9 +59,9 @@ class Landing(db.Model):
     revision_id = db.Column(db.String(30))
     diff_id = db.Column(db.Integer)
     active_diff_id = db.Column(db.Integer)
-    status = db.Column(db.String(30))
+    status = db.Column(db.Enum(LandingStatus), nullable=False)
     error = db.Column(db.String(128), default='')
-    result = db.Column(db.String(128))
+    result = db.Column(db.String(128), default='')
     requester_email = db.Column(db.String(128))
     tree = db.Column(db.String(128))
     created_at = db.Column(db.DateTime(), nullable=False)
@@ -67,7 +75,8 @@ class Landing(db.Model):
         active_diff_id=None,
         requester_email=None,
         tree=None,
-        status=TRANSPLANT_JOB_PENDING
+        # status will remain aborted only if landing request will fail
+        status=LandingStatus.aborted
     ):
         self.request_id = request_id
         self.revision_id = revision_id
@@ -87,8 +96,8 @@ class Landing(db.Model):
             * Patch is created and uploaded to S3 bucket.
             * Landing object is created (without request_id)
             * A request to land the patch is send to Transplant client.
-            * Created landing object is updated with returned `request_id`,
-              it is then saved and returned.
+            * Created landing object is updated with returned `request_id`
+              and status `submitted`. It is then saved and returned.
 
         Args:
             revision_id: The id of the revision to be landed
@@ -171,7 +180,7 @@ class Landing(db.Model):
             raise LandingNotCreatedException
 
         landing.request_id = request_id
-        landing.status = TRANSPLANT_JOB_STARTED
+        landing.status = LandingStatus.submitted
         landing.save()
 
         logger.info(
@@ -203,7 +212,7 @@ class Landing(db.Model):
             'request_id': self.request_id,
             'diff_id': self.diff_id,
             'active_diff_id': self.active_diff_id,
-            'status': self.status,
+            'status': self.status.value,
             'error_msg': self.error,
             'result': self.result,
             'requester_email': self.requester_email,
@@ -211,6 +220,14 @@ class Landing(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
+
+    def update_from_transplant(self, landed, error='', result=''):
+        """Set the status from pingback request."""
+        self.error = error
+        self.result = result
+        self.status = (
+            LandingStatus.landed if landed else LandingStatus.failed
+        )
 
 
 class LandingNotCreatedException(Exception):
