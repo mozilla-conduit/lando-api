@@ -13,7 +13,9 @@ from tests.canned_responses.phabricator.phid_queries import (
     CANNED_DIFF_PHID_QUERY_RESULT_1
 )
 from tests.canned_responses.phabricator.raw_diffs import CANNED_RAW_DIFF_1
-from tests.canned_responses.phabricator.repos import CANNED_REPO_MOZCENTRAL
+from tests.canned_responses.phabricator.repos import (
+    CANNED_REPO_MOZCENTRAL, CANNED_REPO_SEARCH_MOZCENTRAL
+)
 from tests.canned_responses.phabricator.revisions import (
     CANNED_EMPTY_REVIEWERS_ATT_RESPONSE, CANNED_REVISION_1
 )
@@ -303,8 +305,17 @@ class PhabResponseFactory:
 
     def repo(self):
         """Return a Phabricator Repo."""
+        # Prepare phid.query response
         repo = deepcopy(CANNED_REPO_MOZCENTRAL)
-        self.phid(repo)
+        phid = self.phid(repo)
+        # Prepare diffusion.repository.search response
+        repo_info = deepcopy(CANNED_REPO_SEARCH_MOZCENTRAL)
+        self.mock.get(
+            phab_url('diffusion.repository.search'),
+            status_code=200,
+            json=repo_info,
+            additional_matcher=form_matcher('constraints[phids][]', phid)
+        )
         return repo
 
     def phid(self, response_data):
@@ -317,6 +328,7 @@ class PhabResponseFactory:
             additional_matcher=form_matcher('phids[]', phid),
             json=response_data
         )
+        return phid
 
     def _install_404_responses(self):
         """Install catch-all 404 response handlers for API queries."""

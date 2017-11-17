@@ -9,18 +9,21 @@ import pytest
 import requests
 import requests_mock
 
-from landoapi.phabricator_client import PhabricatorClient, \
-    PhabricatorAPIException
+from landoapi.phabricator_client import (
+    PhabricatorClient, PhabricatorAPIException
+)
 
 from tests.utils import first_result_in_response, phab_url, phid_for_response
 from tests.canned_responses.phabricator.errors import (
     CANNED_EMPTY_RESULT, CANNED_ERROR_1
 )
+from tests.canned_responses.phabricator.repos import (
+    CANNED_REPO_MOZCENTRAL, CANNED_REPO_SEARCH_MOZCENTRAL
+)
 from tests.canned_responses.phabricator.revisions import (
     CANNED_EMPTY_REVIEWERS_ATT_RESPONSE, CANNED_REVISION_1,
     CANNED_EMPTY_REVISION_SEARCH, CANNED_TWO_REVIEWERS_SEARCH_RESPONSE
 )
-from tests.canned_responses.phabricator.repos import CANNED_REPO_MOZCENTRAL
 from tests.canned_responses.phabricator.users import (
     CANNED_USER_SEARCH_TWO_USERS, CANNED_USER_WHOAMI_1, CANNED_USER_SEARCH_1
 )
@@ -85,10 +88,37 @@ def test_get_author_for_revision(phabfactory):
     assert author == expected_user
 
 
+def test_get_repo_info_by_phid_no_repo():
+    phab = PhabricatorClient(api_key='api-key')
+    with requests_mock.mock() as m:
+        m.get(
+            phab_url('diffusion.repository.search'),
+            status_code=200,
+            json={
+                'result': {
+                    'data': []
+                },
+                'error_info': None,
+                'error_code': None
+            }
+        )
+        repo = phab.get_repo_info_by_phid('anything')
+
+    assert repo is None
+
+
+def test_get_repo_info_by_phid(phabfactory):
+    phabfactory.repo()
+    expected_repo = CANNED_REPO_SEARCH_MOZCENTRAL['result']['data'][0]
+    phab = PhabricatorClient(api_key='api-key')
+    repo = phab.get_repo_info_by_phid('PHID-REPO-mozillacentral')
+
+    assert repo == expected_repo
+
+
 def test_get_repo_for_revision(phabfactory):
-    repo_response = phabfactory.repo()
     phabfactory.revision(id='D5')
-    expected_repo = first_result_in_response(repo_response)
+    expected_repo = CANNED_REPO_SEARCH_MOZCENTRAL['result']['data'][0]
 
     phab = PhabricatorClient(api_key='api-key')
     revision = phab.get_revision(id='D5')

@@ -187,6 +187,20 @@ class PhabricatorClient:
         result = self._GET('/user.query', {'phids[]': [phid]})
         return result[0] if result else None
 
+    def get_repo_info_by_phid(self, phid):
+        """Get full information about a repo based on its phid.
+
+        Args:
+            phid: The phid of the repo to lookup.
+
+        Returns:
+            A dict containing the repo info, or None if the repo isn't found.
+        """
+        result = self._GET(
+            '/diffusion.repository.search', {'constraints[phids][]': [phid]}
+        )
+        return result['data'][0] if result['data'] else None
+
     def get_repo(self, phid):
         """Get basic information about a repo based on its phid.
 
@@ -219,7 +233,7 @@ class PhabricatorClient:
         Returns:
             A dictionary of Phabricator Repository data.
         """
-        return self.get_repo(revision['repositoryPHID'])
+        return self.get_repo_info_by_phid(revision['repositoryPHID'])
 
     def check_connection(self):
         """Test the Phabricator API connection with conduit.ping.

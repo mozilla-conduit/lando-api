@@ -94,9 +94,6 @@ def test_landing_revision_calls_transplant_service(
     hgpatch = build_patch_for_revision(gitdiff, author, revision)
     patch_url = 's3://landoapi.test.bucket/L1_D1_1.patch'
 
-    # The repo we expect to see
-    repo_uri = phabclient.get_revision_repo(revision)['uri']
-
     tsclient = MagicMock(spec=TransplantClient)
     tsclient().land.return_value = 1
     monkeypatch.setattr('landoapi.models.landing.TransplantClient', tsclient)
@@ -110,7 +107,7 @@ def test_landing_revision_calls_transplant_service(
         content_type='application/json'
     )
     tsclient().land.assert_called_once_with(
-        'ldap_username@example.com', [patch_url], repo_uri,
+        'ldap_username@example.com', [patch_url], 'mozilla-central',
         '{}/landings/update'.format(os.getenv('PINGBACK_HOST_URL'))
     )
     body = s3.Object('landoapi.test.bucket',

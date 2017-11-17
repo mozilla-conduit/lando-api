@@ -18,3 +18,44 @@ CANNED_REPO_MOZCENTRAL = {
     "error_code": None,
     "error_info": None
 }
+
+CANNED_REPO_SEARCH_MOZCENTRAL = {
+    "result": {
+        "data": [
+            {
+                "id": 1,
+                "type": "REPO",
+                "phid": "PHID-REPO-mozillacentral",
+                "fields": {
+                    "name": "mozilla-central",
+                    "vcs": "hg",
+                    "callsign": "MOZILLACENTRAL",
+                    "shortName": "mozilla-central",
+                    "status": "active",
+                    "isImporting": False,
+                    "spacePHID": None,
+                    "dateCreated": 1502986064,
+                    "dateModified": 1505659447,
+                    "policy": {
+                        "view": "public",
+                        "edit": "admin",
+                        "diffusion.push": "no-one"
+                    }
+                },
+                "attachments": {}
+            }
+        ],
+        "maps": {},
+        "query": {
+            "queryKey": None
+        },
+        "cursor": {
+            "limit": 100,
+            "after": None,
+            "before": None,
+            "order": None
+        }
+    },
+    "error_code": None,
+    "error_info": None
+}

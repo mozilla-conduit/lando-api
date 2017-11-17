@@ -47,6 +47,7 @@ class TransplantClient:
                     'service': 'transplant',
                     'username': ldap_username,
                     'pingback_url': pingback,
+                    'tree': tree,
                     'request_id': result.get('request_id'),
                     'msg': 'patch sent to transplant service',
                 }, 'transplant.success'
