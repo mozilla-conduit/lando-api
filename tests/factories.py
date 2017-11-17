@@ -59,13 +59,22 @@ class PhabResponseFactory:
         )
         return response
 
-    def revision(self, **kwargs):
+    def revision(
+        self,
+        id=None,
+        author_phid=None,
+        template=None,
+        depends_on=None,
+        active_diff=None,
+        diffs=None,
+        reviewers=None
+    ):
         """Create a Phabricator Revision along with stub API endpoints.
 
         Use the kwargs to customize the revision being created. If they are not
         provided, a default template will be used instead.
 
-        kwargs:
+        Args:
             id: String ID to give the generated revision. E.g. 'D2233'.
             author_phid: PHID of the author user to use, instead of making a
                 default user.
@@ -76,9 +85,11 @@ class PhabResponseFactory:
                 Revision's "active diff" (usually this Revision's most recently
                 uploaded patch). If you manually set an active diff, it must
                 have been made with this factory.
+            diffs: A list of diff ids (in string) related to the revision
+                (added to the one item list with active diff id)
             reviewers: List of dicts with reviewer info. A default reviewer
                 will be created if not provided. No reviewer is added
-                to the revision if equals to empty list. Keys:
+                to the revision if equals to an empty list. Keys:
                 - username: (required) username of the reviewer.
                 - id: ID of the reviewer, optional, but suggested if more than
                     one reviewer is created.
@@ -90,52 +101,47 @@ class PhabResponseFactory:
         Returns:
             The full JSON response dict for the generated Revision.
         """
-        if 'template' in kwargs:
-            result_json = deepcopy(kwargs['template'])
-        else:
-            result_json = deepcopy(CANNED_REVISION_1)
+        result_json = deepcopy(template or CANNED_REVISION_1)
         revision = first_result_in_response(result_json)
 
-        if 'id' in kwargs:
+        if id:
             # Convert 'D000' form to just '000'.
-            str_id = kwargs['id']
-            num_id = str_id[1:]
+            num_id = id[1:]
             revision['id'] = num_id
             revision['phid'] = "PHID-DREV-%s" % num_id
 
-        if 'author_phid' in kwargs:
-            revision['authorPHID'] = kwargs['author_phid']
+        if author_phid:
+            revision['authorPHID'] = author_phid
         else:
             self.user()
 
-        if 'depends_on' in kwargs:
-            parent_revision_response_data = kwargs['depends_on']
-            if parent_revision_response_data:
-                # This Revisions depends on another Revision.
-                new_value = [phid_for_response(parent_revision_response_data)]
-            else:
-                # The user passed in None or an empty list, saying "this
-                # revision has no parent revisions."
-                new_value = []
-            revision['auxiliary']['phabricator:depends-on'] = new_value
+        if depends_on:
+            # This Revisions depends on another Revision.
+            depends_on_revisions = [phid_for_response(depends_on)]
+        else:
+            # The user passed in None or an empty list, saying "this
+            # revision has no parent revisions."
+            depends_on_revisions = []
+        revision['auxiliary']['phabricator:depends-on'] = depends_on_revisions
 
-        default_reviewer = {
-            'username': 'review_bot',
-            'phid': 'PHID-USER-review_bot'
-        }
-        revision['reviewers'] = self._reviewers(
-            revision['id'], kwargs.get('reviewers', [default_reviewer])
-        )
+        if reviewers is None:
+            reviewers = [
+                {
+                    'username': 'review_bot',
+                    'phid': 'PHID-USER-review_bot'
+                }
+            ]
+        revision['reviewers'] = self._reviewers(revision['id'], reviewers)
 
         # Revisions have at least one Diff.
-        if 'active_diff' in kwargs:
-            diff = kwargs['active_diff']
-        else:
-            diff = self.diff()
+        diff = active_diff or self.diff()
 
-        revision['activeDiffPHID'] = 'PHID-DIFF-{}'.format(
-            first_result_in_response(diff)['id']
-        )
+        active_diff_id = first_result_in_response(diff)['id']
+        revision['activeDiffPHID'] = 'PHID-DIFF-{}'.format(active_diff_id)
+        revision['diffs'] = [active_diff_id]
+
+        if diffs:
+            revision['diffs'] += diffs
 
         # Revisions may have a Repo.
         repo = self.repo()
@@ -247,6 +253,7 @@ class PhabResponseFactory:
                 based on this.
             patch: The patch file to be used when generating the diff's
                 rawdiff. All diffs must have a corresponding rawdiff.
+            revision_id: ID of the revision to which the diff is assigned.
 
         Returns:
             The full JSON response dict for the generated Diff.
@@ -256,7 +263,11 @@ class PhabResponseFactory:
             diff_id = kwargs['id']
         else:
             diff_id = first_result_in_response(diff)['id']
-        diff = self._replace_key(diff, 'id', diff_id)
+
+        diff = self._replace_key(diff, 'id', str(diff_id))
+
+        if 'revision_id' in kwargs:
+            diff['result'][str(diff_id)]['revisionID'] = kwargs['revision_id']
 
         # Create the mock PHID endpoint.
         diff_phid = 'PHID-DIFF-{diff_id}'.format(diff_id=diff_id)

@@ -24,9 +24,27 @@ class Patch:
             revision: The revision as returned by PhabricatorClient
             diff_id: The id of the diff to be landed
         """
+        # check if the diff is related to the revision
+        self.validate_diff_assignment(diff_id, revision)
+
         self.landing_id = landing_id
         self.diff_id = diff_id
         self.revision = revision
+
+    @staticmethod
+    def validate_diff_assignment(diff_id, revision):
+        """Check if diff is assigned to the revision.
+
+        Args:
+            diff_id: The id of the diff to be landed
+            revision: The revision as returned by PhabricatorClient
+
+        Raises:
+            DiffNotInRevisionException: Request diff ID is not assigned to
+                the revision.
+        """
+        if str(diff_id) not in revision['diffs']:
+            raise DiffNotInRevisionException()
 
     def build(self, phab):
         """Build the patch contents using diff.
@@ -39,10 +57,9 @@ class Patch:
 
         Raises:
             DiffNotFoundException: PhabricatorClient returned no diff for
-                given diff_id
+                given diff_id.
         """
         diff = phab.get_rawdiff(self.diff_id)
-
         if not diff:
             raise DiffNotFoundException(self.diff_id)
 
@@ -85,6 +102,11 @@ class Patch:
                 'msg': 'Patch file uploaded'
             }, 'landing.patch_uploaded'
         )
+
+
+class DiffNotInRevisionException(Exception):
+    """The Diff exists, but it does not belong to the requested revision."""
+    pass
 
 
 class DiffNotFoundException(Exception):

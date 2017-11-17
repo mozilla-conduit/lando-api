@@ -24,7 +24,9 @@ from landoapi.models.landing import (
     TRANSPLANT_JOB_FAILED,
     TRANSPLANT_JOB_LANDED,
 )
-from landoapi.models.patch import DiffNotFoundException
+from landoapi.models.patch import (
+    DiffNotFoundException, DiffNotInRevisionException
+)
 
 logger = logging.getLogger(__name__)
 TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
@@ -137,6 +139,21 @@ def post(data):
             'The requested revision does exist, but landing failed.'
             'Please retry your request at a later time.',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502'
+        )
+    except DiffNotInRevisionException:
+        # Diff's revisionID field does not equal revision_id
+        logger.info(
+            {
+                'revision': revision_id,
+                'diff_id': diff_id,
+                'msg': 'Diff not it revision.',
+            }, 'landing.error'
+        )
+        return problem(
+            400,
+            'Diff not related to the revision',
+            'The requested diff is not related to the requested revision.',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
         )
 
     return {'id': landing.id}, 202

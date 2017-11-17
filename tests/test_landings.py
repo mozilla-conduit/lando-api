@@ -117,6 +117,26 @@ def test_landing_revision_calls_transplant_service(
     assert body == hgpatch
 
 
+def test_land_diff_not_in_revision(db, client, phabfactory, s3, auth0_mock):
+    diff_id = 111
+    phabfactory.revision()
+    phabfactory.diff(id=diff_id, revision_id='D123')
+    response = client.post(
+        '/landings',
+        data=json.dumps(
+            {
+                'revision_id': 'D1',
+                'diff_id': diff_id,
+                'force_override_of_diff_id': 1
+            }
+        ),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json'
+    )
+    assert response.json['title'] == 'Diff not related to the revision'
+    assert response.status_code == 400
+
+
 @freeze_time('2017-11-02T00:00:00')
 def test_get_transplant_status(db, client):
     _create_landing(1, 'D1', 1, status='started')
@@ -233,7 +253,7 @@ def test_override_active_diff(
 ):
     phabfactory.diff(id=1)
     d2 = phabfactory.diff(id=2)
-    phabfactory.revision(active_diff=d2)
+    phabfactory.revision(active_diff=d2, diffs=['1'])
     transfactory.create_autoland_response()
     response = client.post(
         '/landings',
