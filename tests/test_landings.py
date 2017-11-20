@@ -7,12 +7,12 @@ import os
 from freezegun import freeze_time
 from unittest.mock import MagicMock
 
-from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.models.landing import Landing, LandingStatus
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 
 from tests.canned_responses.auth0 import CANNED_USERINFO
+from tests.canned_responses.lando_api.patches import LANDING_PATCH
 from tests.canned_responses.lando_api.revisions import (
     CANNED_LANDO_DIFF_NOT_FOUND,
     CANNED_LANDO_REVISION_NOT_FOUND,
@@ -89,9 +89,6 @@ def test_landing_revision_calls_transplant_service(
     phabclient = PhabricatorClient('someapi')
     revision = phabclient.get_revision(1)
     diff_id = phabclient.get_diff(phid=revision['activeDiffPHID'])['id']
-    gitdiff = phabclient.get_rawdiff(diff_id)
-    author = phabclient.get_revision_author(revision)
-    hgpatch = build_patch_for_revision(gitdiff, author, revision)
     patch_url = 's3://landoapi.test.bucket/L1_D1_1.patch'
 
     tsclient = MagicMock(spec=TransplantClient)
@@ -114,7 +111,7 @@ def test_landing_revision_calls_transplant_service(
     )
     body = s3.Object('landoapi.test.bucket',
                      'L1_D1_1.patch').get()['Body'].read().decode("utf-8")
-    assert body == hgpatch
+    assert body == LANDING_PATCH
 
 
 def test_land_wrong_revision_id_format(db, client, phabfactory, auth0_mock):

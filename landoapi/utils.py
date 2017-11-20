@@ -7,7 +7,7 @@ utils.py - Contains methods used across the project.
 import re
 
 
-def format_commit_message(title, bug, reviewers):
+def format_commit_message_title(title, bug, reviewers):
     """
     Creates a default format commit message using title, bug, and reviewers.
 

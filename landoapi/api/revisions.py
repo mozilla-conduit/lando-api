@@ -9,7 +9,7 @@ from connexion import problem
 from flask import g
 
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.utils import format_commit_message
+from landoapi.utils import format_commit_message_title
 from landoapi.validation import revision_id_to_int
 
 
@@ -65,12 +65,12 @@ def _format_revision(
             revisions so as to prevent excess requests for what is often the
             same repo on each parent revision.
     Returns:
-        A hash of the formatted revision information.
+        A dict of the formatted revision information.
     """
-    bug_id = _extract_bug_id(revision)
+    bug_id = phab.extract_bug_id(revision)
     revision_id = int(revision['id'])
     reviewers = _build_reviewers(phab, revision_id)
-    commit_message = format_commit_message(
+    commit_message = format_commit_message_title(
         revision['title'], bug_id,
         [r['username'] for r in reviewers if r['username']]
     )
@@ -189,20 +189,19 @@ def _build_reviewers(phab, revision_id):
         revision_id: The id of the revision in Phabricator.
 
     Returns:
-        List of the reviewers data sorted by the phid
+        List of the reviewers data for the revision
     """
-    reviewers_data = phab.get_reviewers(revision_id)
-    reviewers = [
+    reviewers_list = phab.get_reviewers(revision_id)
+    return [
         {
-            'phid': phid,
+            'phid': r['reviewerPHID'],
             # fields key is empty if user info not found for reviewer
             'username': r['fields']['username'] if r.get('fields') else '',
             'status': r['status'],
             'real_name': r['fields']['realName'] if r.get('fields') else '',
             'is_blocking': r['isBlocking']
-        } for phid, r in reviewers_data.items()
+        } for r in reviewers_list
     ]
-    return sorted(reviewers, key=lambda r: r['phid'])
 
 
 def _build_repo(phab, revision, last_repo):
@@ -228,12 +227,3 @@ def _build_repo(phab, revision, last_repo):
         }
 
     return None
-
-
-def _extract_bug_id(revision):
-    """Helper method to extract the bug id from a Phabricator revision."""
-    bug_id = revision['auxiliary'].get('bugzilla.bug-id', None)
-    try:
-        return int(bug_id)
-    except (TypeError, ValueError):
-        return None

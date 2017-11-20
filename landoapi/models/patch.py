@@ -8,6 +8,7 @@ import tempfile
 from flask import current_app
 
 from landoapi.hgexportbuilder import build_patch_for_revision
+from landoapi.utils import format_commit_message_title
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +64,19 @@ class Patch:
         if not diff:
             raise DiffNotFoundException(self.diff_id)
 
-        author = phab.get_revision_author(self.revision)
-        return build_patch_for_revision(diff, author, self.revision)
+        # FIXME: This needs to use the correct email.
+        # FIXME: in order: secondary phab user email, primary phab user email
+        # Author has to be the LDAP username of the patch author.
+        author = phab.get_revision_author(self.revision)['userName']
+
+        # Assume Phabricator is returning valid date responses as "seconds
+        # since the Unix Epoch", but cast it to int() just to be sure.  Also
+        # assume the Phabricator server is returning that number relative
+        # to UTC.
+        date_modified = int(self.revision['dateModified'])
+        return build_patch_for_revision(
+            diff, author, self.format_commit_message(phab), date_modified
+        )
 
     def upload(self, phab):
         """Upload the patch to S3 Bucket.
@@ -101,6 +113,30 @@ class Patch:
                 'patch_url': self.s3_url,
                 'msg': 'Patch file uploaded'
             }, 'landing.patch_uploaded'
+        )
+
+    def format_commit_message(self, phab):
+        """Get formatted commit message.
+
+        Retrieves reviewers information from PhabricatorClient. Then uses that
+        data with revision's title and extracted bug number to format the
+        commit message title.
+
+        Args:
+            phab: The PhabricatorClient instance to use
+
+        Returns:
+            String with title, bug information, reviewers and the summary
+            of the patch
+        """
+        reviewers = phab.get_reviewers(self.revision['id'])
+        title = format_commit_message_title(
+            self.revision['title'],
+            phab.extract_bug_id(self.revision),
+            [r['fields']['username'] for r in reviewers if r.get('fields')]
+        )
+        return "{title}\n\n{summary}".format(
+            title=title, summary=self.revision['summary']
         )
 
 

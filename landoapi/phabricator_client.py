@@ -115,7 +115,7 @@ class PhabricatorClient:
             revision_id: integer, ID of the revision in Phabricator
 
         Returns:
-            A dict indexed by phid of combined reviewers and users info.
+            A list sorted by phid of combined reviewers and users info.
         """
         # Get basic information about the reviewers
         # reviewerPHID, actorPHID, status, and isBlocking is provided
@@ -162,7 +162,10 @@ class PhabricatorClient:
                 reviewers_dict[phid] = reviewers_dict.get(phid, {})
                 reviewers_dict[phid].update(reviewer)
 
-        return reviewers_dict
+        # Translate the dict to a list sorted by the key (PHID)
+        return [
+            r[1] for r in sorted(reviewers_dict.items(), key=lambda x: x[0])
+        ]
 
     def get_current_user(self):
         """Gets the information of the user making this request.
@@ -260,6 +263,22 @@ class PhabricatorClient:
         except PhabricatorAPIException:
             return False
         return True
+
+    @staticmethod
+    def extract_bug_id(revision):
+        """Helper method to extract the bug id from a Phabricator revision.
+
+        Args:
+            revision: dict containing revision info.
+
+        Returns:
+            (int) Bugzilla bug id or None
+        """
+        bug_id = revision['auxiliary'].get('bugzilla.bug-id', None)
+        try:
+            return int(bug_id)
+        except (TypeError, ValueError):
+            return None
 
     def _extract_diff_id_from_uri(self, uri):
         """Extract a diff ID from a Diff uri."""

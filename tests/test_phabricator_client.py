@@ -252,9 +252,9 @@ def test_get_reviewers_two_reviewers():
         )
         result = phab.get_reviewers(1)
 
-    assert len(result.keys()) == 2
-    assert result['PHID-USER-2']['fields']['username'] == 'foo'
-    assert result['PHID-USER-3']['fields']['username'] == 'bar'
+    assert len(result) == 2
+    assert result[0]['fields']['username'] == 'foo'
+    assert result[1]['fields']['username'] == 'bar'
 
 
 def test_get_reviewers_reviewers_and_users_dont_match():
@@ -274,10 +274,10 @@ def test_get_reviewers_reviewers_and_users_dont_match():
         )
         result = phab.get_reviewers(1)
 
-    assert len(result.keys()) == 2
-    assert result['PHID-USER-2']['fields']['username'] == 'johndoe'
-    assert result['PHID-USER-2']['phid'] == 'PHID-USER-2'
-    assert result['PHID-USER-2']['reviewerPHID'] == 'PHID-USER-2'
-    assert 'fields' not in result['PHID-USER-3']
-    assert 'phid' not in result['PHID-USER-3']
-    assert result['PHID-USER-3']['reviewerPHID'] == 'PHID-USER-3'
+    assert len(result) == 2
+    assert result[0]['fields']['username'] == 'johndoe'
+    assert result[0]['phid'] == 'PHID-USER-2'
+    assert result[0]['reviewerPHID'] == 'PHID-USER-2'
+    assert 'fields' not in result[1]
+    assert 'phid' not in result[1]
+    assert result[1]['reviewerPHID'] == 'PHID-USER-3'
