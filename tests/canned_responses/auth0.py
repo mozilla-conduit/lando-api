@@ -8,6 +8,8 @@ import copy
 # flake8: noqa
 CANNED_USERINFO_STANDARD = {
     'sub': 'ad|Example-LDAP|testuser',
+    'email': 'tuser@example.com',
+    'email_verified': True,
     'name': 'Test User',
     'given_name': 'Test',
     'family_name': 'User',
@@ -49,4 +51,12 @@ CANNED_USERINFO['SINGLE_GROUP'].update({
 CANNED_USERINFO['STRING_GROUP'] = copy.deepcopy(CANNED_USERINFO_STANDARD)
 CANNED_USERINFO['STRING_GROUP'].update({
     'https://sso.mozilla.com/claim/groups': 'all_scm_level_1',
+})
+
+CANNED_USERINFO['NO_EMAIL'] = copy.deepcopy(CANNED_USERINFO_STANDARD)
+CANNED_USERINFO['NO_EMAIL'].pop('email')
+
+CANNED_USERINFO['UNVERIFIED_EMAIL'] = copy.deepcopy(CANNED_USERINFO_STANDARD)
+CANNED_USERINFO['UNVERIFIED_EMAIL'].update({
+    'email_verified': False,
 })

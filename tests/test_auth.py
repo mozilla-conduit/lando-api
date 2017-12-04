@@ -229,3 +229,16 @@ def test_user_is_in_groups(userinfo, groups, result):
     token = create_access_token()
     user = A0User(token, userinfo)
     assert user.is_in_groups(*groups) == result
+
+
+@pytest.mark.parametrize(
+    'userinfo,expected_email', [
+        (CANNED_USERINFO['STANDARD'], 'tuser@example.com'),
+        (CANNED_USERINFO['NO_EMAIL'], None),
+        (CANNED_USERINFO['UNVERIFIED_EMAIL'], None),
+    ]
+)
+def test_user_email(userinfo, expected_email):
+    token = create_access_token()
+    user = A0User(token, userinfo)
+    assert user.email == expected_email

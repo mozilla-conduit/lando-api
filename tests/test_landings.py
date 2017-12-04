@@ -105,7 +105,7 @@ def test_landing_revision_calls_transplant_service(
     )
     tsclient().land.assert_called_once_with(
         revision_id=1,
-        ldap_username='land_requester_ldap_email@example.com',
+        ldap_username='tuser@example.com',
         patch_urls=[patch_url],
         tree='mozilla-central',
         pingback='{}/landings/update'.format(os.getenv('PINGBACK_HOST_URL'))
@@ -425,7 +425,7 @@ def _create_landing(
     revision_id=1,
     diff_id=1,
     active_diff_id=None,
-    requester_email='land_requester_ldap_email@example.com',
+    requester_email='tuser@example.com',
     tree='mozilla-central',
     status='started'
 ):

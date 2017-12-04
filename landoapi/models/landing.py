@@ -88,7 +88,14 @@ class Landing(db.Model):
         self.created_at = datetime.datetime.utcnow()
 
     @classmethod
-    def create(cls, revision_id, diff_id, phab, override_diff_id=None):
+    def create(
+        cls,
+        revision_id,
+        diff_id,
+        requester_email,
+        phab,
+        override_diff_id=None
+    ):
         """Land revision.
 
         A typical successful story:
@@ -102,6 +109,8 @@ class Landing(db.Model):
         Args:
             revision_id: The integer id of the revision to be landed
             diff_id: The id of the diff to be landed
+            requester_email: The LDAP email address of the person requesting
+                the landing
             phab: The PhabricatorClient instance to use
             override_diff_id: override this diff id (should be equal to the
                 active diff id)
@@ -153,13 +162,11 @@ class Landing(db.Model):
         repo = phab.get_revision_repo(revision)
         # TODO: handle non-existent repo
         tree = repo['fields']['shortName']
-        # TODO: change land_requester_ldap_email@example.com to the real
-        # email from the Auth0 userinfo.
         landing = cls(
             diff_id=diff_id,
             active_diff_id=active_id,
             revision_id=revision_id,
-            requester_email='land_requester_ldap_email@example.com',
+            requester_email=requester_email,
             tree=tree
         )
         landing.save()

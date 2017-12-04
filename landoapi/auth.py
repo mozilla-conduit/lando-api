@@ -271,6 +271,13 @@ class A0User:
 
     It is assumed that the access_token provided to __init__ has
     already been verified properly.
+
+    Clients requesting landing must require that the Mozilla LDAP login
+    method is used to take advantage of the high security of the LDAP login.
+
+    # TODO: Verify that the access token was generated via LDAP login.
+    # TODO: Verify that the access token has the 'openid', 'profile',
+    # 'email', and 'lando' scopes set.
     """
     _GROUPS_CLAIM_KEY = 'https://sso.mozilla.com/claim/groups'
 
@@ -283,6 +290,7 @@ class A0User:
         # easier to react to changes.
         self._userinfo = userinfo
         self._groups = None
+        self._email = None
 
     @property
     def groups(self):
@@ -292,6 +300,20 @@ class A0User:
             self._groups = set(groups)
 
         return self._groups
+
+    @property
+    def email(self):
+        """The Mozilla LDAP email address of the Auth0 user.
+
+        Returns a Mozilla LDAP address or None if the userinfo has no email set
+        or if the email is not verified.
+        """
+        if self._email is None:
+            email = self._userinfo.get('email')
+            if email and self._userinfo.get('email_verified'):
+                self._email = email
+
+        return self._email
 
     def is_in_groups(self, *args):
         """Return True if the user is in all provided groups."""

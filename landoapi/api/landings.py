@@ -36,6 +36,14 @@ TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
 @require_phabricator_api_key(optional=True)
 def post(data):
     """API endpoint at POST /landings to land revision."""
+    if not g.auth0_user.email:
+        return problem(
+            403,
+            'Not Authorized',
+            'You do not have a Mozilla verified email address.',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'
+        )
+
     if not g.auth0_user.can_land_changes():
         return problem(
             403,
@@ -60,6 +68,7 @@ def post(data):
         landing = Landing.create(
             revision_id,
             diff_id,
+            g.auth0_user.email,
             g.phabricator,
             override_diff_id=override_diff_id
         )
