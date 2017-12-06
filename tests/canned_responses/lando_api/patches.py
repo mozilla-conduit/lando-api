@@ -10,6 +10,8 @@ Bug 1 - My test diff 1 r=review_bot
 
 Summary 1
 
+Differential Revision: http://phabricator.test/D1
+
 diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
 +++ b/hello.c   Mon May 05 01:20:46 2008 +0200

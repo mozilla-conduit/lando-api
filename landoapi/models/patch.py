@@ -14,6 +14,12 @@ logger = logging.getLogger(__name__)
 
 PATCH_URL_FORMAT = 's3://{bucket}/{patch_name}'
 PATCH_NAME_FORMAT = 'L{landing_id}_D{revision_id}_{diff_id}.patch'
+COMMIT_MSG_TEMPLATE = """
+{title}
+
+{summary}
+
+Differential Revision: {url}""".lstrip()
 
 
 class Patch:
@@ -135,8 +141,10 @@ class Patch:
             phab.extract_bug_id(self.revision),
             [r['fields']['username'] for r in reviewers if r.get('fields')]
         )
-        return "{title}\n\n{summary}".format(
-            title=title, summary=self.revision['summary']
+        return COMMIT_MSG_TEMPLATE.format(
+            title=title,
+            summary=self.revision['summary'],
+            url=self.revision['uri']
         )
 
 

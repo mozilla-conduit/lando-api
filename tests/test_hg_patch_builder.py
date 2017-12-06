@@ -16,25 +16,28 @@ GIT_DIFF_FROM_REVISION = """diff --git a/hello.c b/hello.c
  }
 """
 
-COMMIT_MESSAGE = """Express great joy at existence of Mercurial
+COMMIT_MESSAGE = """
+Express great joy at existence of Mercurial
 
-Using console to print out the messages."""
+Using console to print out the messages.""".lstrip()
 
 HG_PATCH = """# HG changeset patch
 # User user_name
 # Date 1496239141 +0000
-{}
+Express great joy at existence of Mercurial
+
+Using console to print out the messages.
 
 diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
 +++ b/hello.c   Mon May 05 01:20:46 2008 +0200
 @@ -12,5 +12,6 @@
  int main(int argc, char **argv)
- {{
+ {
         printf("hello, world!\n");
 +       printf("sure am glad I'm using Mercurial!\n");
         return 0;
- }}
+ }
 """
 
 
@@ -44,4 +47,4 @@ def test_build_patch():
         GIT_DIFF_FROM_REVISION, author, COMMIT_MESSAGE, '1496239141'
     )
 
-    assert patch == HG_PATCH.format(COMMIT_MESSAGE)
+    assert patch == HG_PATCH
