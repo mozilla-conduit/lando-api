@@ -49,9 +49,23 @@ class TransplantClient:
                 # request.
                 'rev': 'D{}'.format(revision_id),
                 'patch_urls': patch_urls,
-                'destination': 'destination',
-                'push_bookmark': 'push_bookmark',
-                'commit_descriptions': 'commit_descriptions',
+                # TODO: The main purpose of destination is to
+                # support landing on try as well as the main
+                # repository. Until we add try support we can
+                # get away with just sending 'upstream' for
+                # all requests. This is actually different
+                # than mozreview which sends things like
+                # 'gecko' or 'version-control-tools' here
+                # but it should work since the 'upstream'
+                # path is present in all of transplants
+                # repositories ('upstream' is hardcoded as
+                # the path that is pulled from).
+                'destination': 'upstream',
+                # TODO: We'll need to start sending 'push_bookmark'
+                # for the repoositories that require it (such as
+                # version-control-tools). It's fine to ignore for
+                # now though as mozilla-central landings do not
+                # use it.
                 'pingback_url': pingback
             }
         )
