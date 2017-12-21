@@ -17,9 +17,8 @@ from landoapi.auth import (
     require_access_token,
     require_auth0_userinfo,
 )
-
-from tests.auth import create_access_token, TEST_KEY_PRIV
-from tests.canned_responses.auth0 import CANNED_USERINFO
+from landoapi.mocks.auth import create_access_token, TEST_KEY_PRIV
+from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 
 
 def noop(*args, **kwargs):

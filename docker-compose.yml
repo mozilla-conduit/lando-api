@@ -30,6 +30,28 @@ services:
       # Leave AWS credentials unconfigured in production
       - AWS_ACCESS_KEY=
       - AWS_SECRET_KEY=
+      # ------------------------------------------------------------------------
+      # Local Development Flags, edit in docker-compose.override.yml
+      # https://docs.docker.com/compose/extends/#example-use-case
+      # ------------------------------------------------------------------------
+      # LOCALDEV_MOCK_AUTH0_USER: Set to 'default' to use a default user with
+      # valid landing permissions in when an auth0 user is required in local
+      # dev. You must still pass a Bearer token header, it can be invalid.
+      # Set to 'inject_valid' to load users from the provided token and inject
+      # LDAP claims for valid landing permission. Set to 'inject_invalid' to
+      # inject invalid permissions.
+      - LOCALDEV_MOCK_AUTH0_USER=
+      # LOCALDEV_MOCK_TRANSPLANT_SUBMIT: Set to 'succeed' to mock the request to
+      # the transplant service which enqueues a landing. This mock will always*
+      # successfully enqueue the landing request and return the request id
+      # immediately. This does NOT mock notifying lando-api when the landing
+      # status changes asynchronously. The status of the landing will remain
+      # as submitted only. You may manually use the Swagger UI to update it.
+      # Set to 'fail' to mock immediate request failure.
+      # * A random number is chosen between 0 and 10,000,000, will crash if
+      # you get the same number twice due to db uniqueness constraint.
+      - LOCALDEV_MOCK_TRANSPLANT_SUBMIT=
+
     volumes:
       - ./:/app
       - ./migrations/:/migrations/

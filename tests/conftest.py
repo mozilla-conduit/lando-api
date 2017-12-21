@@ -12,14 +12,16 @@ import requests_mock
 from moto import mock_s3
 
 from landoapi.app import create_app
+from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.storage import db as _db
-from tests.auth import MockAuth0, TEST_JWKS
+
 from tests.factories import PhabResponseFactory, TransResponseFactory
 
 
 @pytest.fixture
 def docker_env_vars(monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
+    monkeypatch.setenv('ENV', 'test')
     monkeypatch.setenv('PHABRICATOR_URL', 'http://phabricator.test')
     monkeypatch.setenv('TRANSPLANT_URL', 'http://autoland.test')
     monkeypatch.setenv(

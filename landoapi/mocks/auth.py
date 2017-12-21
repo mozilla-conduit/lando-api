@@ -6,7 +6,7 @@ import time
 
 from jose import jwt
 
-from tests.canned_responses.auth0 import CANNED_USERINFO_STANDARD
+from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO_STANDARD
 
 TEST_KEY_PUB = {
     'kid': 'testkey',
@@ -36,16 +36,9 @@ TEST_JWKS = {
 }
 
 
-def create_access_token(
-    iss=None, aud=None, sub=None, scope=None, iat=None, exp=None, key=None
+def create_access_token_payload(
+    iss=None, aud=None, sub=None, scope=None, iat=None, exp=None
 ):
-    """Return a signed jwt access_token for testing."""
-    headers = {}
-
-    key = key or TEST_KEY_PRIV
-    if 'kid' in key:
-        headers['kid'] = key['kid']
-
     iss = iss or 'https://{oidc_domain}/'.format(
         oidc_domain='lando-api.auth0.test'
     )
@@ -53,15 +46,39 @@ def create_access_token(
         'lando-api',
         'https://lando-api.auth0.test/userinfo',
     ]
+
+    return {
+        'iss': iss,
+        'aud': aud,
+        'sub': sub or 'user@example.com',
+        'scope': scope or 'all',
+        'iat': iat or int(time.time()),
+        'exp': exp or int(time.time()) + 30,
+    }
+
+
+def create_access_token(
+    iss=None,
+    aud=None,
+    sub=None,
+    scope=None,
+    iat=None,
+    exp=None,
+    key=None,
+    payload=None
+):
+    """Return a signed jwt access_token for testing."""
+    headers = {}
+    payload = payload or create_access_token_payload(
+        iss=iss, aud=aud, sub=sub, scope=scope, iat=iat, exp=exp
+    )
+    key = key or TEST_KEY_PRIV
+
+    if 'kid' in key:
+        headers['kid'] = key['kid']
+
     return jwt.encode(
-        {
-            'iss': iss,
-            'aud': aud,
-            'sub': sub or 'user@example.com',
-            'scope': scope or 'all',
-            'iat': iat or int(time.time()),
-            'exp': exp or int(time.time()) + 30,
-        },
+        payload,
         key,
         headers=headers,
         algorithm='RS256',
@@ -72,11 +89,21 @@ class MockAuth0:
     def __init__(self):
         self.userinfo = CANNED_USERINFO_STANDARD
         self._access_token = None
+        self._access_token_payload = None
+
+    @property
+    def access_token_payload(self):
+        if self._access_token_payload is None:
+            self._access_token_payload = create_access_token_payload()
+
+        return self._access_token_payload
 
     @property
     def access_token(self):
         if self._access_token is None:
-            self._access_token = create_access_token()
+            self._access_token = create_access_token(
+                payload=self.access_token_payload
+            )
 
         return self._access_token
 

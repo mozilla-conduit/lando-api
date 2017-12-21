@@ -7,11 +7,11 @@ import os
 from freezegun import freeze_time
 from unittest.mock import MagicMock
 
+from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 
-from tests.canned_responses.auth0 import CANNED_USERINFO
 from tests.canned_responses.lando_api.patches import LANDING_PATCH
 from tests.canned_responses.lando_api.revisions import (
     CANNED_LANDO_DIFF_NOT_FOUND,

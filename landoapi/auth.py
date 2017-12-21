@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import functools
 import logging
+import os
 
 import requests
 from connexion import (
@@ -12,9 +13,12 @@ from connexion import (
 from flask import current_app, g
 from jose import jwt
 
+from landoapi.mocks.auth import MockAuth0
+
 logger = logging.getLogger(__name__)
 
 ALGORITHMS = ["RS256"]
+mock_auth0 = MockAuth0()
 
 
 def get_auth_token():
@@ -97,6 +101,13 @@ def require_access_token(f):
 
     @functools.wraps(f)
     def wrapped(*args, **kwargs):
+        # See docker-compose.yml for details on auth0 mock options.
+        a0_mock_option = os.getenv('LOCALDEV_MOCK_AUTH0_USER')
+        if os.getenv('ENV') == 'localdev' and a0_mock_option == 'default':
+            g.access_token = mock_auth0.access_token
+            g.access_token_payload = mock_auth0.access_token_payload
+            return f(*args, **kwargs)
+
         token = get_auth_token()
         jwks = get_jwks(current_app.config['OIDC_JWKS_URL'])
 
@@ -191,6 +202,11 @@ def require_auth0_userinfo(f):
         This wrapped function assumes it is wrapped by
         `require_access_token`.
         """
+        # See docker-compose.yml for details on auth0 mock options.
+        a0_mock_option = os.getenv('LOCALDEV_MOCK_AUTH0_USER')
+        if os.getenv('ENV') == 'localdev' and a0_mock_option == 'default':
+            g.auth0_user = A0User(g.access_token, mock_auth0.userinfo)
+            return f(*args, **kwargs)
 
         try:
             resp = get_auth0_userinfo(g.access_token)
@@ -260,6 +276,9 @@ def require_auth0_userinfo(f):
                 type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
             )  # yapf: disable
 
+        if os.getenv('ENV') == 'localdev':
+            _mock_parsed_userinfo_claims(parsed_userinfo)
+
         g.auth0_user = A0User(g.access_token, parsed_userinfo)
         return f(*args, **kwargs)
 
@@ -322,3 +341,22 @@ class A0User:
     def can_land_changes(self):
         """Return True if the user has permissions to land."""
         return self.is_in_groups('active_scm_level_3')
+
+
+def _mock_parsed_userinfo_claims(userinfo):
+    """ Partially mocks Auth0 userinfo by only injecting ldap claims
+
+    Modifies the userinfo in place with either valid or invalid ldap claims
+    for landing based on the configured option in docker-compose.yml.
+    If not configured for claim injection, no changes are made to the userinfo.
+    """
+    a0_mock_option = os.getenv('LOCALDEV_MOCK_AUTH0_USER')
+    if a0_mock_option == 'inject_valid':
+        userinfo['https://sso.mozilla.com/claim/groups'] = [
+            'active_scm_level_3',
+            'all_scm_level_3',
+        ]
+    elif a0_mock_option == 'inject_invalid':
+        userinfo['https://sso.mozilla.com/claim/groups'] = [
+            'invalid_group',
+        ]

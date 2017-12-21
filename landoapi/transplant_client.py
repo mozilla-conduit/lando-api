@@ -5,6 +5,8 @@ import logging
 import os
 import requests
 
+from random import randint
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,6 +30,13 @@ class TransplantClient:
         Returns:
             Integer request_id received from Transplant API.
         """
+        transplant_mock_option = os.getenv('LOCALDEV_MOCK_TRANSPLANT_SUBMIT')
+        if os.getenv('ENV') == 'localdev':
+            if transplant_mock_option == 'succeed':
+                return randint(0, 10000000)
+            elif transplant_mock_option == 'fail':
+                return None
+
         # TODO: Although transplant accepts multiple patch urls to land
         # our use of a single revision in 'rev' would open up a number
         # of broken edge cases. Make sure we're not landing more than
