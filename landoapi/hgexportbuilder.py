@@ -5,12 +5,14 @@
 Module for constructing Mercurial patches in 'hg export' format.
 """
 
-HG_EXPORT_PATCH_TEMPLATE = """# HG changeset patch
+HG_EXPORT_PATCH_TEMPLATE = """
+# HG changeset patch
 # User {author}
 # Date {patchdate}
 {commit_message}
 
-{diff}"""
+{diff}
+""".strip()
 
 
 def build_patch_for_revision(diff, author, commit_message, date_modified):

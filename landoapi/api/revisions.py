@@ -8,8 +8,8 @@ See the OpenAPI Specification for this API in the spec/swagger.yml file.
 from connexion import problem
 from flask import g
 
+from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.utils import format_commit_message_title
 from landoapi.validation import revision_id_to_int
 
 
@@ -70,9 +70,12 @@ def _format_revision(
     bug_id = phab.extract_bug_id(revision)
     revision_id = int(revision['id'])
     reviewers = _build_reviewers(phab, revision_id)
-    commit_message = format_commit_message_title(
-        revision['title'], bug_id,
-        [r['username'] for r in reviewers if r['username']]
+    commit_message_title, commit_message = format_commit_message(
+        revision['title'],
+        bug_id,
+        [r['username'] for r in reviewers if r.get('username')],
+        revision['summary'],
+        revision['uri'],
     )
     diff = _build_diff(phab, revision) if include_diff else None
     author = _build_author(phab, revision, last_author)
@@ -110,7 +113,8 @@ def _format_revision(
         'status_name': revision['statusName'],
         'summary': revision['summary'],
         'test_plan': revision['testPlan'],
-        'commit_message_preview': commit_message,
+        'commit_message_title': commit_message_title,
+        'commit_message': commit_message,
         'diff': diff,
         'author': author,
         'repo': repo,

@@ -1,42 +1,56 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-"""
-utils.py - Contains methods used across the project.
-"""
+"""Add revision data to commit message."""
 import re
 
+COMMIT_MSG_TEMPLATE = """
+{title}
 
-def format_commit_message_title(title, bug, reviewers):
+{summary}
+
+Differential Revision: {url}
+""".strip()
+
+
+def format_commit_message(title, bug, reviewers, summary, revision_url):
     """
-    Creates a default format commit message using title, bug, and reviewers.
+    Creates a default format commit message using revision metadata.
 
     The default format is as follows:
         <Bug #> - <Message Title> r=<reviewer1>,r=<reviewer2>
 
+        <Summary>
+
+        Differential Revision: <Revision URL>
+
     Args:
         title: The first line of the original commit message.
         bug: The bug number to use or None.
-        reviewers: A list of reviewer usernames or None.
+        reviewers: A list of reviewer usernames.
+        summary: A string containing the revision's summary
+        revision_url: The revision's url in Phabricator
 
     Returns:
-        A string with the formatted commit message.
+        A tuple of strings with the formatted title and full commit message.
         If the title already contains the bug id or reviewers, only the missing
-        part will be added, or the title will be returned unmodified if it is
+        part will be added, or the title will be used unmodified if it is
         already valid.
     """
-    commit_message = title
+    first_line = title
 
     if bug and get_commit_message_errors(title, check_reviewers=False):
         # The commit message is missing the bug number.
-        commit_message = "Bug {} - {}".format(bug, commit_message)
+        first_line = "Bug {} - {}".format(bug, first_line)
 
     if reviewers and get_commit_message_errors(title, check_bug=False):
         # The commit message is missing the reviewer list.
-        reviewers_str = ",".join(map(lambda r: "r={}".format(r), reviewers))
-        commit_message = "{} {}".format(commit_message, reviewers_str)
+        reviewers_str = ",".join(["r={}".format(r) for r in reviewers])
+        first_line = "{} {}".format(first_line, reviewers_str)
 
-    return commit_message
+    return first_line, COMMIT_MSG_TEMPLATE.format(
+        title=first_line, summary=summary, url=revision_url
+    )
 
 
 def get_commit_message_errors(

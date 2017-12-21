@@ -7,19 +7,13 @@ import tempfile
 
 from flask import current_app
 
+from landoapi.commit_message import format_commit_message
 from landoapi.hgexportbuilder import build_patch_for_revision
-from landoapi.utils import format_commit_message_title
 
 logger = logging.getLogger(__name__)
 
 PATCH_URL_FORMAT = 's3://{bucket}/{patch_name}'
 PATCH_NAME_FORMAT = 'L{landing_id}_D{revision_id}_{diff_id}.patch'
-COMMIT_MSG_TEMPLATE = """
-{title}
-
-{summary}
-
-Differential Revision: {url}""".lstrip()
 
 
 class Patch:
@@ -80,8 +74,16 @@ class Patch:
         # assume the Phabricator server is returning that number relative
         # to UTC.
         date_modified = int(self.revision['dateModified'])
+        reviewers = phab.get_reviewers(self.revision['id'])
+        commit_message = format_commit_message(
+            self.revision['title'],
+            phab.extract_bug_id(self.revision),
+            [r['fields']['username'] for r in reviewers if r.get('fields')],
+            self.revision['summary'],
+            self.revision['uri'],
+        )
         return build_patch_for_revision(
-            diff, author, self.format_commit_message(phab), date_modified
+            diff, author, commit_message[1], date_modified
         )
 
     def upload(self, phab):
@@ -119,32 +121,6 @@ class Patch:
                 'patch_url': self.s3_url,
                 'msg': 'Patch file uploaded'
             }, 'landing.patch_uploaded'
-        )
-
-    def format_commit_message(self, phab):
-        """Get formatted commit message.
-
-        Retrieves reviewers information from PhabricatorClient. Then uses that
-        data with revision's title and extracted bug number to format the
-        commit message title.
-
-        Args:
-            phab: The PhabricatorClient instance to use
-
-        Returns:
-            String with title, bug information, reviewers and the summary
-            of the patch
-        """
-        reviewers = phab.get_reviewers(self.revision['id'])
-        title = format_commit_message_title(
-            self.revision['title'],
-            phab.extract_bug_id(self.revision),
-            [r['fields']['username'] for r in reviewers if r.get('fields')]
-        )
-        return COMMIT_MSG_TEMPLATE.format(
-            title=title,
-            summary=self.revision['summary'],
-            url=self.revision['uri']
         )
 
 

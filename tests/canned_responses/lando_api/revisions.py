@@ -9,7 +9,11 @@ CANNED_LANDO_REVISION_1 = {
     "title": "My test diff 1",
     "summary": "Summary 1",
     "test_plan": "Test Plan 1",
-    "commit_message_preview": "Bug 1 - My test diff 1 r=review_bot",
+    "commit_message_title": "Bug 1 - My test diff 1 r=review_bot",
+    "commit_message": (
+        "Bug 1 - My test diff 1 r=review_bot\n\n"
+        "Summary 1\n\nDifferential Revision: http://phabricator.test/D1"
+    ),
     "url": "http://phabricator.test/D1",
     "date_created": 1495638270,
     "date_modified": 1496239141,
@@ -29,7 +33,7 @@ CANNED_LANDO_REVISION_1 = {
         ],
     },
     "author": {
-        "image_url": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png",
+        "image_url": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png", # noqa
         "phid": "PHID-USER-imaduemeadmin",
         "real_name": "Israel Madueme",
         "url": "http://phabricator.test/p/imadueme_admin/",
@@ -74,7 +78,7 @@ CANNED_LANDO_REVISION_2 = {
         ],
     },
     "author": {
-        "image_url": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png",
+        "image_url": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png",  # noqa
         "phid": "PHID-USER-imaduemeadmin",
         "real_name": "Israel Madueme",
         "url": "http://phabricator.test/p/imadueme_admin/",
@@ -100,7 +104,11 @@ CANNED_LANDO_REVISION_2 = {
     "title": "My test diff 2",
     "summary": "Summary 2",
     "test_plan": "Test Plan 2",
-    "commit_message_preview": "Bug 1 - My test diff 2 r=review_bot",
+    "commit_message_title": "Bug 1 - My test diff 2 r=review_bot",
+    "commit_message": (
+        "Bug 1 - My test diff 2 r=review_bot\n\n"
+        "Summary 2\n\nDifferential Revision: http://phabricator.test/D2"
+    ),
     "url": "http://phabricator.test/D2"
 }
 

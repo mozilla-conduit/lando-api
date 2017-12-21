@@ -7,7 +7,6 @@ import requests_mock
 
 from landoapi.api.revisions import _build_reviewers
 from landoapi.phabricator_client import PhabricatorClient
-from landoapi.utils import format_commit_message_title
 from tests.canned_responses.lando_api.revisions import (
     CANNED_LANDO_REVISION_1, CANNED_LANDO_REVISION_2,
     CANNED_LANDO_REVIEWERS_PARTIAL, CANNED_LANDO_REVISION_NOT_FOUND,
@@ -115,9 +114,3 @@ def test_build_reviewers_reviewers_and_users_dont_match():
         reviewers = _build_reviewers(phab, 1)
 
     assert reviewers == CANNED_REVIEWERS_USER_DONT_MATCH_PARTIAL
-
-
-def test_commit_message_for_multiple_reviewers():
-    reviewers = ['reviewer_one', 'reviewer_two']
-    commit_message = format_commit_message_title('A title.', 1, reviewers)
-    assert commit_message == 'Bug 1 - A title. r=reviewer_one,r=reviewer_two'
