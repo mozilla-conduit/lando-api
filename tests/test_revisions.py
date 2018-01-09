@@ -30,6 +30,35 @@ def test_get_revision(client, phabfactory):
     assert response.json == CANNED_LANDO_REVISION_1
 
 
+def test_get_revision_with_active_diff(client, phabfactory):
+    phabfactory.diff(id=1)
+    d2 = phabfactory.diff(id=2)
+    phabfactory.revision(active_diff=d2, diffs=['1'])
+
+    response = client.get('/revisions/D1')
+    assert response.json['diff']['id'] == 2
+
+    response = client.get('/revisions/D1?diff_id=1')
+    assert response.status_code == 200
+    assert response.json['diff']['id'] == 1
+
+
+def test_get_revision_with_foreign_diff(client, phabfactory):
+    phabfactory.diff(id=1)
+    d2 = phabfactory.diff(id=2)
+    phabfactory.revision(active_diff=d2)
+
+    response = client.get('/revisions/D1?diff_id=1')
+    assert response.status_code == 400
+
+
+def test_get_revision_with_nonexisting_diff(client, phabfactory):
+    phabfactory.revision()
+
+    response = client.get('/revisions/D1?diff_id=900')
+    assert response.status_code == 404
+
+
 def test_get_revision_with_no_parents(client, phabfactory):
     phabfactory.revision(depends_on=[])
     response = client.get('/revisions/D1')

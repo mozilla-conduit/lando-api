@@ -48,6 +48,12 @@ paths:
           description: |
             The id of the revision in the form of 'D{number}', e.g. 'D12345'.
           required: true
+        - name: diff_id
+          in: query
+          type: integer
+          description: |
+            The id of the optional diff. By default an active diff will
+            be returned.
       responses:
         200:
           description: OK

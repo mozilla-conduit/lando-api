@@ -5,19 +5,27 @@
 Revision API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
-from connexion import problem
+import logging
+
+from connexion import problem, ProblemException
 from flask import g
 
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
+from landoapi.models.patch import DiffNotInRevisionException, Patch
 from landoapi.validation import revision_id_to_int
+
+logger = logging.getLogger(__name__)
 
 
 @require_phabricator_api_key(optional=True)
-def get(revision_id):
+def get(revision_id, diff_id=None):
     """Gets revision from Phabricator.
 
-    Returns None or revision.
+    Args:
+        revision_id: (string) ID of the revision in 'D{number}' format
+        diff_id: (integer) Id of the diff to return with the revision. By
+            default the active diff will be returned.
     """
     phab = g.phabricator
     revision_id = revision_id_to_int(revision_id)
@@ -32,18 +40,38 @@ def get(revision_id):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
 
-    return _format_revision(
-        phab, revision, include_diff=True, include_parents=True
-    ), 200
+    try:
+        return _format_revision(
+            phab,
+            revision,
+            diff_id=diff_id,
+            include_diff=True,
+            include_parents=True
+        ), 200
+    except DiffNotInRevisionException:
+        logger.info(
+            {
+                'revision': revision_id,
+                'diff_id': diff_id,
+                'msg': 'Diff not it revision.',
+            }, 'revision.error'
+        )
+        return problem(
+            400,
+            'Diff not related to the revision',
+            'The requested diff is not related to the requested revision.',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
+        )
 
 
 def _format_revision(
     phab,
     revision,
+    diff_id=None,
     include_diff=False,
     include_parents=False,
     last_author=None,
-    last_repo=None
+    last_repo=None,
 ):
     """Formats a revision given by Phabricator to match Lando's spec.
 
@@ -77,7 +105,7 @@ def _format_revision(
         revision['summary'],
         revision['uri'],
     )
-    diff = _build_diff(phab, revision) if include_diff else None
+    diff = _build_diff(phab, revision, diff_id) if include_diff else None
     author = _build_author(phab, revision, last_author)
     repo = _build_repo(phab, revision, last_repo)
 
@@ -123,15 +151,32 @@ def _format_revision(
     }
 
 
-def _build_diff(phab, revision):
+def _build_diff(phab, revision, diff_id=None):
     """Helper method to build the repo json for a revision response.
 
     Args:
         phab: The PhabricatorClient to use to make additional requests.
         revision: The revision to get the most recent diff from.
+        diff_id: (integer) Id of the diff to return with the revision. By
+            default the active diff will be returned.
     """
-    if revision['activeDiffPHID']:
-        raw_diff = phab.get_diff(phid=revision['activeDiffPHID'])
+    if revision['activeDiffPHID'] or diff_id:
+        if diff_id:
+            raw_diff = phab.get_diff(id=diff_id)
+        else:
+            raw_diff = phab.get_diff(phid=revision['activeDiffPHID'])
+
+        if raw_diff is None:
+            raise ProblemException(
+                404,
+                'Diff not found',
+                'The requested diff does not exist',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404' # noqa
+            )  # yapf: disable
+
+        if diff_id:
+            Patch.validate_diff_assignment(diff_id, revision)
+
         diff = {
             'id': int(raw_diff['id']),
             'revision_id': 'D{}'.format(raw_diff['revisionID']),
