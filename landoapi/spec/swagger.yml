@@ -79,10 +79,6 @@ paths:
         - name: revision_id
           in: query
           type: string
-        - name: status
-          in: query
-          type: string
-          enum: [aborted, landed, failed, submitted]
       responses:
         200:
           description: OK

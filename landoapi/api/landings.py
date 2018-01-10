@@ -19,7 +19,6 @@ from landoapi.models.landing import (
     InactiveDiffException,
     Landing,
     LandingNotCreatedException,
-    LandingStatus,
     OverrideDiffException,
     RevisionNotFoundException,
 )
@@ -170,14 +169,11 @@ def post(data):
 
 # TODO: SECURITY - We need to require an access_token here and ensure that
 # the user is only viewing landings that are public or they own.
-def get_list(revision_id=None, status=None):
+def get_list(revision_id=None):
     """API endpoint at GET /landings to return a list of Landing objects."""
     kwargs = {}
     if revision_id:
         kwargs['revision_id'] = revision_id_to_int(revision_id)
-
-    if status:
-        kwargs['status'] = LandingStatus(status)
 
     landings = Landing.query.filter_by(**kwargs).all()
     return [l.serialize() for l in landings], 200

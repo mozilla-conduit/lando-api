@@ -314,18 +314,6 @@ def test_get_jobs(db, client):
     assert len(response.json) == 3
     assert response.json == CANNED_LANDING_LIST_1
 
-    response = client.get('/landings?status=landed')
-    assert response.status_code == 200
-    assert len(response.json) == 2
-
-    response = client.get('/landings?revision_id=D1&status=landed')
-    assert response.status_code == 200
-    assert len(response.json) == 1
-
-    # connexion prevents from using wrong statuses
-    response = client.get('/landings?revision_id=D1&status=nonexisting')
-    assert response.status_code == 400
-
 
 def test_get_jobs_wrong_revision_id_format(db, client):
     _create_landing(1, 1, 1, status=LandingStatus.submitted)
@@ -427,7 +415,7 @@ def _create_landing(
     active_diff_id=None,
     requester_email='tuser@example.com',
     tree='mozilla-central',
-    status='started'
+    status=LandingStatus.submitted
 ):
     landing = Landing(
         request_id=request_id,
