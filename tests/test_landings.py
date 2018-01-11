@@ -160,7 +160,8 @@ def test_land_diff_not_in_revision(db, client, phabfactory, s3, auth0_mock):
 
 
 @freeze_time('2017-11-02T00:00:00')
-def test_get_transplant_status(db, client):
+def test_get_transplant_status(db, client, phabfactory):
+    phabfactory.revision()
     _create_landing(1, 1, 1, status=LandingStatus.submitted)
     response = client.get('/landings/1')
     assert response.status_code == 200
@@ -298,21 +299,33 @@ def test_override_active_diff(
 
 
 @freeze_time('2017-11-02T00:00:00')
-def test_get_jobs(db, client):
+def test_get_jobs_by_revision_id(db, client, phabfactory):
     _create_landing(1, 1, 1, status=LandingStatus.submitted)
     _create_landing(2, 1, 2, status=LandingStatus.landed)
     _create_landing(3, 2, 3, status=LandingStatus.submitted)
     _create_landing(4, 1, 4, status=LandingStatus.submitted)
     _create_landing(5, 2, 5, status=LandingStatus.landed)
 
-    response = client.get('/landings')
-    assert response.status_code == 200
-    assert len(response.json) == 5
-
+    phabfactory.revision()
     response = client.get('/landings?revision_id=D1')
     assert response.status_code == 200
+    # Check that only the 3 landings associated with revision D1 are returned.
     assert len(response.json) == 3
     assert response.json == CANNED_LANDING_LIST_1
+
+
+def test_not_authorized_to_view_landing_by_id(db, client, phabfactory):
+    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    phabfactory.revision(not_found=True)
+    response = client.get('/landings/1')
+    assert response.status_code == 404
+
+
+def test_not_authorized_to_view_landing_by_revision(db, client, phabfactory):
+    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    phabfactory.revision(not_found=True)
+    response = client.get('/landings?revision_id=D1')
+    assert response.status_code == 404
 
 
 def test_get_jobs_wrong_revision_id_format(db, client):

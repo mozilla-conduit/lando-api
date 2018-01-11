@@ -3,6 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Testing our test factories."""
 
+from tests.canned_responses.phabricator.errors import CANNED_EMPTY_RESULT
+
 
 def test_adding_diffs(phabfactory):
     # diffs is a one-item list with an active diff id
@@ -19,3 +21,8 @@ def test_adding_diffs(phabfactory):
 
     revision = phabfactory.revision(diffs=['345', '123'])
     assert revision['result'][0]['diffs'] == ['1', '345', '123']
+
+
+def test_revision_not_found(phabfactory):
+    result = phabfactory.revision(not_found=True)
+    assert result == CANNED_EMPTY_RESULT

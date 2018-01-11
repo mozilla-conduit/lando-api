@@ -68,7 +68,8 @@ class PhabResponseFactory:
         depends_on=None,
         active_diff=None,
         diffs=None,
-        reviewers=None
+        reviewers=None,
+        not_found=False
     ):
         """Create a Phabricator Revision along with stub API endpoints.
 
@@ -98,6 +99,7 @@ class PhabResponseFactory:
                 - phid: PHID of the reviewer.
                 - status: Status in revision (added, accepted, blocking,
                     rejected, resigned).
+            not_found: Set to True to force Phabricator to return no results.
 
         Returns:
             The full JSON response dict for the generated Revision.
@@ -153,13 +155,23 @@ class PhabResponseFactory:
             found_id = form_matcher('ids[]', revision['id'])(request)
             return found_phid or found_id
 
-        self.mock.get(
-            phab_url('differential.query'),
-            status_code=200,
-            json=result_json,
-            additional_matcher=match_revision
-        )
-        return result_json
+        if not_found:
+            # Phabricator doesn't 404 if not found, it returns an empty result.
+            self.mock.get(
+                phab_url('differential.query'),
+                status_code=200,
+                json=CANNED_EMPTY_RESULT,
+                additional_matcher=match_revision
+            )
+            return CANNED_EMPTY_RESULT
+        else:
+            self.mock.get(
+                phab_url('differential.query'),
+                status_code=200,
+                json=result_json,
+                additional_matcher=match_revision
+            )
+            return result_json
 
     def _reviewers(self, revision_id, reviewers):
         """Add mocks for reviewers.

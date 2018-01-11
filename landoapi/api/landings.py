@@ -167,32 +167,41 @@ def post(data):
     return {'id': landing.id}, 202
 
 
-# TODO: SECURITY - We need to require an access_token here and ensure that
-# the user is only viewing landings that are public or they own.
-def get_list(revision_id=None):
+@require_phabricator_api_key(optional=True)
+def get_list(revision_id):
     """API endpoint at GET /landings to return a list of Landing objects."""
-    kwargs = {}
-    if revision_id:
-        kwargs['revision_id'] = revision_id_to_int(revision_id)
-
-    landings = Landing.query.filter_by(**kwargs).all()
-    return [l.serialize() for l in landings], 200
-
-
-# TODO: SECURITY - We need to require an access_token here and ensure that
-# the user is only viewing a landing that is public or they own.
-def get(landing_id):
-    """API endpoint at /landings/{landing_id} to return stored Landing."""
-    landing = Landing.query.get(landing_id)
-    if not landing:
+    # Verify that the client is permitted to see the associated revision.
+    revision_id = revision_id_to_int(revision_id)
+    revision = g.phabricator.get_revision(id=revision_id)
+    if not revision:
         return problem(
             404,
-            'Landing not found',
-            'The requested Landing does not exist',
+            'Revision not found',
+            'The revision does not exist or you lack permission to see it.',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
 
-    return landing.serialize(), 200
+    landings = Landing.query.filter_by(revision_id=revision_id).all()
+    return [l.serialize() for l in landings], 200
+
+
+@require_phabricator_api_key(optional=True)
+def get(landing_id):
+    """API endpoint at /landings/{landing_id} to return stored Landing."""
+    landing = Landing.query.get(landing_id)
+
+    if landing:
+        # Verify that the client has permission to see the associated revision.
+        revision = g.phabricator.get_revision(id=landing.revision_id)
+        if revision:
+            return landing.serialize(), 200
+
+    return problem(
+        404,
+        'Landing not found',
+        'The landing does not exist or you lack permission to see it.',
+        type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+    )
 
 
 def _not_authorized_problem():

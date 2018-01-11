@@ -79,6 +79,7 @@ paths:
         - name: revision_id
           in: query
           type: string
+          required: true
       responses:
         200:
           description: OK
