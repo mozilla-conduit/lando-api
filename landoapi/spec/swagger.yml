@@ -332,9 +332,12 @@ definitions:
         type: integer
         description: |
           An integer representing the review status of the revision.
-          0 - Not reviewed.
-          1 - Changes requested.
+          0 - Needs Review.
+          1 - Needs Revision.
           2 - Approved.
+          3 - Closed.
+          4 - Abandoned.
+          5 - Changes Planned.
           Phabricator may use other integers to represent other statuses, but,
           these are not known at this time.
       status_name:
