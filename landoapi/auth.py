@@ -85,94 +85,6 @@ def get_jwks(url):
     return requests.get(url).json()
 
 
-def require_access_token(f):
-    """Decorator which verifies Auth0 access_token.
-
-    Using this decorator on a connexion handler will require an oidc
-    access_token be sent as a bearer token in the `Authorization` header
-    of the request. If the header is not provided or is invalid an HTTP 401
-    response will be sent.
-
-    Decorated functions may assume the Authorization header is present
-    containing a Bearer token, flask.g.access_token contains the verified
-    access_token, and flask.g.access_token_payload contains the decoded jwt
-    payload.
-    """
-
-    @functools.wraps(f)
-    def wrapped(*args, **kwargs):
-        # See docker-compose.yml for details on auth0 mock options.
-        a0_mock_option = os.getenv('LOCALDEV_MOCK_AUTH0_USER')
-        if os.getenv('ENV') == 'localdev' and a0_mock_option == 'default':
-            g.access_token = mock_auth0.access_token
-            g.access_token_payload = mock_auth0.access_token_payload
-            return f(*args, **kwargs)
-
-        token = get_auth_token()
-        jwks = get_jwks(current_app.config['OIDC_JWKS_URL'])
-
-        try:
-            key = get_rsa_key(jwks, token)
-        except (jwt.JWTError, KeyError):
-            raise ProblemException(
-                400,
-                'Invalid Authorization',
-                'Unable to parse Authorization token',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400' # noqa
-            )  # yapf: disable
-
-        if key is None:
-            raise ProblemException(
-                400,
-                'Authorization Header Invalid',
-                'Appropriate key for Authorization header could not be found',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
-            )  # yapf: disable
-
-        issuer = 'https://{oidc_domain}/'.format(
-            oidc_domain=current_app.config['OIDC_DOMAIN']
-        )
-
-        try:
-            payload = jwt.decode(
-                token,
-                key,
-                algorithms=ALGORITHMS,
-                audience=current_app.config['OIDC_IDENTIFIER'],
-                issuer=issuer
-            )
-        except jwt.ExpiredSignatureError:
-            raise ProblemException(
-                401,
-                'Token Expired',
-                'Appropriate token is expired',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
-            )  # yapf: disable
-        except jwt.JWTClaimsError:
-            raise ProblemException(
-                401,
-                'Invalid Claims',
-                'Invalid Authorization claims in token, please check '
-                'the audience and issuer',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
-            )  # yapf: disable
-        except Exception:
-            raise ProblemException(
-                400,
-                'Invalid Authorization',
-                'Unable to parse Authorization token',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
-            )  # yapf: disable
-
-        # At this point the access_token has been validated and payload
-        # contains the parsed token.
-        g.access_token = token
-        g.access_token_payload = payload
-        return f(*args, **kwargs)
-
-    return wrapped
-
-
 def get_auth0_userinfo(access_token):
     """Return userinfo data from auth0."""
     url = 'https://{oidc_domain}/userinfo'.format(
@@ -181,108 +93,6 @@ def get_auth0_userinfo(access_token):
     return requests.get(
         url, headers={'Authorization': 'Bearer {}'.format(access_token)}
     )
-
-
-def require_auth0_userinfo(f):
-    """Decorator which verifies Auth0 access_token and fetches userinfo.
-
-    Using this decorator implies require_access_token and everything
-    that comes along with it.
-
-    The provided access_token verified by require_access_token will
-    then be used to request userinfo from auth0. This request must
-    succeed and the returned userinfo will be used to construct
-    an A0User object, which is accessed using flask.g.auth0_user.
-    """
-
-    @functools.wraps(f)
-    def wrapped(*args, **kwargs):
-        """Fetches userinfo before calling provided function.
-
-        This wrapped function assumes it is wrapped by
-        `require_access_token`.
-        """
-        # See docker-compose.yml for details on auth0 mock options.
-        a0_mock_option = os.getenv('LOCALDEV_MOCK_AUTH0_USER')
-        if os.getenv('ENV') == 'localdev' and a0_mock_option == 'default':
-            g.auth0_user = A0User(g.access_token, mock_auth0.userinfo)
-            return f(*args, **kwargs)
-
-        try:
-            resp = get_auth0_userinfo(g.access_token)
-        except requests.exceptions.Timeout:
-            raise ProblemException(
-                500,
-                'Auth0 Timeout',
-                'Authentication server timed out, try again later',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-            )  # yapf: disable
-        except requests.exceptions.ConnectionError:
-            raise ProblemException(
-                500,
-                'Auth0 Connection Problem',
-                'Can\'t connect to authentication server, try again later',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-            )  # yapf: disable
-        except requests.exceptions.HTTPError:
-            raise ProblemException(
-                500,
-                'Auth0 Response Error',
-                'Authentication server response was invalid, try again later',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-            )  # yapf: disable
-        except requests.exceptions.RequestException:
-            raise ProblemException(
-                500,
-                'Auth0 Error',
-                'Problem communicating with Auth0, try again later',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-            )  # yapf: disable
-
-        if resp.status_code == 429:
-            # TODO: We should be caching the userinfo to avoid hitting the
-            # rate limit here. It might be important to hash the token for
-            # the cache key rather than using it directly, look into this.
-            raise ProblemException(
-                429,
-                'Auth0 Rate Limit',
-                'Authentication rate limit hit, please wait before retrying',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429' # noqa
-            )  # yapf: disable
-
-        if resp.status_code == 401:
-            raise ProblemException(
-                401,
-                'Auth0 Userinfo Unauthorized',
-                'Unauthorized to access userinfo, check openid scope',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
-            )  # yapf: disable
-
-        if resp.status_code != 200:
-            raise ProblemException(
-                403,
-                'Authorization Failure',
-                'You do not have permission to access this resource',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403' # noqa
-            )  # yapf: disable
-
-        try:
-            parsed_userinfo = resp.json()
-        except ValueError:
-            raise ProblemException(
-                500,
-                'Auth0 Response Error',
-                'Authentication server response was invalid, try again later',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-            )  # yapf: disable
-
-        if os.getenv('ENV') == 'localdev':
-            _mock_parsed_userinfo_claims(parsed_userinfo)
-
-        g.auth0_user = A0User(g.access_token, parsed_userinfo)
-        return f(*args, **kwargs)
-
-    return require_access_token(wrapped)
 
 
 class A0User:
@@ -360,3 +170,232 @@ def _mock_parsed_userinfo_claims(userinfo):
         userinfo['https://sso.mozilla.com/claim/groups'] = [
             'invalid_group',
         ]
+
+
+class require_auth0:
+    """Decorator which requires an Auth0 access_token with the provided scopes.
+
+    Using this decorator on a connexion handler will require an oidc
+    access_token be sent as a bearer token in the `Authorization` header
+    of the request. If the header is not provided or is invalid an HTTP 401
+    response will be sent.
+
+    Scopes provided in the `scopes` argument, as an iterable, will be checked
+    for presence in the access_token. If any of the provided scopes are
+    missing an HTTP 401 response will be sent.
+
+    Decorated functions may assume the Authorization header is present
+    containing a Bearer token, flask.g.access_token contains the verified
+    access_token, and flask.g.access_token_payload contains the decoded jwt
+    payload.
+
+    Optionally, if `require_userinfo` is set to `True` the verified
+    access_token will be used to request userinfo from auth0. This request
+    must succeed and the returned userinfo will be used to construct an
+    A0User object, which is accessed using flask.g.auth0_user.
+    """
+
+    def __init__(self, scopes=None, userinfo=False):
+        assert scopes is not None, (
+            '`scopes` must be provided. If this endpoint truly does not '
+            'require any scopes, explicilty pass an empty tuple `()`'
+        )
+        self.userinfo = userinfo
+        self.scopes = scopes
+
+    def _require_scopes(self, f):
+        @functools.wraps(f)
+        def wrapped(*args, **kwargs):
+            token_scopes = set(g.access_token_payload.get('scope', '').split())
+            if [scope for scope in self.scopes if scope not in token_scopes]:
+                raise ProblemException(
+                    401,
+                    'Missing Scopes',
+                    'Token is missing required scopes for this action',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
+                )  # yapf: disable
+
+            return f(*args, **kwargs)
+
+        return wrapped
+
+    def _require_userinfo(self, f):
+        """Decorator which fetches userinfo using an Auth0 access_token.
+
+        This decorator assumes that any caller of the wrapped function has
+        already verified the Auth0 access_token and it is present at
+        `g.access_token`.
+        """
+
+        @functools.wraps(f)
+        def wrapped(*args, **kwargs):
+            # See docker-compose.yml for details on auth0 mock options.
+            a0_mock_option = os.getenv('LOCALDEV_MOCK_AUTH0_USER')
+            if os.getenv('ENV') == 'localdev' and a0_mock_option == 'default':
+                g.auth0_user = A0User(g.access_token, mock_auth0.userinfo)
+                return f(*args, **kwargs)
+
+            try:
+                resp = get_auth0_userinfo(g.access_token)
+            except requests.exceptions.Timeout:
+                raise ProblemException(
+                    500,
+                    'Auth0 Timeout',
+                    'Authentication server timed out, try again later',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+                )  # yapf: disable
+            except requests.exceptions.ConnectionError:
+                raise ProblemException(
+                    500,
+                    'Auth0 Connection Problem',
+                    'Can\'t connect to authentication server, try again later',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+                )  # yapf: disable
+            except requests.exceptions.HTTPError:
+                raise ProblemException(
+                    500,
+                    'Auth0 Response Error',
+                    'Authentication server response was invalid, try again '
+                    'later',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+                )  # yapf: disable
+            except requests.exceptions.RequestException:
+                raise ProblemException(
+                    500,
+                    'Auth0 Error',
+                    'Problem communicating with Auth0, try again later',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+                )  # yapf: disable
+
+            if resp.status_code == 429:
+                # TODO: We should be caching the userinfo to avoid hitting the
+                # rate limit here. It might be important to hash the token for
+                # the cache key rather than using it directly, look into this.
+                raise ProblemException(
+                    429,
+                    'Auth0 Rate Limit',
+                    'Authentication rate limit hit, please wait before '
+                    'retrying',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429' # noqa
+                )  # yapf: disable
+
+            if resp.status_code == 401:
+                raise ProblemException(
+                    401,
+                    'Auth0 Userinfo Unauthorized',
+                    'Unauthorized to access userinfo, check openid scope',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
+                )  # yapf: disable
+
+            if resp.status_code != 200:
+                raise ProblemException(
+                    403,
+                    'Authorization Failure',
+                    'You do not have permission to access this resource',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403' # noqa
+                )  # yapf: disable
+
+            try:
+                parsed_userinfo = resp.json()
+            except ValueError:
+                raise ProblemException(
+                    500,
+                    'Auth0 Response Error',
+                    'Authentication server response was invalid, try again '
+                    'later',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+                )  # yapf: disable
+
+            if os.getenv('ENV') == 'localdev':
+                _mock_parsed_userinfo_claims(parsed_userinfo)
+
+            g.auth0_user = A0User(g.access_token, parsed_userinfo)
+            return f(*args, **kwargs)
+
+        return wrapped
+
+    def _require_access_token(self, f):
+        """Decorator which verifies Auth0 access_token."""
+
+        @functools.wraps(f)
+        def wrapped(*args, **kwargs):
+            # See docker-compose.yml for details on auth0 mock options.
+            a0_mock_option = os.getenv('LOCALDEV_MOCK_AUTH0_USER')
+            if os.getenv('ENV') == 'localdev' and a0_mock_option == 'default':
+                g.access_token = mock_auth0.access_token
+                g.access_token_payload = mock_auth0.access_token_payload
+                return f(*args, **kwargs)
+
+            token = get_auth_token()
+            jwks = get_jwks(current_app.config['OIDC_JWKS_URL'])
+
+            try:
+                key = get_rsa_key(jwks, token)
+            except (jwt.JWTError, KeyError):
+                raise ProblemException(
+                    400,
+                    'Invalid Authorization',
+                    'Unable to parse Authorization token',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400' # noqa
+                )  # yapf: disable
+
+            if key is None:
+                raise ProblemException(
+                    400,
+                    'Authorization Header Invalid',
+                    'Appropriate key for Authorization header could not be '
+                    'found',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
+                )  # yapf: disable
+
+            issuer = 'https://{oidc_domain}/'.format(
+                oidc_domain=current_app.config['OIDC_DOMAIN']
+            )
+
+            try:
+                payload = jwt.decode(
+                    token,
+                    key,
+                    algorithms=ALGORITHMS,
+                    audience=current_app.config['OIDC_IDENTIFIER'],
+                    issuer=issuer
+                )
+            except jwt.ExpiredSignatureError:
+                raise ProblemException(
+                    401,
+                    'Token Expired',
+                    'Appropriate token is expired',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
+                )  # yapf: disable
+            except jwt.JWTClaimsError:
+                raise ProblemException(
+                    401,
+                    'Invalid Claims',
+                    'Invalid Authorization claims in token, please check '
+                    'the audience and issuer',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
+                )  # yapf: disable
+            except Exception:
+                raise ProblemException(
+                    400,
+                    'Invalid Authorization',
+                    'Unable to parse Authorization token',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
+                )  # yapf: disable
+
+            # At this point the access_token has been validated and payload
+            # contains the parsed token.
+            g.access_token = token
+            g.access_token_payload = payload
+            return f(*args, **kwargs)
+
+        return wrapped
+
+    def __call__(self, f):
+        if self.userinfo:
+            f = self._require_userinfo(f)
+
+        if self.scopes:
+            f = self._require_scopes(f)
+
+        return self._require_access_token(f)

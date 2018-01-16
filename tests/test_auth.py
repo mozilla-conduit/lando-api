@@ -14,8 +14,7 @@ from flask import g
 from landoapi.auth import (
     A0User,
     get_auth0_userinfo,
-    require_access_token,
-    require_auth0_userinfo,
+    require_auth0,
 )
 from landoapi.mocks.auth import create_access_token, TEST_KEY_PRIV
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
@@ -28,7 +27,7 @@ def noop(*args, **kwargs):
 def test_require_access_token_missing(app):
     with app.test_request_context('/', headers=[]):
         with pytest.raises(ProblemException) as exc_info:
-            require_access_token(noop)()
+            require_auth0(scopes=())(noop)()
 
     assert exc_info.value.status == 401
 
@@ -45,7 +44,7 @@ def test_require_access_token_missing(app):
 def test_require_access_token_malformed(jwks, app, headers, status):
     with app.test_request_context('/', headers=headers):
         with pytest.raises(ProblemException) as exc_info:
-            require_access_token(noop)()
+            require_auth0(scopes=())(noop)()
 
     assert exc_info.value.status == status
 
@@ -58,7 +57,7 @@ def test_require_access_token_no_kid_match(jwks, app):
 
     with app.test_request_context('/', headers=headers):
         with pytest.raises(ProblemException) as exc_info:
-            require_access_token(noop)()
+            require_auth0(scopes=())(noop)()
 
     assert exc_info.value.status == 400
     assert exc_info.value.title == 'Authorization Header Invalid'
@@ -86,7 +85,7 @@ def test_require_access_token_invalid(jwks, app, token_kwargs, status, title):
 
     with app.test_request_context('/', headers=headers):
         with pytest.raises(ProblemException) as exc_info:
-            require_access_token(noop)()
+            require_auth0(scopes=())(noop)()
 
     assert exc_info.value.status == status
     assert exc_info.value.title == title
@@ -103,7 +102,7 @@ def test_require_access_token_valid(
     token = create_access_token(**token_kwargs)
     headers = [('Authorization', 'Bearer {}'.format(token))]
     with app.test_request_context('/', headers=headers):
-        resp = require_access_token(noop)()
+        resp = require_auth0(scopes=())(noop)()
 
     assert resp.status_code == 200
 
@@ -125,7 +124,7 @@ def test_require_auth0_userinfo_expired_token(jwks, app):
     headers = [('Authorization', 'Bearer {}'.format(expired_token))]
     with app.test_request_context('/', headers=headers):
         with pytest.raises(ProblemException) as exc_info:
-            require_auth0_userinfo(noop)()
+            require_auth0(scopes=(), userinfo=True)(noop)()
 
     assert exc_info.value.status == 401
     assert exc_info.value.title == 'Token Expired'
@@ -151,7 +150,7 @@ def test_require_auth0_userinfo_auth0_request_errors(
             m.get('/userinfo', exc=exc)
 
             with pytest.raises(ProblemException) as exc_info:
-                require_auth0_userinfo(noop)()
+                require_auth0(scopes=(), userinfo=True)(noop)()
 
     assert exc_info.value.status == status
     assert exc_info.value.title == title
@@ -174,7 +173,7 @@ def test_require_auth0_userinfo_auth0_failures(
             m.get('/userinfo', status_code=a0status, **a0kwargs)
 
             with pytest.raises(ProblemException) as exc_info:
-                require_auth0_userinfo(noop)()
+                require_auth0(scopes=(), userinfo=True)(noop)()
 
     assert exc_info.value.status == status
     assert exc_info.value.title == title
@@ -188,7 +187,7 @@ def test_require_auth0_userinfo_succeeded(jwks, app):
             m.get(
                 '/userinfo', status_code=200, json=CANNED_USERINFO['STANDARD']
             )
-            resp = require_auth0_userinfo(noop)()
+            resp = require_auth0(scopes=(), userinfo=True)(noop)()
 
         assert isinstance(g.auth0_user, A0User)
 
@@ -241,3 +240,89 @@ def test_user_email(userinfo, expected_email):
     token = create_access_token()
     user = A0User(token, userinfo)
     assert user.email == expected_email
+
+
+@pytest.mark.parametrize(
+    'scopes, token_kwargs,status,title', [
+        (('profile', 'lando'), {
+            'scope': 'profile'
+        }, 401, 'Missing Scopes'),
+        (('profile', 'lando'), {
+            'scope': 'lando'
+        }, 401, 'Missing Scopes'),
+        (
+            ('profile', 'lando'), {
+                'scope': 'lando bogus'
+            }, 401, 'Missing Scopes'
+        ),
+        (
+            ('profile', 'lando'), {
+                'scope': 'profile bogus'
+            }, 401, 'Missing Scopes'
+        ),
+        (
+            ('profile', 'lando'), {
+                'scope': 'Profile Lando'
+            }, 401, 'Missing Scopes'
+        ),
+    ]
+)
+def test_require_scopes_invalid(
+    jwks, app, scopes, token_kwargs, status, title
+):
+    token = create_access_token(**token_kwargs)
+    headers = [('Authorization', 'Bearer {}'.format(token))]
+
+    with app.test_request_context('/', headers=headers):
+        with pytest.raises(ProblemException) as exc_info:
+            require_auth0(scopes=scopes)(noop)()
+
+    assert exc_info.value.status == status
+    assert exc_info.value.title == title
+
+
+@pytest.mark.parametrize(
+    'scopes, token_kwargs', [
+        (('lando', 'profile'), {
+            'scope': 'lando profile'
+        }),
+        (('lando', 'profile'), {
+            'scope': 'profile lando'
+        }),
+        (('lando', 'profile'), {
+            'scope': 'lando profile extrascope'
+        }),
+        (('lando', 'profile'), {
+            'scope': 'extrascope lando profile'
+        }),
+        (('lando', 'profile'), {
+            'scope': 'lando extrascope profile'
+        }),
+        (
+            ('lando', 'profile'), {
+                'scope': 'extra1 lando extra2 profile extra3'
+            }
+        ),
+        ((), {
+            'scope': 'lando profile'
+        }),
+        (('lando', ), {
+            'scope': 'lando profile'
+        }),
+        (('profile', ), {
+            'scope': 'lando profile'
+        }),
+        (
+            ('scope1', 'scope2', 'scope3', 'scope4', 'scope5', 'scope6'), {
+                'scope': 'scope1 scope2 scope3 scope4 scope5 scope6',
+            }
+        ),
+    ]
+)
+def test_require_access_scopes_valid(jwks, app, scopes, token_kwargs):
+    token = create_access_token(**token_kwargs)
+    headers = [('Authorization', 'Bearer {}'.format(token))]
+    with app.test_request_context('/', headers=headers):
+        resp = require_auth0(scopes=scopes)(noop)()
+
+    assert resp.status_code == 200
