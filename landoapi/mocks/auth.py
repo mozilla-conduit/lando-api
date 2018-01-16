@@ -94,7 +94,9 @@ class MockAuth0:
     @property
     def access_token_payload(self):
         if self._access_token_payload is None:
-            self._access_token_payload = create_access_token_payload()
+            self._access_token_payload = create_access_token_payload(
+                scope='lando profile email openid'
+            )
 
         return self._access_token_payload
 

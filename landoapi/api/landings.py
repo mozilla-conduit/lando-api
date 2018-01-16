@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
 
 
-@auth.require_auth0(scopes=(), userinfo=True)
+@auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def post(data):
     """API endpoint at POST /landings to land revision."""

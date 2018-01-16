@@ -15,7 +15,9 @@ securityDefinitions:
     description: An Auth0 access token with the proper lando-api audience. Note
                  that the value of this header should be a Bearer token, but
                  it is not possible to define that with swagger 2.0. Please
-                 pass the api key value as "Bearer access_token".
+                 pass the api key value as "Bearer access_token". The token
+                 should have the 'lando', 'openid', 'email', and 'profile'
+                 scopes.
 
 produces:
   - application/json
