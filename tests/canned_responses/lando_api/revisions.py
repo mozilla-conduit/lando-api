@@ -32,6 +32,7 @@ CANNED_LANDO_REVISION_1 = {
             {"email": "glob@mozilla.example", "name": "Byron Jones"}
         ],
     },
+    "latest_diff_id": 1,
     "author": {
         "image_url": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png", # noqa
         "phid": "PHID-USER-imaduemeadmin",
@@ -63,7 +64,7 @@ CANNED_LANDO_REVISION_2 = {
     "bug_id": 1,
     "id": 'D2',
     "parent_revisions": [
-        dict(CANNED_LANDO_REVISION_1, diff=None)
+        dict(CANNED_LANDO_REVISION_1, diff=None, latest_diff_id=None)
     ],
     "phid": "PHID-DREV-2",
     "diff": {
@@ -77,6 +78,7 @@ CANNED_LANDO_REVISION_2 = {
             {"email": "glob@mozilla.example", "name": "Byron Jones"}
         ],
     },
+    "latest_diff_id": 1,
     "author": {
         "image_url": "https://d2kb8dptaglwte.cloudfront.net/file/data/oywgsrq6rtv5rdfbjvdv/PHID-FILE-632bsum6ksnpu77kymbq/alphanumeric_lato-dark_I.png-_5e622c-255%2C255%2C255%2C0.4.png",  # noqa
         "phid": "PHID-USER-imaduemeadmin",

@@ -37,10 +37,12 @@ def test_get_revision_with_active_diff(client, phabfactory):
 
     response = client.get('/revisions/D1')
     assert response.json['diff']['id'] == 2
+    assert response.json['latest_diff_id'] == 2
 
     response = client.get('/revisions/D1?diff_id=1')
     assert response.status_code == 200
     assert response.json['diff']['id'] == 1
+    assert response.json['latest_diff_id'] == 2
 
 
 def test_get_revision_with_foreign_diff(client, phabfactory):

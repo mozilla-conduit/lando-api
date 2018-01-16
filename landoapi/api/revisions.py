@@ -80,8 +80,9 @@ def _format_revision(
     Args:
         phab: The PhabricatorClient to use to make additional requests.
         revision: The initial revision to format.
-        include_diff: A flag to choose whether to include the information for
-            the revision's most recent diff.
+        diff_id: The id of one of this revision's diffs to include. If no id
+            is given the most recent diff will be used.
+        include_diff: A flag to choose whether to include the revision's diff.
         include_parents: A flag to choose whether this method will recursively
             load parent revisions and format them as well.
         last_author: A hash of the author who created the revision. This is
@@ -105,9 +106,14 @@ def _format_revision(
         revision['summary'],
         revision['uri'],
     )
-    diff = _build_diff(phab, revision, diff_id) if include_diff else None
     author = _build_author(phab, revision, last_author)
     repo = _build_repo(phab, revision, last_repo)
+
+    diff = None
+    latest_diff_id = None
+    if include_diff:
+        latest_diff_id = phab.diff_phid_to_id(phid=revision['activeDiffPHID'])
+        diff = _build_diff(phab, revision, diff_id or latest_diff_id)
 
     # This recursively loads the parent of a revision, and the parents of
     # that parent, and so on, ultimately creating a linked-list type structure
@@ -144,6 +150,7 @@ def _format_revision(
         'commit_message_title': commit_message_title,
         'commit_message': commit_message,
         'diff': diff,
+        'latest_diff_id': latest_diff_id,
         'author': author,
         'repo': repo,
         'reviewers': reviewers,
@@ -151,56 +158,49 @@ def _format_revision(
     }
 
 
-def _build_diff(phab, revision, diff_id=None):
+def _build_diff(phab, revision, diff_id):
     """Helper method to build the repo json for a revision response.
 
     Args:
         phab: The PhabricatorClient to use to make additional requests.
         revision: The revision to get the most recent diff from.
-        diff_id: (integer) Id of the diff to return with the revision. By
-            default the active diff will be returned.
+        diff_id: (integer) Id of the diff to return with the revision.
     """
-    if revision['activeDiffPHID'] or diff_id:
-        if diff_id:
-            raw_diff = phab.get_diff(id=diff_id)
-        else:
-            raw_diff = phab.get_diff(phid=revision['activeDiffPHID'])
+    phab_diff = phab.get_diff(id=diff_id)
 
-        if raw_diff is None:
-            raise ProblemException(
-                404,
-                'Diff not found',
-                'The requested diff does not exist',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404' # noqa
-            )  # yapf: disable
+    if phab_diff is None:
+        raise ProblemException(
+            404,
+            'Diff not found',
+            'The requested diff does not exist',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+        )  # yapf: disable
 
-        if diff_id:
-            Patch.validate_diff_assignment(diff_id, revision)
+    if diff_id:
+        Patch.validate_diff_assignment(diff_id, revision)
 
-        diff = {
-            'id': int(raw_diff['id']),
-            'revision_id': 'D{}'.format(raw_diff['revisionID']),
-            'date_created': int(raw_diff['dateCreated']),
-            'date_modified': int(raw_diff['dateModified']),
-            'vcs_base_revision': raw_diff['sourceControlBaseRevision'],
-            'authors': None
-        }
+    diff = {
+        'id': int(phab_diff['id']),
+        'revision_id': 'D{}'.format(phab_diff['revisionID']),
+        'date_created': int(phab_diff['dateCreated']),
+        'date_modified': int(phab_diff['dateModified']),
+        'vcs_base_revision': phab_diff['sourceControlBaseRevision'],
+        'authors': None
+    }
 
-        if raw_diff['properties'] and raw_diff['properties']['local:commits']:
-            commit_authors = []
-            commits = list(raw_diff['properties']['local:commits'].values())
-            commits.sort(key=lambda c: c['local'], reverse=True)
-            for commit in commits:
-                commit_authors.append(
-                    {
-                        'name': commit['author'],
-                        'email': commit['authorEmail']
-                    }
-                )
-            diff['authors'] = commit_authors
-        return diff
-    else:
-        return None
+    if phab_diff['properties'] and phab_diff['properties']['local:commits']:
+        commit_authors = []
+        commits = list(phab_diff['properties']['local:commits'].values())
+        commits.sort(key=lambda c: c['local'], reverse=True)
+        for commit in commits:
+            commit_authors.append(
+                {
+                    'name': commit['author'],
+                    'email': commit['authorEmail']
+                }
+            )
+        diff['authors'] = commit_authors
+    return diff
 
 
 def _build_author(phab, revision, last_author):
