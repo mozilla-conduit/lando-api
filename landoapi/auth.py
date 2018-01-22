@@ -189,10 +189,10 @@ class require_auth0:
     access_token, and flask.g.access_token_payload contains the decoded jwt
     payload.
 
-    Optionally, if `require_userinfo` is set to `True` the verified
-    access_token will be used to request userinfo from auth0. This request
-    must succeed and the returned userinfo will be used to construct an
-    A0User object, which is accessed using flask.g.auth0_user.
+    Optionally, if `userinfo` is set to `True` the verified access_token will
+    be used to request userinfo from auth0. This request must succeed and the
+    returned userinfo will be used to construct an A0User object, which is
+    accessed using flask.g.auth0_user.
     """
 
     def __init__(self, scopes=None, userinfo=False):
