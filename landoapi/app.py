@@ -11,6 +11,7 @@ import logging
 from connexion.resolver import RestyResolver
 from raven.contrib.flask import Sentry
 
+from landoapi.cache import cache
 from landoapi.dockerflow import dockerflow
 from landoapi.storage import alembic, db
 from mozlogging import MozLogFormatter
@@ -78,9 +79,42 @@ def create_app(version_path):
     db.init_app(flask_app)
 
     # Intialize the alembic extension
-    alembic.init_app(app.app)
+    alembic.init_app(flask_app)
+
+    initialize_caching(flask_app)
 
     return app
+
+
+def initialize_caching(flask_app):
+    """Initialize cache objects from environment.
+
+    Args:
+        flask_app: A Flask() instance.
+    """
+    host = os.environ.get('CACHE_REDIS_HOST')
+
+    if not host:
+        # Default to not caching for testing.
+        logger.warning('Cache initialized in null mode, caching disabled.')
+        cache_config = {
+            'CACHE_TYPE': 'null',
+            'CACHE_NO_NULL_WARNING': True,
+        }
+    else:
+        cache_config = {
+            'CACHE_TYPE': 'redis',
+            'CACHE_REDIS_HOST': host,
+        }
+        env_keys = (
+            'CACHE_REDIS_PORT', 'CACHE_REDIS_PASSWORD', 'CACHE_REDIS_DB',
+        )
+        for k in env_keys:
+            v = os.environ.get(k)
+            if v is not None:
+                cache_config[k] = v
+
+    cache.init_app(flask_app, config=cache_config)
 
 
 def initialize_sentry(flask_app, release):
