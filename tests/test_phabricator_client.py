@@ -10,7 +10,8 @@ import requests
 import requests_mock
 
 from landoapi.phabricator_client import (
-    PhabricatorClient, PhabricatorAPIException
+    CLOSED_STATUSES, OPEN_STATUSES, PhabricatorClient, PhabricatorAPIException,
+    Statuses
 )
 
 from tests.utils import first_result_in_response, phab_url, phid_for_response
@@ -281,3 +282,47 @@ def test_get_reviewers_reviewers_and_users_dont_match():
     assert 'fields' not in result[1]
     assert 'phid' not in result[1]
     assert result[1]['reviewerPHID'] == 'PHID-USER-3'
+
+
+def test_no_parent(phabfactory):
+    result = phabfactory.revision()
+    revision = result['result'][0]
+    phab = PhabricatorClient(api_key='api-key')
+
+    assert phab.get_first_open_parent_revision(revision) is None
+
+
+@pytest.mark.parametrize('status', OPEN_STATUSES)
+def test_open_parent(status, phabfactory):
+    parent_data = phabfactory.revision(status=status.value)
+    parent = parent_data['result'][0]
+    result = phabfactory.revision(id='D2', depends_on=parent_data)
+    revision = result['result'][0]
+    phab = PhabricatorClient(api_key='api-key')
+
+    assert phab.get_first_open_parent_revision(revision) == parent
+
+
+def test_open_grandparent(phabfactory):
+    grandparent_data = phabfactory.revision(
+        status=Statuses.NEEDS_REVISION.value
+    )
+    grandparent = grandparent_data['result'][0]
+    parent_result = phabfactory.revision(
+        id='D2', status=Statuses.CLOSED.value, depends_on=grandparent_data
+    )
+    result = phabfactory.revision(id='D3', depends_on=parent_result)
+    revision = result['result'][0]
+    phab = PhabricatorClient(api_key='api-key')
+
+    assert phab.get_first_open_parent_revision(revision) == grandparent
+
+
+@pytest.mark.parametrize('status', CLOSED_STATUSES)
+def test_no_open_parent(status, phabfactory):
+    parent_result = phabfactory.revision(status=status.value)
+    result = phabfactory.revision(id='D2', depends_on=parent_result)
+    revision = result['result'][0]
+    phab = PhabricatorClient(api_key='api-key')
+
+    assert phab.get_first_open_parent_revision(revision) is None

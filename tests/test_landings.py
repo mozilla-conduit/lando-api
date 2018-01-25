@@ -298,6 +298,23 @@ def test_override_active_diff(
     assert landing.diff_id == 1
 
 
+def test_land_with_open_parent(client, phabfactory, auth0_mock):
+    parent_data = phabfactory.revision()
+    phabfactory.revision(id='D2', depends_on=parent_data)
+
+    response = client.post(
+        '/landings',
+        data=json.dumps({
+            'revision_id': 'D2',
+            'diff_id': 1,
+        }),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json'
+    )
+    assert response.status_code == 409
+    assert response.json['title'] == 'Parent revision is open'
+
+
 @freeze_time('2017-11-02T00:00:00')
 def test_get_jobs_by_revision_id(db, client, phabfactory):
     _create_landing(1, 1, 1, status=LandingStatus.submitted)

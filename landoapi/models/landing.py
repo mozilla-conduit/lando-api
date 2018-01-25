@@ -158,6 +158,11 @@ class Landing(db.Model):
         elif diff_id != active_id:
             raise InactiveDiffException(diff_id, active_id)
 
+        # Check if all parent revisions are closed
+        open_revision = phab.get_first_open_parent_revision(revision)
+        if open_revision:
+            raise OpenParentException(open_revision_id=open_revision['id'])
+
         # Save the initial landing request
         repo = phab.get_revision_repo(revision)
         # TODO: handle non-existent repo
@@ -274,3 +279,14 @@ class OverrideDiffException(Exception):
         self.diff_id = diff_id
         self.active_diff_id = active_diff_id
         self.override_diff_id = override_diff_id
+
+
+class OpenParentException(Exception):
+    """Revision chosen to land has an open parent."""
+
+    def __init__(self, open_revision_id):
+        super().__init__(
+            'Revision chosen to land has an open parent ({})'
+            .format(open_revision_id)
+        )
+        self.open_revision_id = open_revision_id

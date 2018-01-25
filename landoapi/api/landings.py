@@ -19,6 +19,7 @@ from landoapi.models.landing import (
     InactiveDiffException,
     Landing,
     LandingNotCreatedException,
+    OpenParentException,
     OverrideDiffException,
     RevisionNotFoundException,
 )
@@ -115,6 +116,22 @@ def post(data):
             'The requested diff is not the active one for this revision.',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409'
         )
+    except OpenParentException as exc:
+        # One of the parent revisions is still open
+        logger.error(
+            {
+                'revision_id': revision_id,
+                'open_revision_id': exc.open_revision_id,
+                'msg': 'Attempt to land a revision with an open parent'
+            }, 'landing.error'
+        )
+        return problem(
+            409,
+            'Parent revision is open',
+            'At least one of the parent revisions (D{}) is open.'
+            .format(exc.open_revision_id),
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409'
+        )
     except OverrideDiffException as exc:
         # Wrong diff chosen to override.
         logger.info(
@@ -133,7 +150,6 @@ def post(data):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409'
         )
     except LandingNotCreatedException as exc:
-        # We could not find a matching revision.
         logger.info(
             {
                 'revision': revision_id,

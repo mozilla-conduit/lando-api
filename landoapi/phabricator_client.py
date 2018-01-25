@@ -3,9 +3,27 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 import os
+
 import requests
+from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+
+class Statuses(Enum):
+    NEEDS_REVIEW = '0'
+    NEEDS_REVISION = '1'
+    APPROVED = '2'
+    CLOSED = '3'
+    ABANDONED = '4'
+    CHANGES_PLANNED = '5'
+
+
+CLOSED_STATUSES = [Statuses.CLOSED, Statuses.ABANDONED]
+OPEN_STATUSES = [
+    Statuses.NEEDS_REVIEW, Statuses.NEEDS_REVISION, Statuses.APPROVED,
+    Statuses.CHANGES_PLANNED
+]
 
 
 class PhabricatorClient:
@@ -263,6 +281,49 @@ class PhabricatorClient:
         except PhabricatorAPIException:
             return False
         return True
+
+    def get_first_open_parent_revision(self, revision):
+        """Find first open parent revision.
+
+        Args:
+            revision: a Revision dict received via `differential.query` API.
+
+        Returns:
+            Open Revision or None
+        """
+
+        def get_open_revision(phids):
+            """Recursively check the dependency tree for any open revision.
+
+            Return None if phids is an empty list.
+            Request revisions from Phabricator, check if there is any open one.
+            If true - return the revision.
+            Otherwise check the dependency trees recursively.
+
+            Args:
+                phids: list of PHIDs identifying parent revisions
+
+            Returns:
+                Revision or None
+            """
+            if not phids:
+                return None
+
+            result = self._GET('/differential.query', {'phids[]': phids})
+
+            for revision in result:
+                if Statuses(revision['status']) in OPEN_STATUSES:
+                    return revision
+
+                open_revision = get_open_revision(
+                    revision['auxiliary'].get('phabricator:depends-on', [])
+                )
+                if open_revision:
+                    return open_revision
+
+        return get_open_revision(
+            revision['auxiliary'].get('phabricator:depends-on', [])
+        )
 
     @staticmethod
     def extract_bug_id(revision):

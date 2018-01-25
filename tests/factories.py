@@ -69,6 +69,7 @@ class PhabResponseFactory:
         active_diff=None,
         diffs=None,
         reviewers=None,
+        status=None,
         not_found=False
     ):
         """Create a Phabricator Revision along with stub API endpoints.
@@ -99,6 +100,8 @@ class PhabResponseFactory:
                 - phid: PHID of the reviewer.
                 - status: Status in revision (added, accepted, blocking,
                     rejected, resigned).
+            status: String with a number representing the status of the
+                revision
             not_found: Set to True to force Phabricator to return no results.
 
         Returns:
@@ -116,6 +119,9 @@ class PhabResponseFactory:
             revision['authorPHID'] = author_phid
         else:
             self.user()
+
+        if status:
+            revision['status'] = status
 
         if depends_on:
             # This Revisions depends on another Revision.
