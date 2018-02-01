@@ -40,6 +40,22 @@ def test_get_revision_with_200_response(phabfactory):
     assert revision == expected_revision
 
 
+def test_get_revisions(phabfactory):
+    revision_response = phabfactory.revision(id='D1234')
+    expected_revision = first_result_in_response(revision_response)
+    phab = PhabricatorClient(api_key='api-key')
+    revisions_by_ids = phab.get_revisions(ids=[1234])
+    assert revisions_by_ids[0] == expected_revision
+    revisions_by_phids = phab.get_revisions(phids=['PHID-DREV-1234'])
+    assert revisions_by_phids[0] == expected_revision
+
+
+def test_get_revision_raises_if_id_and_phid_provided():
+    phab = PhabricatorClient(api_key='api-key')
+    with pytest.raises(TypeError):
+        phab.get_revision(id=1, phid='PHID')
+
+
 def test_get_current_user_with_200_response():
     phab = PhabricatorClient(api_key='api-key')
     with requests_mock.mock() as m:

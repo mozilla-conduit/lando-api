@@ -47,22 +47,48 @@ class PhabricatorClient:
         """Gets a revision as defined by the Phabricator API.
 
         Args:
-            id: The id of the revision if known. This can be in the form of
-                an integer or an integer prefixed with 'D', e.g. 'D12345'.
-            phid: The phid of the revision to be used if the id isn't provided.
+            id: The integer id of the revision.
+            phid: The phid of the revision.
 
         Returns:
-            A hash of the revision data just as it is returned by Phabricator.
+            A dict of the revision data just as it is returned by Phabricator.
             Returns None, if the revision doesn't exist, or if the api key that
             was used to create the PhabricatorClient doesn't have permission to
             view the revision.
+
+        Raises:
+            TypeError if both id and phid are provided.
         """
-        result = None
-        if id:
-            result = self._GET('/differential.query', {'ids[]': [id]})
-        elif phid:
-            result = self._GET('/differential.query', {'phids[]': [phid]})
+        if id and phid:
+            raise TypeError('Please do not use both id and phid at once')
+
+        ids = [id] if id else []
+        phids = [phid] if phid else []
+        result = self.get_revisions(ids=ids, phids=phids)
+
         return result[0] if result else None
+
+    def get_revisions(self, ids=[], phids=[]):
+        """Gets a list of revisions in one request.
+
+        This function is purely using the `differential.query` with searching
+        by ids and phids.
+
+        Args:
+            ids: A list of integer the ids of the revisions.
+            phids: A list of the phids of the revisions.
+
+        Returns:
+            A list of dicts just as it is returned by Phabricator or an
+            empty list if no revision has been found.
+        """
+        if not ids and not phids:
+            return []
+
+        return self._GET(
+            '/differential.query', {'ids[]': ids,
+                                    'phids[]': phids}
+        )
 
     def get_rawdiff(self, diff_id):
         """Get the raw git diff text by diff id.
@@ -309,7 +335,7 @@ class PhabricatorClient:
             if not phids:
                 return None
 
-            result = self._GET('/differential.query', {'phids[]': phids})
+            result = self.get_revisions(phids=phids)
 
             for revision in result:
                 if Statuses(revision['status']) in OPEN_STATUSES:

@@ -121,8 +121,8 @@ def _format_revision(
     parent_revisions = []
     if include_parents:
         parent_phids = revision['auxiliary']['phabricator:depends-on']
-        for parent_phid in parent_phids:
-            parent_revision_data = phab.get_revision(phid=parent_phid)
+        parent_revisions_data = phab.get_revisions(phids=parent_phids)
+        for parent_revision_data in parent_revisions_data:
             if parent_revision_data:
                 parent_revisions.append(
                     _format_revision(
