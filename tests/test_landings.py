@@ -3,15 +3,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import os
+from unittest.mock import MagicMock
 
 from freezegun import freeze_time
-from unittest.mock import MagicMock
 
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
 from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
-
 from tests.canned_responses.lando_api.patches import LANDING_PATCH
 from tests.canned_responses.lando_api.revisions import (
     CANNED_LANDO_DIFF_NOT_FOUND,
@@ -22,7 +21,7 @@ from tests.canned_responses.lando_api.landings import (
     CANNED_LANDING_FACTORY_1,
     CANNED_LANDING_LIST_1,
 )
-from tests.utils import phab_url, form_matcher
+from tests.utils import form_matcher, phab_url
 
 
 @freeze_time('2017-11-02T00:00:00')
@@ -417,8 +416,8 @@ def test_update_landing_no_api_key(client):
     assert response.status_code == 400
 
 
-def test_pingback_disabled(client, monkeypatch):
-    monkeypatch.setenv('PINGBACK_ENABLED', 'n')
+def test_pingback_disabled(client, config):
+    config['PINGBACK_ENABLED'] = 'n'
 
     response = client.post(
         '/landings/update',

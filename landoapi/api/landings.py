@@ -7,10 +7,9 @@ See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 import hmac
 import logging
-import os
 
 from connexion import problem
-from flask import g, request
+from flask import current_app, g, request
 from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
@@ -29,7 +28,6 @@ from landoapi.models.patch import (
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
-TRANSPLANT_API_KEY = os.getenv('TRANSPLANT_API_KEY')
 
 
 @auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
@@ -254,7 +252,7 @@ def update(data):
             revision (sha) of push if landed == true
             empty string if landed == false
     """
-    if os.getenv('PINGBACK_ENABLED', 'n') != 'y':
+    if current_app.config['PINGBACK_ENABLED'] != 'y':
         logger.warning(
             {
                 'data': data,
@@ -264,9 +262,9 @@ def update(data):
         )
         return _not_authorized_problem()
 
-    if not hmac.compare_digest(
-        request.headers.get('API-Key', ''), TRANSPLANT_API_KEY
-    ):
+    passed_key = request.headers.get('API-Key', '')
+    required_key = current_app.config['TRANSPLANT_API_KEY']
+    if not hmac.compare_digest(passed_key, required_key):
         logger.warning(
             {
                 'data': data,

@@ -71,6 +71,10 @@ def configure_app(flask_app, version_path):
     flask_app.config['PINGBACK_URL'] = '{host_url}/landings/update'.format(
         host_url=os.getenv('PINGBACK_HOST_URL')
     )
+    flask_app.config['PINGBACK_ENABLED'] = \
+        os.environ.get('PINGBACK_ENABLED', 'n')
+    flask_app.config['TRANSPLANT_API_KEY'] = \
+        os.environ.get('TRANSPLANT_API_KEY')
 
     # AWS credentials should be only provided if needed in development
     flask_app.config['AWS_ACCESS_KEY'] = os.getenv('AWS_ACCESS_KEY', None)
@@ -178,7 +182,10 @@ def initialize_logging():
 def log_app_config(flask_app, keys_before_setup):
     """Logs a sanitized version of the app configuration."""
     keys_to_sanitize = {
-        'DATABASE_URL', 'SQLALCHEMY_DATABASE_URI', 'CACHE_REDIS_PASSWORD'
+        'DATABASE_URL',
+        'CACHE_REDIS_PASSWORD',
+        'SQLALCHEMY_DATABASE_URI',
+        'TRANSPLANT_API_KEY',
     }
 
     keys_after_setup = set(flask_app.config.keys())
