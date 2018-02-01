@@ -3,18 +3,17 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import os
+import logging
 
 import click
 import connexion
-import logging
-
 from connexion.resolver import RestyResolver
 from raven.contrib.flask import Sentry
+from mozlogging import MozLogFormatter
 
 from landoapi.cache import cache
 from landoapi.dockerflow import dockerflow
 from landoapi.storage import alembic, db
-from mozlogging import MozLogFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -29,32 +28,49 @@ def create_app(version_path):
     # Get the Flask app being wrapped by the Connexion app.
     flask_app = app.app
 
-    flask_app.config['VERSION_PATH'] = version_path
-    log_config_change('VERSION_PATH', version_path)
+    keys_before_setup = set(flask_app.config.keys())
 
+    configure_app(flask_app, version_path)
+
+    log_app_config(flask_app, keys_before_setup)
+
+    flask_app.register_blueprint(dockerflow)
+
+    # Initialize database
+    db.init_app(flask_app)
+
+    # Intialize the alembic extension
+    alembic.init_app(flask_app)
+
+    initialize_caching(flask_app)
+
+    return app
+
+
+def configure_app(flask_app, version_path):
+    flask_app.config['ENVIRONMENT'] = os.environ.get('ENV', None)
+
+    # Application version metadata
+    flask_app.config['VERSION_PATH'] = version_path
     version_info = json.load(open(version_path))
     logger.info(version_info, 'app.version')
 
+    # Sentry
     this_app_version = version_info['version']
     initialize_sentry(flask_app, this_app_version)
 
-    db_uri = flask_app.config.setdefault(
-        'SQLALCHEMY_DATABASE_URI', os.environ.get('DATABASE_URL', 'sqlite://')
-    )
-    log_config_change('SQLALCHEMY_DATABASE_URI', db_uri)
-
+    # Database configuration
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = \
+        os.environ.get('DATABASE_URL')
     flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     flask_app.config['ALEMBIC'] = {'script_location': '/migrations/'}
 
     flask_app.config['PATCH_BUCKET_NAME'] = os.getenv('PATCH_BUCKET_NAME')
-    log_config_change(
-        'PATCH_BUCKET_NAME', flask_app.config['PATCH_BUCKET_NAME']
-    )
+
     # Set the pingback url
     flask_app.config['PINGBACK_URL'] = '{host_url}/landings/update'.format(
         host_url=os.getenv('PINGBACK_HOST_URL')
     )
-    log_config_change('PINGBACK_URL', flask_app.config['PINGBACK_URL'])
 
     # AWS credentials should be only provided if needed in development
     flask_app.config['AWS_ACCESS_KEY'] = os.getenv('AWS_ACCESS_KEY', None)
@@ -72,18 +88,6 @@ def create_app(version_path):
             oidc_domain=flask_app.config['OIDC_DOMAIN']
         )
     )
-
-    flask_app.register_blueprint(dockerflow)
-
-    # Initialize database
-    db.init_app(flask_app)
-
-    # Intialize the alembic extension
-    alembic.init_app(flask_app)
-
-    initialize_caching(flask_app)
-
-    return app
 
 
 def initialize_caching(flask_app):
@@ -130,24 +134,19 @@ def initialize_sentry(flask_app, release):
             the Sentry client configuration docs for details.
     """
     sentry_dsn = os.environ.get('SENTRY_DSN', None)
-    if sentry_dsn:
-        log_config_change('SENTRY_DSN', sentry_dsn)
-    else:
-        log_config_change('SENTRY_DSN', 'none (sentry disabled)')
 
-    # Do this after logging the DSN so if there is a DSN URL parsing error
-    # the logs will record the configured value before the Sentry client
-    # kills the app.
+    if sentry_dsn:
+        dsn_text = '*' * len(sentry_dsn)  # Sanitize the DSN
+    else:
+        dsn_text = 'none (sentry disabled)'
+    logger.info({'SENTRY_DSN': dsn_text}, 'app.configure')
+
     sentry = Sentry(flask_app, dsn=sentry_dsn)
 
     # Set these attributes directly because their keyword arguments can't be
     # passed into Sentry.__init__() or make_client().
     sentry.client.release = release
-    log_config_change('SENTRY_LOG_RELEASE_AS', release)
-
-    environment = os.environ.get('ENV', None)
-    sentry.client.environment = environment
-    log_config_change('SENTRY_LOG_ENVIRONMENT_AS', environment)
+    sentry.client.environment = flask_app.config['ENVIRONMENT']
 
 
 def initialize_logging():
@@ -173,7 +172,28 @@ def initialize_logging():
     level = os.environ.get('LOG_LEVEL', 'INFO')
     app_logger.setLevel(level)
 
-    log_config_change('LOG_LEVEL', level)
+    logger.info({'LOG_LEVEL': level}, 'app.configure')
+
+
+def log_app_config(flask_app, keys_before_setup):
+    """Logs a sanitized version of the app configuration."""
+    keys_to_sanitize = {
+        'DATABASE_URL', 'SQLALCHEMY_DATABASE_URI', 'CACHE_REDIS_PASSWORD'
+    }
+
+    keys_after_setup = set(flask_app.config.keys())
+    keys_to_log = keys_after_setup.difference(keys_before_setup)
+
+    safe_keys = keys_to_log.difference(keys_to_sanitize)
+    settings = dict((k, flask_app.config[k]) for k in safe_keys)
+
+    sensitive_keys = keys_to_log.intersection(keys_to_sanitize)
+    cleaned_settings = dict(
+        (k, '*' * len(flask_app.config[k])) for k in sensitive_keys
+    )
+    settings.update(cleaned_settings)
+
+    logger.info(settings, 'app.configure')
 
 
 @click.command()
@@ -191,13 +211,3 @@ def development_server(debug, port, version_path):
     """
     app = create_app(version_path)
     app.run(debug=debug, port=port, host='0.0.0.0')
-
-
-def log_config_change(setting_name, value):
-    """Helper to log configuration changes.
-
-    Args:
-        setting_name: The setting being changed.
-        value: The setting's new value.
-    """
-    logger.info({'setting': setting_name, 'value': value}, 'app.configure')
