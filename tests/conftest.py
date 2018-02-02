@@ -99,7 +99,11 @@ def disable_log_output():
 def app(versionfile, docker_env_vars, disable_migrations, disable_log_output):
     """Needed for pytest-flask."""
     app = create_app(versionfile.strpath)
-    return app.app
+    flask_app = app.app
+    # Turn on exception propagation.
+    # See http://flask.pocoo.org/docs/0.12/api/#flask.Flask.test_client
+    flask_app.testing = True
+    return flask_app
 
 
 @pytest.fixture
