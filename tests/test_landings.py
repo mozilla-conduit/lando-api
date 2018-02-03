@@ -3,10 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import os
+from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
-from unittest.mock import MagicMock
 
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
@@ -44,12 +44,11 @@ def test_landing_revision_saves_data_in_db(
 
     response = client.post(
         '/landings',
-        data=json.dumps({
+        json={
             'revision_id': 'D1',
-            'diff_id': diff_id
-        }),
+            'diff_id': diff_id,
+        },
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 202
     assert response.content_type == 'application/json'
@@ -62,19 +61,16 @@ def test_landing_revision_saves_data_in_db(
     assert landing.serialize() == CANNED_LANDING_FACTORY_1
 
 
-def test_landing_without_auth0_permissions(
-    db, client, phabfactory, transfactory, s3, auth0_mock
-):
+def test_landing_without_auth0_permissions(client, auth0_mock):
     auth0_mock.userinfo = CANNED_USERINFO['NO_CUSTOM_CLAIMS']
 
     response = client.post(
         '/landings',
-        data=json.dumps({
+        json={
             'revision_id': 'D1',
             'diff_id': 1,
-        }),
+        },
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 403
 
@@ -96,12 +92,11 @@ def test_landing_revision_calls_transplant_service(
     monkeypatch.setattr('landoapi.models.landing.TransplantClient', tsclient)
     client.post(
         '/landings',
-        data=json.dumps({
+        json={
             'revision_id': 'D1',
-            'diff_id': int(diff_id)
-        }),
+            'diff_id': int(diff_id),
+        },
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     tsclient().land.assert_called_once_with(
         revision_id=1,
@@ -119,22 +114,16 @@ def test_land_wrong_revision_id_format(db, client, phabfactory, auth0_mock):
     phabfactory.revision()
     response = client.post(
         '/landings',
-        data=json.dumps({
-            'revision_id': 1,
-            'diff_id': 1
-        }),
+        json={'revision_id': 1,
+              'diff_id': 1},
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 400
     response = client.post(
         '/landings',
-        data=json.dumps({
-            'revision_id': '1',
-            'diff_id': 1
-        }),
+        json={'revision_id': '1',
+              'diff_id': 1},
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 400
 
@@ -145,15 +134,12 @@ def test_land_diff_not_in_revision(db, client, phabfactory, s3, auth0_mock):
     phabfactory.diff(id=diff_id, revision_id='D123')
     response = client.post(
         '/landings',
-        data=json.dumps(
-            {
-                'revision_id': 'D1',
-                'diff_id': diff_id,
-                'force_override_of_diff_id': 1
-            }
-        ),
+        json={
+            'revision_id': 'D1',
+            'diff_id': diff_id,
+            'force_override_of_diff_id': 1
+        },
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.json['title'] == 'Diff not related to the revision'
     assert response.status_code == 400
@@ -174,12 +160,9 @@ def test_land_nonexisting_revision_returns_404(
 ):
     response = client.post(
         '/landings',
-        data=json.dumps({
-            'revision_id': 'D900',
-            'diff_id': 1
-        }),
+        json={'revision_id': 'D900',
+              'diff_id': 1},
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 404
     assert response.content_type == 'application/problem+json'
@@ -213,12 +196,9 @@ def test_land_nonexisting_diff_returns_404(
 
     response = client.post(
         '/landings',
-        data=json.dumps({
-            'revision_id': 'D1',
-            'diff_id': 9000
-        }),
+        json={'revision_id': 'D1',
+              'diff_id': 9000},
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 404
     assert response.content_type == 'application/problem+json'
@@ -234,12 +214,9 @@ def test_land_inactive_diff_returns_409(
     transfactory.create_autoland_response()
     response = client.post(
         '/landings',
-        data=json.dumps({
-            'revision_id': 'D1',
-            'diff_id': 1
-        }),
+        json={'revision_id': 'D1',
+              'diff_id': 1},
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 409
     assert response.content_type == 'application/problem+json'
@@ -256,15 +233,12 @@ def test_override_inactive_diff(
     transfactory.create_autoland_response()
     response = client.post(
         '/landings',
-        data=json.dumps(
-            {
-                'revision_id': 'D1',
-                'diff_id': 1,
-                'force_override_of_diff_id': 2
-            }
-        ),
+        json={
+            'revision_id': 'D1',
+            'diff_id': 1,
+            'force_override_of_diff_id': 2
+        },
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 409
     assert response.content_type == 'application/problem+json'
@@ -280,15 +254,12 @@ def test_override_active_diff(
     transfactory.create_autoland_response()
     response = client.post(
         '/landings',
-        data=json.dumps(
-            {
-                'revision_id': 'D1',
-                'diff_id': 1,
-                'force_override_of_diff_id': 2
-            }
-        ),
+        json={
+            'revision_id': 'D1',
+            'diff_id': 1,
+            'force_override_of_diff_id': 2
+        },
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 202
 
@@ -304,12 +275,11 @@ def test_land_with_open_parent(db, client, phabfactory, auth0_mock):
 
     response = client.post(
         '/landings',
-        data=json.dumps({
+        json={
             'revision_id': 'D2',
             'diff_id': 1,
-        }),
+        },
         headers=auth0_mock.mock_headers,
-        content_type='application/json'
     )
     assert response.status_code == 409
     assert response.json['title'] == 'Parent revision is open'
@@ -363,13 +333,10 @@ def test_update_landing(db, client):
     _create_landing(1, 1, 1, status=LandingStatus.submitted)
     response = client.post(
         '/landings/update',
-        data=json.dumps({
-            'request_id': 1,
-            'landed': True,
-            'result': 'sha123'
-        }),
+        json={'request_id': 1,
+              'landed': True,
+              'result': 'sha123'},
         headers=[('API-Key', 'someapikey')],
-        content_type='application/json'
     )
 
     assert response.status_code == 200
@@ -381,13 +348,10 @@ def test_update_landing_bad_request_id(db, client):
     _create_landing(1, 1, 1, status=LandingStatus.submitted)
     response = client.post(
         '/landings/update',
-        data=json.dumps({
-            'request_id': 2,
-            'landed': True,
-            'result': 'sha123'
-        }),
+        json={'request_id': 2,
+              'landed': True,
+              'result': 'sha123'},
         headers=[('API-Key', 'someapikey')],
-        content_type='application/json'
     )
 
     assert response.status_code == 404
@@ -396,13 +360,10 @@ def test_update_landing_bad_request_id(db, client):
 def test_update_landing_bad_api_key(client):
     response = client.post(
         '/landings/update',
-        data=json.dumps({
-            'request_id': 1,
-            'landed': True,
-            'result': 'sha123'
-        }),
+        json={'request_id': 1,
+              'landed': True,
+              'result': 'sha123'},
         headers=[('API-Key', 'wrongapikey')],
-        content_type='application/json'
     )
 
     assert response.status_code == 403
@@ -411,12 +372,9 @@ def test_update_landing_bad_api_key(client):
 def test_update_landing_no_api_key(client):
     response = client.post(
         '/landings/update',
-        data=json.dumps({
-            'request_id': 1,
-            'landed': True,
-            'result': 'sha123'
-        }),
-        content_type='application/json'
+        json={'request_id': 1,
+              'landed': True,
+              'result': 'sha123'},
     )
 
     assert response.status_code == 400
@@ -427,13 +385,10 @@ def test_pingback_disabled(client, config):
 
     response = client.post(
         '/landings/update',
-        data=json.dumps({
-            'request_id': 1,
-            'landed': True,
-            'result': 'sha123'
-        }),
+        json={'request_id': 1,
+              'landed': True,
+              'result': 'sha123'},
         headers=[('API-Key', 'someapikey')],
-        content_type='application/json'
     )
 
     assert response.status_code == 403

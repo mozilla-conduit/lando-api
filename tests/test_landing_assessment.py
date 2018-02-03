@@ -1,25 +1,17 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import json
-
 import pytest
 
 from landoapi.api.landings import LandingAssessment
-
-
-def json_str(**kwargs):
-    """Helper that turns its keyword args into a JSON-encoded string."""
-    return json.dumps(kwargs)
 
 
 def test_no_warnings_or_problems(client, phabfactory, auth0_mock):
     phabfactory.revision('D23')
     response = client.post(
         '/landings/dryrun',
-        data=json_str(revision_id='D23', diff_id=1),
+        json=dict(revision_id='D23', diff_id=1),
         headers=auth0_mock.mock_headers,
-        content_type='application/json',
     )
 
     assert 200 == response.status_code
@@ -35,9 +27,8 @@ def test_no_warnings_or_problems(client, phabfactory, auth0_mock):
 def test_assess_invalid_id_format_returns_error(client, auth0_mock):
     response = client.post(
         '/landings/dryrun',
-        data=json_str(revision_id='a', diff_id=1),
+        json=dict(revision_id='a', diff_id=1),
         headers=auth0_mock.mock_headers,
-        content_type='application/json',
     )
     assert response.status_code == 400
 
@@ -45,7 +36,7 @@ def test_assess_invalid_id_format_returns_error(client, auth0_mock):
 def test_no_auth0_headers_returns_error(client):
     response = client.post(
         '/landings/dryrun',
-        data=json_str(revision_id='D1', diff_id=1),
+        json=dict(revision_id='D1', diff_id=1),
         content_type='application/json',
     )
     assert response.status_code == 401

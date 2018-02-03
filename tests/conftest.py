@@ -7,6 +7,7 @@ import os
 from types import SimpleNamespace
 
 import boto3
+import flask.testing
 import pytest
 import requests_mock
 from moto import mock_s3
@@ -16,6 +17,33 @@ from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.storage import db as _db
 
 from tests.factories import PhabResponseFactory, TransResponseFactory
+
+
+class JSONClient(flask.testing.FlaskClient):
+    """Custom Flask test client that sends JSON by default.
+
+    HTTP methods have a 'json=...' keyword that will JSON-encode the
+    given data.
+
+    All requests' content-type is automatically set to 'application/json'
+    unless overridden.
+    """
+
+    def open(self, *args, **kwargs):
+        """Send a HTTP request.
+
+        Args:
+            json: An object to be JSON-encoded. Cannot be used at the same time
+                as the 'data' keyword arg.
+            content_type: optional, will override the default
+                of 'application/json'.
+        """
+        assert not (('data' in kwargs) and ('json' in kwargs))
+        kwargs.setdefault('content_type', 'application/json')
+        if 'json' in kwargs:
+            kwargs['data'] = json.dumps(kwargs['json'], sort_keys=True)
+            del kwargs['json']
+        return super(JSONClient, self).open(*args, **kwargs)
 
 
 @pytest.fixture
@@ -103,6 +131,9 @@ def app(versionfile, docker_env_vars, disable_migrations, disable_log_output):
     # Turn on exception propagation.
     # See http://flask.pocoo.org/docs/0.12/api/#flask.Flask.test_client
     flask_app.testing = True
+
+    flask_app.test_client_class = JSONClient
+
     return flask_app
 
 
