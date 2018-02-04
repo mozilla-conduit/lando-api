@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import functools
+import hashlib
 import logging
 import os
 
@@ -13,6 +14,7 @@ from connexion import (
 from flask import current_app, g
 from jose import jwt
 
+from landoapi.cache import cache
 from landoapi.mocks.auth import MockAuth0
 
 logger = logging.getLogger(__name__)
@@ -80,19 +82,178 @@ def get_rsa_key(jwks, token):
             return {i: key[i] for i in ('kty', 'kid', 'use', 'n', 'e')}
 
 
-def get_jwks(url):
-    """Return the jwks found at provided url."""
-    return requests.get(url).json()
-
-
-def get_auth0_userinfo(access_token):
-    """Return userinfo data from auth0."""
-    url = 'https://{oidc_domain}/userinfo'.format(
-        oidc_domain=current_app.config['OIDC_DOMAIN']
+def jwks_cache_key(url):
+    return 'auth0_jwks_{}'.format(
+        hashlib.sha256(url.encode('utf-8')).hexdigest()
     )
+
+
+def get_jwks():
+    """Return the auth0 jwks."""
+    jwks_url = current_app.config['OIDC_JWKS_URL']
+    cache_key = jwks_cache_key(jwks_url)
+    jwks = cache.get(cache_key)
+    if jwks is not None:
+        return jwks
+
+    try:
+        jwks_response = requests.get(jwks_url)
+    except requests.exceptions.Timeout:
+        raise ProblemException(
+            500,
+            'Auth0 Timeout',
+            'Authentication server timed out, try again later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+    except requests.exceptions.ConnectionError:
+        raise ProblemException(
+            500,
+            'Auth0 Connection Problem',
+            'Can\'t connect to authentication server, try again later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+    except requests.exceptions.HTTPError:
+        raise ProblemException(
+            500,
+            'Auth0 Response Error',
+            'Authentication server response was invalid, try again '
+            'later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+    except requests.exceptions.RequestException:
+        raise ProblemException(
+            500,
+            'Auth0 Error',
+            'Problem communicating with Auth0, try again later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+
+    try:
+        jwks = jwks_response.json()
+    except ValueError:
+        logger.error(
+            {
+                'msg': 'Auth0 jwks response was not valid json.'
+            }, 'auth0.error'
+        )
+        raise ProblemException(
+            500,
+            'Auth0 Response Error',
+            'Authentication server response was invalid, try again later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+
+    cache.set(cache_key, jwks, timeout=60)
+    return jwks
+
+
+def userinfo_cache_key(access_token, user_sub):
+    return 'auth0_userinfo_{user_sub}_{token_hash}'.format(
+        user_sub=user_sub,
+        token_hash=hashlib.sha256(access_token.encode('utf-8')).hexdigest()
+    )
+
+
+def get_userinfo_url():
+    return 'https://{}/userinfo'.format(current_app.config['OIDC_DOMAIN'])
+
+
+def fetch_auth0_userinfo(access_token):
+    """Return userinfo response from auth0 endpoint."""
     return requests.get(
-        url, headers={'Authorization': 'Bearer {}'.format(access_token)}
+        get_userinfo_url(),
+        headers={'Authorization': 'Bearer {}'.format(access_token)}
     )
+
+
+def get_auth0_userinfo(access_token, user_sub):
+    """Return userinfo data from auth0."""
+    cache_key = userinfo_cache_key(access_token, user_sub)
+    userinfo = cache.get(cache_key)
+    if userinfo is not None:
+        return userinfo
+
+    try:
+        resp = fetch_auth0_userinfo(access_token)
+    except requests.exceptions.Timeout:
+        raise ProblemException(
+            500,
+            'Auth0 Timeout',
+            'Authentication server timed out, try again later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+    except requests.exceptions.ConnectionError:
+        raise ProblemException(
+            500,
+            'Auth0 Connection Problem',
+            'Can\'t connect to authentication server, try again later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+    except requests.exceptions.HTTPError:
+        raise ProblemException(
+            500,
+            'Auth0 Response Error',
+            'Authentication server response was invalid, try again '
+            'later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+    except requests.exceptions.RequestException:
+        raise ProblemException(
+            500,
+            'Auth0 Error',
+            'Problem communicating with Auth0, try again later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+
+    if resp.status_code == 429:
+        # We should hopefully never hit this in production, so log an error
+        # to make sure we investigate.
+        logger.error(
+            {
+                'msg': 'Auth0 Rate limit hit when requesting userinfo'
+            }, 'auth0.rate_limited'
+        )
+        raise ProblemException(
+            429,
+            'Auth0 Rate Limit',
+            'Authentication rate limit hit, please wait before '
+            'retrying',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429'
+        )  # yapf: disable
+
+    if resp.status_code == 401:
+        raise ProblemException(
+            401,
+            'Auth0 Userinfo Unauthorized',
+            'Unauthorized to access userinfo, check openid scope',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401'
+        )  # yapf: disable
+
+    if resp.status_code != 200:
+        raise ProblemException(
+            403,
+            'Authorization Failure',
+            'You do not have permission to access this resource',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'
+        )  # yapf: disable
+
+    try:
+        userinfo = resp.json()
+    except ValueError:
+        logger.error(
+            {
+                'msg': 'Auth0 userinfo response was not valid json.'
+            }, 'auth0.error'
+        )
+        raise ProblemException(
+            500,
+            'Auth0 Response Error',
+            'Authentication server response was invalid, try again later',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
+        )  # yapf: disable
+
+    cache.set(cache_key, userinfo, timeout=60)
+    return userinfo
 
 
 class A0User:
@@ -100,13 +261,6 @@ class A0User:
 
     It is assumed that the access_token provided to __init__ has
     already been verified properly.
-
-    Clients requesting landing must require that the Mozilla LDAP login
-    method is used to take advantage of the high security of the LDAP login.
-
-    # TODO: Verify that the access token was generated via LDAP login.
-    # TODO: Verify that the access token has the 'openid', 'profile',
-    # 'email', and 'lando' scopes set.
     """
     _GROUPS_CLAIM_KEY = 'https://sso.mozilla.com/claim/groups'
 
@@ -153,8 +307,8 @@ class A0User:
         return self.is_in_groups('active_scm_level_3')
 
 
-def _mock_parsed_userinfo_claims(userinfo):
-    """ Partially mocks Auth0 userinfo by only injecting ldap claims
+def _mock_userinfo_claims(userinfo):
+    """Partially mocks Auth0 userinfo by only injecting ldap claims
 
     Modifies the userinfo in place with either valid or invalid ldap claims
     for landing based on the configured option in docker-compose.yml.
@@ -235,81 +389,14 @@ class require_auth0:
                 g.auth0_user = A0User(g.access_token, mock_auth0.userinfo)
                 return f(*args, **kwargs)
 
-            try:
-                resp = get_auth0_userinfo(g.access_token)
-            except requests.exceptions.Timeout:
-                raise ProblemException(
-                    500,
-                    'Auth0 Timeout',
-                    'Authentication server timed out, try again later',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-                )  # yapf: disable
-            except requests.exceptions.ConnectionError:
-                raise ProblemException(
-                    500,
-                    'Auth0 Connection Problem',
-                    'Can\'t connect to authentication server, try again later',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-                )  # yapf: disable
-            except requests.exceptions.HTTPError:
-                raise ProblemException(
-                    500,
-                    'Auth0 Response Error',
-                    'Authentication server response was invalid, try again '
-                    'later',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-                )  # yapf: disable
-            except requests.exceptions.RequestException:
-                raise ProblemException(
-                    500,
-                    'Auth0 Error',
-                    'Problem communicating with Auth0, try again later',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-                )  # yapf: disable
-
-            if resp.status_code == 429:
-                # TODO: We should be caching the userinfo to avoid hitting the
-                # rate limit here. It might be important to hash the token for
-                # the cache key rather than using it directly, look into this.
-                raise ProblemException(
-                    429,
-                    'Auth0 Rate Limit',
-                    'Authentication rate limit hit, please wait before '
-                    'retrying',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429' # noqa
-                )  # yapf: disable
-
-            if resp.status_code == 401:
-                raise ProblemException(
-                    401,
-                    'Auth0 Userinfo Unauthorized',
-                    'Unauthorized to access userinfo, check openid scope',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401' # noqa
-                )  # yapf: disable
-
-            if resp.status_code != 200:
-                raise ProblemException(
-                    403,
-                    'Authorization Failure',
-                    'You do not have permission to access this resource',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403' # noqa
-                )  # yapf: disable
-
-            try:
-                parsed_userinfo = resp.json()
-            except ValueError:
-                raise ProblemException(
-                    500,
-                    'Auth0 Response Error',
-                    'Authentication server response was invalid, try again '
-                    'later',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
-                )  # yapf: disable
+            userinfo = get_auth0_userinfo(
+                g.access_token, g.access_token_payload['sub']
+            )
 
             if os.getenv('ENV') == 'localdev':
-                _mock_parsed_userinfo_claims(parsed_userinfo)
+                _mock_userinfo_claims(userinfo)
 
-            g.auth0_user = A0User(g.access_token, parsed_userinfo)
+            g.auth0_user = A0User(g.access_token, userinfo)
             return f(*args, **kwargs)
 
         return wrapped
@@ -327,11 +414,24 @@ class require_auth0:
                 return f(*args, **kwargs)
 
             token = get_auth_token()
-            jwks = get_jwks(current_app.config['OIDC_JWKS_URL'])
+            jwks = get_jwks()
 
             try:
                 key = get_rsa_key(jwks, token)
-            except (jwt.JWTError, KeyError):
+            except KeyError:
+                logger.error(
+                    {
+                        'msg': 'Auth0 jwks response structure unexpected.'
+                    }, 'auth0.error'
+                )
+                raise ProblemException(
+                    500,
+                    'Auth0 Response Error',
+                    'Authentication server response was invalid, try again '
+                    'later',
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500' # noqa
+                )  # yapf: disable
+            except jwt.JWTError:
                 raise ProblemException(
                     400,
                     'Invalid Authorization',

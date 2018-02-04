@@ -13,7 +13,7 @@ from flask import g
 
 from landoapi.auth import (
     A0User,
-    get_auth0_userinfo,
+    fetch_auth0_userinfo,
     require_auth0,
 )
 from landoapi.mocks.auth import create_access_token, TEST_KEY_PRIV
@@ -47,6 +47,75 @@ def test_require_access_token_malformed(jwks, app, headers, status):
             require_auth0(scopes=())(noop)()
 
     assert exc_info.value.status == status
+
+
+@pytest.mark.parametrize(
+    'exc,status,title', [
+        (requests.exceptions.ConnectTimeout, 500, 'Auth0 Timeout'),
+        (requests.exceptions.ReadTimeout, 500, 'Auth0 Timeout'),
+        (requests.exceptions.ProxyError, 500, 'Auth0 Connection Problem'),
+        (requests.exceptions.SSLError, 500, 'Auth0 Connection Problem'),
+        (requests.exceptions.HTTPError, 500, 'Auth0 Response Error'),
+        (requests.exceptions.RequestException, 500, 'Auth0 Error'),
+    ]
+)
+def test_require_auth0_userinfo_auth0_jwks_request_errors(
+    app, exc, status, title
+):
+    token = create_access_token()
+    headers = [('Authorization', 'Bearer {}'.format(token))]
+    with app.test_request_context('/', headers=headers):
+        with requests_mock.mock() as m:
+            m.get('/.well-known/jwks.json', exc=exc)
+
+            with pytest.raises(ProblemException) as exc_info:
+                require_auth0(scopes=(), userinfo=True)(noop)()
+
+    assert exc_info.value.status == status
+    assert exc_info.value.title == title
+
+
+@pytest.mark.parametrize(
+    'response_text,status,title', [
+        ('NOT JSON', 500, 'Auth0 Response Error'),
+        ('{"missing_fields_in_json": "weird"}', 500, 'Auth0 Response Error'),
+    ]
+)
+def test_require_auth0_userinfo_auth0_jwks_invalid_response_error(
+    app, response_text, status, title
+):
+    token = create_access_token()
+    headers = [('Authorization', 'Bearer {}'.format(token))]
+    with app.test_request_context('/', headers=headers):
+        with requests_mock.mock() as m:
+            m.get('/.well-known/jwks.json', text=response_text)
+
+            with pytest.raises(ProblemException) as exc_info:
+                require_auth0(scopes=(), userinfo=True)(noop)()
+
+    assert exc_info.value.status == status
+    assert exc_info.value.title == title
+
+
+@pytest.mark.parametrize(
+    'response_text,status,title', [
+        ('NOT JSON', 500, 'Auth0 Response Error'),
+    ]
+)
+def test_require_auth0_userinfo_auth0_userinfo_invalid_response_error(
+    jwks, app, response_text, status, title
+):
+    token = create_access_token()
+    headers = [('Authorization', 'Bearer {}'.format(token))]
+    with app.test_request_context('/', headers=headers):
+        with requests_mock.mock() as m:
+            m.get('/userinfo', text=response_text)
+
+            with pytest.raises(ProblemException) as exc_info:
+                require_auth0(scopes=(), userinfo=True)(noop)()
+
+    assert exc_info.value.status == status
+    assert exc_info.value.title == title
 
 
 def test_require_access_token_no_kid_match(jwks, app):
@@ -107,13 +176,24 @@ def test_require_access_token_valid(
     assert resp.status_code == 200
 
 
-def test_get_auth0_userinfo(app):
+def test_fetch_auth0_userinfo(app):
     with app.app_context():
         with requests_mock.mock() as m:
             m.get(
                 '/userinfo', status_code=200, json=CANNED_USERINFO['STANDARD']
             )
-            resp = get_auth0_userinfo(create_access_token())
+            resp = fetch_auth0_userinfo(create_access_token())
+
+    assert resp.status_code == 200
+
+
+def test_userinfo_cache(app):
+    with app.app_context():
+        with requests_mock.mock() as m:
+            m.get(
+                '/userinfo', status_code=200, json=CANNED_USERINFO['STANDARD']
+            )
+            resp = fetch_auth0_userinfo(create_access_token())
 
     assert resp.status_code == 200
 
@@ -140,7 +220,7 @@ def test_require_auth0_userinfo_expired_token(jwks, app):
         (requests.exceptions.RequestException, 500, 'Auth0 Error'),
     ]
 )
-def test_require_auth0_userinfo_auth0_request_errors(
+def test_require_auth0_userinfo_auth0_userinfo_request_errors(
     jwks, app, exc, status, title
 ):
     token = create_access_token()

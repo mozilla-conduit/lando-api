@@ -32,11 +32,11 @@ def docker_env_vars(monkeypatch):
     monkeypatch.setenv('PINGBACK_ENABLED', 'y')
     monkeypatch.setenv('PINGBACK_HOST_URL', 'http://lando-api.test')
     monkeypatch.setenv('PATCH_BUCKET_NAME', 'landoapi.test.bucket')
-    monkeypatch.setenv('AWS_ACCESS_KEY', None)
-    monkeypatch.setenv('AWS_SECRET_KEY', None)
+    monkeypatch.delenv('AWS_ACCESS_KEY', raising=False)
+    monkeypatch.delenv('AWS_SECRET_KEY', raising=False)
     monkeypatch.setenv('OIDC_IDENTIFIER', 'lando-api')
     monkeypatch.setenv('OIDC_DOMAIN', 'lando-api.auth0.test')
-    monkeypatch.setenv('CACHE_REDIS_HOST', None)
+    monkeypatch.delenv('CACHE_REDIS_HOST', raising=False)
 
 
 @pytest.fixture
@@ -143,7 +143,7 @@ def auth0_mock(jwks, monkeypatch):
         status_code=200, json=lambda: mock_auth0.userinfo
     )
     monkeypatch.setattr(
-        'landoapi.auth.get_auth0_userinfo',
+        'landoapi.auth.fetch_auth0_userinfo',
         lambda token: mock_userinfo_response
     )
     return mock_auth0
