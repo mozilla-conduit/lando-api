@@ -3,9 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import os
-from unittest.mock import MagicMock
 
+import pytest
 from freezegun import freeze_time
+from unittest.mock import MagicMock
 
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
@@ -169,7 +170,7 @@ def test_get_transplant_status(db, client, phabfactory):
 
 
 def test_land_nonexisting_revision_returns_404(
-    client, phabfactory, s3, auth0_mock
+    db, client, phabfactory, s3, auth0_mock
 ):
     response = client.post(
         '/landings',
@@ -297,7 +298,7 @@ def test_override_active_diff(
     assert landing.diff_id == 1
 
 
-def test_land_with_open_parent(client, phabfactory, auth0_mock):
+def test_land_with_open_parent(db, client, phabfactory, auth0_mock):
     parent_data = phabfactory.revision()
     phabfactory.revision(id='D2', depends_on=parent_data)
 
@@ -435,6 +436,63 @@ def test_pingback_disabled(client, config):
 
 def test_typecasting():
     Landing(revision_id='x', diff_id=1, active_diff_id=1)
+
+
+@pytest.mark.parametrize(
+    'status', [LandingStatus.submitted, LandingStatus.landed]
+)
+def test_revision_already_submitted(db, status):
+    landing = _create_landing(status=status, diff_id=2)
+    assert Landing.is_revision_submitted(1) == landing
+
+
+@pytest.mark.parametrize(
+    'status', [LandingStatus.aborted, LandingStatus.failed]
+)
+def test_revision_not_submitted(db, status):
+    _create_landing(status=status)
+    assert not Landing.is_revision_submitted(1)
+
+
+@pytest.mark.parametrize(
+    'status', [LandingStatus.aborted, LandingStatus.failed]
+)
+def test_land_failed_revision(
+    db, client, auth0_mock, phabfactory, s3, transfactory, status
+):
+    _create_landing(status=status)
+    phabfactory.revision()
+    transfactory.create_autoland_response(2)
+
+    response = client.post(
+        '/landings',
+        data=json.dumps({
+            'revision_id': 'D1',
+            'diff_id': 1
+        }),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json'
+    )
+    assert response.status_code == 202
+    assert Landing.is_revision_submitted(1)
+
+
+@pytest.mark.parametrize(
+    'status', [LandingStatus.submitted, LandingStatus.landed]
+)
+def test_land_submitted_revision(db, client, auth0_mock, status):
+    _create_landing(status=status)
+    response = client.post(
+        '/landings',
+        data=json.dumps({
+            'revision_id': 'D1',
+            'diff_id': 1
+        }),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json'
+    )
+    assert response.status_code == 409
+    assert response.json['title'].endswith(status.value)
 
 
 def _create_landing(

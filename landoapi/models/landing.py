@@ -127,6 +127,11 @@ class Landing(db.Model):
                 active one.
             LandingNotCreatedException: landing request in Transplant failed
         """
+        # Check if revision is not landed already
+        already_submitted = cls.is_revision_submitted(revision_id)
+        if already_submitted:
+            raise RevisionAlreadyLandedException(revision=already_submitted)
+
         revision = phab.get_revision(id=revision_id)
 
         if not revision:
@@ -214,6 +219,25 @@ class Landing(db.Model):
 
         return db.session.commit()
 
+    @classmethod
+    def is_revision_submitted(cls, revision_id):
+        """Check if revision is successfully submitted.
+
+        Args:
+            revision_id: The integer id of the revision.
+
+        Returns:
+            Landed Revision object or False if not submitted.
+        """
+        landings = cls.query.filter(
+            cls.revision_id == revision_id,
+            cls.status.in_([LandingStatus.submitted, LandingStatus.landed])
+        ).all()
+        if not landings:
+            return False
+
+        return landings[0]
+
     def __repr__(self):
         return '<Landing: %s>' % self.id
 
@@ -290,3 +314,11 @@ class OpenParentException(Exception):
             .format(open_revision_id)
         )
         self.open_revision_id = open_revision_id
+
+
+class RevisionAlreadyLandedException(Exception):
+    """Revision chosen to land has already been landed."""
+
+    def __init__(self, revision):
+        super().__init__('Revision already landed.')
+        self.revision = revision

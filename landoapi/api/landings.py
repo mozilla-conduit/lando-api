@@ -22,6 +22,7 @@ from landoapi.models.landing import (
     LandingNotCreatedException,
     OpenParentException,
     OverrideDiffException,
+    RevisionAlreadyLandedException,
     RevisionNotFoundException,
 )
 from landoapi.models.patch import (
@@ -71,6 +72,24 @@ def post(data):
             g.auth0_user.email,
             g.phabricator,
             override_diff_id=override_diff_id
+        )
+    except RevisionAlreadyLandedException as exc:
+        logger.warning(
+            {
+                'revision': exc.revision,
+                'msg': 'Attempt to land an already landed revision'
+            }, 'landing.warning'
+        )
+        msg_title = 'Revision is already {}'.format(exc.revision.status.value)
+        if diff_id == exc.revision.diff_id:
+            msg = '{} using the same Diff'.format(msg_title)
+        else:
+            msg = '{} using Diff {}'.format(msg_title, exc.revision.diff_id)
+        return problem(
+            409,
+            msg_title,
+            msg,
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
     except RevisionNotFoundException:
         # We could not find a matching revision.
