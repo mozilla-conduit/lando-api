@@ -342,3 +342,23 @@ def test_no_open_parent(status, phabfactory):
     phab = PhabricatorClient(api_key='api-key')
 
     assert phab.get_first_open_parent_revision(revision) is None
+
+
+def test_get_dependency_tree(phabfactory):
+    grandparent_data = phabfactory.revision(
+        status=Statuses.NEEDS_REVISION.value
+    )
+    grandparent = grandparent_data['result'][0]
+    parent_data = phabfactory.revision(
+        id='D2', status=Statuses.CLOSED.value, depends_on=grandparent_data
+    )
+    parent = parent_data['result'][0]
+    revision_data = phabfactory.revision(id='D4', depends_on=parent_data)
+    revision = revision_data['result'][0]
+    phab = PhabricatorClient(api_key='api-key')
+
+    dependency = phab.get_dependency_tree(revision)
+    assert next(dependency) == parent
+    assert next(dependency) == grandparent
+    with pytest.raises(StopIteration):
+        next(dependency)

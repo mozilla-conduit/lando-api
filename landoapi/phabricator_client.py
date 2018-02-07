@@ -308,48 +308,42 @@ class PhabricatorClient:
             return False
         return True
 
+    def get_dependency_tree(self, revision, recursive=True):
+        """Generator yielding revisions from the dependency tree.
+
+        Get parent revisions for the provided revision. If recursive is True
+        try to get parent's revisions.
+
+        Args:
+            revision: Revision which dependency tree will be examined
+            recursive: (bool) should parent's dependency tree be returned?
+
+        Returns:
+            A generator of the dependency tree revisions
+        """
+        phids = revision['auxiliary'].get('phabricator:depends-on', [])
+        if phids:
+            revisions = self.get_revisions(phids=phids)
+            for revision in revisions:
+                yield revision
+
+                if recursive:
+                    yield from self.get_dependency_tree(revision)
+
     def get_first_open_parent_revision(self, revision):
         """Find first open parent revision.
 
         Args:
-            revision: a Revision dict received via `differential.query` API.
+            revision: Revision which dependency tree will be examined
 
         Returns:
             Open Revision or None
         """
 
-        def get_open_revision(phids):
-            """Recursively check the dependency tree for any open revision.
-
-            Return None if phids is an empty list.
-            Request revisions from Phabricator, check if there is any open one.
-            If true - return the revision.
-            Otherwise check the dependency trees recursively.
-
-            Args:
-                phids: list of PHIDs identifying parent revisions
-
-            Returns:
-                Revision or None
-            """
-            if not phids:
-                return None
-
-            result = self.get_revisions(phids=phids)
-
-            for revision in result:
-                if Statuses(revision['status']) in OPEN_STATUSES:
-                    return revision
-
-                open_revision = get_open_revision(
-                    revision['auxiliary'].get('phabricator:depends-on', [])
-                )
-                if open_revision:
-                    return open_revision
-
-        return get_open_revision(
-            revision['auxiliary'].get('phabricator:depends-on', [])
-        )
+        dependency_tree = self.get_dependency_tree(revision)
+        for dependency in dependency_tree:
+            if Statuses(dependency['status']) in OPEN_STATUSES:
+                return dependency
 
     @staticmethod
     def extract_bug_id(revision):
