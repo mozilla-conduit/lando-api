@@ -331,10 +331,15 @@ def test_get_jobs_by_revision_id(db, client, phabfactory):
     assert response.json == CANNED_LANDING_LIST_1
 
 
-def test_not_authorized_to_view_landing_by_id(db, client, phabfactory):
+def test_no_revision_for_landing(db, client, phabfactory):
     _create_landing(1, 1, 1, status=LandingStatus.submitted)
     phabfactory.revision(not_found=True)
     response = client.get('/landings/1')
+    assert response.status_code == 404
+
+
+def test_landing_id_as_string(db, client):
+    response = client.get('/landings/string')
     assert response.status_code == 404
 
 

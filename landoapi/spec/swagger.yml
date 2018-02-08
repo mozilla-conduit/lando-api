@@ -280,7 +280,7 @@ paths:
       parameters:
         - name: landing_id
           in: path
-          type: string
+          type: integer
           description: |
             The id of the landing to return
           required: true
