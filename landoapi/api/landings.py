@@ -5,9 +5,7 @@
 Landing API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
-import hashlib
 import hmac
-import json
 import logging
 
 from connexion import problem
@@ -16,6 +14,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
+from landoapi.landings import check_landing_conditions
 from landoapi.models.landing import (
     InactiveDiffException,
     Landing,
@@ -37,21 +36,8 @@ logger = logging.getLogger(__name__)
 @require_phabricator_api_key(optional=True)
 def post(data):
     """API endpoint at POST /landings to land revision."""
-    if not g.auth0_user.email:
-        return problem(
-            403,
-            'Not Authorized',
-            'You do not have a Mozilla verified email address.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'
-        )
-
-    if not g.auth0_user.can_land_changes():
-        return problem(
-            403,
-            'Not Authorized',
-            'You do not have the required permissions to request landing.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'
-        )
+    assessment = check_landing_conditions(g.auth0_user, short_circuit=True)
+    assessment.raise_if_blocked_or_unacknowledged(None)
 
     # get revision_id from body
     revision_id = revision_id_to_int(data['revision_id'])
@@ -314,87 +300,8 @@ def dryrun(data):
     """
     # TODO unused for now, just parse the data for errors
     revision_id_to_int(data['revision_id'])
-
-    assessment = LandingAssessment([], [])
+    assessment = check_landing_conditions(g.auth0_user)
     return jsonify(assessment.to_dict())
-
-
-class LandingAssessment:
-    """Represents an assessment of issues that may block a revision landing.
-
-    Attributes:
-        warnings: List of warning dictionaries. Each dict must have an 'id'
-            key holding the warning ID. e.g. {'id': 'W201', ...}
-        problems: List of problem dictionaries Each dict must have an 'id'
-            key holding the problem ID. e.g. {'id': 'E406', ...}
-    """
-
-    def __init__(self, warnings, problems):
-        self.warnings = warnings
-        self.problems = problems
-
-    def to_dict(self):
-        """Return the assessment as a dict.
-
-        Includes the appropriate confirmation_token for any warnings present.
-        """
-        return {
-            'confirmation_token': self.hash_warning_list(),
-            'warnings': self.warnings,
-            'problems': self.problems,
-        }
-
-    def hash_warning_list(self):
-        """Return a hash of our warning dictionaries.
-
-        Hashes are generated in a cross-machine comparable way.
-
-        This function takes a list of warning dictionaries.  Each dictionary
-        must have an 'id' key that holds the unique warning ID.
-
-        E.g.:
-        [
-            {'id': 'W201', ...},
-            {'id': 'W500', ...},
-            ...
-        ]
-
-        This function generates a hash of warnings dictionaries that can be
-        passed to a client across the network, then returned by that client
-        and compared to the warnings in a new landing process.  That landing
-        process could be happening on a completely different machine than the
-        one that generated the original hash.  This function goes to pains to
-        ensure that a hash of the same set of warning list dictionaries on
-        separate machines will match.
-
-        Args:
-            warning_list: A list of warning dictionaries.  The 'id' key and
-                value must be JSON-serializable.
-
-        Returns: String.  Returns None if given an empty list.
-        """
-        if not self.warnings:
-            return None
-
-        # The warning ID and message should be stable across machines.
-
-        # First de-duplicate the list of dicts using the ID field.  If there
-        # is more than one warning with the same ID and different fields then
-        # the last entry in the warning list wins.
-        warnings_dict = dict((w['id'], w) for w in self.warnings)
-
-        # Assume we are trying to encode a JSON-serializable warning_list
-        # structure - keys and values are only simple types, not objects.  A
-        # TypeError will be thrown if the caller accidentally tries to
-        # serialize something funky. Also sort the warning dict items and
-        # nested dict items so the same hash can be generated on different
-        # machines. See https://stackoverflow.com/a/10288255 and
-        # https://stackoverflow.com/questions/5884066/hashing-a-dictionary
-        # for a discussion of why this is tricky!
-        warnings_json = json.dumps(
-            warnings_dict, sort_keys=True
-        ).encode('UTF-8')
-        return hashlib.sha256(warnings_json).hexdigest()
 
 
 def _not_authorized_problem():

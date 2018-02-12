@@ -3,10 +3,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import pytest
 
-from landoapi.api.landings import LandingAssessment
+from landoapi.landings import LandingAssessment, LandingProblem
+from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 
 
-def test_no_warnings_or_problems(client, phabfactory, auth0_mock):
+class MockProblem(LandingProblem):
+    id = 'M0CK'
+
+
+def test_no_warnings_or_blockers(client, phabfactory, auth0_mock):
     phabfactory.revision('D23')
     response = client.post(
         '/landings/dryrun',
@@ -19,7 +24,7 @@ def test_no_warnings_or_problems(client, phabfactory, auth0_mock):
     expected_json = {
         'confirmation_token': None,
         'warnings': [],
-        'problems': [],
+        'blockers': [],
     }
     assert response.json == expected_json
 
@@ -42,120 +47,172 @@ def test_no_auth0_headers_returns_error(client):
     assert response.status_code == 401
 
 
-def test_construct_assessment_dict_no_warnings_or_problems():
+def test_construct_assessment_dict_no_warnings_or_blockers():
     assessment = LandingAssessment([], [])
-    expected_json = {
+    expected_dict = {
         'confirmation_token': None,
         'warnings': [],
-        'problems': [],
+        'blockers': [],
     }
 
-    assert assessment.to_dict() == expected_json
+    assert assessment.to_dict() == expected_dict
 
 
 def test_construct_assessment_dict_only_warnings():
-    warnings = [{'id': 'W0', 'message': 'oops'}]
-    problems = []
-    assessment = LandingAssessment(warnings, problems)
+    warnings = [MockProblem('oops')]
+    blockers = []
+    assessment = LandingAssessment(warnings, blockers)
     result = assessment.to_dict()
     assert result['confirmation_token'] is not None
-    assert result['warnings'] == warnings
-    assert result['problems'] == problems
+    assert result['warnings'][0]['message'] == 'oops'
+    assert not result['blockers']
 
 
-def test_construct_assessment_dict_only_problems():
+def test_construct_assessment_dict_only_blockers():
     warnings = []
-    problems = [{'id': 'E0', 'message': 'fark'}]
-    assessment = LandingAssessment(warnings, problems)
-
-    expected_json = {
-        'confirmation_token': None,
-        'warnings': warnings,
-        'problems': problems,
-    }
-
-    assert assessment.to_dict() == expected_json
+    blockers = [MockProblem('oops')]
+    assessment = LandingAssessment(warnings, blockers)
+    result = assessment.to_dict()
+    assert result['confirmation_token'] is None
+    assert result['blockers'][0]['message'] == 'oops'
+    assert not result['warnings']
 
 
 def test_token_for_no_issues_is_none():
-    a = LandingAssessment(None, None)
-    assert a.hash_warning_list() is None
+    assert LandingAssessment.hash_warning_list([]) is None
 
 
 def test_token_with_warnings_is_not_none():
-    a = LandingAssessment([{'id': 'W0', 'message': 'oops'}], None)
-    assert a.hash_warning_list()
+    assert LandingAssessment.hash_warning_list(
+        [{
+            'id': 'W0',
+            'message': 'oops'
+        }]
+    )
 
 
 def test_hash_with_different_list_order_is_equal():
-    w1 = [
-        {
-            'id': 'W1',
-            'message': 'oops 1'
-        },
-        {
-            'id': 'W2',
-            'message': 'oops 2'
-        },
-        {
-            'id': 'W3',
-            'message': 'oops 3'
-        },
-    ]
-    w2 = [
-        {
-            'id': 'W3',
-            'message': 'oops 3'
-        },
-        {
-            'id': 'W2',
-            'message': 'oops 2'
-        },
-        {
-            'id': 'W1',
-            'message': 'oops 1'
-        },
-    ]
-    a = LandingAssessment(w1, [])
-    b = LandingAssessment(w2, [])
-    assert a.hash_warning_list() == b.hash_warning_list()
+    a = LandingAssessment.hash_warning_list(
+        [
+            {
+                'id': 'W1',
+                'message': 'oops 1'
+            },
+            {
+                'id': 'W2',
+                'message': 'oops 2'
+            },
+            {
+                'id': 'W3',
+                'message': 'oops 3'
+            },
+        ]
+    )
+    b = LandingAssessment.hash_warning_list(
+        [
+            {
+                'id': 'W3',
+                'message': 'oops 3'
+            },
+            {
+                'id': 'W2',
+                'message': 'oops 2'
+            },
+            {
+                'id': 'W1',
+                'message': 'oops 1'
+            },
+        ]
+    )
+    assert a == b
 
 
 def test_hash_with_same_id_different_warning_details_are_different():
-    a = LandingAssessment([{'id': 'W0', 'message': 'revision 5 problem'}], [])
-    b = LandingAssessment([{'id': 'W0', 'message': 'revision 8 problem'}], [])
-    assert a.hash_warning_list() != b.hash_warning_list()
-
-
-def test_hash_with_duplicate_ids_are_stripped():
-    w1 = [
-        {
+    a = LandingAssessment.hash_warning_list(
+        [{
             'id': 'W0',
-            'message': 'same'
-        },
-        {
+            'message': 'revision 5 problem'
+        }]
+    )
+    b = LandingAssessment.hash_warning_list(
+        [{
             'id': 'W0',
-            'message': 'same'
-        },
-    ]
-    w2 = [{'id': 'W0', 'message': 'same'}]
-    a = LandingAssessment(w1, [])
-    b = LandingAssessment(w2, [])
-    assert a.hash_warning_list() == b.hash_warning_list()
+            'message': 'revision 8 problem'
+        }]
+    )
+    assert a != b
 
 
-def test_hash_of_non_list_is_error():
-    a = LandingAssessment('oops', [])
-    with pytest.raises(TypeError):
-        a.hash_warning_list()
+def test_hash_with_duplicate_ids_are_not_stripped():
+    a = LandingAssessment.hash_warning_list(
+        [
+            {
+                'id': 'W0',
+                'message': 'same'
+            },
+            {
+                'id': 'W0',
+                'message': 'same'
+            },
+        ]
+    )
+    b = LandingAssessment.hash_warning_list([{'id': 'W0', 'message': 'same'}])
+    assert a != b
 
 
 def test_hash_of_empty_list_is_None():
-    a = LandingAssessment([], [])
-    assert a.hash_warning_list() is None
+    assert LandingAssessment.hash_warning_list([]) is None
 
 
 def test_hash_object_throws_error():
-    a = LandingAssessment([{'id': object()}], None)
-    with pytest.raises(TypeError):
-        a.hash_warning_list()
+    with pytest.raises(KeyError):
+        LandingAssessment.hash_warning_list([{'id': object()}])
+
+
+@pytest.mark.parametrize(
+    'userinfo,status,expected_blockers', [
+        (
+            CANNED_USERINFO['NO_CUSTOM_CLAIMS'], 200, [
+                {
+                    'id':
+                    'E002',
+                    'message':
+                    'You have insufficient permissions to land. scm_level_3 '
+                    'access is required.',
+                },
+            ]
+        ),
+        (
+            CANNED_USERINFO['EXPIRED_L3'], 200, [
+                {
+                    'id': 'E002',
+                    'message': 'Your scm_level_3 access has expired.',
+                },
+            ]
+        ),
+        (
+            CANNED_USERINFO['UNVERIFIED_EMAIL'], 200, [
+                {
+                    'id': 'E001',
+                    'message':
+                    'You do not have a Mozilla verified email address.',
+                },
+            ]
+        ),
+    ]
+)
+def test_blockers_for_bad_userinfo(
+    client, auth0_mock, userinfo, status, expected_blockers
+):
+    # Remove SCM level 3 claim from Mozilla claim groups
+    auth0_mock.userinfo = userinfo
+
+    response = client.post(
+        '/landings/dryrun',
+        json=dict(revision_id='D1', diff_id=1),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json',
+    )
+
+    assert response.status_code == status
+    assert response.json['blockers'] == expected_blockers

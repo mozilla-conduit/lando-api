@@ -43,6 +43,17 @@ CANNED_USERINFO['NO_CUSTOM_CLAIMS'] = copy.deepcopy({
     not key.startswith('https://sso.mozilla.com/claim')
 })
 
+CANNED_USERINFO['EXPIRED_L3'] = copy.deepcopy(CANNED_USERINFO_STANDARD)
+CANNED_USERINFO['EXPIRED_L3'].update({
+    'https://sso.mozilla.com/claim/groups': [
+        'active_scm_level_1',
+        'all_scm_level_1',
+        'active_scm_level_2',
+        'all_scm_level_2',
+        'all_scm_level_3',
+    ]
+})
+
 CANNED_USERINFO['SINGLE_GROUP'] = copy.deepcopy(CANNED_USERINFO_STANDARD)
 CANNED_USERINFO['SINGLE_GROUP'].update({
     'https://sso.mozilla.com/claim/groups': ['all_scm_level_1'],

@@ -72,7 +72,9 @@ def test_landing_without_auth0_permissions(client, auth0_mock):
         },
         headers=auth0_mock.mock_headers,
     )
-    assert response.status_code == 403
+
+    assert response.status_code == 400
+    assert response.json['blockers'][0]['id'] == 'E002'
 
 
 def test_landing_revision_calls_transplant_service(

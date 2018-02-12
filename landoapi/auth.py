@@ -302,10 +302,6 @@ class A0User:
         """Return True if the user is in all provided groups."""
         return set(args).issubset(self.groups)
 
-    def can_land_changes(self):
-        """Return True if the user has permissions to land."""
-        return self.is_in_groups('active_scm_level_3')
-
 
 def _mock_userinfo_claims(userinfo):
     """Partially mocks Auth0 userinfo by only injecting ldap claims

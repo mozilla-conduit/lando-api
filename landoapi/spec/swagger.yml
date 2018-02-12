@@ -157,6 +157,12 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+        400:
+          description: Blockers or Unacknowledged Warnings
+          schema:
+            allOf:
+              - $ref: '#definitions/Error'
+              - $ref: '#definitions/LandingAssessment'
         default:
           description: Unexpected error
           schema:
@@ -568,7 +574,7 @@ definitions:
           A list of issues that the caller should acknowledge before landing
           their revision.  The caller can signal acknowledgement by sending the
           confirmation_token with their landing request.
-      problems:
+      blockers:
         type: array
         items:
           $ref: '#/definitions/LandingProblem'
