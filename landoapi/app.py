@@ -140,7 +140,7 @@ def initialize_sentry(flask_app, release):
     sentry_dsn = os.environ.get('SENTRY_DSN', None)
 
     if sentry_dsn:
-        dsn_text = '********' # Sanitize the DSN
+        dsn_text = '********'  # Sanitize the DSN
     else:
         dsn_text = 'none (sentry disabled)'
     logger.info({'SENTRY_DSN': dsn_text}, 'app.configure')
@@ -195,9 +195,7 @@ def log_app_config(flask_app, keys_before_setup):
     settings = dict((k, flask_app.config[k]) for k in safe_keys)
 
     sensitive_keys = keys_to_log.intersection(keys_to_sanitize)
-    cleaned_settings = dict(
-        (k, '********') for k in sensitive_keys
-    )
+    cleaned_settings = dict((k, '********') for k in sensitive_keys)
     settings.update(cleaned_settings)
 
     logger.info(settings, 'app.configure')
