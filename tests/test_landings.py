@@ -283,8 +283,9 @@ def test_land_with_open_parent(db, client, phabfactory, auth0_mock):
         },
         headers=auth0_mock.mock_headers,
     )
-    assert response.status_code == 409
-    assert response.json['title'] == 'Parent revision is open'
+    assert response.status_code == 400
+    assert response.json['title'] == 'Landing is Blocked'
+    assert response.json['blockers'][0]['id'] == 'E004'
 
 
 @freeze_time('2017-11-02T00:00:00')
@@ -401,11 +402,19 @@ def test_typecasting():
 
 
 @pytest.mark.parametrize(
-    'status', [LandingStatus.submitted, LandingStatus.landed]
+    'status, considered_submitted', [
+        (LandingStatus.submitted, True),
+        (LandingStatus.landed, False),
+        (LandingStatus.failed, False),
+        (LandingStatus.aborted, False),
+    ]
 )
-def test_revision_already_submitted(db, status):
+def test_revision_already_submitted(db, status, considered_submitted):
     landing = _create_landing(status=status, diff_id=2)
-    assert Landing.is_revision_submitted(1) == landing
+    if considered_submitted:
+        assert Landing.is_revision_submitted(1) == landing
+    else:
+        assert not Landing.is_revision_submitted(1)
 
 
 @pytest.mark.parametrize(
@@ -439,11 +448,9 @@ def test_land_failed_revision(
     assert Landing.is_revision_submitted(1)
 
 
-@pytest.mark.parametrize(
-    'status', [LandingStatus.submitted, LandingStatus.landed]
-)
-def test_land_submitted_revision(db, client, auth0_mock, status):
-    _create_landing(status=status)
+def test_land_submitted_revision(db, client, phabfactory, auth0_mock):
+    _create_landing(status=LandingStatus.submitted)
+    phabfactory.revision()
     response = client.post(
         '/landings',
         data=json.dumps({
@@ -453,8 +460,9 @@ def test_land_submitted_revision(db, client, auth0_mock, status):
         headers=auth0_mock.mock_headers,
         content_type='application/json'
     )
-    assert response.status_code == 409
-    assert response.json['title'].endswith(status.value)
+    assert response.status_code == 400
+    assert response.json['title'] == 'Landing is Blocked'
+    assert response.json['blockers'][0]['id'] == 'E003'
 
 
 def _create_landing(

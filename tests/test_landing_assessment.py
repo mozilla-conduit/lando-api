@@ -11,7 +11,7 @@ class MockProblem(LandingProblem):
     id = 'M0CK'
 
 
-def test_no_warnings_or_blockers(client, phabfactory, auth0_mock):
+def test_no_warnings_or_blockers(client, db, phabfactory, auth0_mock):
     phabfactory.revision('D23')
     response = client.post(
         '/landings/dryrun',
@@ -202,10 +202,11 @@ def test_hash_object_throws_error():
     ]
 )
 def test_blockers_for_bad_userinfo(
-    client, auth0_mock, userinfo, status, expected_blockers
+    client, db, auth0_mock, phabfactory, userinfo, status, expected_blockers
 ):
     # Remove SCM level 3 claim from Mozilla claim groups
     auth0_mock.userinfo = userinfo
+    phabfactory.revision()
 
     response = client.post(
         '/landings/dryrun',

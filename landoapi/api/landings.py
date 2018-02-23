@@ -13,16 +13,13 @@ from flask import current_app, g, jsonify, request
 from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
-from landoapi.decorators import require_phabricator_api_key
+from landoapi.decorators import lazy, require_phabricator_api_key
 from landoapi.landings import check_landing_conditions
 from landoapi.models.landing import (
     InactiveDiffException,
     Landing,
     LandingNotCreatedException,
-    OpenParentException,
     OverrideDiffException,
-    RevisionAlreadyLandedException,
-    RevisionNotFoundException,
 )
 from landoapi.models.patch import (
     DiffNotFoundException, DiffNotInRevisionException
@@ -32,17 +29,32 @@ from landoapi.validation import revision_id_to_int
 logger = logging.getLogger(__name__)
 
 
+def unmarshal_landing_request(data):
+    return (
+        revision_id_to_int(data['revision_id']), data['diff_id'],
+        data.get('force_override_of_diff_id'),
+    )
+
+
+@auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
+@require_phabricator_api_key(optional=True)
+def dryrun(data):
+    """API endpoint at /landings/dryrun.
+
+    Returns a LandingAssessment for the given Revision ID.
+    """
+    revision_id, diff_id, override_diff_id = unmarshal_landing_request(data)
+    get_revision = lazy(g.phabricator.get_revision)(revision_id)
+    assessment = check_landing_conditions(
+        g.auth0_user, revision_id, diff_id, g.phabricator, get_revision
+    )
+    return jsonify(assessment.to_dict())
+
+
 @auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def post(data):
     """API endpoint at POST /landings to land revision."""
-    assessment = check_landing_conditions(g.auth0_user, short_circuit=True)
-    assessment.raise_if_blocked_or_unacknowledged(None)
-
-    # get revision_id from body
-    revision_id = revision_id_to_int(data['revision_id'])
-    diff_id = data['diff_id']
-    override_diff_id = data.get('force_override_of_diff_id')
     logger.info(
         {
             'path': request.path,
@@ -51,45 +63,30 @@ def post(data):
             'msg': 'landing requested by user'
         }, 'landing.invoke'
     )
+
+    revision_id, diff_id, override_diff_id = unmarshal_landing_request(data)
+    get_revision = lazy(g.phabricator.get_revision)(revision_id)
+    assessment = check_landing_conditions(
+        g.auth0_user,
+        revision_id,
+        diff_id,
+        g.phabricator,
+        get_revision,
+        short_circuit=True
+    )
+    assessment.raise_if_blocked_or_unacknowledged(None)
+
+    # This is guaranteed to return an actual revision since we're
+    # running it after checking_landing_conditions().
+    revision = get_revision()
+
     try:
         landing = Landing.create(
-            revision_id,
+            revision,
             diff_id,
             g.auth0_user.email,
             g.phabricator,
             override_diff_id=override_diff_id
-        )
-    except RevisionAlreadyLandedException as exc:
-        logger.warning(
-            {
-                'revision': exc.revision,
-                'msg': 'Attempt to land an already landed revision'
-            }, 'landing.warning'
-        )
-        msg_title = 'Revision is already {}'.format(exc.revision.status.value)
-        if diff_id == exc.revision.diff_id:
-            msg = '{} using the same Diff'.format(msg_title)
-        else:
-            msg = '{} using Diff {}'.format(msg_title, exc.revision.diff_id)
-        return problem(
-            409,
-            msg_title,
-            msg,
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
-        )
-    except RevisionNotFoundException:
-        # We could not find a matching revision.
-        logger.info(
-            {
-                'revision': revision_id,
-                'msg': 'revision not found'
-            }, 'landing.failure'
-        )
-        return problem(
-            404,
-            'Revision not found',
-            'The requested revision does not exist',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
     except DiffNotFoundException:
         # We could not find a matching diff
@@ -119,22 +116,6 @@ def post(data):
             409,
             'Inactive Diff',
             'The requested diff is not the active one for this revision.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409'
-        )
-    except OpenParentException as exc:
-        # One of the parent revisions is still open
-        logger.error(
-            {
-                'revision_id': revision_id,
-                'open_revision_id': exc.open_revision_id,
-                'msg': 'Attempt to land a revision with an open parent'
-            }, 'landing.error'
-        )
-        return problem(
-            409,
-            'Parent revision is open',
-            'At least one of the parent revisions (D{}) is open.'
-            .format(exc.open_revision_id),
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409'
         )
     except OverrideDiffException as exc:
@@ -289,19 +270,6 @@ def update(data):
     )
     landing.save()
     return {}, 200
-
-
-@auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
-@require_phabricator_api_key(optional=True)
-def dryrun(data):
-    """API endpoint at /landings/dryrun.
-
-    Returns a LandingAssessment for the given Revision ID.
-    """
-    # TODO unused for now, just parse the data for errors
-    revision_id_to_int(data['revision_id'])
-    assessment = check_landing_conditions(g.auth0_user)
-    return jsonify(assessment.to_dict())
 
 
 def _not_authorized_problem():

@@ -89,12 +89,7 @@ class Landing(db.Model):
 
     @classmethod
     def create(
-        cls,
-        revision_id,
-        diff_id,
-        requester_email,
-        phab,
-        override_diff_id=None
+        cls, revision, diff_id, requester_email, phab, override_diff_id=None
     ):
         """Land revision.
 
@@ -107,7 +102,8 @@ class Landing(db.Model):
               and status `submitted`. It is then saved and returned.
 
         Args:
-            revision_id: The integer id of the revision to be landed
+            revision: A dict of the revision data just as it is returned
+                by Phabricator.
             diff_id: The id of the diff to be landed
             requester_email: The LDAP email address of the person requesting
                 the landing
@@ -119,23 +115,14 @@ class Landing(db.Model):
             A new Landing object
 
         Raises:
-            RevisionNotFoundException: PhabricatorClient returned no revision
-                for given revision_id
             InactiveDiffException: Diff is not the active one and no
                 override_diff_id has been provided
             OverrideDiffException: id of the diff to override is not the
                 active one.
             LandingNotCreatedException: landing request in Transplant failed
         """
-        # Check if revision is not landed already
-        already_submitted = cls.is_revision_submitted(revision_id)
-        if already_submitted:
-            raise RevisionAlreadyLandedException(revision=already_submitted)
-
-        revision = phab.get_revision(id=revision_id)
-
-        if not revision:
-            raise RevisionNotFoundException(revision_id)
+        assert revision is not None
+        revision_id = int(revision['id'])
 
         # Validate overriding of the diff id.
         active_id = phab.diff_phid_to_id(revision['activeDiffPHID'])
@@ -162,11 +149,6 @@ class Landing(db.Model):
             )
         elif diff_id != active_id:
             raise InactiveDiffException(diff_id, active_id)
-
-        # Check if all parent revisions are closed
-        open_revision = phab.get_first_open_parent_revision(revision)
-        if open_revision:
-            raise OpenParentException(open_revision_id=open_revision['id'])
 
         # Save the initial landing request
         repo = phab.get_revision_repo(revision)
@@ -231,7 +213,7 @@ class Landing(db.Model):
         """
         landings = cls.query.filter(
             cls.revision_id == revision_id,
-            cls.status.in_([LandingStatus.submitted, LandingStatus.landed])
+            cls.status == LandingStatus.submitted
         ).all()
         if not landings:
             return False
@@ -272,14 +254,6 @@ class LandingNotCreatedException(Exception):
     pass
 
 
-class RevisionNotFoundException(Exception):
-    """Phabricator returned 404 for a given revision id."""
-
-    def __init__(self, revision_id):
-        super().__init__('Revision {} not found'.format(revision_id))
-        self.revision_id = revision_id
-
-
 class InactiveDiffException(Exception):
     """Diff chosen to land is not the active one."""
 
@@ -303,22 +277,3 @@ class OverrideDiffException(Exception):
         self.diff_id = diff_id
         self.active_diff_id = active_diff_id
         self.override_diff_id = override_diff_id
-
-
-class OpenParentException(Exception):
-    """Revision chosen to land has an open parent."""
-
-    def __init__(self, open_revision_id):
-        super().__init__(
-            'Revision chosen to land has an open parent ({})'
-            .format(open_revision_id)
-        )
-        self.open_revision_id = open_revision_id
-
-
-class RevisionAlreadyLandedException(Exception):
-    """Revision chosen to land has already been landed."""
-
-    def __init__(self, revision):
-        super().__init__('Revision already landed.')
-        self.revision = revision

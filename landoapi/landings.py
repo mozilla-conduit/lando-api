@@ -6,6 +6,8 @@ import json
 
 from connexion import ProblemException
 
+from landoapi.models.landing import Landing
+
 
 class LandingAssessment:
     """Represents an assessment of issues that may block a revision landing.
@@ -99,7 +101,9 @@ class LandingProblem:
         self.message = message
 
     @classmethod
-    def check(cls, *, auth0_user):
+    def check(
+        cls, *, auth0_user, revision_id, diff_id, phabricator, get_revision
+    ):
         pass
 
     def serialize(self):
@@ -136,11 +140,70 @@ class SCMLevelInsufficient(LandingProblem):
         )
 
 
+class LandingInProgress(LandingProblem):
+    id = "E003"
+
+    @classmethod
+    def check(cls, *, revision_id, diff_id, **kwargs):
+        already_submitted = Landing.is_revision_submitted(revision_id)
+        if not already_submitted:
+            return None
+
+        if diff_id == already_submitted.diff_id:
+            return cls(
+                'This revision is already queued for landing with '
+                'the same diff.'
+            )
+        else:
+            return cls(
+                'This revision is already queued for landing with '
+                'diff {}'.format(already_submitted.diff_id)
+            )
+
+
+class OpenDependencies(LandingProblem):
+    id = "E004"
+
+    @classmethod
+    def check(cls, *, phabricator, get_revision, **kwargs):
+        open_revision = phabricator.get_first_open_parent_revision(
+            get_revision()
+        )
+        return None if not open_revision else cls(
+            'This revision depends on at least one revision which is open: '
+            'D{}.'.format(open_revision['id'])
+        )
+
+
+class DoesNotExist(LandingProblem):
+    id = "E404"
+
+    @classmethod
+    def check(cls, *, get_revision, **kwargs):
+        if get_revision() is None:
+            raise ProblemException(
+                404,
+                'Revision not found',
+                'The requested revision does not exist',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404' # noqa
+            )  # yapf: disable
+
+
 def check_landing_conditions(
     auth0_user,
+    revision_id,
+    diff_id,
+    phabricator,
+    get_revision,
     *,
     short_circuit=False,
-    blockers_to_check=[NoAuth0Email, SCMLevelInsufficient],
+    blockers_to_check=[
+        NoAuth0Email,
+        SCMLevelInsufficient,
+        DoesNotExist,
+        LandingInProgress,
+        OpenDependencies,
+    ],
     warnings_to_check=[]
 ):
     """Return a LandingAssessment indicating any warnings or blockers.
@@ -151,9 +214,14 @@ def check_landing_conditions(
     stop processing.
     """
     assessment = LandingAssessment()
-
     for check in blockers_to_check:
-        result = check.check(auth0_user=auth0_user)
+        result = check.check(
+            auth0_user=auth0_user,
+            revision_id=revision_id,
+            diff_id=diff_id,
+            phabricator=phabricator,
+            get_revision=get_revision
+        )
 
         if result is not None:
             assessment.blockers.append(result)
@@ -162,7 +230,13 @@ def check_landing_conditions(
                 return assessment
 
     for check in warnings_to_check:
-        result = check.check(auth0_user=auth0_user)
+        result = check.check(
+            auth0_user=auth0_user,
+            revision_id=revision_id,
+            diff_id=diff_id,
+            phabricator=phabricator,
+            get_revision=get_revision
+        )
 
         if result is not None:
             assessment.warnings.append(result)
