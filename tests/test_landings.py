@@ -237,12 +237,12 @@ def test_land_nonexisting_diff_returns_404(
     assert response.json == CANNED_LANDO_DIFF_NOT_FOUND
 
 
-def test_land_inactive_diff_returns_409(
+def test_land_inactive_diff_without_acknowledgement_fails(
     db, client, phabfactory, transfactory, auth0_mock
 ):
     phabfactory.diff(id=1)
     d2 = phabfactory.diff(id=2)
-    phabfactory.revision(active_diff=d2)
+    phabfactory.revision(active_diff=d2, diffs=["1"])
     transfactory.mock_successful_response()
     response = client.post(
         '/landings',
@@ -250,55 +250,9 @@ def test_land_inactive_diff_returns_409(
               'diff_id': 1},
         headers=auth0_mock.mock_headers,
     )
-    assert response.status_code == 409
-    assert response.content_type == 'application/problem+json'
-    assert response.json['title'] == 'Inactive Diff'
-
-
-def test_override_inactive_diff(
-    db, client, phabfactory, transfactory, auth0_mock
-):
-    phabfactory.diff(id=1)
-    phabfactory.diff(id=2)
-    d3 = phabfactory.diff(id=3)
-    phabfactory.revision(active_diff=d3)
-    transfactory.mock_successful_response()
-    response = client.post(
-        '/landings',
-        json={
-            'revision_id': 'D1',
-            'diff_id': 1,
-            'force_override_of_diff_id': 2
-        },
-        headers=auth0_mock.mock_headers,
-    )
-    assert response.status_code == 409
-    assert response.content_type == 'application/problem+json'
-    assert response.json['title'] == 'Overriding inactive diff'
-
-
-def test_override_active_diff(
-    db, client, phabfactory, transfactory, s3, auth0_mock
-):
-    phabfactory.diff(id=1)
-    d2 = phabfactory.diff(id=2)
-    phabfactory.revision(active_diff=d2, diffs=['1'])
-    transfactory.mock_successful_response()
-    response = client.post(
-        '/landings',
-        json={
-            'revision_id': 'D1',
-            'diff_id': 1,
-            'force_override_of_diff_id': 2
-        },
-        headers=auth0_mock.mock_headers,
-    )
-    assert response.status_code == 202
-
-    landing = Landing.query.get(1)
-    assert landing.status == LandingStatus.submitted
-    assert landing.active_diff_id == 2
-    assert landing.diff_id == 1
+    assert response.status_code == 400
+    assert response.json['title'] == 'Unacknowledged Warnings'
+    assert response.json['warnings'][0]['id'] == 'W001'
 
 
 def test_land_with_open_parent(db, client, phabfactory, auth0_mock):

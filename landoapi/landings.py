@@ -6,6 +6,7 @@ import json
 
 from connexion import ProblemException
 
+from landoapi.decorators import lazy
 from landoapi.models.landing import Landing
 
 
@@ -102,9 +103,12 @@ class LandingProblem:
 
     @classmethod
     def check(
-        cls, *, auth0_user, revision_id, diff_id, phabricator, get_revision
+        cls, *, auth0_user, revision_id, diff_id, phabricator, get_revision,
+        get_latest_diff_id
     ):
-        pass
+        raise NotImplementedError(
+            'check(...) must be implemented on LandingProblem subclasses.'
+        )
 
     def serialize(self):
         return {
@@ -176,7 +180,7 @@ class OpenDependencies(LandingProblem):
 
 
 class DoesNotExist(LandingProblem):
-    id = "E404"
+    id = "X000"
 
     @classmethod
     def check(cls, *, get_revision, **kwargs):
@@ -189,12 +193,41 @@ class DoesNotExist(LandingProblem):
             )  # yapf: disable
 
 
+class DiffNotPartOfRevision(LandingProblem):
+    id = "X000"
+
+    @classmethod
+    def check(cls, *, diff_id, get_revision, **kwargs):
+        if str(diff_id) not in get_revision()['diffs']:
+            raise ProblemException(
+                400,
+                'Diff not related to the revision',
+                'The requested diff is not related to the requested revision.',
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'  # noqa
+            )  # yapf: disable
+
+
+class DiffNotLatest(LandingProblem):
+    id = "W001"
+
+    @classmethod
+    def check(cls, *, diff_id, get_latest_diff_id, **kwargs):
+        latest = get_latest_diff_id()
+        return None if diff_id == latest else cls(
+            'Diff {} is not the latest diff for the revision. Diff {} '
+            'is now the latest, you might want to land it instead.'.format(
+                diff_id, latest
+            )
+        )
+
+
 def check_landing_conditions(
     auth0_user,
     revision_id,
     diff_id,
     phabricator,
     get_revision,
+    get_latest_diff_id,
     *,
     short_circuit=False,
     blockers_to_check=[
@@ -202,9 +235,10 @@ def check_landing_conditions(
         SCMLevelInsufficient,
         DoesNotExist,
         LandingInProgress,
+        DiffNotPartOfRevision,
         OpenDependencies,
     ],
-    warnings_to_check=[]
+    warnings_to_check=[DiffNotLatest]
 ):
     """Return a LandingAssessment indicating any warnings or blockers.
 
@@ -220,7 +254,8 @@ def check_landing_conditions(
             revision_id=revision_id,
             diff_id=diff_id,
             phabricator=phabricator,
-            get_revision=get_revision
+            get_revision=get_revision,
+            get_latest_diff_id=get_latest_diff_id
         )
 
         if result is not None:
@@ -235,10 +270,23 @@ def check_landing_conditions(
             revision_id=revision_id,
             diff_id=diff_id,
             phabricator=phabricator,
-            get_revision=get_revision
+            get_revision=get_revision,
+            get_latest_diff_id=get_latest_diff_id
         )
 
         if result is not None:
             assessment.warnings.append(result)
 
     return assessment
+
+
+@lazy
+def lazy_latest_diff_id(phabricator, revision):
+    """Return the id of the latest diff for the given revision.
+
+    Args:
+        phabricator: A PhabricatorClient instance.
+        revision: A dict of the revision data just as it is returned
+            by Phabricator.
+    """
+    return phabricator.diff_phid_to_id(revision['activeDiffPHID'])

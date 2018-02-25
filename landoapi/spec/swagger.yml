@@ -115,31 +115,11 @@ paths:
           PhabricatorAPIKeyHeader: []
       parameters:
         - name: data
+          description: The data required to request a landing.
           required: true
           in: body
-          description: |
-            The id of the revision and a diff to land. This can either be in
-            form of 'D12345' (as seen in Phabricator URLs), or just the id
-            number.
-          required: true
           schema:
-            type: object
-            required:
-              - revision_id
-              - diff_id
-            properties:
-              revision_id:
-                type: string
-              diff_id:
-                type: integer
-              force_override_of_diff_id:
-                type: integer
-                description: |
-                  An optional field. Diff id to override. Landing of an
-                  inactive diff is possible if this field is equal to the
-                  active diff id for the revision. If not provided or not equal
-                  to the active diff id an attempt to land an inactive diff
-                  will be prevented.
+            $ref: '#/definitions/LandingRequest'
       responses:
         202:
           description: OK
@@ -186,31 +166,11 @@ paths:
           PhabricatorAPIKeyHeader: []
       parameters:
         - name: data
+          description: The data required to request a landing.
           required: true
           in: body
           schema:
-            type: object
-            required:
-              - revision_id
-              - diff_id
-            properties:
-              revision_id:
-                type: string
-                description: |
-                  The id of the revision in the form of 'D{number}', e.g.
-                  'D12345'.
-              diff_id:
-                type: integer
-                description: |
-                  The phabricator diff ID to land.
-              force_override_of_diff_id:
-                type: integer
-                description: |
-                  An optional field. Diff id to override. Landing of an
-                  inactive diff is possible if this field is equal to the
-                  active diff id for the revision. If not provided or not equal
-                  to the active diff id an attempt to land an inactive diff
-                  will be prevented.
+            $ref: '#/definitions/LandingRequest'
       responses:
         200:
           description: OK
@@ -312,6 +272,22 @@ paths:
             allOf:
               - $ref: '#/definitions/Error'
 definitions:
+  LandingRequest:
+    type: object
+    required:
+      - revision_id
+      - diff_id
+    properties:
+      revision_id:
+        type: string
+        description: |
+          The ID of a revision in the form of 'D{number}', e.g.
+          'D12345'.
+      diff_id:
+        type: integer
+        description: |
+          The ID of a phabricator diff which is associated with the provided
+          revision_id.
   Landing:
     type: object
     properties:

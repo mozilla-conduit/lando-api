@@ -95,9 +95,7 @@ class Landing(db.Model):
         self.created_at = datetime.datetime.utcnow()
 
     @classmethod
-    def create(
-        cls, revision, diff_id, requester_email, phab, override_diff_id=None
-    ):
+    def create(cls, revision, diff_id, requester_email, phab, active_diff_id):
         """Land revision.
 
         A typical successful story:
@@ -115,47 +113,17 @@ class Landing(db.Model):
             requester_email: The LDAP email address of the person requesting
                 the landing
             phab: The PhabricatorClient instance to use
-            override_diff_id: override this diff id (should be equal to the
-                active diff id)
+            active_diff_id: The diff id of the latest diff for the given
+                revision. Not always equal to diff_id.
 
         Returns:
             A new Landing object
 
         Raises:
-            InactiveDiffException: Diff is not the active one and no
-                override_diff_id has been provided
-            OverrideDiffException: id of the diff to override is not the
-                active one.
             LandingNotCreatedException: landing request in Transplant failed
         """
         assert revision is not None
         revision_id = int(revision['id'])
-
-        # Validate overriding of the diff id.
-        active_id = phab.diff_phid_to_id(revision['activeDiffPHID'])
-        # If diff used to land revision is not the active one Lando API will
-        # fail with a 409 error. The client will then inform the user that
-        # Lando API might be forced to land that diff if that's what the user
-        # wants.
-        # In such case the client will request a new landing with a
-        # force_override_of_diff_id parameter equal to the active diff id.
-        # API will proceed with the landing.
-        if override_diff_id:
-            if override_diff_id != active_id:
-                raise OverrideDiffException(
-                    diff_id, active_id, override_diff_id
-                )
-            logger.warning(
-                {
-                    'revision_id': revision_id,
-                    'diff_id': diff_id,
-                    'active_diff_id': active_id,
-                    'override_diff_id': override_diff_id,
-                    'msg': 'Forced to override the active Diff'
-                }, 'landing.warning'
-            )
-        elif diff_id != active_id:
-            raise InactiveDiffException(diff_id, active_id)
 
         # Map the Phabricator repo to the treestatus tree
         repo = phab.get_repo(revision['repositoryPHID'])
@@ -178,7 +146,7 @@ class Landing(db.Model):
         # Save the initial landing request
         landing = cls(
             diff_id=diff_id,
-            active_diff_id=active_id,
+            active_diff_id=active_diff_id,
             revision_id=revision_id,
             requester_email=requester_email,
             tree=tree
@@ -282,31 +250,6 @@ class Landing(db.Model):
 class LandingNotCreatedException(Exception):
     """Transplant service failed to land a revision."""
     pass
-
-
-class InactiveDiffException(Exception):
-    """Diff chosen to land is not the active one."""
-
-    def __init__(self, diff_id, active_diff_id):
-        super().__init__(
-            'Diff chosen to land ({}) is not the active one ({})'.
-            format(diff_id, active_diff_id)
-        )
-        self.diff_id = diff_id
-        self.active_diff_id = active_diff_id
-
-
-class OverrideDiffException(Exception):
-    """Diff chosen to override is not the active one."""
-
-    def __init__(self, diff_id, active_diff_id, override_diff_id):
-        super().__init__(
-            'Diff chosen to override ({}) is not the active one ({})'
-            .format(override_diff_id, active_diff_id)
-        )
-        self.diff_id = diff_id
-        self.active_diff_id = active_diff_id
-        self.override_diff_id = override_diff_id
 
 
 class InvalidRepositoryException(Exception):

@@ -217,3 +217,26 @@ def test_blockers_for_bad_userinfo(
 
     assert response.status_code == status
     assert response.json['blockers'] == expected_blockers
+
+
+def test_inactive_diff_warns(
+    db, client, phabfactory, transfactory, auth0_mock
+):
+    phabfactory.diff(id=1)
+    d2 = phabfactory.diff(id=2)
+    phabfactory.revision(active_diff=d2, diffs=["1"])
+    transfactory.mock_successful_response()
+    response = client.post(
+        '/landings/dryrun',
+        json=dict(revision_id='D1', diff_id=1),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json',
+    )
+    assert response.status_code == 200
+    assert response.json['warnings'][0] == {
+        'id': 'W001',
+        'message': (
+            'Diff 1 is not the latest diff for the revision. Diff 2 '
+            'is now the latest, you might want to land it instead.'
+        ),
+    }  # yapf: disable

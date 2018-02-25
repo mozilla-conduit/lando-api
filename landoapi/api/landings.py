@@ -14,27 +14,21 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
 from landoapi.decorators import lazy, require_phabricator_api_key
-from landoapi.landings import check_landing_conditions
+from landoapi.landings import check_landing_conditions, lazy_latest_diff_id
 from landoapi.models.landing import (
-    InactiveDiffException,
     InvalidRepositoryException,
     Landing,
     LandingNotCreatedException,
-    OverrideDiffException,
 )
-from landoapi.models.patch import (
-    DiffNotFoundException, DiffNotInRevisionException
-)
+from landoapi.models.patch import DiffNotFoundException
+
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
 
 
 def unmarshal_landing_request(data):
-    return (
-        revision_id_to_int(data['revision_id']), data['diff_id'],
-        data.get('force_override_of_diff_id'),
-    )
+    return (revision_id_to_int(data['revision_id']), data['diff_id'])
 
 
 @auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
@@ -44,10 +38,12 @@ def dryrun(data):
 
     Returns a LandingAssessment for the given Revision ID.
     """
-    revision_id, diff_id, override_diff_id = unmarshal_landing_request(data)
+    revision_id, diff_id = unmarshal_landing_request(data)
     get_revision = lazy(g.phabricator.get_revision)(revision_id)
+    get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
     assessment = check_landing_conditions(
-        g.auth0_user, revision_id, diff_id, g.phabricator, get_revision
+        g.auth0_user, revision_id, diff_id, g.phabricator, get_revision,
+        get_latest_diff_id
     )
     return jsonify(assessment.to_dict())
 
@@ -65,14 +61,16 @@ def post(data):
         }, 'landing.invoke'
     )
 
-    revision_id, diff_id, override_diff_id = unmarshal_landing_request(data)
+    revision_id, diff_id = unmarshal_landing_request(data)
     get_revision = lazy(g.phabricator.get_revision)(revision_id)
+    get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
     assessment = check_landing_conditions(
         g.auth0_user,
         revision_id,
         diff_id,
         g.phabricator,
         get_revision,
+        get_latest_diff_id,
         short_circuit=True
     )
     assessment.raise_if_blocked_or_unacknowledged(None)
@@ -83,14 +81,14 @@ def post(data):
 
     try:
         landing = Landing.create(
-            revision,
-            diff_id,
-            g.auth0_user.email,
-            g.phabricator,
-            override_diff_id=override_diff_id
+            revision, diff_id, g.auth0_user.email, g.phabricator,
+            get_latest_diff_id()
         )
     except DiffNotFoundException:
-        # We could not find a matching diff
+        # If we get here something has gone quite wrong with phabricator.
+        # Before this point we should have verified that the provided diff
+        # id was a diff associated with the revision, so failing to find
+        # the raw diff itself is puzzling.
         logger.info(
             {
                 'diff': diff_id,
@@ -102,39 +100,6 @@ def post(data):
             'Diff not found',
             'The requested diff does not exist',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
-        )
-    except InactiveDiffException as exc:
-        # Attempt to land an inactive diff
-        logger.info(
-            {
-                'revision': revision_id,
-                'diff_id': exc.diff_id,
-                'active_diff_id': exc.active_diff_id,
-                'msg': 'Requested to land an inactive diff'
-            }, 'landing.failure'
-        )
-        return problem(
-            409,
-            'Inactive Diff',
-            'The requested diff is not the active one for this revision.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409'
-        )
-    except OverrideDiffException as exc:
-        # Wrong diff chosen to override.
-        logger.info(
-            {
-                'revision': revision_id,
-                'diff_id': exc.diff_id,
-                'active_diff_id': exc.active_diff_id,
-                'override_diff_id': exc.override_diff_id,
-                'msg': 'Requested override_diff_id is not the active one'
-            }, 'landing.failure'
-        )
-        return problem(
-            409,
-            'Overriding inactive diff',
-            'The diff to override is not the active one for this revision.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/409'
         )
     except LandingNotCreatedException as exc:
         logger.info(
@@ -150,21 +115,6 @@ def post(data):
             'The requested revision does exist, but landing failed.'
             'Please retry your request at a later time.',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502'
-        )
-    except DiffNotInRevisionException:
-        # Diff's revisionID field does not equal revision_id
-        logger.info(
-            {
-                'revision': revision_id,
-                'diff_id': diff_id,
-                'msg': 'Diff not it revision.',
-            }, 'landing.error'
-        )
-        return problem(
-            400,
-            'Diff not related to the revision',
-            'The requested diff is not related to the requested revision.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
         )
     except InvalidRepositoryException as e:
         logger.info(
