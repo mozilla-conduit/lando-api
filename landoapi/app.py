@@ -8,11 +8,11 @@ import logging
 import click
 import connexion
 from connexion.resolver import RestyResolver
-from raven.contrib.flask import Sentry
 from mozlogging import MozLogFormatter
 
 from landoapi.cache import cache
 from landoapi.dockerflow import dockerflow
+from landoapi.sentry import sentry
 from landoapi.storage import alembic, db
 
 logger = logging.getLogger(__name__)
@@ -60,8 +60,9 @@ def configure_app(flask_app, version_path):
     initialize_sentry(flask_app, this_app_version)
 
     # Database configuration
-    flask_app.config['SQLALCHEMY_DATABASE_URI'] = \
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = (
         os.environ.get('DATABASE_URL')
+    )
     flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     flask_app.config['ALEMBIC'] = {'script_location': '/migrations/'}
 
@@ -71,10 +72,14 @@ def configure_app(flask_app, version_path):
     flask_app.config['PINGBACK_URL'] = '{host_url}/landings/update'.format(
         host_url=os.getenv('PINGBACK_HOST_URL')
     )
-    flask_app.config['PINGBACK_ENABLED'] = \
+    flask_app.config['PINGBACK_ENABLED'] = (
         os.environ.get('PINGBACK_ENABLED', 'n')
-    flask_app.config['TRANSPLANT_API_KEY'] = \
-        os.environ.get('TRANSPLANT_API_KEY')
+    )
+    for transplant_config in [
+        'TRANSPLANT_URL', 'TRANSPLANT_USERNAME', 'TRANSPLANT_PASSWORD',
+        'TRANSPLANT_API_KEY'
+    ]:
+        flask_app.config[transplant_config] = os.environ.get(transplant_config)
 
     # AWS credentials should be only provided if needed in development
     flask_app.config['AWS_ACCESS_KEY'] = os.getenv('AWS_ACCESS_KEY', None)
@@ -145,7 +150,7 @@ def initialize_sentry(flask_app, release):
         dsn_text = 'none (sentry disabled)'
     logger.info({'SENTRY_DSN': dsn_text}, 'app.configure')
 
-    sentry = Sentry(flask_app, dsn=sentry_dsn)
+    sentry.init_app(flask_app, dsn=sentry_dsn)
 
     # Set these attributes directly because their keyword arguments can't be
     # passed into Sentry.__init__() or make_client().
@@ -185,7 +190,11 @@ def log_app_config(flask_app, keys_before_setup):
         'DATABASE_URL',
         'CACHE_REDIS_PASSWORD',
         'SQLALCHEMY_DATABASE_URI',
+        'TRANSPLANT_USERNAME',
+        'TRANSPLANT_PASSWORD',
         'TRANSPLANT_API_KEY',
+        'AWS_ACCESS_KEY',
+        'AWS_SECRET_KEY',
     }
 
     keys_after_setup = set(flask_app.config.keys())

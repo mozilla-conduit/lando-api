@@ -7,6 +7,8 @@ Data factories for writing integration tests.
 import os
 from copy import deepcopy
 
+import requests
+
 from landoapi.validation import revision_id_to_int
 from tests.canned_responses.phabricator.diffs import CANNED_DIFF_1
 from tests.canned_responses.phabricator.errors import CANNED_EMPTY_RESULT
@@ -409,11 +411,44 @@ class TransResponseFactory:
             requestmocker: A requests Mocker object.
         """
         self.mock = requestmocker
+        self.expected_auth_header = requests.Request(
+            'GET',
+            'http://example.com',
+            auth=(
+                os.getenv('TRANSPLANT_USERNAME'),
+                os.getenv('TRANSPLANT_PASSWORD')
+            )
+        ).prepare().headers['Authorization']
 
-    def create_autoland_response(self, request_id=1):
+    def mock_successful_response(self, request_id=1):
         """Add response to autoland endpoint."""
         self.mock.post(
             trans_url('autoland'),
             json={'request_id': request_id},
-            status_code=200
+            status_code=200,
+            request_headers={'Authorization': self.expected_auth_header}
+        )
+
+    def mock_http_error_response(self):
+        """Add response to autoland endpoint."""
+        self.mock.post(
+            trans_url('autoland'),
+            status_code=500,
+            request_headers={'Authorization': self.expected_auth_header}
+        )
+
+    def mock_connection_error_response(self):
+        """Add response to autoland endpoint."""
+        self.mock.post(
+            trans_url('autoland'),
+            exc=requests.exceptions.ConnectTimeout,
+        )
+
+    def mock_malformed_data_response(self):
+        """Add response to autoland endpoint."""
+        self.mock.post(
+            trans_url('autoland'),
+            text='no json for you',
+            status_code=200,
+            request_headers={'Authorization': self.expected_auth_header}
         )

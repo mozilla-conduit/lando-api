@@ -40,7 +40,7 @@ def test_landing_revision_saves_data_in_db(
 
     diff = phabfactory.diff(id=diff_id)
     phabfactory.revision(active_diff=diff)
-    transfactory.create_autoland_response(land_request_id)
+    transfactory.mock_successful_response(land_request_id)
 
     response = client.post(
         '/landings',
@@ -110,6 +110,36 @@ def test_landing_revision_calls_transplant_service(
     body = s3.Object('landoapi.test.bucket',
                      'L1_D1_1.patch').get()['Body'].read().decode("utf-8")
     assert body == LANDING_PATCH
+
+
+@pytest.mark.parametrize(
+    'mock_error_method', [
+        'mock_http_error_response',
+        'mock_connection_error_response',
+        'mock_malformed_data_response',
+    ]
+)
+@freeze_time('2017-11-02T00:00:00')
+def test_transplant_error_responds_with_502(
+    app, db, client, phabfactory, transfactory, s3, auth0_mock,
+    mock_error_method
+):
+    diff_id = 2
+    diff = phabfactory.diff(id=diff_id)
+    phabfactory.revision(active_diff=diff)
+    getattr(transfactory, mock_error_method)()
+
+    response = client.post(
+        '/landings',
+        json={
+            'revision_id': 'D1',
+            'diff_id': diff_id,
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 502
+    assert response.json['title'] == 'Landing not created'
 
 
 def test_land_wrong_revision_id_format(db, client, phabfactory, auth0_mock):
@@ -213,7 +243,7 @@ def test_land_inactive_diff_returns_409(
     phabfactory.diff(id=1)
     d2 = phabfactory.diff(id=2)
     phabfactory.revision(active_diff=d2)
-    transfactory.create_autoland_response()
+    transfactory.mock_successful_response()
     response = client.post(
         '/landings',
         json={'revision_id': 'D1',
@@ -232,7 +262,7 @@ def test_override_inactive_diff(
     phabfactory.diff(id=2)
     d3 = phabfactory.diff(id=3)
     phabfactory.revision(active_diff=d3)
-    transfactory.create_autoland_response()
+    transfactory.mock_successful_response()
     response = client.post(
         '/landings',
         json={
@@ -253,7 +283,7 @@ def test_override_active_diff(
     phabfactory.diff(id=1)
     d2 = phabfactory.diff(id=2)
     phabfactory.revision(active_diff=d2, diffs=['1'])
-    transfactory.create_autoland_response()
+    transfactory.mock_successful_response()
     response = client.post(
         '/landings',
         json={
@@ -433,7 +463,7 @@ def test_land_failed_revision(
 ):
     _create_landing(status=status)
     phabfactory.revision()
-    transfactory.create_autoland_response(2)
+    transfactory.mock_successful_response(2)
 
     response = client.post(
         '/landings',

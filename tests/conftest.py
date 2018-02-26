@@ -50,13 +50,15 @@ class JSONClient(flask.testing.FlaskClient):
 def docker_env_vars(monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
     monkeypatch.setenv('ENV', 'test')
-    monkeypatch.setenv('PHABRICATOR_URL', 'http://phabricator.test')
-    monkeypatch.setenv('TRANSPLANT_URL', 'http://autoland.test')
     monkeypatch.setenv(
         'DATABASE_URL',
         'postgresql://postgres:password@lando-api.db/lando_api_test'
     )
+    monkeypatch.setenv('PHABRICATOR_URL', 'http://phabricator.test')
+    monkeypatch.setenv('TRANSPLANT_URL', 'http://autoland.test')
     monkeypatch.setenv('TRANSPLANT_API_KEY', 'someapikey')
+    monkeypatch.setenv('TRANSPLANT_USERNAME', 'autoland')
+    monkeypatch.setenv('TRANSPLANT_PASSWORD', 'autoland')
     monkeypatch.setenv('PINGBACK_ENABLED', 'y')
     monkeypatch.setenv('PINGBACK_HOST_URL', 'http://lando-api.test')
     monkeypatch.setenv('PATCH_BUCKET_NAME', 'landoapi.test.bucket')

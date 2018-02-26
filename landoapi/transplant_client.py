@@ -1,11 +1,14 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import json
 import logging
 import os
+from random import randint
+
 import requests
 
-from random import randint
+from landoapi.sentry import sentry
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +16,10 @@ logger = logging.getLogger(__name__)
 class TransplantClient:
     """A class to interface with Transplant's API."""
 
-    def __init__(self):
-        self.api_url = os.getenv('TRANSPLANT_URL')
+    def __init__(self, transplant_url, username, password):
+        self.transplant_url = transplant_url
+        self.username = username
+        self.password = password
 
     def land(self, revision_id, ldap_username, patch_urls, tree, pingback):
         """Sends a POST request to Transplant API to land a patch
@@ -43,12 +48,11 @@ class TransplantClient:
         # one patch before this has been fixed.
         assert len(patch_urls) == 1
 
-        # API structure from VCT/testing/autoland_mach_commands.py
-        result = self._POST(
-            '/autoland',
-            {
-                'ldap_username': ldap_username,
-                'tree': tree,
+        try:
+            # API structure from VCT/testing/autoland_mach_commands.py
+            response = self._submit_landing_request(
+                ldap_username=ldap_username,
+                tree=tree,
                 # This must be unique but consistent for the
                 # landing. This is important as 'rev' is the
                 # field used to prevent requesting the same
@@ -56,8 +60,8 @@ class TransplantClient:
                 # the landing is processed and has succeeded or
                 # failed 'rev' may be reused for a new landing
                 # request.
-                'rev': 'D{}'.format(revision_id),
-                'patch_urls': patch_urls,
+                rev='D{}'.format(revision_id),
+                patch_urls=patch_urls,
                 # TODO: The main purpose of destination is to
                 # support landing on try as well as the main
                 # repository. Until we add try support we can
@@ -69,82 +73,91 @@ class TransplantClient:
                 # path is present in all of transplants
                 # repositories ('upstream' is hardcoded as
                 # the path that is pulled from).
-                'destination': 'upstream',
+                destination='upstream',
                 # TODO: We'll need to start sending 'push_bookmark'
                 # for the repoositories that require it (such as
                 # version-control-tools). It's fine to ignore for
                 # now though as mozilla-central landings do not
                 # use it.
-                'pingback_url': pingback
-            }
-        )
-
-        if result:
+                pingback_url=pingback
+            )
+            return response.json()['request_id']
+        except requests.HTTPError as e:
+            sentry.captureException()
             logger.info(
                 {
-                    'service': 'transplant',
-                    'username': ldap_username,
-                    'pingback_url': pingback,
-                    'tree': tree,
-                    'request_id': result.get('request_id'),
-                    'msg': 'patch sent to transplant service',
-                }, 'transplant.success'
+                    'message': 'Transplant Submission HTTPError: %s' % str(e),
+                    'status_code': e.response.status_code,
+                    'body': e.response.text,
+                }, '_submit_landing_request.http_error'
             )
-            return result.get('request_id')
+            raise TransplantError()
+        except (requests.ConnectionError, requests.ConnectTimeout) as e:
+            logger.info(
+                {
+                    'message': 'Transplant Connection Error: %s' % str(e),
+                }, '_submit_landing_request.connection_error'
+            )
+            raise TransplantError()
+        except requests.RequestException as e:
+            sentry.captureException()
+            logger.info(
+                {
+                    'message': 'Transplant Request Exception: %s' % str(e),
+                }, '_submit_landing_request.request_exception'
+            )
+            raise TransplantError()
+        except (json.JSONDecodeError, KeyError) as e:
+            sentry.captureException()
+            logger.info(
+                {
+                    'message': 'Transplant Data Parse Error: %s' % str(e),
+                    'status_code': response.status_code,
+                    'body': response.text,
+                }, '_submit_landing_request.data_parse_error'
+            )
+            raise TransplantError()
 
-        # Transplant API responded with no data, indicating an error of
-        # some sort.
+    def _submit_landing_request(
+        self, *, ldap_username, tree, rev, patch_urls, destination,
+        pingback_url
+    ):
         logger.info(
             {
-                'service': 'transplant',
-                'username': ldap_username,
-                'pingback_url': pingback,
-                'msg': ('received an empty response from the transplant '
-                        'service'),
-            }, 'transplant.failure'
-        )   # yapf: disable
-        return None
+                'message': 'Initiating transplant landing request.',
+                'ldap_username': ldap_username,
+                'tree': tree,
+                'rev': rev,
+                'patch_urls': patch_urls,
+                'destination': destination,
+                'pingback_url': pingback_url
+            }, '_submit_landing_request.initiation'
+        )
 
-    def _request(self, url, data=None, params=None, method='GET'):
-        data = data if data else {}
-
-        response = requests.request(
-            method=method,
-            url=self.api_url + url,
-            params=params,
-            data=data,
+        submit_url = self.transplant_url + '/autoland'
+        response = requests.post(
+            url=submit_url,
+            json={
+                'ldap_username': ldap_username,
+                'tree': tree,
+                'rev': rev,
+                'patch_urls': patch_urls,
+                'destination': destination,
+                'pingback_url': pingback_url
+            },
+            auth=(self.username, self.password),
             timeout=10
         )
-
-        status_code = response.status_code
-        response = response.json()
+        response.raise_for_status()
 
         logger.info(
             {
-                'code': status_code,
-                'method': method,
-                'service': 'transplant',
-                'url': self.api_url,
-                'path': url,
-            }, 'request.summary'
+                'message': 'Successfully submitted landing request.',
+                'status_code': response.status_code,
+            }, '_submit_landing_request.completion'
         )
-
-        if 'error' in response:
-            exp = TransplantAPIException()
-            exp.error_code = status_code
-            exp.error_info = response.get('error')
-            raise exp
-
         return response
 
-    def _GET(self, url, data=None, params=None):
-        return self._request(url, data, params, 'GET')
 
-    def _POST(self, url, data=None, params=None):
-        return self._request(url, data, params, 'POST')
-
-
-class TransplantAPIException(Exception):
-    """An exception class to handle errors from the Transplant API."""
-    error_code = None
-    error_info = None
+class TransplantError(Exception):
+    pass

@@ -17,17 +17,22 @@ services:
       # To set the API key, login as a user on phabricator-dev,
       # create a new Conduit API token and add it here.
       - PHABRICATOR_UNPRIVILEGED_API_KEY=api-123456789
-      - TRANSPLANT_URL=https://fake-transplant.herokuapp.com/
       - DATABASE_URL=postgresql://postgres:password@lando-api.db/lando_api_dev
       - ENV=localdev
       - SENTRY_DSN=
-      - TRANSPLANT_API_KEY=set-api-key
       - PINGBACK_ENABLED=y
       - PINGBACK_HOST_URL=https://lando-api.test
+      - TRANSPLANT_URL=https://fake-transplant.herokuapp.com/
+      - TRANSPLANT_USERNAME=autoland
+      - TRANSPLANT_PASSWORD=autoland
+      - TRANSPLANT_API_KEY=set-api-key
       - PATCH_BUCKET_NAME=
       - OIDC_IDENTIFIER=
       - OIDC_DOMAIN=
       - CACHE_REDIS_HOST=redis.cache
+#      - CACHE_REDIS_PORT=
+#      - CACHE_REDIS_PASSWORD=
+#      - CACHE_REDIS_DB=
       # Leave AWS credentials unconfigured in production
       - AWS_ACCESS_KEY=
       - AWS_SECRET_KEY=

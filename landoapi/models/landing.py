@@ -9,7 +9,7 @@ from flask import current_app
 
 from landoapi.models.patch import Patch
 from landoapi.storage import db
-from landoapi.transplant_client import TransplantClient
+from landoapi.transplant_client import TransplantClient, TransplantError
 
 logger = logging.getLogger(__name__)
 
@@ -168,14 +168,22 @@ class Landing(db.Model):
         patch.upload(phab)
 
         # Send the request to transplant for landing
-        trans = TransplantClient()
-        request_id = trans.land(
-            revision_id=revision_id,
-            ldap_username=landing.requester_email,
-            patch_urls=[patch.s3_url],
-            tree=tree,
-            pingback=current_app.config['PINGBACK_URL']
+        trans = TransplantClient(
+            current_app.config['TRANSPLANT_URL'],
+            current_app.config['TRANSPLANT_USERNAME'],
+            current_app.config['TRANSPLANT_PASSWORD'],
         )
+        try:
+            request_id = trans.land(
+                revision_id=revision_id,
+                ldap_username=landing.requester_email,
+                patch_urls=[patch.s3_url],
+                tree=tree,
+                pingback=current_app.config['PINGBACK_URL']
+            )
+        except TransplantError:
+            raise LandingNotCreatedException
+
         if not request_id:
             raise LandingNotCreatedException
 
