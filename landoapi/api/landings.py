@@ -17,6 +17,7 @@ from landoapi.decorators import lazy, require_phabricator_api_key
 from landoapi.landings import check_landing_conditions
 from landoapi.models.landing import (
     InactiveDiffException,
+    InvalidRepositoryException,
     Landing,
     LandingNotCreatedException,
     OverrideDiffException,
@@ -163,6 +164,21 @@ def post(data):
             400,
             'Diff not related to the revision',
             'The requested diff is not related to the requested revision.',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
+        )
+    except InvalidRepositoryException as e:
+        logger.info(
+            {
+                'revision': revision_id,
+                'diff_id': diff_id,
+                'repo': revision['repositoryPHID'],
+                'msg': 'Cannot land to target repository.',
+            }, 'landing.error'
+        )
+        return problem(
+            400,
+            'Invalid Landing Repo',
+            str(e),
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
         )
 

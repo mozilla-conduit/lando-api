@@ -13,6 +13,13 @@ from landoapi.transplant_client import TransplantClient, TransplantError
 
 logger = logging.getLogger(__name__)
 
+# Maps a Phabricator repo short-name to target TreeStatus tree name.
+# See https://treestatus.mozilla-releng.net/trees for a full list.
+TREE_MAPPING = {
+    'phabricator-qa-dev': 'phabricator-qa-dev',
+    'phabricator-qa-stage': 'phabricator-qa-stage',
+}
+
 
 @enum.unique
 class LandingStatus(enum.Enum):
@@ -48,7 +55,7 @@ class Landing(db.Model):
         error: Text describing the error if not landed
         result: Revision (sha) of push
         requester_email: The email address of the requester of the landing.
-        tree: The hg.mozilla.org tree name the revision is to land to.
+        tree: The treestatus tree name the revision is to land to.
         created_at: DateTime of the creation
         updated_at: DateTime of the last save
     """
@@ -150,10 +157,25 @@ class Landing(db.Model):
         elif diff_id != active_id:
             raise InactiveDiffException(diff_id, active_id)
 
-        # Save the initial landing request
+        # Map the Phabricator repo to the treestatus tree
         repo = phab.get_repo(revision['repositoryPHID'])
-        # TODO: handle non-existent repo
-        tree = repo['fields']['shortName']
+        repo_short_name = (
+            None if repo is None else repo.get('fields', {}).get('shortName')
+        )
+        if repo_short_name is None:
+            raise InvalidRepositoryException(
+                'This revision is not associated with a repository. '
+                'Associate the revision with a repository on Phabricator then'
+                'try again.'
+            )
+        if repo_short_name not in TREE_MAPPING:
+            raise InvalidRepositoryException(
+                'Landing to {} is not supported at this time. '.
+                format(repo_short_name)
+            )
+        tree = TREE_MAPPING[repo_short_name]
+
+        # Save the initial landing request
         landing = cls(
             diff_id=diff_id,
             active_diff_id=active_id,
@@ -285,3 +307,8 @@ class OverrideDiffException(Exception):
         self.diff_id = diff_id
         self.active_diff_id = active_diff_id
         self.override_diff_id = override_diff_id
+
+
+class InvalidRepositoryException(Exception):
+    """The target landing repository is invalid."""
+    pass

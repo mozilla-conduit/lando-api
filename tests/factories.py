@@ -71,6 +71,7 @@ class PhabResponseFactory:
         active_diff=None,
         diffs=None,
         reviewers=None,
+        repo=None,
         status=None,
         not_found=False
     ):
@@ -92,6 +93,9 @@ class PhabResponseFactory:
                 have been made with this factory.
             diffs: A list of diff ids (in string) related to the revision
                 (added to the one item list with active diff id)
+            repo: A repository PHID to be related to the revision. A default
+                repo is used if None. If an empty string the repo will be
+                explicitly set to None.
             reviewers: List of dicts with reviewer info. A default reviewer
                 will be created if not provided. No reviewer is added
                 to the revision if equals to an empty list. Keys:
@@ -154,8 +158,16 @@ class PhabResponseFactory:
             revision['diffs'] += diffs
 
         # Revisions may have a Repo.
-        repo = self.repo()
-        revision['repositoryPHID'] = repo['result']['data'][0]['phid']
+        if repo is None:
+            # Use default repo.
+            repo = self.repo()
+            revision['repositoryPHID'] = repo['result']['data'][0]['phid']
+        elif repo == '':
+            # Explicitly set the repo to not exist
+            revision['repositoryPHID'] = None
+        else:
+            # Use the provided repo
+            revision['repositoryPHID'] = repo
 
         def match_revision(request):
             # Revisions can be looked up by PHID or ID.
@@ -334,9 +346,24 @@ class PhabResponseFactory:
         )
         return rawdiff
 
-    def repo(self):
-        """Prepare requests_mock and return a Phabricator Repo."""
+    def repo(self, id=1, name=None):
+        """Prepare requests_mock and return a Phabricator Repo.
+
+        Args:
+            id: The integer id of the repo. Use when creating multiple repos
+                to prevent id conflicts. Defaults to 1.
+            name: The name of the repo. This will be used to generate a
+                repo name, shortName, and callsign.
+        """
         repo = deepcopy(CANNED_REPO_SEARCH_MOZCENTRAL)
+        repo['result']['data'][0]['id'] = id
+
+        if name:
+            repo['result']['data'][0]['phid'] = "PHID-REPO-{}".format(name)
+            repo['result']['data'][0]['fields']['name'] = name
+            repo['result']['data'][0]['fields']['shortName'] = name
+            repo['result']['data'][0]['fields']['callsign'] = name.upper()
+
         self.mock.get(
             phab_url('diffusion.repository.search'),
             status_code=200,

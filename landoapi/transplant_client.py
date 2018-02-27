@@ -29,7 +29,7 @@ class TransplantClient:
             ldap_username: user landing the patch
             patch_urls: list of patch URLs in S3, currently restricted to 1
                 entry. (ex. ['s3://{bucket_name}/L15_D123_1.patch'])
-            tree: tree name as per treestatus
+            tree: tree name as per https://treestatus.mozilla-releng.net/trees
             pingback: The URL of the endpoint to POST landing updates
 
         Returns:

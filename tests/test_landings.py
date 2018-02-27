@@ -495,6 +495,54 @@ def test_land_submitted_revision(db, client, phabfactory, auth0_mock):
     assert response.json['blockers'][0]['id'] == 'E003'
 
 
+@freeze_time('2017-11-02T00:00:00')
+def test_land_revision_with_no_repo(
+    db, client, phabfactory, transfactory, s3, auth0_mock
+):
+    phabfactory.revision(repo='')
+    transfactory.mock_successful_response()
+
+    response = client.post(
+        '/landings',
+        json={
+            'revision_id': 'D1',
+            'diff_id': 1,
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response.status_code == 400
+    assert response.json['title'] == 'Invalid Landing Repo'
+    assert response.json['detail'] == (
+        'This revision is not associated with a repository. '
+        'Associate the revision with a repository on Phabricator then'
+        'try again.'
+    )
+
+
+@freeze_time('2017-11-02T00:00:00')
+def test_land_revision_with_unmapped_repo(
+    db, client, phabfactory, transfactory, s3, auth0_mock
+):
+    repo = phabfactory.repo(1, 'notsupported')
+    phabfactory.revision(repo=repo['result']['data'][0]['phid'])
+    transfactory.mock_successful_response()
+
+    response = client.post(
+        '/landings',
+        json={
+            'revision_id': 'D1',
+            'diff_id': 1,
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response.status_code == 400
+    assert response.json['title'] == 'Invalid Landing Repo'
+    assert response.json['detail'] == (
+        'Landing to {} is not supported at this time. '.
+        format(repo['result']['data'][0]['fields']['shortName'])
+    )
+
+
 def _create_landing(
     request_id=1,
     revision_id=1,

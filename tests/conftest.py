@@ -126,7 +126,10 @@ def disable_log_output():
 
 
 @pytest.fixture
-def app(versionfile, docker_env_vars, disable_migrations, disable_log_output):
+def app(
+    versionfile, docker_env_vars, disable_migrations, disable_log_output,
+    mocked_tree_mapping
+):
     """Needed for pytest-flask."""
     app = create_app(versionfile.strpath)
     flask_app = app.app
@@ -180,3 +183,11 @@ def auth0_mock(jwks, monkeypatch):
         lambda token: mock_userinfo_response
     )
     return mock_auth0
+
+
+@pytest.fixture
+def mocked_tree_mapping(monkeypatch):
+    monkeypatch.setattr(
+        'landoapi.models.landing.TREE_MAPPING',
+        {'mozilla-central': 'mozilla-central'}
+    )
