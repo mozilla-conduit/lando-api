@@ -233,31 +233,24 @@ class PhabricatorClient:
         result = self._GET('/user.query', {'phids[]': [phid]})
         return result[0] if result else None
 
-    def get_repo_info_by_phid(self, phid):
+    def get_repo(self, phid):
         """Get full information about a repo based on its phid.
 
         Args:
-            phid: The phid of the repo to lookup.
+            phid: The phid of the repo to lookup. If None, None will be
+                returned.
 
         Returns:
             A dict containing the repo info, or None if the repo isn't found.
         """
-        result = self._GET(
-            '/diffusion.repository.search', {'constraints[phids][]': [phid]}
-        )
-        return result['data'][0] if result['data'] else None
-
-    def get_repo(self, phid):
-        """Get basic information about a repo based on its phid.
-
-        Args:
-            phid: The phid of the repo to lookup.
-
-        Returns:
-            A hash containing the repo info, or None if the repo isn't found.
-        """
-        result = self._GET('/phid.query', {'phids[]': [phid]})
-        return result.get(phid) if result else None
+        if phid:
+            result = self._GET(
+                '/diffusion.repository.search',
+                {'constraints[phids][]': [phid]}
+            )
+            return result['data'][0] if result['data'] else None
+        else:
+            return None
 
     def get_revision_author(self, revision):
         """Return the Phabricator User data for a revision's author.
@@ -269,17 +262,6 @@ class PhabricatorClient:
             A dictionary of Phabricator User data.
         """
         return self.get_user(revision['authorPHID'])
-
-    def get_revision_repo(self, revision):
-        """Return the Phabricator Repository data for a revision's author.
-
-        Args:
-            revision: A dictionary of Phabricator Revision data.
-
-        Returns:
-            A dictionary of Phabricator Repository data.
-        """
-        return self.get_repo_info_by_phid(revision['repositoryPHID'])
 
     def check_connection(self):
         """Test the Phabricator API connection with conduit.ping.

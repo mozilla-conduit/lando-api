@@ -505,18 +505,10 @@ definitions:
         type: string
         description: |
           The phid of the repo.
-      short_name:
+      name:
         type: string
         description: |
-          A short representation of the repo name.
-      full_name:
-        type: string
-        description: |
-          The full name of the repo.
-      url:
-        type: string
-        description: |
-          A url pointing to the repo on Phabricator.
+          The name of the repo.
   Diff:
     type: object
     properties:

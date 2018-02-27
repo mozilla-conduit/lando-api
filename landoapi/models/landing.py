@@ -151,7 +151,7 @@ class Landing(db.Model):
             raise InactiveDiffException(diff_id, active_id)
 
         # Save the initial landing request
-        repo = phab.get_revision_repo(revision)
+        repo = phab.get_repo(revision['repositoryPHID'])
         # TODO: handle non-existent repo
         tree = repo['fields']['shortName']
         landing = cls(

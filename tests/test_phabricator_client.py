@@ -19,7 +19,7 @@ from tests.canned_responses.phabricator.errors import (
     CANNED_EMPTY_RESULT, CANNED_ERROR_1
 )
 from tests.canned_responses.phabricator.repos import (
-    CANNED_REPO_MOZCENTRAL, CANNED_REPO_SEARCH_MOZCENTRAL
+    CANNED_REPO_SEARCH_MOZCENTRAL
 )
 from tests.canned_responses.phabricator.revisions import (
     CANNED_EMPTY_REVIEWERS_ATT_RESPONSE, CANNED_REVISION_1,
@@ -79,20 +79,6 @@ def test_get_user_returns_with_200_response(phabfactory):
     assert user == expected_user
 
 
-def test_get_repo_returns_with_200_response(phabfactory):
-    phab = PhabricatorClient(api_key='api-key')
-    with requests_mock.mock() as m:
-        m.get(
-            phab_url('phid.query'),
-            status_code=200,
-            json=CANNED_REPO_MOZCENTRAL
-        )
-        canned_response_repo = \
-            list(CANNED_REPO_MOZCENTRAL['result'].values())[0]
-        repo = phab.get_repo(phid=canned_response_repo['phid'])
-        assert repo == canned_response_repo
-
-
 def test_get_author_for_revision(phabfactory):
     user_response = phabfactory.user()
     phabfactory.revision(id='D5')
@@ -105,7 +91,16 @@ def test_get_author_for_revision(phabfactory):
     assert author == expected_user
 
 
-def test_get_repo_info_by_phid_no_repo():
+def test_get_repo(phabfactory):
+    phabfactory.repo()
+    expected_repo = CANNED_REPO_SEARCH_MOZCENTRAL['result']['data'][0]
+    phab = PhabricatorClient(api_key='api-key')
+    repo = phab.get_repo('PHID-REPO-mozillacentral')
+
+    assert repo == expected_repo
+
+
+def test_get_repo_no_repo():
     phab = PhabricatorClient(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
@@ -119,29 +114,16 @@ def test_get_repo_info_by_phid_no_repo():
                 'error_code': None
             }
         )
-        repo = phab.get_repo_info_by_phid('anything')
+        repo = phab.get_repo('anything')
 
     assert repo is None
 
 
-def test_get_repo_info_by_phid(phabfactory):
+def test_get_repo_no_phid(phabfactory):
     phabfactory.repo()
-    expected_repo = CANNED_REPO_SEARCH_MOZCENTRAL['result']['data'][0]
     phab = PhabricatorClient(api_key='api-key')
-    repo = phab.get_repo_info_by_phid('PHID-REPO-mozillacentral')
-
-    assert repo == expected_repo
-
-
-def test_get_repo_for_revision(phabfactory):
-    phabfactory.revision(id='D5')
-    expected_repo = CANNED_REPO_SEARCH_MOZCENTRAL['result']['data'][0]
-
-    phab = PhabricatorClient(api_key='api-key')
-    revision = phab.get_revision(id=5)
-    repo = phab.get_revision_repo(revision)
-
-    assert repo == expected_repo
+    repo = phab.get_repo(None)
+    assert repo is None
 
 
 def test_get_rawdiff_by_id(phabfactory):

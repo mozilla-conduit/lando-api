@@ -266,9 +266,7 @@ def _build_repo(phab, revision, last_repo):
         raw_repo = phab.get_repo(revision['repositoryPHID'])
         return {
             'phid': raw_repo['phid'],
-            'short_name': raw_repo['name'],
-            'full_name': raw_repo['fullName'],
-            'url': raw_repo['uri'],
+            'name': raw_repo['fields']['name'],
         }
 
     return None

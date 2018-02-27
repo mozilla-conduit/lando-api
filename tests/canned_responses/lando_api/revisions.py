@@ -41,10 +41,8 @@ CANNED_LANDO_REVISION_1 = {
         "username": "imadueme_admin"
     },
     "repo": {
-        "full_name": "rMOZILLACENTRAL mozilla-central",
+        "name": "mozilla-central",
         "phid": "PHID-REPO-mozillacentral",
-        "short_name": "rMOZILLACENTRAL",
-        "url": "http://phabricator.test/source/mozilla-central/"
     },
     'reviewers': [
         {
@@ -87,10 +85,8 @@ CANNED_LANDO_REVISION_2 = {
         "username": "imadueme_admin"
     },
     "repo": {
-        "full_name": "rMOZILLACENTRAL mozilla-central",
+        "name": "mozilla-central",
         "phid": "PHID-REPO-mozillacentral",
-        "short_name": "rMOZILLACENTRAL",
-        "url": "http://phabricator.test/source/mozilla-central/"
     },
     'reviewers': [
         {

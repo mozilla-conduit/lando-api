@@ -17,7 +17,7 @@ from tests.canned_responses.phabricator.phid_queries import (
 )
 from tests.canned_responses.phabricator.raw_diffs import CANNED_RAW_DIFF_1
 from tests.canned_responses.phabricator.repos import (
-    CANNED_REPO_MOZCENTRAL, CANNED_REPO_SEARCH_MOZCENTRAL
+    CANNED_REPO_SEARCH_MOZCENTRAL
 )
 from tests.canned_responses.phabricator.revisions import (
     CANNED_EMPTY_REVIEWERS_ATT_RESPONSE, CANNED_REVISION_1
@@ -155,7 +155,7 @@ class PhabResponseFactory:
 
         # Revisions may have a Repo.
         repo = self.repo()
-        revision['repositoryPHID'] = phid_for_response(repo)
+        revision['repositoryPHID'] = repo['result']['data'][0]['phid']
 
         def match_revision(request):
             # Revisions can be looked up by PHID or ID.
@@ -335,17 +335,15 @@ class PhabResponseFactory:
         return rawdiff
 
     def repo(self):
-        """Return a Phabricator Repo."""
-        # Prepare phid.query response
-        repo = deepcopy(CANNED_REPO_MOZCENTRAL)
-        phid = self.phid(repo)
-        # Prepare diffusion.repository.search response
-        repo_info = deepcopy(CANNED_REPO_SEARCH_MOZCENTRAL)
+        """Prepare requests_mock and return a Phabricator Repo."""
+        repo = deepcopy(CANNED_REPO_SEARCH_MOZCENTRAL)
         self.mock.get(
             phab_url('diffusion.repository.search'),
             status_code=200,
-            json=repo_info,
-            additional_matcher=form_matcher('constraints[phids][]', phid)
+            json=repo,
+            additional_matcher=form_matcher(
+                'constraints[phids][]', repo['result']['data'][0]['phid']
+            )
         )
         return repo
 
