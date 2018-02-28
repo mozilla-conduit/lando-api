@@ -5,6 +5,7 @@ import pytest
 
 from landoapi.landings import LandingAssessment, LandingProblem
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
+from landoapi.models.landing import Landing, LandingStatus
 
 
 class MockProblem(LandingProblem):
@@ -238,5 +239,84 @@ def test_inactive_diff_warns(
         'message': (
             'Diff 1 is not the latest diff for the revision. Diff 2 '
             'is now the latest, you might want to land it instead.'
+        ),
+    }  # yapf: disable
+
+
+def test_previously_landed_warns(
+    db, client, phabfactory, transfactory, auth0_mock
+):
+    Landing(
+        request_id=1,
+        revision_id=1,
+        diff_id=1,
+        active_diff_id=1,
+        requester_email='tuser@example.com',
+        tree='mozilla-central',
+        status=LandingStatus.landed,
+        result=('X' * 40)
+    ).save()
+    diff = phabfactory.diff(id=1)
+    phabfactory.revision(active_diff=diff)
+    response = client.post(
+        '/landings/dryrun',
+        json=dict(revision_id='D1', diff_id=1),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json',
+    )
+    assert response.status_code == 200
+    assert response.json['warnings'][0] == {
+        'id': 'W002',
+        'message': (
+            'This diff ({landed_diff_id}) has already landed as '
+            'commit {commit_sha}. Unless this change has been backed '
+            'out, new changes should use a new revision.'.format(
+                landed_diff_id=1, commit_sha='X'*40
+            )
+        ),
+    }  # yapf: disable
+
+
+def test_previously_landed_but_landed_since_still_warns(
+    db, client, phabfactory, transfactory, auth0_mock
+):
+    Landing(
+        request_id=1,
+        revision_id=1,
+        diff_id=1,
+        active_diff_id=1,
+        requester_email='tuser@example.com',
+        tree='mozilla-central',
+        status=LandingStatus.landed,
+        result=('X' * 40)
+    ).save()
+    Landing(
+        request_id=2,
+        revision_id=1,
+        diff_id=2,
+        active_diff_id=2,
+        requester_email='tuser@example.com',
+        tree='mozilla-central',
+        status=LandingStatus.failed,
+        result=('X' * 40)
+    ).save()
+    phabfactory.diff(id=1)
+    diff = phabfactory.diff(id=2)
+    phabfactory.revision(active_diff=diff, diffs=['1'])
+    response = client.post(
+        '/landings/dryrun',
+        json=dict(revision_id='D1', diff_id=2),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json',
+    )
+    assert response.status_code == 200
+    assert response.json['warnings'][0] == {
+        'id': 'W002',
+        'message': (
+            'Another diff ({landed_diff_id}) of this revision has already '
+            'landed as commit {commit_sha}. Unless this change has been '
+            'backed out, new changes should use a new revision.'.format(
+                landed_diff_id=1, commit_sha='X'*40
+            )
         ),
     }  # yapf: disable

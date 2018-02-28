@@ -41,9 +41,10 @@ def dryrun(data):
     revision_id, diff_id = unmarshal_landing_request(data)
     get_revision = lazy(g.phabricator.get_revision)(revision_id)
     get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
+    get_latest_landed = lazy(Landing.latest_landed)(revision_id)
     assessment = check_landing_conditions(
         g.auth0_user, revision_id, diff_id, g.phabricator, get_revision,
-        get_latest_diff_id
+        get_latest_diff_id, get_latest_landed
     )
     return jsonify(assessment.to_dict())
 
@@ -64,6 +65,7 @@ def post(data):
     revision_id, diff_id = unmarshal_landing_request(data)
     get_revision = lazy(g.phabricator.get_revision)(revision_id)
     get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
+    get_latest_landed = lazy(Landing.latest_landed)(revision_id)
     assessment = check_landing_conditions(
         g.auth0_user,
         revision_id,
@@ -71,6 +73,7 @@ def post(data):
         g.phabricator,
         get_revision,
         get_latest_diff_id,
+        get_latest_landed,
         short_circuit=True
     )
     assessment.raise_if_blocked_or_unacknowledged(None)

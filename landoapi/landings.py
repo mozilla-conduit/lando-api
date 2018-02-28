@@ -104,7 +104,7 @@ class LandingProblem:
     @classmethod
     def check(
         cls, *, auth0_user, revision_id, diff_id, phabricator, get_revision,
-        get_latest_diff_id
+        get_latest_diff_id, get_latest_landed
     ):
         raise NotImplementedError(
             'check(...) must be implemented on LandingProblem subclasses.'
@@ -221,6 +221,33 @@ class DiffNotLatest(LandingProblem):
         )
 
 
+class PreviouslyLanded(LandingProblem):
+    id = "W002"
+
+    @classmethod
+    def check(cls, *, diff_id, get_latest_landed, **kwargs):
+        latest = get_latest_landed()
+        if latest is None:
+            return None
+
+        if latest.diff_id == diff_id:
+            return cls(
+                'This diff ({landed_diff_id}) has already landed as '
+                'commit {commit_sha}. Unless this change has been backed '
+                'out, new changes should use a new revision.'.format(
+                    landed_diff_id=latest.diff_id, commit_sha=latest.result
+                )
+            )
+
+        return cls(
+            'Another diff ({landed_diff_id}) of this revision has already '
+            'landed as commit {commit_sha}. Unless this change has been '
+            'backed out, new changes should use a new revision.'.format(
+                landed_diff_id=latest.diff_id, commit_sha=latest.result
+            )
+        )
+
+
 def check_landing_conditions(
     auth0_user,
     revision_id,
@@ -228,6 +255,7 @@ def check_landing_conditions(
     phabricator,
     get_revision,
     get_latest_diff_id,
+    get_latest_landed,
     *,
     short_circuit=False,
     blockers_to_check=[
@@ -238,7 +266,10 @@ def check_landing_conditions(
         DiffNotPartOfRevision,
         OpenDependencies,
     ],
-    warnings_to_check=[DiffNotLatest]
+    warnings_to_check=[
+        DiffNotLatest,
+        PreviouslyLanded,
+    ]
 ):
     """Return a LandingAssessment indicating any warnings or blockers.
 
@@ -255,7 +286,8 @@ def check_landing_conditions(
             diff_id=diff_id,
             phabricator=phabricator,
             get_revision=get_revision,
-            get_latest_diff_id=get_latest_diff_id
+            get_latest_diff_id=get_latest_diff_id,
+            get_latest_landed=get_latest_landed
         )
 
         if result is not None:
@@ -271,7 +303,8 @@ def check_landing_conditions(
             diff_id=diff_id,
             phabricator=phabricator,
             get_revision=get_revision,
-            get_latest_diff_id=get_latest_diff_id
+            get_latest_diff_id=get_latest_diff_id,
+            get_latest_landed=get_latest_landed
         )
 
         if result is not None:

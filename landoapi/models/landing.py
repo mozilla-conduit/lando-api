@@ -82,6 +82,7 @@ class Landing(db.Model):
         request_id=None,
         requester_email=None,
         tree=None,
+        result=None,
         # status will remain aborted only if landing request will fail
         status=LandingStatus.aborted
     ):
@@ -92,6 +93,7 @@ class Landing(db.Model):
         self.requester_email = requester_email
         self.tree = tree
         self.status = status
+        self.result = result
         self.created_at = datetime.datetime.utcnow()
 
     @classmethod
@@ -217,6 +219,21 @@ class Landing(db.Model):
             return False
 
         return landings[0]
+
+    @classmethod
+    def latest_landed(cls, revision_id):
+        """Return the latest Landing that is landed, or None.
+
+        Args:
+            revision_id: The integer id of the revision.
+
+        Returns:
+            Latest landing object with status landed, or None if
+            none exist.
+        """
+        return cls.query.filter_by(
+            revision_id=revision_id, status=LandingStatus.landed
+        ).order_by(cls.updated_at.desc()).first()
 
     def __repr__(self):
         return '<Landing: %s>' % self.id
