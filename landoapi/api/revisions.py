@@ -6,6 +6,7 @@ Revision API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 import logging
+from datetime import datetime, timezone
 
 from connexion import problem, ProblemException
 from flask import g
@@ -137,8 +138,8 @@ def _format_revision(
         'bug_id': bug_id,
         'title': revision['title'],
         'url': revision['uri'],
-        'date_created': int(revision['dateCreated']),
-        'date_modified': int(revision['dateModified']),
+        'date_created': _epoch_to_isoformat_time(revision['dateCreated']),
+        'date_modified': _epoch_to_isoformat_time(revision['dateModified']),
         'status': int(revision['status']),
         'status_name': revision['statusName'],
         'summary': revision['summary'],
@@ -178,8 +179,8 @@ def _build_diff(phab, revision, diff_id):
     diff = {
         'id': int(phab_diff['id']),
         'revision_id': 'D{}'.format(phab_diff['revisionID']),
-        'date_created': int(phab_diff['dateCreated']),
-        'date_modified': int(phab_diff['dateModified']),
+        'date_created': _epoch_to_isoformat_time(phab_diff['dateCreated']),
+        'date_modified': _epoch_to_isoformat_time(phab_diff['dateModified']),
         'vcs_base_revision': phab_diff['sourceControlBaseRevision'],
         'authors': None
     }
@@ -270,3 +271,8 @@ def _build_repo(phab, revision, last_repo):
         }
 
     return None
+
+
+def _epoch_to_isoformat_time(seconds):
+    """Converts epoch seconds to an ISO formatted UTC time string."""
+    return datetime.fromtimestamp(int(seconds), timezone.utc).isoformat()

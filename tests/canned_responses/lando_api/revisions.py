@@ -15,15 +15,15 @@ CANNED_LANDO_REVISION_1 = {
         "Summary 1\n\nDifferential Revision: http://phabricator.test/D1"
     ),
     "url": "http://phabricator.test/D1",
-    "date_created": 1495638270,
-    "date_modified": 1496239141,
+    "date_created": "2017-05-24T15:04:30+00:00",
+    "date_modified": "2017-05-31T13:59:01+00:00",
     "id": 'D1',
     "parent_revisions": [],
     "bug_id": 1,
     "phid": "PHID-DREV-1",
     "diff": {
-        "date_created": 1496175380,
-        "date_modified": 1496175382,
+        "date_created": "2017-05-30T20:16:20+00:00",
+        "date_modified": "2017-05-30T20:16:22+00:00",
         "id": 1,
         "revision_id": 'D1',
         "vcs_base_revision": "39d5cc0fda5e16c49a59d29d4ca186a5534cc88b",
@@ -57,8 +57,8 @@ CANNED_LANDO_REVISION_1 = {
 
 
 CANNED_LANDO_REVISION_2 = {
-    "date_created": 1495638280,
-    "date_modified": 1496239151,
+    "date_created": "2017-05-24T15:04:40+00:00",
+    "date_modified": "2017-05-31T13:59:11+00:00",
     "bug_id": 1,
     "id": 'D2',
     "parent_revisions": [
@@ -66,8 +66,8 @@ CANNED_LANDO_REVISION_2 = {
     ],
     "phid": "PHID-DREV-2",
     "diff": {
-        "date_created": 1496175380,
-        "date_modified": 1496175382,
+        "date_created": "2017-05-30T20:16:20+00:00",
+        "date_modified": "2017-05-30T20:16:22+00:00",
         "id": 1,
         "revision_id": "D1",
         "vcs_base_revision": "39d5cc0fda5e16c49a59d29d4ca186a5534cc88b",

@@ -381,13 +381,14 @@ definitions:
         description: |
           A url to the revision on Phabricator.
       date_created:
-        type: integer
+        type: string
         description: |
-          The date that the revision was created as a unix timestamp.
+          The date that the revision was created as an ISO format UTC timestamp.
       date_modified:
-        type: integer
+        type: string
         description: |
-          The date that the revision was last modified as a unix timestamp.
+          The date that the revision was last modified as an ISO format UTC
+          timestamp.
       status:
         type: integer
         description: |
@@ -521,13 +522,13 @@ definitions:
         description: |
           The id of the Revision that this Diff belongs to e.g. 'D123'.
       date_created:
-        type: integer
+        type: string
         description: |
-          The date this Diff was created as a unix timestamp.
+          The date this Diff was created as an ISO format UTC timestamp.
       date_modified:
-        type: integer
+        type: string
         description: |
-          The date this Diff was last modified as a unix timestamp.
+          The date this Diff was last modified as an ISO format UTC timestamp.
       vcs_base_revision:
         type: string
         description: |
