@@ -10,6 +10,17 @@ from landoapi.decorators import lazy
 from landoapi.models.landing import Landing
 
 
+def tokens_are_equal(t1, t2):
+    """Return whether t1 and t2 are equal.
+
+    This function exists to make disabling confirmation_token checking
+    easy until we have proper lando UI support. It also makes mocking
+    or ignorning confirmation token checks very simple.
+    """
+    # TODO: return t1 == t2
+    return True
+
+
 class LandingAssessment:
     """Represents an assessment of issues that may block a revision landing.
 
@@ -64,7 +75,9 @@ class LandingAssessment:
                 type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400' # noqa
             )  # yapf: disable
 
-        if details['confirmation_token'] != confirmation_token:
+        if not tokens_are_equal(
+            details['confirmation_token'], confirmation_token
+        ):
             if confirmation_token is None:
                 raise ProblemException(
                     400,

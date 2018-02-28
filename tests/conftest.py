@@ -13,6 +13,7 @@ import requests_mock
 from moto import mock_s3
 
 from landoapi.app import create_app
+from landoapi.landings import tokens_are_equal
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.storage import db as _db
 
@@ -191,3 +192,21 @@ def mocked_tree_mapping(monkeypatch):
         'landoapi.models.landing.TREE_MAPPING',
         {'mozilla-central': 'mozilla-central'}
     )
+
+
+@pytest.fixture
+def set_confirmation_token_comparison(monkeypatch):
+    mem = {
+        'set': False,
+        'val': None,
+    }
+
+    def set_value(val):
+        mem['set'] = True
+        mem['val'] = val
+
+    monkeypatch.setattr(
+        'landoapi.landings.tokens_are_equal',
+        lambda t1, t2: mem['val'] if mem['set'] else tokens_are_equal(t1, t2)
+    )
+    return set_value

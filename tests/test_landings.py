@@ -238,12 +238,14 @@ def test_land_nonexisting_diff_returns_404(
 
 
 def test_land_inactive_diff_without_acknowledgement_fails(
-    db, client, phabfactory, transfactory, auth0_mock
+    db, client, phabfactory, transfactory, auth0_mock,
+    set_confirmation_token_comparison
 ):
     phabfactory.diff(id=1)
     d2 = phabfactory.diff(id=2)
     phabfactory.revision(active_diff=d2, diffs=["1"])
     transfactory.mock_successful_response()
+    set_confirmation_token_comparison(False)
     response = client.post(
         '/landings',
         json={'revision_id': 'D1',
