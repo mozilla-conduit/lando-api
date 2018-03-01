@@ -14,6 +14,7 @@ from mozlogging import MozLogFormatter
 
 from landoapi.cache import cache
 from landoapi.dockerflow import dockerflow
+from landoapi.hooks import initialize_hooks
 from landoapi.sentry import sentry
 from landoapi.storage import alembic, db
 
@@ -45,6 +46,7 @@ def create_app(version_path):
     alembic.init_app(flask_app)
 
     initialize_caching(flask_app)
+    initialize_hooks(flask_app)
 
     return app
 
