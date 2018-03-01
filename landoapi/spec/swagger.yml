@@ -77,6 +77,9 @@ paths:
       description: |
         Get list of jobs scheduled to land depending on the revision
         and/or status
+      security:
+        - {}
+        - PhabricatorAPIKeyHeader: []
       parameters:
         - name: revision_id
           in: query
@@ -283,6 +286,9 @@ paths:
     get:
       description: |
         Request the status of the landing job.
+      security:
+        - {}
+        - PhabricatorAPIKeyHeader: []
       parameters:
         - name: landing_id
           in: path
