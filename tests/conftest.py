@@ -10,11 +10,13 @@ import boto3
 import flask.testing
 import pytest
 import requests_mock
+from flask import current_app
 from moto import mock_s3
 
 from landoapi.app import create_app
 from landoapi.landings import tokens_are_equal
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
+from landoapi.phabricator_client import PhabricatorClient
 from landoapi.storage import db as _db
 
 from tests.factories import PhabResponseFactory, TransResponseFactory
@@ -210,3 +212,16 @@ def set_confirmation_token_comparison(monkeypatch):
         lambda t1, t2: mem['val'] if mem['set'] else tokens_are_equal(t1, t2)
     )
     return set_value
+
+
+@pytest.fixture
+def get_phab_client(app):
+    def get_client(api_key=None):
+        api_key = (
+            api_key or current_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
+        )
+        return PhabricatorClient(
+            current_app.config['PHABRICATOR_URL'], api_key
+        )
+
+    return get_client

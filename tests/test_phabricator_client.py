@@ -10,8 +10,7 @@ import requests
 import requests_mock
 
 from landoapi.phabricator_client import (
-    CLOSED_STATUSES, OPEN_STATUSES, PhabricatorClient, PhabricatorAPIException,
-    Statuses
+    CLOSED_STATUSES, OPEN_STATUSES, PhabricatorAPIException, Statuses
 )
 
 from tests.utils import first_result_in_response, phab_url, phid_for_response
@@ -32,32 +31,32 @@ from tests.canned_responses.phabricator.users import (
 pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
 
-def test_get_revision_with_200_response(phabfactory):
+def test_get_revision_with_200_response(phabfactory, get_phab_client):
     revision_response = phabfactory.revision(id='D1234')
     expected_revision = first_result_in_response(revision_response)
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
     revision = phab.get_revision(id=1234)
     assert revision == expected_revision
 
 
-def test_get_revisions(phabfactory):
+def test_get_revisions(phabfactory, get_phab_client):
     revision_response = phabfactory.revision(id='D1234')
     expected_revision = first_result_in_response(revision_response)
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
     revisions_by_ids = phab.get_revisions(ids=[1234])
     assert revisions_by_ids[0] == expected_revision
     revisions_by_phids = phab.get_revisions(phids=['PHID-DREV-1234'])
     assert revisions_by_phids[0] == expected_revision
 
 
-def test_get_revision_raises_if_id_and_phid_provided():
-    phab = PhabricatorClient(api_key='api-key')
+def test_get_revision_raises_if_id_and_phid_provided(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     with pytest.raises(TypeError):
         phab.get_revision(id=1, phid='PHID')
 
 
-def test_get_current_user_with_200_response():
-    phab = PhabricatorClient(api_key='api-key')
+def test_get_current_user_with_200_response(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
             phab_url('user.whoami'),
@@ -68,40 +67,40 @@ def test_get_current_user_with_200_response():
         assert user == CANNED_USER_WHOAMI_1['result']
 
 
-def test_get_user_returns_with_200_response(phabfactory):
+def test_get_user_returns_with_200_response(phabfactory, get_phab_client):
     user_response = phabfactory.user()
     expected_user = first_result_in_response(user_response)
     phid = phid_for_response(user_response)
 
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
     user = phab.get_user(phid)
 
     assert user == expected_user
 
 
-def test_get_author_for_revision(phabfactory):
+def test_get_author_for_revision(phabfactory, get_phab_client):
     user_response = phabfactory.user()
     phabfactory.revision(id='D5')
     expected_user = first_result_in_response(user_response)
 
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
     revision = phab.get_revision(id=5)
     author = phab.get_revision_author(revision)
 
     assert author == expected_user
 
 
-def test_get_repo(phabfactory):
+def test_get_repo(phabfactory, get_phab_client):
     phabfactory.repo()
     expected_repo = CANNED_REPO_SEARCH_MOZCENTRAL['result']['data'][0]
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
     repo = phab.get_repo('PHID-REPO-mozillacentral')
 
     assert repo == expected_repo
 
 
-def test_get_repo_no_repo():
-    phab = PhabricatorClient(api_key='api-key')
+def test_get_repo_no_repo(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
             phab_url('diffusion.repository.search'),
@@ -119,31 +118,31 @@ def test_get_repo_no_repo():
     assert repo is None
 
 
-def test_get_repo_no_phid(phabfactory):
+def test_get_repo_no_phid(phabfactory, get_phab_client):
     phabfactory.repo()
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
     repo = phab.get_repo(None)
     assert repo is None
 
 
-def test_get_rawdiff_by_id(phabfactory):
+def test_get_rawdiff_by_id(phabfactory, get_phab_client):
     patch = "diff --git a/hello.c b/hello.c..."
     # The raw patch's diffID is encoded in the Diff URI.
     phabfactory.diff(id='12345', patch=patch)
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
     returned_patch = phab.get_rawdiff('12345')
     assert returned_patch == patch
 
 
-def test_get_diff_by_id(phabfactory):
+def test_get_diff_by_id(phabfactory, get_phab_client):
     expected = phabfactory.diff(id='9001')
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
     result = phab.get_diff(id='9001')
     assert result == expected['result']['9001']
 
 
-def test_check_connection_success():
-    phab = PhabricatorClient(api_key='api-key')
+def test_check_connection_success(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     success_json = CANNED_EMPTY_RESULT.copy()
     with requests_mock.mock() as m:
         m.get(phab_url('conduit.ping'), status_code=200, json=success_json)
@@ -151,8 +150,8 @@ def test_check_connection_success():
         assert m.called
 
 
-def test_raise_exception_if_ping_encounters_connection_error():
-    phab = PhabricatorClient(api_key='api-key')
+def test_raise_exception_if_ping_encounters_connection_error(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         # Test with the generic ConnectionError, which is a superclass for
         # other connection error types.
@@ -163,8 +162,8 @@ def test_raise_exception_if_ping_encounters_connection_error():
         assert m.called
 
 
-def test_raise_exception_if_api_ping_times_out():
-    phab = PhabricatorClient(api_key='api-key')
+def test_raise_exception_if_api_ping_times_out(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         # Test with the generic Timeout exception, which all other timeout
         # exceptions derive from.
@@ -175,8 +174,8 @@ def test_raise_exception_if_api_ping_times_out():
         assert m.called
 
 
-def test_raise_exception_if_api_returns_error_json_response():
-    phab = PhabricatorClient(api_key='api-key')
+def test_raise_exception_if_api_returns_error_json_response(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     error_json = {
         "result": None,
         "error_code": "ERR-CONDUIT-CORE",
@@ -193,11 +192,11 @@ def test_raise_exception_if_api_returns_error_json_response():
         assert m.called
 
 
-def test_phabricator_exception():
+def test_phabricator_exception(get_phab_client):
     """ Ensures that the PhabricatorClient converts JSON errors from Phabricator
     into proper exceptions with the error_code and error_message in tact.
     """
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
             phab_url('differential.query'),
@@ -210,8 +209,8 @@ def test_phabricator_exception():
         assert e_info.value.error_info == CANNED_ERROR_1['error_info']
 
 
-def test_get_reviewers_no_revision():
-    phab = PhabricatorClient(api_key='api-key')
+def test_get_reviewers_no_revision(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
             phab_url('differential.revision.search'),
@@ -223,8 +222,8 @@ def test_get_reviewers_no_revision():
     assert result == {}
 
 
-def test_get_reviewers_no_reviewers():
-    phab = PhabricatorClient(api_key='api-key')
+def test_get_reviewers_no_reviewers(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
             phab_url('differential.revision.search'),
@@ -236,8 +235,8 @@ def test_get_reviewers_no_reviewers():
     assert result == {}
 
 
-def test_get_reviewers_two_reviewers():
-    phab = PhabricatorClient(api_key='api-key')
+def test_get_reviewers_two_reviewers(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
             phab_url('differential.revision.search'),
@@ -256,8 +255,8 @@ def test_get_reviewers_two_reviewers():
     assert result[1]['fields']['username'] == 'bar'
 
 
-def test_get_reviewers_reviewers_and_users_dont_match():
-    phab = PhabricatorClient(api_key='api-key')
+def test_get_reviewers_reviewers_and_users_dont_match(get_phab_client):
+    phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         # Returns 2 reviewers
         m.get(
@@ -282,26 +281,26 @@ def test_get_reviewers_reviewers_and_users_dont_match():
     assert result[1]['reviewerPHID'] == 'PHID-USER-3'
 
 
-def test_no_parent(phabfactory):
+def test_no_parent(phabfactory, get_phab_client):
     result = phabfactory.revision()
     revision = result['result'][0]
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
 
     assert phab.get_first_open_parent_revision(revision) is None
 
 
 @pytest.mark.parametrize('status', OPEN_STATUSES)
-def test_open_parent(status, phabfactory):
+def test_open_parent(status, phabfactory, get_phab_client):
     parent_data = phabfactory.revision(status=status.value)
     parent = parent_data['result'][0]
     result = phabfactory.revision(id='D2', depends_on=parent_data)
     revision = result['result'][0]
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
 
     assert phab.get_first_open_parent_revision(revision) == parent
 
 
-def test_open_grandparent(phabfactory):
+def test_open_grandparent(phabfactory, get_phab_client):
     grandparent_data = phabfactory.revision(
         status=Statuses.NEEDS_REVISION.value
     )
@@ -311,22 +310,22 @@ def test_open_grandparent(phabfactory):
     )
     result = phabfactory.revision(id='D3', depends_on=parent_result)
     revision = result['result'][0]
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
 
     assert phab.get_first_open_parent_revision(revision) == grandparent
 
 
 @pytest.mark.parametrize('status', CLOSED_STATUSES)
-def test_no_open_parent(status, phabfactory):
+def test_no_open_parent(status, phabfactory, get_phab_client):
     parent_result = phabfactory.revision(status=status.value)
     result = phabfactory.revision(id='D2', depends_on=parent_result)
     revision = result['result'][0]
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
 
     assert phab.get_first_open_parent_revision(revision) is None
 
 
-def test_get_dependency_tree(phabfactory):
+def test_get_dependency_tree(phabfactory, get_phab_client):
     grandparent_data = phabfactory.revision(
         status=Statuses.NEEDS_REVISION.value
     )
@@ -337,7 +336,7 @@ def test_get_dependency_tree(phabfactory):
     parent = parent_data['result'][0]
     revision_data = phabfactory.revision(id='D4', depends_on=parent_data)
     revision = revision_data['result'][0]
-    phab = PhabricatorClient(api_key='api-key')
+    phab = get_phab_client(api_key='api-key')
 
     dependency = phab.get_dependency_tree(revision)
     assert next(dependency) == parent

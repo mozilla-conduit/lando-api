@@ -4,14 +4,13 @@
 import pytest
 
 from landoapi.models.patch import DiffNotInRevisionException, Patch
-from landoapi.phabricator_client import PhabricatorClient
 
 
-def test_patch_uploads_to_s3(app, phabfactory, s3):
+def test_patch_uploads_to_s3(app, phabfactory, s3, get_phab_client):
     phabfactory.revision()
     phabfactory.rawdiff(1)
 
-    phab = PhabricatorClient(None)
+    phab = get_phab_client()
     revision = phab.get_revision(1)
     patch = Patch(1, revision, 1)
     expected_body = patch.build(phab)
@@ -23,23 +22,23 @@ def test_patch_uploads_to_s3(app, phabfactory, s3):
     assert body == expected_body
 
 
-def test_integrity_active_diff(phabfactory):
+def test_integrity_active_diff(phabfactory, get_phab_client):
     phabfactory.revision()
-    phab = PhabricatorClient(None)
+    phab = get_phab_client()
     revision = phab.get_revision(1)
     assert Patch.validate_diff_assignment(1, revision) is None
 
 
-def test_integrity_inactive_diff(phabfactory):
+def test_integrity_inactive_diff(phabfactory, get_phab_client):
     phabfactory.revision(diffs=['111'])
-    phab = PhabricatorClient(None)
+    phab = get_phab_client()
     revision = phab.get_revision(1)
     assert Patch.validate_diff_assignment(111, revision) is None
 
 
-def test_failed_integrity(phabfactory):
+def test_failed_integrity(phabfactory, get_phab_client):
     phabfactory.revision()
-    phab = PhabricatorClient(None)
+    phab = get_phab_client()
     revision = phab.get_revision(1)
     with pytest.raises(DiffNotInRevisionException):
         Patch.validate_diff_assignment(111, revision)

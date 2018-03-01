@@ -38,7 +38,10 @@ def heartbeat():
     and return a 200 iff those services and the app itself are
     performing normally. Return a 5XX if something goes wrong.
     """
-    phab = PhabricatorClient(api_key=None)
+    phab = PhabricatorClient(
+        current_app.config['PHABRICATOR_URL'],
+        current_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
+    )
     try:
         phab.check_connection()
     except PhabricatorAPIException:

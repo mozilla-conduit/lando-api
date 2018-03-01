@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
-import os
 
 import requests
 from enum import Enum
@@ -36,12 +35,9 @@ class PhabricatorClient:
     exceptions or a JSONDecodeError.
     """
 
-    def __init__(self, api_key):
-        self.api_url = os.getenv('PHABRICATOR_URL') + '/api'
-        if api_key:
-            self.api_key = api_key
-        else:
-            self.api_key = os.getenv('PHABRICATOR_UNPRIVILEGED_API_KEY')
+    def __init__(self, phabricator_url, api_key):
+        self.api_url = phabricator_url + '/api'
+        self.api_key = api_key
 
     def get_revision(self, id=None, phid=None):
         """Gets a revision as defined by the Phabricator API.

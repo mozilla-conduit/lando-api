@@ -2,8 +2,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
-import os
 import logging
+import os
+import re
+import sys
 
 import click
 import connexion
@@ -54,6 +56,20 @@ def configure_app(flask_app, version_path):
     flask_app.config['VERSION_PATH'] = version_path
     version_info = json.load(open(version_path))
     logger.info(version_info, 'app.version')
+
+    # Phabricator.
+    flask_app.config['PHABRICATOR_URL'] = os.getenv('PHABRICATOR_URL')
+    flask_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY'] = (
+        os.environ.get('PHABRICATOR_UNPRIVILEGED_API_KEY')
+    )
+    if re.match(
+        r'^api-.{28}$', flask_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
+    ) is None:
+        logger.error(
+            'PHABRICATOR_UNPRIVILEGED_API_KEY has the wrong format, '
+            'it must begin with "api-" and be 32 characters long.'
+        )
+        sys.exit(1)
 
     # Sentry
     this_app_version = version_info['version']
@@ -195,6 +211,7 @@ def log_app_config(flask_app, keys_before_setup):
         'TRANSPLANT_API_KEY',
         'AWS_ACCESS_KEY',
         'AWS_SECRET_KEY',
+        'PHABRICATOR_UNPRIVILEGED_API_KEY',
     }
 
     keys_after_setup = set(flask_app.config.keys())

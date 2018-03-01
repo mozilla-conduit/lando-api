@@ -10,7 +10,6 @@ from freezegun import freeze_time
 
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
-from landoapi.phabricator_client import PhabricatorClient
 from landoapi.transplant_client import TransplantClient
 from tests.canned_responses.lando_api.patches import LANDING_PATCH
 from tests.canned_responses.lando_api.revisions import (
@@ -78,13 +77,13 @@ def test_landing_without_auth0_permissions(client, auth0_mock):
 
 
 def test_landing_revision_calls_transplant_service(
-    db, client, phabfactory, monkeypatch, s3, auth0_mock
+    db, client, phabfactory, monkeypatch, s3, auth0_mock, get_phab_client
 ):
     # Mock the phabricator response data
     phabfactory.revision()
 
     # Build the patch we expect to see
-    phabclient = PhabricatorClient('someapi')
+    phabclient = get_phab_client('someapi')
     revision = phabclient.get_revision(1)
     diff_id = phabclient.get_diff(phid=revision['activeDiffPHID'])['id']
     patch_url = 's3://landoapi.test.bucket/L1_D1_1.patch'

@@ -7,7 +7,7 @@ from connexion import (
     problem,
     request,
 )
-from flask import g
+from flask import current_app, g
 
 from landoapi.phabricator_client import PhabricatorClient
 
@@ -47,7 +47,10 @@ class require_phabricator_api_key:
                     type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401'  # noqa: E501
                 )  # yapf: disable
 
-            g.phabricator = PhabricatorClient(api_key=api_key)
+            g.phabricator = PhabricatorClient(
+                current_app.config['PHABRICATOR_URL'], api_key or
+                current_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
+            )
             if api_key is not None and not g.phabricator.verify_api_key():
                 return problem(
                     403,

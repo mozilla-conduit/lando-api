@@ -16,7 +16,7 @@ services:
       - PHABRICATOR_URL=https://phabricator-dev.allizom.org/
       # To set the API key, login as a user on phabricator-dev,
       # create a new Conduit API token and add it here.
-      - PHABRICATOR_UNPRIVILEGED_API_KEY=api-123456789
+      - PHABRICATOR_UNPRIVILEGED_API_KEY=api-0123456789012345678901234567
       - DATABASE_URL=postgresql://postgres:password@lando-api.db/lando_api_dev
       - ENV=localdev
       - SENTRY_DSN=
