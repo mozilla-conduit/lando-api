@@ -15,6 +15,7 @@ from landoapi.auth import (
     A0User,
     fetch_auth0_userinfo,
     require_auth0,
+    require_transplant_authentication,
 )
 from landoapi.mocks.auth import create_access_token, TEST_KEY_PRIV
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
@@ -404,5 +405,35 @@ def test_require_access_scopes_valid(jwks, app, scopes, token_kwargs):
     headers = [('Authorization', 'Bearer {}'.format(token))]
     with app.test_request_context('/', headers=headers):
         resp = require_auth0(scopes=scopes)(noop)()
+
+    assert resp.status_code == 200
+
+
+@pytest.mark.parametrize(
+    'pingback_enabled,headers,status', [
+        (False, [('API-Key', 'someapikey')], 403),
+        (False, [('API-Key', 'thisisanincorrectapikey')], 403),
+        (False, [], 403),
+        (True, [], 403),
+        (True, [('API-Key', 'thisisanincorrectapikey')], 403),
+    ]
+)
+def test_require_transplant_authentication_failures(
+    config, app, pingback_enabled, headers, status
+):
+    config['PINGBACK_ENABLED'] = 'y' if pingback_enabled else 'n'
+
+    with app.test_request_context('/', headers=headers):
+        with pytest.raises(ProblemException) as exc_info:
+            require_transplant_authentication(noop)()
+
+    assert exc_info.value.status == status
+
+
+def test_require_transplant_authentication_success(config, app):
+    config['PINGBACK_ENABLED'] = 'y'
+    headers = [('API-Key', 'someapikey')]
+    with app.test_request_context('/', headers=headers):
+        resp = require_transplant_authentication(noop)()
 
     assert resp.status_code == 200

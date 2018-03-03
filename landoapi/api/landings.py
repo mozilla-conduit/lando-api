@@ -5,11 +5,10 @@
 Landing API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
-import hmac
 import logging
 
 from connexion import problem
-from flask import current_app, g, jsonify, request
+from flask import g, jsonify, request
 from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
@@ -175,10 +174,9 @@ def get(landing_id):
     )
 
 
+@auth.require_transplant_authentication
 def update(data):
     """Update landing on pingback from Transplant.
-
-    API-Key header is required to authenticate Transplant API
 
     data contains following fields:
         request_id: integer (required)
@@ -200,28 +198,6 @@ def update(data):
             revision (sha) of push if landed == true
             empty string if landed == false
     """
-    if current_app.config['PINGBACK_ENABLED'] != 'y':
-        logger.warning(
-            {
-                'data': data,
-                'remote_addr': request.remote_addr,
-                'msg': 'Attempt to access a disabled pingback',
-            }, 'pingback.warning'
-        )
-        return _not_authorized_problem()
-
-    passed_key = request.headers.get('API-Key', '')
-    required_key = current_app.config['TRANSPLANT_API_KEY']
-    if not hmac.compare_digest(passed_key, required_key):
-        logger.warning(
-            {
-                'data': data,
-                'remote_addr': request.remote_addr,
-                'msg': 'Wrong API Key',
-            }, 'pingback.error'
-        )
-        return _not_authorized_problem()
-
     try:
         landing = Landing.query.filter_by(request_id=data['request_id']).one()
     except NoResultFound:
@@ -239,12 +215,3 @@ def update(data):
     )
     landing.save()
     return {}, 200
-
-
-def _not_authorized_problem():
-    return problem(
-        403,
-        'Not Authorized',
-        'You\'re not authorized to proceed.',
-        type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'
-    )

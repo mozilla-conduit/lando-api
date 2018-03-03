@@ -382,6 +382,33 @@ def test_pingback_disabled(client, config):
     assert response.status_code == 403
 
 
+def test_pingback_no_api_key_header(client, config):
+    config['PINGBACK_ENABLED'] = 'y'
+
+    response = client.post(
+        '/landings/update',
+        json={'request_id': 1,
+              'landed': True,
+              'result': 'sha123'},
+    )
+
+    assert response.status_code == 400
+
+
+def test_pingback_incorrect_api_key(client, config):
+    config['PINGBACK_ENABLED'] = 'y'
+
+    response = client.post(
+        '/landings/update',
+        json={'request_id': 1,
+              'landed': True,
+              'result': 'sha123'},
+        headers=[('API-Key', 'thisisanincorrectapikey')],
+    )
+
+    assert response.status_code == 403
+
+
 def test_typecasting():
     Landing(revision_id='x', diff_id=1, active_diff_id=1)
 

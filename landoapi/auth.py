@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import functools
 import hashlib
+import hmac
 import logging
 import os
 
@@ -495,3 +496,92 @@ class require_auth0:
             f = self._require_scopes(f)
 
         return self._require_access_token(f)
+
+
+def _not_authorized_problem_exception():
+    return ProblemException(
+        403,
+        'Not Authorized',
+        'You\'re not authorized to proceed.',
+        type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'
+    )
+
+
+def require_transplant_authentication(f):
+    """Decorator which authenticates requests to only allow Transplant."""
+
+    @functools.wraps(f)
+    def wrapped(*args, **kwargs):
+        if current_app.config['PINGBACK_ENABLED'] != 'y':
+            try:
+                # First try to log any arguments that were going to
+                # the endpoint (could fail json serialization).
+                logger.warning(
+                    {
+                        'args': args,
+                        'kwargs': kwargs,
+                        'remote_addr': request.remote_addr,
+                        'msg': 'Attempt to access a disabled pingback',
+                    }, 'security.pingback'
+                )
+            except TypeError:
+                # Reattempt logging without the arguments.
+                logger.warning(
+                    {
+                        'remote_addr': request.remote_addr,
+                        'msg': 'Attempt to access a disabled pingback',
+                    }, 'security.pingback'
+                )
+
+            raise _not_authorized_problem_exception()
+
+        passed_key = request.headers.get('API-Key')
+        if not passed_key:
+            try:
+                # First try to log any arguments that were going to
+                # the endpoint (could fail json serialization).
+                logger.critical(
+                    {
+                        'args': args,
+                        'kwargs': kwargs,
+                        'remote_addr': request.remote_addr,
+                        'msg': 'Attempt to pingback without API-Key header',
+                    }, 'security.pingback'
+                )
+            except TypeError:
+                # Reattempt logging without the arguments.
+                logger.critical(
+                    {
+                        'remote_addr': request.remote_addr,
+                        'msg': 'Attempt to pingback without API-Key header',
+                    }, 'security.pingback'
+                )
+
+            raise _not_authorized_problem_exception()
+
+        required_key = current_app.config['TRANSPLANT_API_KEY']
+        if not hmac.compare_digest(passed_key, required_key):
+            try:
+                # First try to log any arguments that were going to
+                # the endpoint (could fail json serialization).
+                logger.critical(
+                    {
+                        'args': args,
+                        'kwargs': kwargs,
+                        'remote_addr': request.remote_addr,
+                        'msg': 'Attempt to pingback with incorrect API-Key',
+                    }, 'security.pingback'
+                )
+            except TypeError:
+                # Reattempt logging without the arguments.
+                logger.critical(
+                    {
+                        'remote_addr': request.remote_addr,
+                        'msg': 'Attempt to pingback with incorrect API-Key',
+                    }, 'security.pingback'
+                )
+            raise _not_authorized_problem_exception()
+
+        return f(*args, **kwargs)
+
+    return wrapped
