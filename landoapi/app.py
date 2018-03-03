@@ -99,6 +99,15 @@ def configure_app(flask_app, version_path):
     ]:
         flask_app.config[transplant_config] = os.environ.get(transplant_config)
 
+    # Protect against enabling pingback without proper security. If
+    # we're allowing pingbacks but the api key is None or empty abort:
+    if (
+        flask_app.config['PINGBACK_ENABLED'] == 'y' and
+        not flask_app.config['TRANSPLANT_API_KEY']
+    ):
+        logger.error('PINGBACK_ENABLED="y" but TRANSPLANT_API_KEY is unset.')
+        sys.exit(1)
+
     # AWS credentials should be only provided if needed in development
     flask_app.config['AWS_ACCESS_KEY'] = os.getenv('AWS_ACCESS_KEY', None)
     flask_app.config['AWS_SECRET_KEY'] = os.getenv('AWS_SECRET_KEY', None)
