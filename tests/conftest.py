@@ -70,6 +70,7 @@ def docker_env_vars(monkeypatch):
     monkeypatch.setenv('OIDC_IDENTIFIER', 'lando-api')
     monkeypatch.setenv('OIDC_DOMAIN', 'lando-api.auth0.test')
     monkeypatch.delenv('CACHE_REDIS_HOST', raising=False)
+    monkeypatch.delenv('CSP_REPORTING_URL', raising=False)
 
 
 @pytest.fixture

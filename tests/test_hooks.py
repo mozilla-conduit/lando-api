@@ -19,3 +19,17 @@ def test_app_wide_headers_set(client):
         "img-src 'self'; "
         "style-src 'self' 'unsafe-inline';"
     )
+
+
+def test_app_wide_headers_csp_report_uri(client, config):
+    config['CSP_REPORTING_URL'] = None
+    response = client.get('/__version__')
+    assert response.status_code == 200
+    assert 'report-uri' not in response.headers['Content-Security-Policy']
+
+    config['CSP_REPORTING_URL'] = '/__cspreport__'
+    response = client.get('/__version__')
+    assert response.status_code == 200
+    assert 'report-uri /__cspreport__;' in (
+        response.headers['Content-Security-Policy']
+    )

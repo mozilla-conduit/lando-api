@@ -29,6 +29,7 @@ services:
       - PATCH_BUCKET_NAME=
       - OIDC_IDENTIFIER=
       - OIDC_DOMAIN=
+      # - CSP_REPORTING_URL=/__cspreport__
       - CACHE_REDIS_HOST=redis.cache
 #      - CACHE_REDIS_PORT=
 #      - CACHE_REDIS_PASSWORD=

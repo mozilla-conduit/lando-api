@@ -112,6 +112,8 @@ def configure_app(flask_app, version_path):
     flask_app.config['AWS_ACCESS_KEY'] = os.getenv('AWS_ACCESS_KEY', None)
     flask_app.config['AWS_SECRET_KEY'] = os.getenv('AWS_SECRET_KEY', None)
 
+    flask_app.config['CSP_REPORTING_URL'] = os.getenv('CSP_REPORTING_URL')
+
     # OIDC Configuration:
     # OIDC_IDENTIFIER should be the custom api identifier defined in auth0.
     flask_app.config['OIDC_IDENTIFIER'] = os.environ['OIDC_IDENTIFIER']
