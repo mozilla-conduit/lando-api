@@ -104,11 +104,55 @@ def test_landing_revision_calls_transplant_service(
         ldap_username='tuser@example.com',
         patch_urls=[patch_url],
         tree='mozilla-central',
-        pingback='{}/landings/update'.format(os.getenv('PINGBACK_HOST_URL'))
+        pingback='{}/landings/update'.format(os.getenv('PINGBACK_HOST_URL')),
+        push_bookmark=''
     )
     body = s3.Object('landoapi.test.bucket',
                      'L1_D1_1.patch').get()['Body'].read().decode("utf-8")
     assert body == LANDING_PATCH
+
+
+def test_push_bookmark_sent_when_supported_repo(
+    db, client, phabfactory, monkeypatch, s3, auth0_mock, get_phab_client,
+    mock_repo_config
+):
+    # Mock the repo to have a push bookmark.
+    mock_repo_config(
+        {
+            'mozilla-central': {
+                'tree': 'mozilla-central',
+                'push_bookmark': '@',
+            },
+        }
+    )
+
+    # Mock the phabricator response data
+    phabfactory.revision()
+
+    # Build the patch we expect to see
+    phabclient = get_phab_client('someapi')
+    revision = phabclient.get_revision(1)
+    diff_id = phabclient.get_diff(phid=revision['activeDiffPHID'])['id']
+
+    tsclient = MagicMock(spec=TransplantClient)
+    tsclient().land.return_value = 1
+    monkeypatch.setattr('landoapi.models.landing.TransplantClient', tsclient)
+    client.post(
+        '/landings',
+        json={
+            'revision_id': 'D1',
+            'diff_id': int(diff_id),
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    tsclient().land.assert_called_once_with(
+        revision_id=1,
+        ldap_username='tuser@example.com',
+        patch_urls=['s3://landoapi.test.bucket/L1_D1_1.patch'],
+        tree='mozilla-central',
+        pingback='{}/landings/update'.format(os.getenv('PINGBACK_HOST_URL')),
+        push_bookmark='@'
+    )
 
 
 @pytest.mark.parametrize(

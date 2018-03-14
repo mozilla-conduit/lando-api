@@ -21,7 +21,15 @@ class TransplantClient:
         self.username = username
         self.password = password
 
-    def land(self, revision_id, ldap_username, patch_urls, tree, pingback):
+    def land(
+        self,
+        revision_id,
+        ldap_username,
+        patch_urls,
+        tree,
+        pingback,
+        push_bookmark=''
+    ):
         """Sends a POST request to Transplant API to land a patch
 
         Args:
@@ -74,12 +82,13 @@ class TransplantClient:
                 # repositories ('upstream' is hardcoded as
                 # the path that is pulled from).
                 destination='upstream',
-                # TODO: We'll need to start sending 'push_bookmark'
-                # for the repoositories that require it (such as
-                # version-control-tools). It's fine to ignore for
-                # now though as mozilla-central landings do not
-                # use it.
-                pingback_url=pingback
+                pingback_url=pingback,
+                # push_bookmark should be sent to transplant as an empty
+                # string '' to indicate the repository does not use a
+                # push_bookmark. Sending null (None) will result in
+                # incorrect behaviour. Protect against this by
+                # making sure any falsey value is converted to ''.
+                push_bookmark=push_bookmark or ''
             )
             return response.json()['request_id']
         except requests.HTTPError as e:
@@ -120,7 +129,7 @@ class TransplantClient:
 
     def _submit_landing_request(
         self, *, ldap_username, tree, rev, patch_urls, destination,
-        pingback_url
+        pingback_url, push_bookmark
     ):
         logger.info(
             {
@@ -130,7 +139,8 @@ class TransplantClient:
                 'rev': rev,
                 'patch_urls': patch_urls,
                 'destination': destination,
-                'pingback_url': pingback_url
+                'push_bookmark': push_bookmark,
+                'pingback_url': pingback_url,
             }, '_submit_landing_request.initiation'
         )
 
@@ -143,7 +153,8 @@ class TransplantClient:
                 'rev': rev,
                 'patch_urls': patch_urls,
                 'destination': destination,
-                'pingback_url': pingback_url
+                'push_bookmark': push_bookmark,
+                'pingback_url': pingback_url,
             },
             auth=(self.username, self.password),
             timeout=10

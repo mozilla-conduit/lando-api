@@ -7,18 +7,12 @@ import logging
 
 from flask import current_app
 
+from landoapi import repos
 from landoapi.models.patch import Patch
 from landoapi.storage import db
 from landoapi.transplant_client import TransplantClient, TransplantError
 
 logger = logging.getLogger(__name__)
-
-# Maps a Phabricator repo short-name to target TreeStatus tree name.
-# See https://treestatus.mozilla-releng.net/trees for a full list.
-TREE_MAPPING = {
-    'phabricator-qa-dev': 'phabricator-qa-dev',
-    'phabricator-qa-stage': 'phabricator-qa-stage',
-}
 
 
 @enum.unique
@@ -138,12 +132,14 @@ class Landing(db.Model):
                 'Associate the revision with a repository on Phabricator then'
                 'try again.'
             )
-        if repo_short_name not in TREE_MAPPING:
+        if repo_short_name not in repos.REPO_CONFIG:
             raise InvalidRepositoryException(
                 'Landing to {} is not supported at this time. '.
                 format(repo_short_name)
             )
-        tree = TREE_MAPPING[repo_short_name]
+
+        target_repo = repos.REPO_CONFIG[repo_short_name]
+        tree = target_repo['tree']
 
         # Save the initial landing request
         landing = cls(
@@ -171,7 +167,8 @@ class Landing(db.Model):
                 ldap_username=landing.requester_email,
                 patch_urls=[patch.s3_url],
                 tree=tree,
-                pingback=current_app.config['PINGBACK_URL']
+                pingback=current_app.config['PINGBACK_URL'],
+                push_bookmark=target_repo['push_bookmark']
             )
         except TransplantError:
             raise LandingNotCreatedException
