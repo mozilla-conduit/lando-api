@@ -95,18 +95,20 @@ def imageid(ctx):
 def add_migration(ctx, msg):
     """Call Alembic to create a migration revision"""
     ctx.run(
-        "docker-compose run --rm lando-api "
-        "python landoapi/manage.py revision '%s'" % msg
+        "docker-compose run --rm lando-api lando-cli db revision '%s'" % msg
     )
+
+
+@task(name='init')
+def init(ctx):
+    """Run Lando API first run init."""
+    ctx.run("docker-compose run --rm lando-api lando-cli init")
 
 
 @task
 def upgrade(ctx):
     """Call Alembic to run all available migration upgrades."""
-    ctx.run(
-        "docker-compose run --rm lando-api "
-        "python landoapi/manage.py upgrade"
-    )
+    ctx.run("docker-compose run --rm lando-api lando-cli db upgrade")
 
 
 namespace = Collection(
@@ -115,5 +117,5 @@ namespace = Collection(
         lint_all,
         lint_flake8,
         lint_yapf,
-    ), add_migration, build, format, imageid, test, upgrade, version
+    ), add_migration, build, format, imageid, init, test, upgrade, version
 )

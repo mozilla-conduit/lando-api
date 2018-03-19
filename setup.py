@@ -34,6 +34,9 @@ setup(
     install_requires=[],
     extras_require={},
     entry_points={
-        'console_scripts': ['lando-api-dev = landoapi.app:development_server']
+        'console_scripts': [
+            'lando-api-dev = landoapi.app:development_server',
+            'lando-cli = landoapi.cli:cli',
+        ]
     },
 )

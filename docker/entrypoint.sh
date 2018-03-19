@@ -9,8 +9,8 @@
 set -ex
 
 case "$1" in
-  "upgrade_db")
-      python landoapi/manage.py upgrade
+  "help")
+      lando-cli --help
       ;;
   *)
       exec "$@"

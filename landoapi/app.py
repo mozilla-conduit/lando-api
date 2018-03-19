@@ -12,6 +12,7 @@ import connexion
 from connexion.resolver import RestyResolver
 from mozlogging import MozLogFormatter
 
+import landoapi.models  # noqa, makes sure alembic knows about the models.
 from landoapi.cache import cache
 from landoapi.dockerflow import dockerflow
 from landoapi.hooks import initialize_hooks

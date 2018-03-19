@@ -39,7 +39,7 @@ $ docker-compose up -d
 To create a database:
 
 ```
-$ invoke upgrade
+$ invoke init
 ```
 
 You can use a tool like [httpie][] to test the service.
@@ -96,7 +96,7 @@ $ invoke upgrade
 Upgrade to the newest migration:
 
 ```
-$ docker run [OPTIONS] IMAGE upgrade_db
+$ docker run [OPTIONS] IMAGE lando-cli db upgrade
 ```
 
 ## Accessing the database
