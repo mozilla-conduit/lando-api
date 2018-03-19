@@ -63,9 +63,9 @@ class Landing(db.Model):
     status = db.Column(
         db.Enum(LandingStatus), nullable=False, default=LandingStatus.aborted
     )
-    error = db.Column(db.String(128), default='')
-    result = db.Column(db.String(128), default='')
-    requester_email = db.Column(db.String(128))
+    error = db.Column(db.Text(), default='')
+    result = db.Column(db.Text(), default='')
+    requester_email = db.Column(db.String(254))
     tree = db.Column(db.String(128))
     created_at = db.Column(
         db.DateTime(timezone=True), nullable=False, default=db.func.now()
@@ -136,7 +136,8 @@ class Landing(db.Model):
             requester_email=requester_email,
             tree=tree
         )
-        landing.save()
+        db.session.add(landing)
+        db.session.commit()
 
         # Create a patch and upload it to S3
         patch = Patch(landing.id, revision, diff_id)
@@ -165,7 +166,7 @@ class Landing(db.Model):
 
         landing.request_id = request_id
         landing.status = LandingStatus.submitted
-        landing.save()
+        db.session.commit()
 
         logger.info(
             {
@@ -176,13 +177,6 @@ class Landing(db.Model):
         )
 
         return landing
-
-    def save(self):
-        """Save objects in storage."""
-        if not self.id:
-            db.session.add(self)
-
-        return db.session.commit()
 
     @classmethod
     def is_revision_submitted(cls, revision_id):
@@ -246,9 +240,12 @@ class Landing(db.Model):
         """Set the status from pingback request."""
         self.error = error
         self.result = result
-        self.status = (
-            LandingStatus.landed if landed else LandingStatus.failed
-        )
+        if not landed:
+            self.status = (
+                LandingStatus.failed if error else LandingStatus.submitted
+            )
+        else:
+            self.status = LandingStatus.landed
 
 
 class LandingNotCreatedException(Exception):

@@ -246,16 +246,20 @@ def test_inactive_diff_warns(
 def test_previously_landed_warns(
     db, client, phabfactory, transfactory, auth0_mock
 ):
-    Landing(
-        request_id=1,
-        revision_id=1,
-        diff_id=1,
-        active_diff_id=1,
-        requester_email='tuser@example.com',
-        tree='mozilla-central',
-        status=LandingStatus.landed,
-        result=('X' * 40)
-    ).save()
+    db.session.add(
+        Landing(
+            request_id=1,
+            revision_id=1,
+            diff_id=1,
+            active_diff_id=1,
+            requester_email='tuser@example.com',
+            tree='mozilla-central',
+            status=LandingStatus.landed,
+            result=('X' * 40)
+        )
+    )
+    db.session.commit()
+
     diff = phabfactory.diff(id=1)
     phabfactory.revision(active_diff=diff)
     response = client.post(
@@ -280,26 +284,34 @@ def test_previously_landed_warns(
 def test_previously_landed_but_landed_since_still_warns(
     db, client, phabfactory, transfactory, auth0_mock
 ):
-    Landing(
-        request_id=1,
-        revision_id=1,
-        diff_id=1,
-        active_diff_id=1,
-        requester_email='tuser@example.com',
-        tree='mozilla-central',
-        status=LandingStatus.landed,
-        result=('X' * 40)
-    ).save()
-    Landing(
-        request_id=2,
-        revision_id=1,
-        diff_id=2,
-        active_diff_id=2,
-        requester_email='tuser@example.com',
-        tree='mozilla-central',
-        status=LandingStatus.failed,
-        result=('X' * 40)
-    ).save()
+    db.session.add(
+        Landing(
+            request_id=1,
+            revision_id=1,
+            diff_id=1,
+            active_diff_id=1,
+            requester_email='tuser@example.com',
+            tree='mozilla-central',
+            status=LandingStatus.landed,
+            result=('X' * 40)
+        )
+    )
+    db.session.commit()
+
+    db.session.add(
+        Landing(
+            request_id=2,
+            revision_id=1,
+            diff_id=2,
+            active_diff_id=2,
+            requester_email='tuser@example.com',
+            tree='mozilla-central',
+            status=LandingStatus.failed,
+            result=('X' * 40)
+        )
+    )
+    db.session.commit()
+
     phabfactory.diff(id=1)
     diff = phabfactory.diff(id=2)
     phabfactory.revision(active_diff=diff, diffs=['1'])

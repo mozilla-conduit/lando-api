@@ -20,7 +20,7 @@ from landoapi.models.landing import (
     LandingNotCreatedException,
 )
 from landoapi.models.patch import DiffNotFoundException
-
+from landoapi.storage import db
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
@@ -213,5 +213,5 @@ def update(data):
         error=data.get('error_msg', ''),
         result=data.get('result', '')
     )
-    landing.save()
+    db.session.commit()
     return {}, 200

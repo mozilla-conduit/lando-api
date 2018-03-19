@@ -243,7 +243,7 @@ def test_land_diff_not_in_revision(db, client, phabfactory, s3, auth0_mock):
 @freeze_time('2017-11-02T00:00:00')
 def test_get_transplant_status(db, client, phabfactory):
     phabfactory.revision()
-    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
     response = client.get('/landings/1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
@@ -339,11 +339,11 @@ def test_land_with_open_parent(db, client, phabfactory, auth0_mock):
 
 @freeze_time('2017-11-02T00:00:00')
 def test_get_jobs_by_revision_id(db, client, phabfactory):
-    _create_landing(1, 1, 1, status=LandingStatus.submitted)
-    _create_landing(2, 1, 2, status=LandingStatus.landed)
-    _create_landing(3, 2, 3, status=LandingStatus.submitted)
-    _create_landing(4, 1, 4, status=LandingStatus.submitted)
-    _create_landing(5, 2, 5, status=LandingStatus.landed)
+    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
+    _create_landing(db, 2, 1, 2, status=LandingStatus.landed)
+    _create_landing(db, 3, 2, 3, status=LandingStatus.submitted)
+    _create_landing(db, 4, 1, 4, status=LandingStatus.submitted)
+    _create_landing(db, 5, 2, 5, status=LandingStatus.landed)
 
     phabfactory.revision()
     response = client.get('/landings?revision_id=D1')
@@ -356,7 +356,7 @@ def test_get_jobs_by_revision_id(db, client, phabfactory):
 
 
 def test_no_revision_for_landing(db, client, phabfactory):
-    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
     phabfactory.revision(not_found=True)
     response = client.get('/landings/1')
     assert response.status_code == 404
@@ -368,14 +368,14 @@ def test_landing_id_as_string(db, client):
 
 
 def test_not_authorized_to_view_landing_by_revision(db, client, phabfactory):
-    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
     phabfactory.revision(not_found=True)
     response = client.get('/landings?revision_id=D1')
     assert response.status_code == 404
 
 
 def test_get_jobs_wrong_revision_id_format(db, client):
-    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
     response = client.get('/landings?revision_id=1')
     assert response.status_code == 400
 
@@ -384,7 +384,7 @@ def test_get_jobs_wrong_revision_id_format(db, client):
 
 
 def test_update_landing(db, client):
-    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
     response = client.post(
         '/landings/update',
         json={'request_id': 1,
@@ -399,7 +399,7 @@ def test_update_landing(db, client):
 
 
 def test_update_landing_bad_request_id(db, client):
-    _create_landing(1, 1, 1, status=LandingStatus.submitted)
+    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
     response = client.post(
         '/landings/update',
         json={'request_id': 2,
@@ -488,7 +488,7 @@ def test_typecasting():
     ]
 )
 def test_revision_already_submitted(db, status, considered_submitted):
-    landing = _create_landing(status=status, diff_id=2)
+    landing = _create_landing(db, status=status, diff_id=2)
     if considered_submitted:
         assert Landing.is_revision_submitted(1) == landing
     else:
@@ -499,7 +499,7 @@ def test_revision_already_submitted(db, status, considered_submitted):
     'status', [LandingStatus.aborted, LandingStatus.failed]
 )
 def test_revision_not_submitted(db, status):
-    _create_landing(status=status)
+    _create_landing(db, status=status)
     assert not Landing.is_revision_submitted(1)
 
 
@@ -509,7 +509,7 @@ def test_revision_not_submitted(db, status):
 def test_land_failed_revision(
     db, client, auth0_mock, phabfactory, s3, transfactory, status
 ):
-    _create_landing(status=status)
+    _create_landing(db, status=status)
     phabfactory.revision()
     transfactory.mock_successful_response(2)
 
@@ -527,7 +527,7 @@ def test_land_failed_revision(
 
 
 def test_land_submitted_revision(db, client, phabfactory, auth0_mock):
-    _create_landing(status=LandingStatus.submitted)
+    _create_landing(db, status=LandingStatus.submitted)
     phabfactory.revision()
     response = client.post(
         '/landings',
@@ -592,6 +592,7 @@ def test_land_revision_with_unmapped_repo(
 
 
 def _create_landing(
+    db,
     request_id=1,
     revision_id=1,
     diff_id=1,
@@ -609,5 +610,6 @@ def _create_landing(
         tree=tree,
         status=status
     )
-    landing.save()
+    db.session.add(landing)
+    db.session.commit()
     return landing
