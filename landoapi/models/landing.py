@@ -60,35 +60,22 @@ class Landing(db.Model):
     revision_id = db.Column(db.Integer)
     diff_id = db.Column(db.Integer)
     active_diff_id = db.Column(db.Integer)
-    status = db.Column(db.Enum(LandingStatus), nullable=False)
+    status = db.Column(
+        db.Enum(LandingStatus), nullable=False, default=LandingStatus.aborted
+    )
     error = db.Column(db.String(128), default='')
     result = db.Column(db.String(128), default='')
     requester_email = db.Column(db.String(128))
     tree = db.Column(db.String(128))
-    created_at = db.Column(db.DateTime(), nullable=False)
-    updated_at = db.Column(db.DateTime(), nullable=False)
-
-    def __init__(
-        self,
-        revision_id,
-        diff_id,
-        active_diff_id,
-        request_id=None,
-        requester_email=None,
-        tree=None,
-        result=None,
-        # status will remain aborted only if landing request will fail
-        status=LandingStatus.aborted
-    ):
-        self.revision_id = revision_id
-        self.diff_id = diff_id
-        self.active_diff_id = active_diff_id
-        self.request_id = request_id
-        self.requester_email = requester_email
-        self.tree = tree
-        self.status = status
-        self.result = result
-        self.created_at = datetime.datetime.utcnow()
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, default=db.func.now()
+    )
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=db.func.now(),
+        onupdate=db.func.now()
+    )
 
     @classmethod
     def create(cls, revision, diff_id, requester_email, phab, active_diff_id):
@@ -192,7 +179,6 @@ class Landing(db.Model):
 
     def save(self):
         """Save objects in storage."""
-        self.updated_at = datetime.datetime.utcnow()
         if not self.id:
             db.session.add(self)
 
@@ -248,9 +234,13 @@ class Landing(db.Model):
             'result': self.result,
             'requester_email': self.requester_email,
             'tree': self.tree,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
-        }
+            'created_at': (
+                self.created_at.astimezone(datetime.timezone.utc).isoformat()
+            ),
+            'updated_at': (
+                self.updated_at.astimezone(datetime.timezone.utc).isoformat()
+            ),
+        }  # yapf: disable
 
     def update_from_transplant(self, landed, error='', result=''):
         """Set the status from pingback request."""

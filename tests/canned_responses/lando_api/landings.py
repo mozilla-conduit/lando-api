@@ -14,8 +14,8 @@ CANNED_LANDING_LIST_1 = [
         'result': '',
         'requester_email': 'tuser@example.com',
         'tree': 'mozilla-central',
-        'created_at': '2017-11-02T00:00:00',
-        'updated_at': '2017-11-02T00:00:00',
+        'created_at': '2017-11-02T00:00:00+00:00',
+        'updated_at': '2017-11-02T00:00:00+00:00',
     }, {
         'id': 2,
         'request_id': 2,
@@ -27,8 +27,8 @@ CANNED_LANDING_LIST_1 = [
         'result': '',
         'requester_email': 'tuser@example.com',
         'tree': 'mozilla-central',
-        'created_at': '2017-11-02T00:00:00',
-        'updated_at': '2017-11-02T00:00:00',
+        'created_at': '2017-11-02T00:00:00+00:00',
+        'updated_at': '2017-11-02T00:00:00+00:00',
     }, {
         'id': 4,
         'request_id': 4,
@@ -40,8 +40,8 @@ CANNED_LANDING_LIST_1 = [
         'result': '',
         'requester_email': 'tuser@example.com',
         'tree': 'mozilla-central',
-        'created_at': '2017-11-02T00:00:00',
-        'updated_at': '2017-11-02T00:00:00',
+        'created_at': '2017-11-02T00:00:00+00:00',
+        'updated_at': '2017-11-02T00:00:00+00:00',
     }
 ]
 
@@ -56,8 +56,8 @@ CANNED_LANDING_1 = {
     'result': '',
     'requester_email': 'tuser@example.com',
     'tree': 'mozilla-central',
-    'created_at': '2017-11-02T00:00:00',
-    'updated_at': '2017-11-02T00:00:00',
+    'created_at': '2017-11-02T00:00:00+00:00',
+    'updated_at': '2017-11-02T00:00:00+00:00',
 }
 
 CANNED_LANDING_FACTORY_1 = {
@@ -71,8 +71,8 @@ CANNED_LANDING_FACTORY_1 = {
     'result': '',
     'requester_email': 'tuser@example.com',
     'tree': 'mozilla-central',
-    'created_at': '2017-11-02T00:00:00',
-    'updated_at': '2017-11-02T00:00:00',
+    'created_at': '2017-11-02T00:00:00+00:00',
+    'updated_at': '2017-11-02T00:00:00+00:00',
 }
 
 CANNED_LANDING_FACTORY_2 = {
@@ -86,6 +86,6 @@ CANNED_LANDING_FACTORY_2 = {
     'result': '',
     'requester_email': 'tuser@example.com',
     'tree': 'mozilla-central',
-    'created_at': '2017-11-02T00:00:00',
-    'updated_at': '2017-11-02T00:00:00',
+    'created_at': '2017-11-02T00:00:00+00:00',
+    'updated_at': '2017-11-02T00:00:00+00:00',
 }

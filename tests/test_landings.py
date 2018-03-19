@@ -1,6 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import copy
 import json
 import os
 from unittest.mock import MagicMock
@@ -22,6 +23,23 @@ from tests.canned_responses.lando_api.landings import (
     CANNED_LANDING_LIST_1,
 )
 from tests.utils import form_matcher, phab_url
+
+
+def assert_landings_equal_ignoring_dates(a, b):
+    """Asserts two landings are equal ignoring dates.
+
+    We ignore dates in our comparisons because they are calculated in
+    the database rather than python and freezing them would be
+    complicated.
+    """
+    a = copy.deepcopy(a)
+    b = copy.deepcopy(b)
+    for k in ('created_at', 'updated_at'):
+        assert k in a and k in b
+        del a[k]
+        del b[k]
+
+    assert a == b
 
 
 @freeze_time('2017-11-02T00:00:00')
@@ -57,7 +75,9 @@ def test_landing_revision_saves_data_in_db(
     # Get Landing object by its id
     landing = Landing.query.get(landing_id)
     landing.request_id = land_request_id
-    assert landing.serialize() == CANNED_LANDING_FACTORY_1
+    assert_landings_equal_ignoring_dates(
+        landing.serialize(), CANNED_LANDING_FACTORY_1
+    )
 
 
 def test_landing_without_auth0_permissions(client, auth0_mock):
@@ -227,7 +247,7 @@ def test_get_transplant_status(db, client, phabfactory):
     response = client.get('/landings/1')
     assert response.status_code == 200
     assert response.content_type == 'application/json'
-    assert response.json == CANNED_LANDING_1
+    assert_landings_equal_ignoring_dates(response.json, CANNED_LANDING_1)
 
 
 def test_land_nonexisting_revision_returns_404(
@@ -330,7 +350,9 @@ def test_get_jobs_by_revision_id(db, client, phabfactory):
     assert response.status_code == 200
     # Check that only the 3 landings associated with revision D1 are returned.
     assert len(response.json) == 3
-    assert response.json == CANNED_LANDING_LIST_1
+
+    for a, b in zip(response.json, CANNED_LANDING_LIST_1):
+        assert_landings_equal_ignoring_dates(a, b)
 
 
 def test_no_revision_for_landing(db, client, phabfactory):
