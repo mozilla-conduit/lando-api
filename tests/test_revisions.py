@@ -5,7 +5,7 @@
 import pytest
 import requests_mock
 
-from landoapi.api.revisions import _build_reviewers
+from landoapi.api.revisions import _format_reviewers
 from tests.canned_responses.lando_api.revisions import (
     CANNED_LANDO_REVISION_1, CANNED_LANDO_REVISION_2,
     CANNED_LANDO_REVIEWERS_PARTIAL, CANNED_LANDO_REVISION_NOT_FOUND,
@@ -123,7 +123,7 @@ def test_get_revision_multiple_reviewers(client, phabfactory):
     assert response.json['reviewers'] == CANNED_LANDO_REVIEWERS_PARTIAL
 
 
-def test_build_reviewers_reviewers_and_users_dont_match(get_phab_client):
+def test_format_reviewers_reviewers_and_users_dont_match(get_phab_client):
     phab = get_phab_client()
     with requests_mock.mock() as m:
         m.get(
@@ -141,6 +141,6 @@ def test_build_reviewers_reviewers_and_users_dont_match(get_phab_client):
             status_code=200,
             json=CANNED_USER_SEARCH_1
         )
-        reviewers = _build_reviewers(phab, 1)
+        reviewers = _format_reviewers(phab.get_reviewers(1))
 
     assert reviewers == CANNED_REVIEWERS_USER_DONT_MATCH_PARTIAL

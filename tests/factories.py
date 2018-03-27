@@ -141,8 +141,11 @@ class PhabResponseFactory:
         if reviewers is None:
             reviewers = [
                 {
+                    'phid': 'PHID-USER-review_bot',
+                    'is_blocking': False,
+                    'real_name': 'review_bot Name',
+                    'status': 'accepted',
                     'username': 'review_bot',
-                    'phid': 'PHID-USER-review_bot'
                 }
             ]
         revision['reviewers'] = self._reviewers(revision['id'], reviewers)

@@ -14,6 +14,7 @@ from flask import g
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.models.patch import DiffNotInRevisionException, Patch
+from landoapi.phabricator import collect_accepted_reviewers
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
@@ -99,11 +100,16 @@ def _format_revision(
     """
     bug_id = phab.extract_bug_id(revision)
     revision_id = int(revision['id'])
-    reviewers = _build_reviewers(phab, revision_id)
+    raw_reviewers = phab.get_reviewers(revision_id)
+    reviewers = _format_reviewers(raw_reviewers)
     commit_message_title, commit_message = format_commit_message(
         revision['title'],
         bug_id,
-        [r['username'] for r in reviewers if r.get('username')],
+        [
+            r['fields']['username']
+            for r in collect_accepted_reviewers(raw_reviewers)
+            if r.get('fields')
+        ],
         revision['summary'],
         revision['uri'],
     )
@@ -223,21 +229,19 @@ def _build_author(phab, revision, last_author):
     }
 
 
-def _build_reviewers(phab, revision_id):
+def _format_reviewers(reviewers_list):
     """Helper method to build the reviewers list for a revision response.
 
-    Calls `phab.get_reviewers` to request reviewers and corresponding users
-    data from Phabricator. If user is not found for the reviewer's PHID, an
-    empty string is set as a value of username and real_name keys.
+    Takes reviewers data as returned by `phab.get_reviewers`. If user is not
+    found for the reviewer's PHID, an empty string is set as a value of
+    username and real_name keys.
 
     Args:
-        phab: The PhabricatorClient to make additional requests.
-        revision_id: The id of the revision in Phabricator.
+        reviewers_list: The list of reviewers.
 
     Returns:
         List of the reviewers data for the revision
     """
-    reviewers_list = phab.get_reviewers(revision_id)
     return [
         {
             'phid': r['reviewerPHID'],

@@ -49,7 +49,7 @@ CANNED_LANDO_REVISION_1 = {
             'phid': 'PHID-USER-review_bot',
             'is_blocking': False,
             'real_name': 'review_bot Name',
-            'status': 'added',
+            'status': 'accepted',
             'username': 'review_bot'
         }
     ]
@@ -93,7 +93,7 @@ CANNED_LANDO_REVISION_2 = {
             'phid': 'PHID-USER-review_bot',
             'is_blocking': False,
             'real_name': 'review_bot Name',
-            'status': 'added',
+            'status': 'accepted',
             'username': 'review_bot'
         }
     ],

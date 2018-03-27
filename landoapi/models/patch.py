@@ -9,6 +9,7 @@ from flask import current_app
 
 from landoapi.commit_message import format_commit_message
 from landoapi.hgexportbuilder import build_patch_for_revision
+from landoapi.phabricator import collect_accepted_reviewers
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,11 @@ class Patch:
         commit_message = format_commit_message(
             self.revision['title'],
             phab.extract_bug_id(self.revision),
-            [r['fields']['username'] for r in reviewers if r.get('fields')],
+            [
+                r['fields']['username']
+                for r in collect_accepted_reviewers(reviewers)
+                if r.get('fields')
+            ],
             self.revision['summary'],
             self.revision['uri'],
         )

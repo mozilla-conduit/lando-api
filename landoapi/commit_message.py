@@ -90,80 +90,19 @@ def format_commit_message(title, bug, reviewers, summary, revision_url):
     """
     first_line = title
 
-    if bug and get_commit_message_errors(title, check_reviewers=False):
-        # The commit message is missing the bug number.
-        first_line = "Bug {} - {}".format(bug, first_line)
+    if bug and bug not in parse_bugs(first_line):
+        # All we really care about is if a bug is known it should
+        # appear in the first line of the commit message. If it
+        # isn't already there we'll add it.
+        first_line = 'Bug {} - {}'.format(bug, first_line)
 
-    if reviewers and get_commit_message_errors(title, check_bug=False):
-        # The commit message is missing the reviewer list.
-        reviewers_str = ",".join(["r={}".format(r) for r in reviewers])
-        first_line = "{} {}".format(first_line, reviewers_str)
+    # Ensure that the actual reviewers are recorded in the
+    # first line of the commit message.
+    first_line = replace_reviewers(first_line, reviewers)
 
     return first_line, COMMIT_MSG_TEMPLATE.format(
         title=first_line, summary=summary, url=revision_url
     )
-
-
-def get_commit_message_errors(
-    commit_message, check_bug=True, check_reviewers=True
-):
-    """
-    Validates the format of a commit message title.
-
-    Checks to ensure it adheres to standard hg.mozilla.org format which
-    _loosely_ follows the pattern:
-        <Bug #> - <Message Title> r=<reviewer1>,r=<reviewer2>...
-
-    Notes:
-    - The bug # does not have to be at the beginning of the commit message,
-      it just needs to be present somewhere.
-    - There are many 'valid' variations of the reviewer list, currently this
-      only checks for an r= somewhere in the string. In the future this method
-      should use the mozautomation.commitparser library to do a proper check.
-    - The <Message Title> portion is treated as optional, although that is
-      probably a bad idea.
-    - An empty commit_message is invalid.
-
-    Args:
-        commit_message: The commit message to validate.
-        check_bug: Whether or not to check for a bug id.
-        check_reviewers: Whether or not to check for a reviewers list.
-
-    Returns:
-        None if and only if the commit message is valid.
-        Or, a list containing an error message string for each error found.
-    """
-    # TODO refactor using the mozautomation.commitparser library.
-    errors = []
-
-    if check_bug:
-        bug_id_regex = re.compile(r'bug[ -:]{1,4}\d+', re.IGNORECASE)
-        if bug_id_regex.search(commit_message) is None:
-            errors.append(
-                'The commit message is missing a bug or it is'
-                ' invalid.'
-            )
-
-    if check_reviewers:
-        # TODO add support for different reviewer list formats, e.g.:
-        # r=reviewer1, r=reviewer2, ...
-        # r=reviewer1,r=reviewer2, ...
-        # r=reviewer1,reviewer2, ...
-        # r=reviewer1, reviewer2, ...
-        # ...(r=reviewer1)
-        # r=reviewer1, a=*, ... (not sure, but, I see this in moz-central log)
-        # Possibly others
-        reviewer_regex = re.compile(r'\A.*(r=)', re.IGNORECASE)
-        if reviewer_regex.match(commit_message) is None:
-            errors.append(
-                'The commit message is missing the reviewers list or'
-                ' it is invalid.'
-            )
-
-    if len(commit_message) < 1:
-        errors.append('The commit message is empty.')
-
-    return errors if errors else None
 
 
 def parse_bugs(s):

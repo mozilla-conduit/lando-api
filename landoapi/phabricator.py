@@ -442,3 +442,14 @@ class PhabricatorAPIException(Exception):
 
 class PhabricatorCommunicationException(PhabricatorAPIException):
     """Exception when communicating with Phabricator fails."""
+
+
+def collect_accepted_reviewers(reviewers):
+    """Return a generator of reviewers who have accepted.
+
+    Args:
+        reviewers: an iterable of reviewer data dicts.
+    """
+    for r in reviewers:
+        if r['status'] == 'accepted':
+            yield r
