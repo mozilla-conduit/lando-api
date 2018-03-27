@@ -91,7 +91,7 @@ CANNED_DIFF_1 = {
                 }
             },
             "authorName": "Mark Cote",
-            "authorEmail": "mcote@mozilla.com"
+            "authorEmail": "mcote@mozilla.example"
         }
     },
     "error_code": None,

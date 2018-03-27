@@ -27,10 +27,8 @@ CANNED_LANDO_REVISION_1 = {
         "id": 1,
         "revision_id": 'D1',
         "vcs_base_revision": "39d5cc0fda5e16c49a59d29d4ca186a5534cc88b",
-        "authors": [
-            {"email": "mcote@mozilla.example", "name": "Mark Cote"},
-            {"email": "glob@mozilla.example", "name": "Byron Jones"}
-        ],
+        "authors": [],
+        "author": {"email": "mcote@mozilla.example", "name": "Mark Cote"},
     },
     "latest_diff_id": 1,
     "author": {
@@ -71,10 +69,8 @@ CANNED_LANDO_REVISION_2 = {
         "id": 1,
         "revision_id": "D1",
         "vcs_base_revision": "39d5cc0fda5e16c49a59d29d4ca186a5534cc88b",
-        "authors": [
-            {"email": "mcote@mozilla.example", "name": "Mark Cote"},
-            {"email": "glob@mozilla.example", "name": "Byron Jones"}
-        ],
+        "authors": [],
+        "author": {"email": "mcote@mozilla.example", "name": "Mark Cote"},
     },
     "latest_diff_id": 1,
     "author": {

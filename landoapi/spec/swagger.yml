@@ -519,8 +519,7 @@ definitions:
       authors:
         type: array
         description: |
-          An array of the authors for each commit that was used in creating
-          this diff, sorted by tip commit first.
+          DEPRECATED, will always be an empty array.
         items:
           type: object
           properties:
@@ -528,6 +527,16 @@ definitions:
               type: string
             email:
               type: string
+      author:
+        type: object
+        description: |
+          The author of the diff as returned by Phabricator. Both name and
+          email are possibly empty strings.
+        properties:
+          name:
+            type: string
+          email:
+            type: string
   LandingAssessment:
     type: object
     properties:

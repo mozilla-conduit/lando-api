@@ -4,7 +4,7 @@
 """Patches generated for landing process."""
 
 LANDING_PATCH = """# HG changeset patch
-# User imadueme_admin
+# User Mark Cote <mcote@mozilla.example>
 # Date 1496239141 +0000
 Bug 1 - My test diff 1 r=review_bot
 

@@ -137,8 +137,8 @@ def test_get_rawdiff_by_id(phabfactory, get_phab_client):
 def test_get_diff_by_id(phabfactory, get_phab_client):
     expected = phabfactory.diff(id='9001')
     phab = get_phab_client(api_key='api-key')
-    result = phab.get_diff(id='9001')
-    assert result == expected['result']['9001']
+    result = phab.call_conduit('differential.querydiffs', ids=[9001])
+    assert result['9001'] == expected['result']['9001']
 
 
 def test_check_connection_success(get_phab_client):

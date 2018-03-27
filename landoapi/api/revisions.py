@@ -169,7 +169,8 @@ def _build_diff(phab, revision, diff_id):
         revision: The revision to get the most recent diff from.
         diff_id: (integer) Id of the diff to return with the revision.
     """
-    phab_diff = phab.get_diff(id=diff_id)
+    phab_diff = phab.call_conduit('differential.querydiffs', ids=[diff_id])
+    phab_diff = phab_diff.get(str(diff_id)) if phab_diff else None
 
     if phab_diff is None:
         raise ProblemException(
@@ -188,21 +189,13 @@ def _build_diff(phab, revision, diff_id):
         'date_created': _epoch_to_isoformat_time(phab_diff['dateCreated']),
         'date_modified': _epoch_to_isoformat_time(phab_diff['dateModified']),
         'vcs_base_revision': phab_diff['sourceControlBaseRevision'],
-        'authors': None
+        'authors': [],  # TODO: Remove after UI stops using.
+        'author': {
+            'name': phab_diff.get('authorName', ''),
+            'email': phab_diff.get('authorEmail', ''),
+        },
     }
 
-    if phab_diff['properties'] and phab_diff['properties']['local:commits']:
-        commit_authors = []
-        commits = list(phab_diff['properties']['local:commits'].values())
-        commits.sort(key=lambda c: c['local'], reverse=True)
-        for commit in commits:
-            commit_authors.append(
-                {
-                    'name': commit['author'],
-                    'email': commit['authorEmail']
-                }
-            )
-        diff['authors'] = commit_authors
     return diff
 
 

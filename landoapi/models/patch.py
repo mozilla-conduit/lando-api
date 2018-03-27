@@ -61,14 +61,16 @@ class Patch:
             DiffNotFoundException: PhabricatorClient returned no diff for
                 given diff_id.
         """
-        diff = phab.get_rawdiff(self.diff_id)
-        if not diff:
+        raw_diff = phab.get_rawdiff(self.diff_id)
+        if not raw_diff:
             raise DiffNotFoundException(self.diff_id)
 
-        # FIXME: This needs to use the correct email.
-        # FIXME: in order: secondary phab user email, primary phab user email
-        # Author has to be the LDAP username of the patch author.
-        author = phab.get_revision_author(self.revision)['userName']
+        # Grab the commit author information which currently only shows up
+        # in differential.querydiffs.
+        diff = phab.call_conduit('differential.querydiffs', ids=[self.diff_id])
+        diff = diff.get(str(self.diff_id)) if diff else {}
+        author_name = diff.get('authorName', 'Unknown')
+        author_email = diff.get('authorEmail', '')
 
         # Assume Phabricator is returning valid date responses as "seconds
         # since the Unix Epoch", but cast it to int() just to be sure.  Also
@@ -88,7 +90,8 @@ class Patch:
             self.revision['uri'],
         )
         return build_patch_for_revision(
-            diff, author, commit_message[1], date_modified
+            raw_diff, author_name, author_email, commit_message[1],
+            date_modified
         )
 
     def upload(self, phab):

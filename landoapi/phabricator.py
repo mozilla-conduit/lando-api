@@ -162,32 +162,6 @@ class PhabricatorClient:
         result = self.call_conduit('differential.getrawdiff', diffID=diff_id)
         return result if result else None
 
-    def get_diff(self, id=None, phid=None):
-        """Get a diff by either integer id or phid.
-
-        Args:
-            id: The integer id of the diff.
-            phid: The PHID of the diff. This will be used instead if provided.
-
-        Returns
-            A hash containing the full information about the diff exactly
-            as returned by Phabricator's API.
-
-            Note: Due to the nature of Phabricator's API, the diff request may
-            be very large if the diff itself is large. This is because
-            Phabricator includes the line by line changes in the JSON payload.
-            Be aware of this, as it can lead to large and long requests.
-        """
-        diff_id = int(id) if id else None
-        if phid:
-            diff_id = self.diff_phid_to_id(phid)
-
-        if not diff_id:
-            return None
-
-        result = self.call_conduit('differential.querydiffs', ids=[diff_id])
-        return result[str(diff_id)] if result else None
-
     def diff_phid_to_id(self, phid):
         """Convert Diff PHID to the Diff id.
 

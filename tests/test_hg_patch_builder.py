@@ -22,7 +22,7 @@ Express great joy at existence of Mercurial
 Using console to print out the messages.""".lstrip()
 
 HG_PATCH = """# HG changeset patch
-# User user_name
+# User Joe User <joe@example.com>
 # Date 1496239141 +0000
 Express great joy at existence of Mercurial
 
@@ -42,9 +42,9 @@ diff --git a/hello.c b/hello.c
 
 
 def test_build_patch():
-    author = 'user_name'
     patch = build_patch_for_revision(
-        GIT_DIFF_FROM_REVISION, author, COMMIT_MESSAGE, '1496239141'
+        GIT_DIFF_FROM_REVISION, 'Joe User', 'joe@example.com', COMMIT_MESSAGE,
+        '1496239141'
     )
 
     assert patch == HG_PATCH
