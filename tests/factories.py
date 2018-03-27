@@ -26,8 +26,8 @@ from tests.canned_responses.phabricator.users import (
     CANNED_EMPTY_USER_SEARCH_RESPONSE, CANNED_USER_1, CANNED_USER_SEARCH_1
 )
 from tests.utils import (
-    first_result_in_response, form_matcher, phab_url, phid_for_response,
-    trans_url
+    first_result_in_response, form_list_matcher, form_matcher, phab_url,
+    phid_for_response, trans_url
 )
 
 
@@ -57,7 +57,7 @@ class PhabResponseFactory:
         self.mock.get(
             phab_url('user.query'),
             status_code=200,
-            additional_matcher=form_matcher('phids[]', user['phid']),
+            additional_matcher=form_matcher('phids[0]', user['phid']),
             json=response
         )
         return response
@@ -171,8 +171,8 @@ class PhabResponseFactory:
 
         def match_revision(request):
             # Revisions can be looked up by PHID or ID.
-            found_phid = form_matcher('phids[]', revision['phid'])(request)
-            found_id = form_matcher('ids[]', revision['id'])(request)
+            found_phid = form_matcher('phids[0]', revision['phid'])(request)
+            found_id = form_matcher('ids[0]', revision['id'])(request)
             return found_phid or found_id
 
         if not_found:
@@ -239,7 +239,7 @@ class PhabResponseFactory:
         # Mock differential.revision.search
         def revision_matcher(request):
             """Match revision search with reviewers attachment."""
-            find_revision = form_matcher('constraints[ids][]',
+            find_revision = form_matcher('constraints[ids][0]',
                                          revision_id)(request)
             wants_reviewers = form_matcher('attachments[reviewers]',
                                            '1')(request)
@@ -259,9 +259,11 @@ class PhabResponseFactory:
         # Mock user.search
         def users_matcher(request):
             """Match search user requests with all phids."""
+
             matches = [
-                form_matcher('constraints[phids][]', phid)(request)
-                for phid in revision_reviewers
+                form_matcher('constraints[phids][{}]'.format(i),
+                             phid)(request)
+                for i, phid in enumerate(revision_reviewers)
             ]
             return all(matches)
 
@@ -269,7 +271,9 @@ class PhabResponseFactory:
             phab_url('user.search'),
             status_code=200,
             json=users_response,
-            additional_matcher=users_matcher
+            additional_matcher=form_list_matcher(
+                'constraints[phids]', revision_reviewers
+            )
         )
 
         return revision_reviewers
@@ -327,7 +331,7 @@ class PhabResponseFactory:
             phab_url('differential.querydiffs'),
             status_code=200,
             json=diff,
-            additional_matcher=form_matcher('ids[]', str(diff_id))
+            additional_matcher=form_matcher('ids[0]', str(diff_id))
         )
 
         return diff
@@ -369,7 +373,7 @@ class PhabResponseFactory:
             status_code=200,
             json=repo,
             additional_matcher=form_matcher(
-                'constraints[phids][]', repo['result']['data'][0]['phid']
+                'constraints[phids][0]', repo['result']['data'][0]['phid']
             )
         )
         return repo
@@ -381,7 +385,7 @@ class PhabResponseFactory:
         self.mock.get(
             phab_url('phid.query'),
             status_code=200,
-            additional_matcher=form_matcher('phids[]', phid),
+            additional_matcher=form_matcher('phids[0]', phid),
             json=response_data
         )
         return phid

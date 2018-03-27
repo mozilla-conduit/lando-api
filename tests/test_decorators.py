@@ -40,7 +40,7 @@ def test_require_phabricator_api_key(
         if status == 200:
             assert isinstance(flask.g.phabricator, PhabricatorClient)
         if valid_key:
-            assert flask.g.phabricator.api_key == 'custom-key'
+            assert flask.g.phabricator.api_token == 'custom-key'
 
     assert resp.status_code == status
 

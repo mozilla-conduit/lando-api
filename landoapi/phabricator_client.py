@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
+from json.decoder import JSONDecodeError
 
 import requests
 from enum import Enum
@@ -31,13 +32,79 @@ class PhabricatorClient:
     All request methods in this class will throw a PhabricatorAPIException if
     Phabricator returns an error response. If there is an actual problem with
     the request to the server or decoding the JSON response, this class will
-    bubble up the exception. These exceptions can be one of the request library
-    exceptions or a JSONDecodeError.
+    bubble up the exception, as a PhabricatorAPIException caused by the
+    underlying exception.
     """
 
-    def __init__(self, phabricator_url, api_key):
-        self.api_url = phabricator_url + '/api'
-        self.api_key = api_key
+    def __init__(self, url, api_token, *, session=None):
+        self.api_url = url + 'api/' if url[-1] == '/' else url + '/api/'
+        self.api_token = api_token
+        self.session = session or self.create_session()
+
+    def call_conduit(self, method, **kwargs):
+        """Return the result of an RPC call to a conduit method.
+
+        Args:
+            **kwargs: Every method parameter is passed as a keyword argument.
+
+        Returns:
+            The 'result' key of the conduit method's response or None if
+            the 'result' key doesn't exist.
+
+        Raises:
+            PhabricatorAPIException:
+                if conduit returns an error response.
+            requests.exceptions.RequestException:
+                if there is a request exception while communicating
+                with the conduit API.
+        """
+        data = {'api.token': self.api_token}
+        data.update(self.flatten_params(kwargs))
+
+        try:
+            response = self.session.get(
+                self.api_url + method, data=data
+            ).json()
+        except requests.RequestException as exc:
+            raise PhabricatorCommunicationException(
+                "An error occurred when communicating with Phabricator"
+            ) from exc
+        except JSONDecodeError as exc:
+            raise PhabricatorCommunicationException(
+                "Phabricator response could not be decoded as JSON"
+            ) from exc
+
+        PhabricatorAPIException.raise_if_error(response)
+        return response.get('result')
+
+    @staticmethod
+    def create_session():
+        return requests.Session()
+
+    @staticmethod
+    def flatten_params(params):
+        """Flatten nested objects and lists.
+
+        Phabricator requires query data in a application/x-www-form-urlencoded
+        format, so we need to flatten our params dictionary."""
+        flat = {}
+        remaining = list(params.items())
+
+        # Run a depth-ish first search building the parameter name
+        # as we traverse the tree.
+        while remaining:
+            key, o = remaining.pop()
+            if isinstance(o, dict):
+                gen = o.items()
+            elif isinstance(o, list):
+                gen = enumerate(o)
+            else:
+                flat[key] = o
+                continue
+
+            remaining.extend(('{}[{}]'.format(key, k), v) for k, v in gen)
+
+        return flat
 
     def get_revision(self, id=None, phid=None):
         """Gets a revision as defined by the Phabricator API.
@@ -81,10 +148,7 @@ class PhabricatorClient:
         if not ids and not phids:
             return []
 
-        return self._GET(
-            '/differential.query', {'ids[]': ids,
-                                    'phids[]': phids}
-        )
+        return self.call_conduit('differential.query', ids=ids, phids=phids)
 
     def get_rawdiff(self, diff_id):
         """Get the raw git diff text by diff id.
@@ -95,7 +159,7 @@ class PhabricatorClient:
         Returns:
             A string holding a Git Diff.
         """
-        result = self._GET('/differential.getrawdiff', {'diffID': diff_id})
+        result = self.call_conduit('differential.getrawdiff', diffID=diff_id)
         return result if result else None
 
     def get_diff(self, id=None, phid=None):
@@ -121,7 +185,7 @@ class PhabricatorClient:
         if not diff_id:
             return None
 
-        result = self._GET('/differential.querydiffs', {'ids[]': [diff_id]})
+        result = self.call_conduit('differential.querydiffs', ids=[diff_id])
         return result[str(diff_id)] if result else None
 
     def diff_phid_to_id(self, phid):
@@ -136,7 +200,7 @@ class PhabricatorClient:
         Returns:
             Integer representing the Diff id in Phabricator
         """
-        phid_query_result = self._GET('/phid.query', {'phids[]': [phid]})
+        phid_query_result = self.call_conduit('phid.query', phids=[phid])
         if phid_query_result:
             diff_uri = phid_query_result[phid]['uri']
             return self._extract_diff_id_from_uri(diff_uri)
@@ -159,11 +223,10 @@ class PhabricatorClient:
         """
         # Get basic information about the reviewers
         # reviewerPHID, actorPHID, status, and isBlocking is provided
-        result = self._GET(
-            '/differential.revision.search', {
-                'constraints[ids][]': [revision_id],
-                'attachments[reviewers]': 1,
-            }
+        result = self.call_conduit(
+            'differential.revision.search',
+            constraints={'ids': [revision_id]},
+            attachments={'reviewers': 1}
         )
 
         has_reviewers = (
@@ -179,8 +242,8 @@ class PhabricatorClient:
 
         # Get user info of all revision reviewers
         reviewers_phids = [r['reviewerPHID'] for r in reviewers_data]
-        result = self._GET(
-            '/user.search', {'constraints[phids][]': reviewers_phids}
+        result = self.call_conduit(
+            'user.search', constraints={'phids': reviewers_phids}
         )
         reviewers_info = result['data']
 
@@ -214,7 +277,7 @@ class PhabricatorClient:
             A hash containing the information of the user that owns the api key
             that was used to initialize this PhabricatorClient.
         """
-        return self._GET('/user.whoami')
+        return self.call_conduit('user.whoami')
 
     def get_user(self, phid):
         """Gets the information of the user based on their phid.
@@ -226,7 +289,7 @@ class PhabricatorClient:
             A hash containing the user information, or an None if the user
             could not be found.
         """
-        result = self._GET('/user.query', {'phids[]': [phid]})
+        result = self.call_conduit('user.query', phids=[phid])
         return result[0] if result else None
 
     def get_repo(self, phid):
@@ -240,9 +303,8 @@ class PhabricatorClient:
             A dict containing the repo info, or None if the repo isn't found.
         """
         if phid:
-            result = self._GET(
-                '/diffusion.repository.search',
-                {'constraints[phids][]': [phid]}
+            result = self.call_conduit(
+                'diffusion.repository.search', constraints={'phids': [phid]}
             )
             return result['data'][0] if result['data'] else None
         else:
@@ -269,7 +331,7 @@ class PhabricatorClient:
         Raises a PhabricatorAPIException on error.
         """
         try:
-            self._GET('/conduit.ping')
+            self.call_conduit('conduit.ping')
         except (requests.ConnectionError, requests.Timeout) as exc:
             logging.debug("error calling 'conduit.ping': %s", exc)
             raise PhabricatorAPIException from exc
@@ -358,33 +420,25 @@ class PhabricatorClient:
         # Take the second-last member because of the trailing slash on the URL.
         return int(parts[-2])
 
-    def _request(self, url, data=None, params=None, method='GET'):
-        data = data if data else {}
-        data['api.token'] = self.api_key
-        response = requests.request(
-            method=method,
-            url=self.api_url + url,
-            params=params,
-            data=data,
-            timeout=10
-        ).json()
-
-        if response['error_code']:
-            exp = PhabricatorAPIException(response.get('error_info'))
-            exp.error_code = response.get('error_code')
-            exp.error_info = response.get('error_info')
-            raise exp
-
-        return response.get('result')
-
-    def _GET(self, url, data=None, params=None):
-        return self._request(url, data, params, 'GET')
-
-    def _POST(self, url, data=None, params=None):
-        return self._request(url, data, params, 'POST')
-
 
 class PhabricatorAPIException(Exception):
-    """An exception class to handle errors from the Phabricator API."""
-    error_code = None
-    error_info = None
+    """Exception to be raised when Phabricator returns an error response."""
+
+    def __init__(self, *args, error_code=None, error_info=None):
+        super().__init__(*args)
+        self.error_code = error_code
+        self.error_info = error_info
+
+    @classmethod
+    def raise_if_error(cls, response_body):
+        """Raise a PhabricatorAPIException if response_body was an error."""
+        if response_body['error_code']:
+            raise cls(
+                response_body.get('error_info'),
+                error_code=response_body.get('error_code'),
+                error_info=response_body.get('error_info')
+            )
+
+
+class PhabricatorCommunicationException(PhabricatorAPIException):
+    """Exception when communicating with Phabricator fails."""

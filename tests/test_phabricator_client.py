@@ -343,3 +343,53 @@ def test_get_dependency_tree(phabfactory, get_phab_client):
     assert next(dependency) == grandparent
     with pytest.raises(StopIteration):
         next(dependency)
+
+
+def test_flatten_params(get_phab_client):
+    phabricator = get_phab_client()
+    flat = phabricator.flatten_params({
+        'number': 10,
+        'string': 'Hello There',
+        'dictionary': {
+            'number': 11,
+            'nested-dictionary': {
+                'number': 12,
+                'string': 'Hello There Again',
+            },
+            'nested-list': [
+                'a',
+                'b',
+                1,
+                2,
+            ]
+        },
+        'list': [
+            13,
+            'Hello You',
+            {
+                'number': 14,
+                'string': 'Goodbye'
+            },
+            [
+                'listception',
+            ]
+        ]
+    })  # yapf: disable
+    assert (
+        flat == {
+            'number': 10,
+            'string': 'Hello There',
+            'dictionary[number]': 11,
+            'dictionary[nested-dictionary][number]': 12,
+            'dictionary[nested-dictionary][string]': 'Hello There Again',
+            'dictionary[nested-list][0]': 'a',
+            'dictionary[nested-list][1]': 'b',
+            'dictionary[nested-list][2]': 1,
+            'dictionary[nested-list][3]': 2,
+            'list[0]': 13,
+            'list[1]': 'Hello You',
+            'list[2][number]': 14,
+            'list[2][string]': 'Goodbye',
+            'list[3][0]': 'listception',
+        }
+    )

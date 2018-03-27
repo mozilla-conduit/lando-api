@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import os
+import re
 from urllib.parse import parse_qs
 
 
@@ -50,3 +51,20 @@ def form_matcher(key, value):
         return value in qs.get(key, '')
 
     return match_form_data
+
+
+def form_list_matcher(key, items):
+    """Return a matcher for a key to a list of items."""
+
+    item_set = set(items)
+
+    def match_list_data(request):
+        qs = parse_qs(request.text)
+        matches_key = re.compile(re.escape(key) + r'\[(0|[1-9][0-9]*)\]')
+        present = {
+            v[0]
+            for k, v in qs.items() if matches_key.match(k) is not None
+        }
+        return present == item_set
+
+    return match_list_data
