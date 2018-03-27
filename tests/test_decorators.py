@@ -7,7 +7,7 @@ import pytest
 from connexion.lifecycle import ConnexionResponse
 
 from landoapi.decorators import require_phabricator_api_key, lazy
-from landoapi.phabricator_client import PhabricatorClient
+from landoapi.phabricator import PhabricatorClient
 
 
 def noop(*args, **kwargs):

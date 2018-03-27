@@ -9,7 +9,7 @@ import pytest
 import requests
 import requests_mock
 
-from landoapi.phabricator_client import (
+from landoapi.phabricator import (
     CLOSED_STATUSES, OPEN_STATUSES, PhabricatorAPIException, Statuses
 )
 

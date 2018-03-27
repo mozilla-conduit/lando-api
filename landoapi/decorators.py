@@ -9,7 +9,7 @@ from connexion import (
 )
 from flask import current_app, g
 
-from landoapi.phabricator_client import PhabricatorClient
+from landoapi.phabricator import PhabricatorClient
 
 
 class require_phabricator_api_key:

@@ -16,7 +16,7 @@ from moto import mock_s3
 from landoapi.app import create_app
 from landoapi.landings import tokens_are_equal
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
-from landoapi.phabricator_client import PhabricatorClient
+from landoapi.phabricator import PhabricatorClient
 from landoapi.storage import db as _db
 
 from tests.factories import PhabResponseFactory, TransResponseFactory
