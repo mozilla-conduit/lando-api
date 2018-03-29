@@ -16,4 +16,8 @@ REPO_CONFIG = {
         'tree': 'phabricator-qa-stage',
         'push_bookmark': '',
     },
+    'version-control-tools': {
+        'tree': 'version-control-tools',
+        'push_bookmark': '@',
+    },
 }
