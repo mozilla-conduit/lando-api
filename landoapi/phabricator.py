@@ -1,6 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import json
 import logging
 from json.decoder import JSONDecodeError
 
@@ -58,8 +59,13 @@ class PhabricatorClient:
                 if there is a request exception while communicating
                 with the conduit API.
         """
-        data = {'api.token': self.api_token}
-        data.update(self.flatten_params(kwargs))
+        if '__conduit__' not in kwargs:
+            kwargs['__conduit__'] = {'token': self.api_token}
+
+        data = {
+            'output': 'json',
+            'params': json.dumps(kwargs),
+        }
 
         try:
             response = self.session.get(
@@ -80,31 +86,6 @@ class PhabricatorClient:
     @staticmethod
     def create_session():
         return requests.Session()
-
-    @staticmethod
-    def flatten_params(params):
-        """Flatten nested objects and lists.
-
-        Phabricator requires query data in a application/x-www-form-urlencoded
-        format, so we need to flatten our params dictionary."""
-        flat = {}
-        remaining = list(params.items())
-
-        # Run a depth-ish first search building the parameter name
-        # as we traverse the tree.
-        while remaining:
-            key, o = remaining.pop()
-            if isinstance(o, dict):
-                gen = o.items()
-            elif isinstance(o, list):
-                gen = enumerate(o)
-            else:
-                flat[key] = o
-                continue
-
-            remaining.extend(('{}[{}]'.format(key, k), v) for k, v in gen)
-
-        return flat
 
     def get_revision(self, id=None, phid=None):
         """Gets a revision as defined by the Phabricator API.
@@ -200,7 +181,7 @@ class PhabricatorClient:
         result = self.call_conduit(
             'differential.revision.search',
             constraints={'ids': [revision_id]},
-            attachments={'reviewers': 1}
+            attachments={'reviewers': True}
         )
 
         has_reviewers = (

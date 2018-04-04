@@ -77,7 +77,7 @@ class Patch:
         # assume the Phabricator server is returning that number relative
         # to UTC.
         date_modified = int(self.revision['dateModified'])
-        reviewers = phab.get_reviewers(self.revision['id'])
+        reviewers = phab.get_reviewers(int(self.revision['id']))
         commit_message = format_commit_message(
             self.revision['title'],
             phab.extract_bug_id(self.revision),

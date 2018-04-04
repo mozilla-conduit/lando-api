@@ -128,14 +128,14 @@ def test_get_repo_no_phid(phabfactory, get_phab_client):
 def test_get_rawdiff_by_id(phabfactory, get_phab_client):
     patch = "diff --git a/hello.c b/hello.c..."
     # The raw patch's diffID is encoded in the Diff URI.
-    phabfactory.diff(id='12345', patch=patch)
+    phabfactory.diff(id=12345, patch=patch)
     phab = get_phab_client(api_key='api-key')
-    returned_patch = phab.get_rawdiff('12345')
+    returned_patch = phab.get_rawdiff(12345)
     assert returned_patch == patch
 
 
 def test_get_diff_by_id(phabfactory, get_phab_client):
-    expected = phabfactory.diff(id='9001')
+    expected = phabfactory.diff(id=9001)
     phab = get_phab_client(api_key='api-key')
     result = phab.call_conduit('differential.querydiffs', ids=[9001])
     assert result['9001'] == expected['result']['9001']
@@ -343,53 +343,3 @@ def test_get_dependency_tree(phabfactory, get_phab_client):
     assert next(dependency) == grandparent
     with pytest.raises(StopIteration):
         next(dependency)
-
-
-def test_flatten_params(get_phab_client):
-    phabricator = get_phab_client()
-    flat = phabricator.flatten_params({
-        'number': 10,
-        'string': 'Hello There',
-        'dictionary': {
-            'number': 11,
-            'nested-dictionary': {
-                'number': 12,
-                'string': 'Hello There Again',
-            },
-            'nested-list': [
-                'a',
-                'b',
-                1,
-                2,
-            ]
-        },
-        'list': [
-            13,
-            'Hello You',
-            {
-                'number': 14,
-                'string': 'Goodbye'
-            },
-            [
-                'listception',
-            ]
-        ]
-    })  # yapf: disable
-    assert (
-        flat == {
-            'number': 10,
-            'string': 'Hello There',
-            'dictionary[number]': 11,
-            'dictionary[nested-dictionary][number]': 12,
-            'dictionary[nested-dictionary][string]': 'Hello There Again',
-            'dictionary[nested-list][0]': 'a',
-            'dictionary[nested-list][1]': 'b',
-            'dictionary[nested-list][2]': 1,
-            'dictionary[nested-list][3]': 2,
-            'list[0]': 13,
-            'list[1]': 'Hello You',
-            'list[2][number]': 14,
-            'list[2][string]': 'Goodbye',
-            'list[3][0]': 'listception',
-        }
-    )

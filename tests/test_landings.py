@@ -22,7 +22,7 @@ from tests.canned_responses.lando_api.landings import (
     CANNED_LANDING_FACTORY_1,
     CANNED_LANDING_LIST_1,
 )
-from tests.utils import form_matcher, phab_url
+from tests.utils import phab_matcher, phab_url
 
 
 def assert_landings_equal_ignoring_dates(a, b):
@@ -279,7 +279,7 @@ def test_land_nonexisting_diff_returns_404(
     phabfactory.mock.get(
         phab_url('phid.query'),
         status_code=404,
-        additional_matcher=form_matcher('phids[]', 'PHID-DIFF-9000'),
+        additional_matcher=phab_matcher(('phids', 0), 'PHID-DIFF-9000'),
         json={
             'error_info': '',
             'error_code': None,

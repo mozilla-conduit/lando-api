@@ -1,9 +1,8 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
+import json
 import os
-import re
 from urllib.parse import parse_qs
 
 
@@ -42,29 +41,37 @@ def phid_for_response(response_json):
     return first_result_in_response(response_json)['phid']
 
 
-def form_matcher(key, value):
-    """Return a requests-mock matcher that matches a key and value in form data.
+def phab_matcher(indicies, value):
+    """Return a requests-mock matcher for data in phabricator params.
+
+    `indicies` should be an iterable of keys which will be accessed from
+    the phabricator parameters in order.
     """
 
-    def match_form_data(request):
-        qs = parse_qs(request.text)
-        return value in qs.get(key, '')
+    def match(request):
+        params = json.loads(parse_qs(request.text).get('params', ['{}'])[0])
+        for i in indicies:
+            try:
+                params = params[i]
+            except (IndexError, KeyError):
+                return False
 
-    return match_form_data
+        return value == params
+
+    return match
 
 
-def form_list_matcher(key, items):
-    """Return a matcher for a key to a list of items."""
+def phab_list_matcher(indicies, items):
+    """Return a matcher from indicies to a list of items."""
 
-    item_set = set(items)
+    def match(request):
+        params = json.loads(parse_qs(request.text).get('params', ['{}'])[0])
+        for i in indicies:
+            try:
+                params = params[i]
+            except (IndexError, KeyError):
+                return False
 
-    def match_list_data(request):
-        qs = parse_qs(request.text)
-        matches_key = re.compile(re.escape(key) + r'\[(0|[1-9][0-9]*)\]')
-        present = {
-            v[0]
-            for k, v in qs.items() if matches_key.match(k) is not None
-        }
-        return present == item_set
+        return set(items) == set(params)
 
-    return match_list_data
+    return match
