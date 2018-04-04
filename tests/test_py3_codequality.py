@@ -10,8 +10,8 @@ import subprocess
 def test_check_python_style():
     files = ('./', )
     cmd = ('yapf', '--diff', '--recursive')
-    passed = len(subprocess.check_output(cmd + files)) == 0
-    assert passed, 'The python code does not adhear to the project style.'
+    output = subprocess.check_output(cmd + files)
+    assert not output, 'The python code does not adhear to the project style.'
 
 
 def test_check_python_flake8():
