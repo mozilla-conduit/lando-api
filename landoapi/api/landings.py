@@ -13,7 +13,11 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
 from landoapi.decorators import lazy, require_phabricator_api_key
-from landoapi.landings import check_landing_conditions, lazy_latest_diff_id
+from landoapi.landings import (
+    check_landing_conditions,
+    lazy_get_revision,
+    lazy_latest_diff_id,
+)
 from landoapi.models.landing import (
     InvalidRepositoryException,
     Landing,
@@ -38,7 +42,7 @@ def dryrun(data):
     Returns a LandingAssessment for the given Revision ID.
     """
     revision_id, diff_id = unmarshal_landing_request(data)
-    get_revision = lazy(g.phabricator.get_revision)(revision_id)
+    get_revision = lazy_get_revision(g.phabricator, revision_id)
     get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
     assessment = check_landing_conditions(
@@ -62,7 +66,7 @@ def post(data):
     )
 
     revision_id, diff_id = unmarshal_landing_request(data)
-    get_revision = lazy(g.phabricator.get_revision)(revision_id)
+    get_revision = lazy_get_revision(g.phabricator, revision_id)
     get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
     assessment = check_landing_conditions(
@@ -142,8 +146,7 @@ def get_list(revision_id):
     """API endpoint at GET /landings to return a list of Landing objects."""
     # Verify that the client is permitted to see the associated revision.
     revision_id = revision_id_to_int(revision_id)
-    revision = g.phabricator.get_revision(id=revision_id)
-    if not revision:
+    if not g.phabricator.call_conduit('differential.query', ids=[revision_id]):
         return problem(
             404,
             'Revision not found',
@@ -162,8 +165,9 @@ def get(landing_id):
 
     if landing:
         # Verify that the client has permission to see the associated revision.
-        revision = g.phabricator.get_revision(id=landing.revision_id)
-        if revision:
+        if g.phabricator.call_conduit(
+            'differential.query', ids=[landing.revision_id]
+        ):
             return landing.serialize(), 200
 
     return problem(

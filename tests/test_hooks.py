@@ -2,6 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from landoapi.phabricator import (
+    PhabricatorAPIException,
+    PhabricatorCommunicationException,
+)
+
 
 def test_app_wide_headers_set(client):
     response = client.get('/__version__')
@@ -33,3 +38,21 @@ def test_app_wide_headers_csp_report_uri(client, config):
     assert 'report-uri /__cspreport__;' in (
         response.headers['Content-Security-Policy']
     )
+
+
+def test_phabricator_api_exception_handled(app, client):
+    @app.route('/__testing__/phab_exception1')
+    def phab_exception1():
+        raise PhabricatorAPIException('OOPS!')
+
+    @app.route('/__testing__/phab_exception2')
+    def phab_exception2():
+        raise PhabricatorCommunicationException('OOPS!')
+
+    response = client.get('__testing__/phab_exception1')
+    assert response.status_code == 500
+    assert response.json['title'] == 'Phabricator Error'
+
+    response = client.get('__testing__/phab_exception2')
+    assert response.status_code == 500
+    assert response.json['title'] == 'Phabricator Error'

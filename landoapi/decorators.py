@@ -51,7 +51,7 @@ class require_phabricator_api_key:
                 current_app.config['PHABRICATOR_URL'], api_key or
                 current_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
             )
-            if api_key is not None and not g.phabricator.verify_api_key():
+            if api_key is not None and not g.phabricator.verify_api_token():
                 return problem(
                     403,
                     'X-Phabricator-API-Key Invalid',

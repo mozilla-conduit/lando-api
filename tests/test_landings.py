@@ -104,7 +104,7 @@ def test_landing_revision_calls_transplant_service(
 
     # Build the patch we expect to see
     phabclient = get_phab_client('someapi')
-    revision = phabclient.get_revision(1)
+    revision = phabclient.call_conduit('differential.query', ids=[1])[0]
     diff_id = phabclient.diff_phid_to_id(revision['activeDiffPHID'])
     patch_url = 's3://landoapi.test.bucket/L1_D1_1.patch'
 
@@ -151,7 +151,7 @@ def test_push_bookmark_sent_when_supported_repo(
 
     # Build the patch we expect to see
     phabclient = get_phab_client('someapi')
-    revision = phabclient.get_revision(1)
+    revision = phabclient.call_conduit('differential.query', ids=[1])[0]
     diff_id = phabclient.diff_phid_to_id(revision['activeDiffPHID'])
 
     tsclient = MagicMock(spec=TransplantClient)

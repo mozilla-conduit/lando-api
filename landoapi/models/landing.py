@@ -108,17 +108,19 @@ class Landing(db.Model):
         assert revision is not None
         revision_id = int(revision['id'])
 
-        # Map the Phabricator repo to the treestatus tree
-        repo = phab.get_repo(revision['repositoryPHID'])
-        repo_short_name = (
-            None if repo is None else repo.get('fields', {}).get('shortName')
-        )
-        if repo_short_name is None:
+        if 'repositoryPHID' not in revision or not revision['repositoryPHID']:
             raise InvalidRepositoryException(
                 'This revision is not associated with a repository. '
                 'Associate the revision with a repository on Phabricator then'
                 'try again.'
             )
+
+        # Map the Phabricator repo to the treestatus tree
+        repo = phab.call_conduit(
+            'diffusion.repository.search',
+            constraints={'phids': [revision['repositoryPHID']]}
+        )
+        repo_short_name = phab.expect(repo, 'data', 0, 'fields', 'shortName')
         if repo_short_name not in repos.REPO_CONFIG:
             raise InvalidRepositoryException(
                 'Landing to {} is not supported at this time. '.

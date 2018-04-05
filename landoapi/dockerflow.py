@@ -43,7 +43,7 @@ def heartbeat():
         current_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
     )
     try:
-        phab.check_connection()
+        phab.call_conduit('conduit.ping')
     except PhabricatorAPIException:
         logger.warning(
             {

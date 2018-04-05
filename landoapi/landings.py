@@ -336,3 +336,21 @@ def lazy_latest_diff_id(phabricator, revision):
             by Phabricator.
     """
     return phabricator.diff_phid_to_id(revision['activeDiffPHID'])
+
+
+@lazy
+def lazy_get_revision(phabricator, revision_id):
+    """Return a revision as defined by the Phabricator API.
+
+    Args:
+        phabricator: A PhabricatorClient instance.
+        revision_id: The integer id of the revision.
+
+    Returns:
+        The revision data from the Phabricator API for the provided
+        `revision_id`. If the revision is not found None is returned.
+    """
+    return phabricator.single(
+        phabricator.call_conduit('differential.query', ids=[revision_id]),
+        none_when_empty=True
+    )

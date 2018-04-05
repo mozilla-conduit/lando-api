@@ -31,7 +31,10 @@ def get(revision_id, diff_id=None):
     """
     phab = g.phabricator
     revision_id = revision_id_to_int(revision_id)
-    revision = phab.get_revision(id=revision_id)
+    revision = g.phabricator.single(
+        g.phabricator.call_conduit('differential.query', ids=[revision_id]),
+        none_when_empty=True
+    )
 
     if not revision:
         # We could not find a matching revision.
@@ -212,7 +215,9 @@ def _build_author(phab, revision, last_author):
     if last_author and revision['authorPHID'] == last_author['phid']:
         return last_author
 
-    raw_author = phab.get_user(revision['authorPHID'])
+    raw_author = phab.single(
+        phab.call_conduit('user.query', phids=[revision['authorPHID']])
+    )
     return {
         'phid': raw_author['phid'],
         'username': raw_author['userName'],
@@ -261,10 +266,15 @@ def _build_repo(phab, revision, last_repo):
         if last_repo and revision['repositoryPHID'] == last_repo['phid']:
             return last_repo
 
-        raw_repo = phab.get_repo(revision['repositoryPHID'])
+        repo = phab.call_conduit(
+            'diffusion.repository.search',
+            constraints={'phids': [revision['repositoryPHID']]}
+        )
+        repo = phab.expect(repo, 'data', 0)
+
         return {
-            'phid': raw_repo['phid'],
-            'name': raw_repo['fields']['name'],
+            'phid': phab.expect(repo, 'phid'),
+            'name': phab.expect(repo, 'fields', 'name'),
         }
 
     return None

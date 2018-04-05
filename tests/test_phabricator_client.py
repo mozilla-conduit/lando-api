@@ -31,31 +31,7 @@ from tests.canned_responses.phabricator.users import (
 pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
 
-def test_get_revision_with_200_response(phabfactory, get_phab_client):
-    revision_response = phabfactory.revision(id='D1234')
-    expected_revision = first_result_in_response(revision_response)
-    phab = get_phab_client(api_key='api-key')
-    revision = phab.get_revision(id=1234)
-    assert revision == expected_revision
-
-
-def test_get_revisions(phabfactory, get_phab_client):
-    revision_response = phabfactory.revision(id='D1234')
-    expected_revision = first_result_in_response(revision_response)
-    phab = get_phab_client(api_key='api-key')
-    revisions_by_ids = phab.get_revisions(ids=[1234])
-    assert revisions_by_ids[0] == expected_revision
-    revisions_by_phids = phab.get_revisions(phids=['PHID-DREV-1234'])
-    assert revisions_by_phids[0] == expected_revision
-
-
-def test_get_revision_raises_if_id_and_phid_provided(get_phab_client):
-    phab = get_phab_client(api_key='api-key')
-    with pytest.raises(TypeError):
-        phab.get_revision(id=1, phid='PHID')
-
-
-def test_get_current_user_with_200_response(get_phab_client):
+def test_whoami_with_200_response(get_phab_client):
     phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
@@ -63,19 +39,20 @@ def test_get_current_user_with_200_response(get_phab_client):
             status_code=200,
             json=CANNED_USER_WHOAMI_1
         )
-        user = phab.get_current_user()
+        user = phab.call_conduit('user.whoami')
         assert user == CANNED_USER_WHOAMI_1['result']
 
 
-def test_get_user_returns_with_200_response(phabfactory, get_phab_client):
+def test_user_query_returns_with_200_response(phabfactory, get_phab_client):
     user_response = phabfactory.user()
     expected_user = first_result_in_response(user_response)
     phid = phid_for_response(user_response)
 
     phab = get_phab_client(api_key='api-key')
-    user = phab.get_user(phid)
+    user = phab.call_conduit('user.query', phids=[phid])
 
-    assert user == expected_user
+    assert len(user) == 1
+    assert user[0] == expected_user
 
 
 def test_get_author_for_revision(phabfactory, get_phab_client):
@@ -84,22 +61,26 @@ def test_get_author_for_revision(phabfactory, get_phab_client):
     expected_user = first_result_in_response(user_response)
 
     phab = get_phab_client(api_key='api-key')
-    revision = phab.get_revision(id=5)
-    author = phab.get_revision_author(revision)
+    revision = phab.call_conduit('differential.query', ids=[5])[0]
+    author = phab.call_conduit('user.query', phids=[revision['authorPHID']])
 
-    assert author == expected_user
+    assert len(author) == 1
+    assert author[0] == expected_user
 
 
-def test_get_repo(phabfactory, get_phab_client):
+def test_repository_search(phabfactory, get_phab_client):
     phabfactory.repo()
     expected_repo = CANNED_REPO_SEARCH_MOZCENTRAL['result']['data'][0]
     phab = get_phab_client(api_key='api-key')
-    repo = phab.get_repo('PHID-REPO-mozillacentral')
+    repo = phab.call_conduit(
+        'diffusion.repository.search',
+        constraints={'phids': ['PHID-REPO-mozillacentral']}
+    )
 
-    assert repo == expected_repo
+    assert repo['data'][0] == expected_repo
 
 
-def test_get_repo_no_repo(get_phab_client):
+def test_repository_search_no_repo(get_phab_client):
     phab = get_phab_client(api_key='api-key')
     with requests_mock.mock() as m:
         m.get(
@@ -113,16 +94,11 @@ def test_get_repo_no_repo(get_phab_client):
                 'error_code': None
             }
         )
-        repo = phab.get_repo('anything')
+        repo = phab.call_conduit(
+            'diffusion.repository.search', constraints={'phids': ['anything']}
+        )
 
-    assert repo is None
-
-
-def test_get_repo_no_phid(phabfactory, get_phab_client):
-    phabfactory.repo()
-    phab = get_phab_client(api_key='api-key')
-    repo = phab.get_repo(None)
-    assert repo is None
+    assert not repo['data']
 
 
 def test_get_rawdiff_by_id(phabfactory, get_phab_client):
@@ -130,7 +106,7 @@ def test_get_rawdiff_by_id(phabfactory, get_phab_client):
     # The raw patch's diffID is encoded in the Diff URI.
     phabfactory.diff(id=12345, patch=patch)
     phab = get_phab_client(api_key='api-key')
-    returned_patch = phab.get_rawdiff(12345)
+    returned_patch = phab.call_conduit('differential.getrawdiff', diffID=12345)
     assert returned_patch == patch
 
 
@@ -141,12 +117,12 @@ def test_get_diff_by_id(phabfactory, get_phab_client):
     assert result['9001'] == expected['result']['9001']
 
 
-def test_check_connection_success(get_phab_client):
+def test_ping_success(get_phab_client):
     phab = get_phab_client(api_key='api-key')
     success_json = CANNED_EMPTY_RESULT.copy()
     with requests_mock.mock() as m:
         m.get(phab_url('conduit.ping'), status_code=200, json=success_json)
-        phab.check_connection()
+        phab.call_conduit('conduit.ping')
         assert m.called
 
 
@@ -158,7 +134,7 @@ def test_raise_exception_if_ping_encounters_connection_error(get_phab_client):
         m.get(phab_url('conduit.ping'), exc=requests.ConnectionError)
 
         with pytest.raises(PhabricatorAPIException):
-            phab.check_connection()
+            phab.call_conduit('conduit.ping')
         assert m.called
 
 
@@ -170,7 +146,7 @@ def test_raise_exception_if_api_ping_times_out(get_phab_client):
         m.get(phab_url('conduit.ping'), exc=requests.Timeout)
 
         with pytest.raises(PhabricatorAPIException):
-            phab.check_connection()
+            phab.call_conduit('conduit.ping')
         assert m.called
 
 
@@ -188,7 +164,7 @@ def test_raise_exception_if_api_returns_error_json_response(get_phab_client):
         m.get(phab_url('conduit.ping'), status_code=500, json=error_json)
 
         with pytest.raises(PhabricatorAPIException):
-            phab.check_connection()
+            phab.call_conduit('conduit.ping')
         assert m.called
 
 
@@ -204,7 +180,10 @@ def test_phabricator_exception(get_phab_client):
             json=CANNED_ERROR_1
         )
         with pytest.raises(PhabricatorAPIException) as e_info:
-            phab.get_revision(id=CANNED_REVISION_1['result'][0]['id'])
+            phab.call_conduit(
+                'differential.query',
+                ids=[CANNED_REVISION_1['result'][0]['id']]
+            )[0]
         assert e_info.value.error_code == CANNED_ERROR_1['error_code']
         assert e_info.value.error_info == CANNED_ERROR_1['error_info']
 
@@ -217,9 +196,8 @@ def test_get_reviewers_no_revision(get_phab_client):
             status_code=200,
             json=CANNED_EMPTY_REVISION_SEARCH
         )
-        result = phab.get_reviewers(1)
-
-    assert result == {}
+        with pytest.raises(PhabricatorAPIException):
+            phab.get_reviewers(1)
 
 
 def test_get_reviewers_no_reviewers(get_phab_client):

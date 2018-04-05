@@ -87,61 +87,56 @@ class PhabricatorClient:
     def create_session():
         return requests.Session()
 
-    def get_revision(self, id=None, phid=None):
-        """Gets a revision as defined by the Phabricator API.
+    @staticmethod
+    def single(result, *, none_when_empty=False):
+        """Return the first item of a phabricator result.
 
         Args:
-            id: The integer id of the revision.
-            phid: The phid of the revision.
+            result: Data from the result key of a Phabricator API response.
+            none_when_empty: `None` is returned if the result is empty if
+                `none_when_empty` is True.
 
         Returns:
-            A dict of the revision data just as it is returned by Phabricator.
-            Returns None, if the revision doesn't exist, or if the api key that
-            was used to create the PhabricatorClient doesn't have permission to
-            view the revision.
+            The first result in the provided data. If `none_when_empty` is
+            `True`, `None` will be returned if the result is empty.
 
         Raises:
-            TypeError if both id and phid are provided.
+            PhabricatorCommunicationException:
+                If there is more or less than a single item.
         """
-        if id and phid:
-            raise TypeError('Please do not use both id and phid at once')
-
-        ids = [id] if id else []
-        phids = [phid] if phid else []
-        result = self.get_revisions(ids=ids, phids=phids)
+        if len(result) > 1 or (not result and not none_when_empty):
+            raise PhabricatorCommunicationException(
+                'Phabricator responded with unexpected data'
+            )
 
         return result[0] if result else None
 
-    def get_revisions(self, ids=[], phids=[]):
-        """Gets a list of revisions in one request.
-
-        This function is purely using the `differential.query` with searching
-        by ids and phids.
+    @staticmethod
+    def expect(result, *args):
+        """Return data from a phabricator result.
 
         Args:
-            ids: A list of integer the ids of the revisions.
-            phids: A list of the phids of the revisions.
+            result: Data from the result key of a Phabricator API response.
+            *args: a path of keys into result which should and must
+                exist. If data is missing or malformed when attempting
+                to access the specific path an exception is raised.
 
         Returns:
-            A list of dicts just as it is returned by Phabricator or an
-            empty list if no revision has been found.
+            The data which exists at the path specified by args.
+
+        Raises:
+            PhabricatorCommunicationException:
+                If the data is malformed or missing.
         """
-        if not ids and not phids:
-            return []
+        try:
+            for k in args:
+                result = result[k]
+        except (IndexError, KeyError, ValueError) as exc:
+            raise PhabricatorCommunicationException(
+                'Phabricator responded with unexpected data'
+            ) from exc
 
-        return self.call_conduit('differential.query', ids=ids, phids=phids)
-
-    def get_rawdiff(self, diff_id):
-        """Get the raw git diff text by diff id.
-
-        Args:
-            diff_id: The integer ID of the diff.
-
-        Returns:
-            A string holding a Git Diff.
-        """
-        result = self.call_conduit('differential.getrawdiff', diffID=diff_id)
-        return result if result else None
+        return result
 
     def diff_phid_to_id(self, phid):
         """Convert Diff PHID to the Diff id.
@@ -156,11 +151,11 @@ class PhabricatorClient:
             Integer representing the Diff id in Phabricator
         """
         phid_query_result = self.call_conduit('phid.query', phids=[phid])
-        if phid_query_result:
-            diff_uri = phid_query_result[phid]['uri']
-            return self._extract_diff_id_from_uri(diff_uri)
-        else:
+        if not phid_query_result:
             return None
+
+        diff_uri = self.expect(phid_query_result, phid, 'uri')
+        return self._extract_diff_id_from_uri(diff_uri)
 
     def get_reviewers(self, revision_id):
         """Gets reviewers of the revision.
@@ -183,26 +178,22 @@ class PhabricatorClient:
             constraints={'ids': [revision_id]},
             attachments={'reviewers': True}
         )
-
-        has_reviewers = (
-            result['data'] and
-            result['data'][0]['attachments']['reviewers']['reviewers']
+        data = self.expect(result, 'data')
+        reviewers = self.expect(
+            data, 0, 'attachments', 'reviewers', 'reviewers'
         )
-        if not has_reviewers:
+
+        if not reviewers:
             return {}
 
-        reviewers_data = (
-            result['data'][0]['attachments']['reviewers']['reviewers']
-        )
-
         # Get user info of all revision reviewers
-        reviewers_phids = [r['reviewerPHID'] for r in reviewers_data]
+        reviewers_phids = [self.expect(r, 'reviewerPHID') for r in reviewers]
         result = self.call_conduit(
             'user.search', constraints={'phids': reviewers_phids}
         )
-        reviewers_info = result['data']
+        reviewers_info = self.expect(result, 'data')
 
-        if len(reviewers_data) != len(reviewers_info):
+        if len(reviewers) != len(reviewers_info):
             logger.warning(
                 {
                     'reviewers_phids': reviewers_phids,
@@ -214,7 +205,7 @@ class PhabricatorClient:
 
         # Create a dict of all reviewers and users info identified by PHID.
         reviewers_dict = {}
-        for data in reviewers_data, reviewers_info:
+        for data in reviewers, reviewers_info:
             for reviewer in data:
                 phid = reviewer.get('reviewerPHID') or reviewer.get('phid')
                 reviewers_dict[phid] = reviewers_dict.get(phid, {})
@@ -225,80 +216,14 @@ class PhabricatorClient:
             r[1] for r in sorted(reviewers_dict.items(), key=lambda x: x[0])
         ]
 
-    def get_current_user(self):
-        """Gets the information of the user making this request.
-
-        Returns:
-            A hash containing the information of the user that owns the api key
-            that was used to initialize this PhabricatorClient.
-        """
-        return self.call_conduit('user.whoami')
-
-    def get_user(self, phid):
-        """Gets the information of the user based on their phid.
-
-        Args:
-            phid: The phid of the user to lookup.
-
-        Returns:
-            A hash containing the user information, or an None if the user
-            could not be found.
-        """
-        result = self.call_conduit('user.query', phids=[phid])
-        return result[0] if result else None
-
-    def get_repo(self, phid):
-        """Get full information about a repo based on its phid.
-
-        Args:
-            phid: The phid of the repo to lookup. If None, None will be
-                returned.
-
-        Returns:
-            A dict containing the repo info, or None if the repo isn't found.
-        """
-        if phid:
-            result = self.call_conduit(
-                'diffusion.repository.search', constraints={'phids': [phid]}
-            )
-            return result['data'][0] if result['data'] else None
-        else:
-            return None
-
-    def get_revision_author(self, revision):
-        """Return the Phabricator User data for a revision's author.
-
-        Args:
-            revision: A dictionary of Phabricator Revision data.
-
-        Returns:
-            A dictionary of Phabricator User data.
-        """
-        return self.get_user(revision['authorPHID'])
-
-    def check_connection(self):
-        """Test the Phabricator API connection with conduit.ping.
-
-        Will return success iff the response has a HTTP status code of 200, the
-        JSON response is a well-formed Phabricator API response, and if there
-        is no connection error (like a hostname lookup error or timeout).
-
-        Raises a PhabricatorAPIException on error.
-        """
-        try:
-            self.call_conduit('conduit.ping')
-        except (requests.ConnectionError, requests.Timeout) as exc:
-            logging.debug("error calling 'conduit.ping': %s", exc)
-            raise PhabricatorAPIException from exc
-
-    def verify_api_key(self):
-        """ Verifies that the api key this instance was created with is valid.
+    def verify_api_token(self):
+        """ Verifies that the api token is valid.
 
         Returns False if Phabricator returns an error code when checking this
-        api key. Returns True if no errors are found.
+        api token. Returns True if no errors are found.
         """
         try:
-            self.get_current_user()
+            self.call_conduit('user.whoami')
         except PhabricatorAPIException:
             return False
         return True
@@ -316,9 +241,10 @@ class PhabricatorClient:
         Returns:
             A generator of the dependency tree revisions
         """
-        phids = revision['auxiliary'].get('phabricator:depends-on', [])
+        phids = self.expect(revision,
+                            'auxiliary').get('phabricator:depends-on', [])
         if phids:
-            revisions = self.get_revisions(phids=phids)
+            revisions = self.call_conduit('differential.query', phids=phids)
             for revision in revisions:
                 yield revision
 
@@ -337,11 +263,11 @@ class PhabricatorClient:
 
         dependency_tree = self.get_dependency_tree(revision)
         for dependency in dependency_tree:
-            if Statuses(dependency['status']) in OPEN_STATUSES:
+            if Statuses(self.expect(dependency, 'status')) in OPEN_STATUSES:
                 return dependency
 
-    @staticmethod
-    def extract_bug_id(revision):
+    @classmethod
+    def extract_bug_id(cls, revision):
         """Helper method to extract the bug id from a Phabricator revision.
 
         Args:
@@ -350,13 +276,14 @@ class PhabricatorClient:
         Returns:
             (int) Bugzilla bug id or None
         """
-        bug_id = revision['auxiliary'].get('bugzilla.bug-id', None)
+        bug_id = cls.expect(revision, 'auxiliary').get('bugzilla.bug-id', None)
         try:
             return int(bug_id)
         except (TypeError, ValueError):
             return None
 
-    def _extract_diff_id_from_uri(self, uri):
+    @staticmethod
+    def _extract_diff_id_from_uri(uri):
         """Extract a diff ID from a Diff uri."""
         # The diff is part of a URI, such as
         # "https://secure.phabricator.com/differential/diff/43480/".

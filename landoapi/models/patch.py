@@ -61,7 +61,9 @@ class Patch:
             DiffNotFoundException: PhabricatorClient returned no diff for
                 given diff_id.
         """
-        raw_diff = phab.get_rawdiff(self.diff_id)
+        raw_diff = phab.call_conduit(
+            'differential.getrawdiff', diffID=self.diff_id
+        )
         if not raw_diff:
             raise DiffNotFoundException(self.diff_id)
 

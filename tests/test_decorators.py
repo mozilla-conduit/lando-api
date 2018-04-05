@@ -31,7 +31,7 @@ def test_require_phabricator_api_key(
     if valid_key is not None:
         headers.append(('X-Phabricator-API-Key', 'custom-key'))
         monkeypatch.setattr(
-            'landoapi.decorators.PhabricatorClient.verify_api_key',
+            'landoapi.decorators.PhabricatorClient.verify_api_token',
             lambda *args, **kwargs: valid_key
         )
 
