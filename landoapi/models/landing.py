@@ -7,7 +7,6 @@ import logging
 
 from flask import current_app
 
-from landoapi import repos
 from landoapi.models.patch import Patch
 from landoapi.storage import db
 from landoapi.transplant_client import TransplantClient, TransplantError
@@ -78,7 +77,10 @@ class Landing(db.Model):
     )
 
     @classmethod
-    def create(cls, revision, diff_id, requester_email, phab, active_diff_id):
+    def create(
+        cls, revision, diff_id, requester_email, phab, active_diff_id,
+        landing_repo
+    ):
         """Land revision.
 
         A typical successful story:
@@ -98,6 +100,7 @@ class Landing(db.Model):
             phab: The PhabricatorClient instance to use
             active_diff_id: The diff id of the latest diff for the given
                 revision. Not always equal to diff_id.
+            landing_repo: A landoapi.repos.Repo describing where to land.
 
         Returns:
             A new Landing object
@@ -108,35 +111,13 @@ class Landing(db.Model):
         assert revision is not None
         revision_id = int(revision['id'])
 
-        if 'repositoryPHID' not in revision or not revision['repositoryPHID']:
-            raise InvalidRepositoryException(
-                'This revision is not associated with a repository. '
-                'Associate the revision with a repository on Phabricator then'
-                'try again.'
-            )
-
-        # Map the Phabricator repo to the treestatus tree
-        repo = phab.call_conduit(
-            'diffusion.repository.search',
-            constraints={'phids': [revision['repositoryPHID']]}
-        )
-        repo_short_name = phab.expect(repo, 'data', 0, 'fields', 'shortName')
-        if repo_short_name not in repos.REPO_CONFIG:
-            raise InvalidRepositoryException(
-                'Landing to {} is not supported at this time. '.
-                format(repo_short_name)
-            )
-
-        target_repo = repos.REPO_CONFIG[repo_short_name]
-        tree = target_repo['tree']
-
         # Save the initial landing request
         landing = cls(
             diff_id=diff_id,
             active_diff_id=active_diff_id,
             revision_id=revision_id,
             requester_email=requester_email,
-            tree=tree
+            tree=landing_repo.tree
         )
         db.session.add(landing)
         db.session.commit()
@@ -156,9 +137,9 @@ class Landing(db.Model):
                 revision_id=revision_id,
                 ldap_username=landing.requester_email,
                 patch_urls=[patch.s3_url],
-                tree=tree,
+                tree=landing_repo.tree,
                 pingback=current_app.config['PINGBACK_URL'],
-                push_bookmark=target_repo['push_bookmark']
+                push_bookmark=landing_repo.push_bookmark
             )
         except TransplantError:
             raise LandingNotCreatedException
@@ -252,9 +233,4 @@ class Landing(db.Model):
 
 class LandingNotCreatedException(Exception):
     """Transplant service failed to land a revision."""
-    pass
-
-
-class InvalidRepositoryException(Exception):
-    """The target landing repository is invalid."""
     pass

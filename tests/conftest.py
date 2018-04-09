@@ -17,6 +17,7 @@ from landoapi.app import create_app
 from landoapi.landings import tokens_are_equal
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
+from landoapi.repos import Repo
 from landoapi.storage import db as _db
 
 from tests.factories import PhabResponseFactory, TransResponseFactory
@@ -201,9 +202,8 @@ def mock_repo_config(monkeypatch):
 def mocked_repo_config(mock_repo_config):
     mock_repo_config(
         {
-            'mozilla-central': {
-                'tree': 'mozilla-central',
-                'push_bookmark': '',
+            'test': {
+                'mozilla-central': Repo('mozilla-central', ''),
             },
         }
     )

@@ -8,18 +8,19 @@ See the OpenAPI Specification for this API in the spec/swagger.yml file.
 import logging
 
 from connexion import problem
-from flask import g, jsonify, request
+from flask import current_app, g, jsonify, request
 from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
 from landoapi.decorators import lazy, require_phabricator_api_key
 from landoapi.landings import (
     check_landing_conditions,
+    lazy_get_landing_repo,
+    lazy_get_repository,
     lazy_get_revision,
     lazy_latest_diff_id,
 )
 from landoapi.models.landing import (
-    InvalidRepositoryException,
     Landing,
     LandingNotCreatedException,
 )
@@ -45,9 +46,13 @@ def dryrun(data):
     get_revision = lazy_get_revision(g.phabricator, revision_id)
     get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
+    get_repository = lazy_get_repository(g.phabricator, get_revision)
+    get_landing_repo = lazy_get_landing_repo(
+        g.phabricator, get_repository, current_app.config.get('ENVIRONMENT')
+    )
     assessment = check_landing_conditions(
         g.auth0_user, revision_id, diff_id, g.phabricator, get_revision,
-        get_latest_diff_id, get_latest_landed
+        get_latest_diff_id, get_latest_landed, get_repository, get_landing_repo
     )
     return jsonify(assessment.to_dict())
 
@@ -69,6 +74,10 @@ def post(data):
     get_revision = lazy_get_revision(g.phabricator, revision_id)
     get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
+    get_repository = lazy_get_repository(g.phabricator, get_revision)
+    get_landing_repo = lazy_get_landing_repo(
+        g.phabricator, get_repository, current_app.config.get('ENVIRONMENT')
+    )
     assessment = check_landing_conditions(
         g.auth0_user,
         revision_id,
@@ -77,6 +86,8 @@ def post(data):
         get_revision,
         get_latest_diff_id,
         get_latest_landed,
+        get_repository,
+        get_landing_repo,
         short_circuit=True
     )
     assessment.raise_if_blocked_or_unacknowledged(None)
@@ -88,7 +99,7 @@ def post(data):
     try:
         landing = Landing.create(
             revision, diff_id, g.auth0_user.email, g.phabricator,
-            get_latest_diff_id()
+            get_latest_diff_id(), get_landing_repo()
         )
     except DiffNotFoundException:
         # If we get here something has gone quite wrong with phabricator.
@@ -121,21 +132,6 @@ def post(data):
             'The requested revision does exist, but landing failed.'
             'Please retry your request at a later time.',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502'
-        )
-    except InvalidRepositoryException as e:
-        logger.info(
-            {
-                'revision': revision_id,
-                'diff_id': diff_id,
-                'repo': revision['repositoryPHID'],
-                'msg': 'Cannot land to target repository.',
-            }, 'landing.error'
-        )
-        return problem(
-            400,
-            'Invalid Landing Repo',
-            str(e),
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
         )
 
     return {'id': landing.id}, 202

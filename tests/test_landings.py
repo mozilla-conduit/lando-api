@@ -11,6 +11,7 @@ from freezegun import freeze_time
 
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
+from landoapi.repos import Repo
 from landoapi.transplant_client import TransplantClient
 from tests.canned_responses.lando_api.patches import LANDING_PATCH
 from tests.canned_responses.lando_api.revisions import (
@@ -139,9 +140,8 @@ def test_push_bookmark_sent_when_supported_repo(
     # Mock the repo to have a push bookmark.
     mock_repo_config(
         {
-            'mozilla-central': {
-                'tree': 'mozilla-central',
-                'push_bookmark': '@',
+            'test': {
+                'mozilla-central': Repo('mozilla-central', '@')
             },
         }
     )
@@ -559,12 +559,8 @@ def test_land_revision_with_no_repo(
         headers=auth0_mock.mock_headers,
     )
     assert response.status_code == 400
-    assert response.json['title'] == 'Invalid Landing Repo'
-    assert response.json['detail'] == (
-        'This revision is not associated with a repository. '
-        'Associate the revision with a repository on Phabricator then'
-        'try again.'
-    )
+    assert response.json['title'] == 'Landing is Blocked'
+    assert response.json['blockers'][0]['id'] == 'E005'
 
 
 @freeze_time('2017-11-02T00:00:00')
@@ -584,11 +580,8 @@ def test_land_revision_with_unmapped_repo(
         headers=auth0_mock.mock_headers,
     )
     assert response.status_code == 400
-    assert response.json['title'] == 'Invalid Landing Repo'
-    assert response.json['detail'] == (
-        'Landing to {} is not supported at this time. '.
-        format(repo['result']['data'][0]['fields']['shortName'])
-    )
+    assert response.json['title'] == 'Landing is Blocked'
+    assert response.json['blockers'][0]['id'] == 'E006'
 
 
 def _create_landing(

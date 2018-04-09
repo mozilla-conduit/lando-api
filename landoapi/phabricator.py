@@ -131,7 +131,7 @@ class PhabricatorClient:
         try:
             for k in args:
                 result = result[k]
-        except (IndexError, KeyError, ValueError) as exc:
+        except (IndexError, KeyError, ValueError, TypeError) as exc:
             raise PhabricatorCommunicationException(
                 'Phabricator responded with unexpected data'
             ) from exc

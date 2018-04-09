@@ -1,23 +1,42 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+import logging
+from collections import namedtuple
+
+logger = logging.getLogger(__name__)
+
+Repo = namedtuple(
+    'Repo',
+    (
+        # Name on https://treestatus.mozilla-releng.net/trees
+        'tree',
+        # Bookmark to be landed to and updated as part of push. Should be
+        # an empty string to not use bookmarks.
+        'push_bookmark',
+    )
+)
 REPO_CONFIG = {
-    # '<phabricator-repo-short-name>': {
-    #     # https://treestatus.mozilla-releng.net/trees
-    #     'tree': '<TreeStatus-tree-name>',
-    #     # Bookmark to be landed to and updated as part of push.
-    #     'push_bookmark': '<hg-bookmark-empty-if-none>',
-    # },
-    'phabricator-qa-dev': {
-        'tree': 'phabricator-qa-dev',
-        'push_bookmark': '',
+    # '<ENV>': {
+    #     '<phabricator-short-name>': Repo(...)
+    # }
+    'default': {},
+    'devsvcdev': {
+        'test-repo': Repo('test-repo', ''),
     },
-    'phabricator-qa-stage': {
-        'tree': 'phabricator-qa-stage',
-        'push_bookmark': '',
-    },
-    'version-control-tools': {
-        'tree': 'version-control-tools',
-        'push_bookmark': '@',
+    'devsvcprod': {
+        'phabricator-qa-stage': Repo('phabricator-qa-stage', ''),
+        'version-control-tools': Repo('version-control-tools', '@'),
     },
 }
+
+
+def get_repos_for_env(env):
+    if env not in REPO_CONFIG:
+        logger.warning(
+            'Repo config requested for unkown env: "{}"'.format(env)
+        )
+        env = 'default'
+
+    return REPO_CONFIG.get(env, {})

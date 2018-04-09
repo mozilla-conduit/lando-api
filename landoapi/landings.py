@@ -8,6 +8,7 @@ from connexion import ProblemException
 
 from landoapi.decorators import lazy
 from landoapi.models.landing import Landing
+from landoapi.repos import get_repos_for_env
 
 
 def tokens_are_equal(t1, t2):
@@ -117,7 +118,7 @@ class LandingProblem:
     @classmethod
     def check(
         cls, *, auth0_user, revision_id, diff_id, phabricator, get_revision,
-        get_latest_diff_id, get_latest_landed
+        get_latest_diff_id, get_latest_landed, get_repository, get_landing_repo
     ):
         raise NotImplementedError(
             'check(...) must be implemented on LandingProblem subclasses.'
@@ -189,6 +190,29 @@ class OpenDependencies(LandingProblem):
         return None if not open_revision else cls(
             'This revision depends on at least one revision which is open: '
             'D{}.'.format(open_revision['id'])
+        )
+
+
+class HasNoRepository(LandingProblem):
+    id = "E005"
+
+    @classmethod
+    def check(cls, *, phabricator, get_revision, **kwargs):
+        return None if get_revision().get('repositoryPHID') else cls(
+            'This revision is not associated with a repository. '
+            'In order to land, a revision must be associated with a '
+            'repository on Phabricator.'
+        )
+
+
+class RepoNotConfigured(LandingProblem):
+    id = "E006"
+
+    @classmethod
+    def check(cls, *, phabricator, get_landing_repo, **kwargs):
+        return None if get_landing_repo() else cls(
+            'The repository this revision is associated with is not '
+            'supported by Lando at this time.'
         )
 
 
@@ -269,13 +293,17 @@ def check_landing_conditions(
     get_revision,
     get_latest_diff_id,
     get_latest_landed,
+    get_repository,
+    get_landing_repo,
     *,
     short_circuit=False,
     blockers_to_check=[
         NoAuth0Email,
         SCMLevelInsufficient,
         DoesNotExist,
+        HasNoRepository,
         LandingInProgress,
+        RepoNotConfigured,
         DiffNotPartOfRevision,
         OpenDependencies,
     ],
@@ -300,7 +328,9 @@ def check_landing_conditions(
             phabricator=phabricator,
             get_revision=get_revision,
             get_latest_diff_id=get_latest_diff_id,
-            get_latest_landed=get_latest_landed
+            get_latest_landed=get_latest_landed,
+            get_repository=get_repository,
+            get_landing_repo=get_landing_repo
         )
 
         if result is not None:
@@ -317,7 +347,9 @@ def check_landing_conditions(
             phabricator=phabricator,
             get_revision=get_revision,
             get_latest_diff_id=get_latest_diff_id,
-            get_latest_landed=get_latest_landed
+            get_latest_landed=get_latest_landed,
+            get_repository=get_repository,
+            get_landing_repo=get_landing_repo
         )
 
         if result is not None:
@@ -354,3 +386,62 @@ def lazy_get_revision(phabricator, revision_id):
         phabricator.call_conduit('differential.query', ids=[revision_id]),
         none_when_empty=True
     )
+
+
+@lazy
+def lazy_get_repository(phabricator, revision):
+    """Return a repository as defined by the Phabricator API.
+
+    Args:
+        phabricator: A PhabricatorClient instance.
+        revision: A dict of the revision data just as it is returned
+            by Phabricator.
+
+    Returns:
+        The repository data from the Phabricator API associated with the
+        provided `revision`. If the revision is not associated with a
+        repository `None` is returned.
+
+    Raises:
+        landoapi.phabricator.PhabricatorCommunicationException:
+            If the provided revision is associated with a repository but
+            the PHID cannot be found when searching. This should almost
+            never happen unless something has gone seriously wrong.
+    """
+    repo_phid = revision.get('repositoryPHID')
+    if not repo_phid:
+        return None
+
+    return phabricator.expect(
+        phabricator.call_conduit(
+            'diffusion.repository.search', constraints={'phids': [repo_phid]}
+        ), 'data', 0
+    )
+
+
+@lazy
+def lazy_get_landing_repo(phabricator, repository, env):
+    """Return a landoapi.repos.Repo for the provided repository.
+
+    Args:
+        phabricator: A PhabricatorClient instance.
+        repository: A dict of the repository data just as it is returned
+            by Phabricator.
+        env: The environment Lando API is running in.
+
+    Returns:
+        A landoapi.repos.Repo corresponding to the provided Phabricator
+        repository data or None if the repository is not configured.
+
+    Raises:
+        landoapi.phabricator.PhabricatorCommunicationException:
+            If the provided repository data does not adhere to the format
+            expected from Phabricator. This should almost never happen
+            when passing a repository response from phabricator unless
+            something has gone seriously wrong.
+    """
+    if not repository:
+        return None
+
+    shortname = phabricator.expect(repository, 'fields', 'shortName')
+    return get_repos_for_env(env).get(shortname)
