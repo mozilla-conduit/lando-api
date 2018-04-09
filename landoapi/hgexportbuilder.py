@@ -5,14 +5,21 @@
 Module for constructing Mercurial patches in 'hg export' format.
 """
 
-HG_EXPORT_PATCH_TEMPLATE = """
-# HG changeset patch
-# User {author_name} <{author_email}>
-# Date {patchdate}
+_HG_EXPORT_PATCH_TEMPLATE = """
+{header}
 {commit_message}
 
 {diff}
 """.strip()
+
+_HG_EXPORT_HEADER = """
+# HG changeset patch
+# User {author_name} <{author_email}>
+# Date {patchdate}
+# Diff Start Line {diff_start_line}
+""".strip()
+
+_HG_EXPORT_HEADER_LENGTH = len(_HG_EXPORT_HEADER.splitlines())
 
 
 def build_patch_for_revision(
@@ -30,19 +37,22 @@ def build_patch_for_revision(
     Returns:
         A string containing a patch in 'hg export' format.
     """
-    # Back-date the patch to the last modification date of the Revision it's
-    # based on.
-    patchdate = '%s +0000' % date_modified
 
-    return HG_EXPORT_PATCH_TEMPLATE.format(
-        author_name=no_line_breaks(author_name),
-        author_email=no_line_breaks(author_email),
-        patchdate=patchdate,
-        commit_message=commit_message,
+    message_lines = commit_message.strip().splitlines()
+    header = _HG_EXPORT_HEADER.format(
+        author_name=_no_line_breaks(author_name),
+        author_email=_no_line_breaks(author_email),
+        patchdate=_no_line_breaks('%s +0000' % date_modified),
+        diff_start_line=len(message_lines) + _HG_EXPORT_HEADER_LENGTH + 1,
+    )
+
+    return _HG_EXPORT_PATCH_TEMPLATE.format(
+        header=header,
+        commit_message='\n'.join(message_lines),
         diff=diff,
     )
 
 
-def no_line_breaks(s):
+def _no_line_breaks(s):
     """Return s with all line breaks removed."""
-    return s.replace('\n', '').replace('\r', '')
+    return ''.join(s.strip().splitlines())

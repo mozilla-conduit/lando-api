@@ -19,12 +19,22 @@ GIT_DIFF_FROM_REVISION = """diff --git a/hello.c b/hello.c
 COMMIT_MESSAGE = """
 Express great joy at existence of Mercurial
 
-Using console to print out the messages.""".lstrip()
+Make sure multiple line breaks are kept:
+
+
+
+Using console to print out the messages.
+""".strip()
 
 HG_PATCH = """# HG changeset patch
 # User Joe User <joe@example.com>
 # Date 1496239141 +0000
+# Diff Start Line 12
 Express great joy at existence of Mercurial
+
+Make sure multiple line breaks are kept:
+
+
 
 Using console to print out the messages.
 
