@@ -581,7 +581,7 @@ def test_land_revision_with_unmapped_repo(
     )
     assert response.status_code == 400
     assert response.json['title'] == 'Landing is Blocked'
-    assert response.json['blockers'][0]['id'] == 'E006'
+    assert response.json['blockers'][0]['id'] == 'E005'
 
 
 def _create_landing(

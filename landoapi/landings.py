@@ -193,23 +193,18 @@ class OpenDependencies(LandingProblem):
         )
 
 
-class HasNoRepository(LandingProblem):
+class InvalidRepository(LandingProblem):
     id = "E005"
 
     @classmethod
-    def check(cls, *, phabricator, get_revision, **kwargs):
-        return None if get_revision().get('repositoryPHID') else cls(
-            'This revision is not associated with a repository. '
-            'In order to land, a revision must be associated with a '
-            'repository on Phabricator.'
-        )
+    def check(cls, *, phabricator, get_revision, get_landing_repo, **kwargs):
+        if not get_revision().get('repositoryPHID'):
+            return cls(
+                'This revision is not associated with a repository. '
+                'In order to land, a revision must be associated with a '
+                'repository on Phabricator.'
+            )
 
-
-class RepoNotConfigured(LandingProblem):
-    id = "E006"
-
-    @classmethod
-    def check(cls, *, phabricator, get_landing_repo, **kwargs):
         return None if get_landing_repo() else cls(
             'The repository this revision is associated with is not '
             'supported by Lando at this time.'
@@ -301,9 +296,8 @@ def check_landing_conditions(
         NoAuth0Email,
         SCMLevelInsufficient,
         DoesNotExist,
-        HasNoRepository,
         LandingInProgress,
-        RepoNotConfigured,
+        InvalidRepository,
         DiffNotPartOfRevision,
         OpenDependencies,
     ],
