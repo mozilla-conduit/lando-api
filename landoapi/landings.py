@@ -8,6 +8,7 @@ from connexion import ProblemException
 
 from landoapi.decorators import lazy
 from landoapi.models.landing import Landing
+from landoapi.phabricator import OPEN_STATUSES, Statuses
 from landoapi.repos import get_repos_for_env
 
 
@@ -184,13 +185,21 @@ class OpenDependencies(LandingProblem):
 
     @classmethod
     def check(cls, *, phabricator, get_revision, **kwargs):
-        open_revision = phabricator.get_first_open_parent_revision(
-            get_revision()
+        revision = get_revision()
+        phids = phabricator.expect(revision, 'auxiliary').get(
+            'phabricator:depends-on', []
         )
-        return None if not open_revision else cls(
-            'This revision depends on at least one revision which is open: '
-            'D{}.'.format(open_revision['id'])
-        )
+        if not phids:
+            return None
+
+        # TODO: Switch to differential.revision.search.
+        parents = phabricator.call_conduit('differential.query', phids=phids)
+        for r in parents:
+            if Statuses(phabricator.expect(r, 'status')) in OPEN_STATUSES:
+                return cls(
+                    'This revision depends on at least one revision which '
+                    'is open: D{}.'.format(phabricator.expect(r, 'id'))
+                )
 
 
 class InvalidRepository(LandingProblem):

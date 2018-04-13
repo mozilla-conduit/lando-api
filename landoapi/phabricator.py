@@ -228,44 +228,6 @@ class PhabricatorClient:
             return False
         return True
 
-    def get_dependency_tree(self, revision, recursive=True):
-        """Generator yielding revisions from the dependency tree.
-
-        Get parent revisions for the provided revision. If recursive is True
-        try to get parent's revisions.
-
-        Args:
-            revision: Revision which dependency tree will be examined
-            recursive: (bool) should parent's dependency tree be returned?
-
-        Returns:
-            A generator of the dependency tree revisions
-        """
-        phids = self.expect(revision,
-                            'auxiliary').get('phabricator:depends-on', [])
-        if phids:
-            revisions = self.call_conduit('differential.query', phids=phids)
-            for revision in revisions:
-                yield revision
-
-                if recursive:
-                    yield from self.get_dependency_tree(revision)
-
-    def get_first_open_parent_revision(self, revision):
-        """Find first open parent revision.
-
-        Args:
-            revision: Revision which dependency tree will be examined
-
-        Returns:
-            Open Revision or None
-        """
-
-        dependency_tree = self.get_dependency_tree(revision)
-        for dependency in dependency_tree:
-            if Statuses(self.expect(dependency, 'status')) in OPEN_STATUSES:
-                return dependency
-
     @classmethod
     def extract_bug_id(cls, revision):
         """Helper method to extract the bug id from a Phabricator revision.

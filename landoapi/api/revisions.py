@@ -51,7 +51,6 @@ def get(revision_id, diff_id=None):
             revision,
             diff_id=diff_id,
             include_diff=True,
-            include_parents=True
         ), 200
     except DiffNotInRevisionException:
         logger.info(
@@ -74,9 +73,7 @@ def _format_revision(
     revision,
     diff_id=None,
     include_diff=False,
-    include_parents=False,
     last_author=None,
-    last_repo=None,
 ):
     """Formats a revision given by Phabricator to match Lando's spec.
 
@@ -88,16 +85,10 @@ def _format_revision(
         diff_id: The id of one of this revision's diffs to include. If no id
             is given the most recent diff will be used.
         include_diff: A flag to choose whether to include the revision's diff.
-        include_parents: A flag to choose whether this method will recursively
-            load parent revisions and format them as well.
         last_author: A hash of the author who created the revision. This is
             mainly used by this method itself when recursively loading parent
             revisions so as to prevent excess requests for what is often the
             same author on each parent revision.
-        last_repo: A hash of the repo that this revision belongs to. This is
-            mainly used by this method itself when recursively loading parent
-            revisions so as to prevent excess requests for what is often the
-            same repo on each parent revision.
     Returns:
         A dict of the formatted revision information.
     """
@@ -117,29 +108,13 @@ def _format_revision(
         revision['uri'],
     )
     author = _build_author(phab, revision, last_author)
-    repo = _build_repo(phab, revision, last_repo)
+    repo = _build_repo(phab, revision)
 
     diff = None
     latest_diff_id = None
     if include_diff:
         latest_diff_id = phab.diff_phid_to_id(phid=revision['activeDiffPHID'])
         diff = _build_diff(phab, revision, diff_id or latest_diff_id)
-
-    parent_revisions = []
-    if include_parents:
-        parents = g.phabricator.get_dependency_tree(revision, recursive=False)
-        for parent in parents:
-            if parent:
-                parent_revisions.append(
-                    _format_revision(
-                        phab,
-                        parent,
-                        include_diff=False,
-                        include_parents=True,
-                        last_author=author,
-                        last_repo=repo
-                    )
-                )
 
     return {
         'id': 'D{}'.format(revision_id),
@@ -160,7 +135,6 @@ def _format_revision(
         'author': author,
         'repo': repo,
         'reviewers': reviewers,
-        'parent_revisions': parent_revisions,
     }
 
 
@@ -252,23 +226,17 @@ def _format_reviewers(reviewers_list):
     ]
 
 
-def _build_repo(phab, revision, last_repo):
+def _build_repo(phab, revision):
     """Helper method to build the repo json for a revision response.
 
     Args:
         phab: The PhabricatorClient to use to make additional requests.
         revision: The revision to get the most recent diff from.
-        last_repo: The repo of a child revision that will be checked,
-            if it has the same phid, then it will be used instead of making
-            additional requests to Phabricator.
     """
-    if revision['repositoryPHID']:
-        if last_repo and revision['repositoryPHID'] == last_repo['phid']:
-            return last_repo
-
+    repo_phid = phab.expect(revision, 'repositoryPHID')
+    if repo_phid:
         repo = phab.call_conduit(
-            'diffusion.repository.search',
-            constraints={'phids': [revision['repositoryPHID']]}
+            'diffusion.repository.search', constraints={'phids': [repo_phid]}
         )
         repo = phab.expect(repo, 'data', 0)
 

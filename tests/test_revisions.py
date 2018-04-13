@@ -7,16 +7,14 @@ import requests_mock
 
 from landoapi.api.revisions import _format_reviewers
 from tests.canned_responses.lando_api.revisions import (
-    CANNED_LANDO_REVISION_1, CANNED_LANDO_REVISION_2,
-    CANNED_LANDO_REVIEWERS_PARTIAL, CANNED_LANDO_REVISION_NOT_FOUND,
-    CANNED_REVIEWERS_USER_DONT_MATCH_PARTIAL
+    CANNED_LANDO_REVISION_1, CANNED_LANDO_REVIEWERS_PARTIAL,
+    CANNED_LANDO_REVISION_NOT_FOUND, CANNED_REVIEWERS_USER_DONT_MATCH_PARTIAL
 )
 from tests.canned_responses.phabricator.revisions import (
-    CANNED_REVISION_2, CANNED_REVISION_2_REVIEWERS,
-    CANNED_TWO_REVIEWERS_SEARCH_RESPONSE
+    CANNED_REVISION_2_REVIEWERS, CANNED_TWO_REVIEWERS_SEARCH_RESPONSE
 )
 from tests.canned_responses.phabricator.users import CANNED_USER_SEARCH_1
-from tests.utils import phab_url, phid_for_response
+from tests.utils import phab_url
 
 pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
@@ -58,26 +56,6 @@ def test_get_revision_with_nonexisting_diff(client, phabfactory):
 
     response = client.get('/revisions/D1?diff_id=900')
     assert response.status_code == 404
-
-
-def test_get_revision_with_no_parents(client, phabfactory):
-    phabfactory.revision(depends_on=[])
-    response = client.get('/revisions/D1')
-    assert response.status_code == 200
-    assert response.content_type == 'application/json'
-    assert response.json['parent_revisions'] == []
-
-
-def test_get_revision_with_parents(client, phabfactory):
-    rev1 = phabfactory.revision(id='D1')
-    phabfactory.revision(id='D2', template=CANNED_REVISION_2, depends_on=rev1)
-    response = client.get('/revisions/D2')
-    assert response.status_code == 200
-    assert response.content_type == 'application/json'
-    assert len(response.json['parent_revisions']) == 1
-    parent_revision = response.json['parent_revisions'][0]
-    assert parent_revision['phid'] == phid_for_response(rev1)
-    assert response.json == CANNED_LANDO_REVISION_2
 
 
 def test_get_revision_returns_404(client, phabfactory):

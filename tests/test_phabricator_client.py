@@ -9,9 +9,7 @@ import pytest
 import requests
 import requests_mock
 
-from landoapi.phabricator import (
-    CLOSED_STATUSES, OPEN_STATUSES, PhabricatorAPIException, Statuses
-)
+from landoapi.phabricator import PhabricatorAPIException
 
 from tests.utils import first_result_in_response, phab_url, phid_for_response
 from tests.canned_responses.phabricator.errors import (
@@ -257,67 +255,3 @@ def test_get_reviewers_reviewers_and_users_dont_match(get_phab_client):
     assert 'fields' not in result[1]
     assert 'phid' not in result[1]
     assert result[1]['reviewerPHID'] == 'PHID-USER-3'
-
-
-def test_no_parent(phabfactory, get_phab_client):
-    result = phabfactory.revision()
-    revision = result['result'][0]
-    phab = get_phab_client(api_key='api-key')
-
-    assert phab.get_first_open_parent_revision(revision) is None
-
-
-@pytest.mark.parametrize('status', OPEN_STATUSES)
-def test_open_parent(status, phabfactory, get_phab_client):
-    parent_data = phabfactory.revision(status=status.value)
-    parent = parent_data['result'][0]
-    result = phabfactory.revision(id='D2', depends_on=parent_data)
-    revision = result['result'][0]
-    phab = get_phab_client(api_key='api-key')
-
-    assert phab.get_first_open_parent_revision(revision) == parent
-
-
-def test_open_grandparent(phabfactory, get_phab_client):
-    grandparent_data = phabfactory.revision(
-        status=Statuses.NEEDS_REVISION.value
-    )
-    grandparent = grandparent_data['result'][0]
-    parent_result = phabfactory.revision(
-        id='D2', status=Statuses.CLOSED.value, depends_on=grandparent_data
-    )
-    result = phabfactory.revision(id='D3', depends_on=parent_result)
-    revision = result['result'][0]
-    phab = get_phab_client(api_key='api-key')
-
-    assert phab.get_first_open_parent_revision(revision) == grandparent
-
-
-@pytest.mark.parametrize('status', CLOSED_STATUSES)
-def test_no_open_parent(status, phabfactory, get_phab_client):
-    parent_result = phabfactory.revision(status=status.value)
-    result = phabfactory.revision(id='D2', depends_on=parent_result)
-    revision = result['result'][0]
-    phab = get_phab_client(api_key='api-key')
-
-    assert phab.get_first_open_parent_revision(revision) is None
-
-
-def test_get_dependency_tree(phabfactory, get_phab_client):
-    grandparent_data = phabfactory.revision(
-        status=Statuses.NEEDS_REVISION.value
-    )
-    grandparent = grandparent_data['result'][0]
-    parent_data = phabfactory.revision(
-        id='D2', status=Statuses.CLOSED.value, depends_on=grandparent_data
-    )
-    parent = parent_data['result'][0]
-    revision_data = phabfactory.revision(id='D4', depends_on=parent_data)
-    revision = revision_data['result'][0]
-    phab = get_phab_client(api_key='api-key')
-
-    dependency = phab.get_dependency_tree(revision)
-    assert next(dependency) == parent
-    assert next(dependency) == grandparent
-    with pytest.raises(StopIteration):
-        next(dependency)

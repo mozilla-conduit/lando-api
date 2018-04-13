@@ -418,16 +418,6 @@ definitions:
           $ref: '#/definitions/Reviewer'
       repo:
         $ref: '#/definitions/Repo'
-      parent_revisions:
-        type: array
-        items:
-          $ref: '#/definitions/Revision'
-        description: |
-          A list of revisions which this revision depends on. I.e. this revision
-          cannot land until its parents have landed. This list will almost
-          always contain just one revision. That revision may itself also have
-          parent revisions. Traverse each parent revision until one without any
-          parent is found to determine the full dependancy chain.
   User:
     type: object
     properties:

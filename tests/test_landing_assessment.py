@@ -6,6 +6,7 @@ import pytest
 from landoapi.landings import LandingAssessment, LandingProblem
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
+from landoapi.phabricator import OPEN_STATUSES
 
 
 class MockProblem(LandingProblem):
@@ -332,3 +333,18 @@ def test_previously_landed_but_landed_since_still_warns(
             )
         ),
     }  # yapf: disable
+
+
+@pytest.mark.parametrize('status', OPEN_STATUSES)
+def test_open_parent(status, client, db, phabfactory, auth0_mock):
+    parent_data = phabfactory.revision(status=status.value)
+    phabfactory.revision(id='D2', depends_on=parent_data)
+
+    response = client.post(
+        '/landings/dryrun',
+        json=dict(revision_id='D2', diff_id=1),
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json['blockers'][0]['id'] == 'E004'
