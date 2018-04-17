@@ -20,7 +20,8 @@ from landoapi.phabricator import PhabricatorClient
 from landoapi.repos import Repo
 from landoapi.storage import db as _db
 
-from tests.factories import PhabResponseFactory, TransResponseFactory
+from tests.factories import TransResponseFactory
+from tests.mocks import PhabricatorDouble
 
 
 class JSONClient(flask.testing.FlaskClient):
@@ -82,9 +83,9 @@ def request_mocker():
 
 
 @pytest.fixture
-def phabfactory(request_mocker):
+def phabdouble(monkeypatch):
     """Mock the Phabricator service and build fake response objects."""
-    yield PhabResponseFactory(request_mocker)
+    yield PhabricatorDouble(monkeypatch)
 
 
 @pytest.fixture

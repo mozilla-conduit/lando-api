@@ -6,7 +6,6 @@ import json
 
 import requests_mock
 
-from tests.canned_responses.phabricator.errors import CANNED_EMPTY_RESULT
 from tests.utils import phab_url
 
 
@@ -26,9 +25,16 @@ def test_dockerflow_version_matches_disk_contents(client, versionfile):
 
 
 def test_heartbeat_returns_200_if_phabricator_api_is_up(client):
-    json_response = CANNED_EMPTY_RESULT.copy()
     with requests_mock.mock() as m:
-        m.get(phab_url('conduit.ping'), status_code=200, json=json_response)
+        m.get(
+            phab_url('conduit.ping'),
+            status_code=200,
+            json={
+                "result": [],
+                "error_code": None,
+                "error_info": None,
+            }
+        )
 
         response = client.get('/__heartbeat__')
 

@@ -3,122 +3,106 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import pytest
-import requests_mock
-
-from landoapi.api.revisions import _format_reviewers
-from tests.canned_responses.lando_api.revisions import (
-    CANNED_LANDO_REVISION_1, CANNED_LANDO_REVIEWERS_PARTIAL,
-    CANNED_LANDO_REVISION_NOT_FOUND, CANNED_REVIEWERS_USER_DONT_MATCH_PARTIAL
-)
-from tests.canned_responses.phabricator.revisions import (
-    CANNED_REVISION_2_REVIEWERS, CANNED_TWO_REVIEWERS_SEARCH_RESPONSE
-)
-from tests.canned_responses.phabricator.users import CANNED_USER_SEARCH_1
-from tests.utils import phab_url
 
 pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
 
-def test_get_revision(client, phabfactory):
-    phabfactory.revision()
-    response = client.get('/revisions/D1')
+def test_get_revision(client, phabdouble):
+    revision = phabdouble.revision(repo=phabdouble.repo())
+    response = client.get('/revisions/D{}'.format(revision['id']))
     assert response.status_code == 200
     assert response.content_type == 'application/json'
-    assert response.json == CANNED_LANDO_REVISION_1
+    assert response.json['id'] == 'D{}'.format(revision['id'])
 
 
-def test_get_revision_with_active_diff(client, phabfactory):
-    phabfactory.diff(id=1)
-    d2 = phabfactory.diff(id=2)
-    phabfactory.revision(active_diff=d2, diffs=['1'])
+def test_get_revision_with_active_diff(client, phabdouble):
+    diff1 = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff1, repo=phabdouble.repo())
+    diff2 = phabdouble.diff(revision=revision)
+
+    assert diff1['id'] != diff2['id']
 
     response = client.get('/revisions/D1')
-    assert response.json['diff']['id'] == 2
-    assert response.json['latest_diff_id'] == 2
+    assert response.json['diff']['id'] == diff2['id']
+    assert response.json['latest_diff_id'] == diff2['id']
 
-    response = client.get('/revisions/D1?diff_id=1')
+    response = client.get('/revisions/D1?diff_id={}'.format(diff1['id']))
     assert response.status_code == 200
-    assert response.json['diff']['id'] == 1
-    assert response.json['latest_diff_id'] == 2
+    assert response.json['diff']['id'] == diff1['id']
+    assert response.json['latest_diff_id'] == diff2['id']
 
 
-def test_get_revision_with_foreign_diff(client, phabfactory):
-    phabfactory.diff(id=1)
-    d2 = phabfactory.diff(id=2)
-    phabfactory.revision(active_diff=d2)
+def test_get_revision_with_foreign_diff(client, phabdouble):
+    repo = phabdouble.repo()
+    d1 = phabdouble.diff()
+    phabdouble.revision(diff=d1, repo=repo)
 
-    response = client.get('/revisions/D1?diff_id=1')
+    d2 = phabdouble.diff()
+    r2 = phabdouble.revision(diff=d2, repo=repo)
+
+    response = client.get(
+        '/revisions/D{}?diff_id={}'.format(r2['id'], d1['id'])
+    )
     assert response.status_code == 400
 
 
-def test_get_revision_with_nonexisting_diff(client, phabfactory):
-    phabfactory.revision()
+def test_get_revision_with_nonexisting_diff(client, phabdouble):
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
 
-    response = client.get('/revisions/D1?diff_id=900')
+    bogus_diff_id = 900
+    assert bogus_diff_id != diff['id']
+
+    response = client.get(
+        '/revisions/D{}?diff_id={}'.format(revision['id'], bogus_diff_id)
+    )
     assert response.status_code == 404
 
 
-def test_get_revision_returns_404(client, phabfactory):
+def test_get_revision_returns_404(client, phabdouble):
     response = client.get('/revisions/D9000')
     assert response.status_code == 404
     assert response.content_type == 'application/problem+json'
-    assert response.json == CANNED_LANDO_REVISION_NOT_FOUND
+    assert response.json['title'] == 'Revision not found'
 
 
-def test_revision_id_format(client, phabfactory):
-    phabfactory.revision()
-    response = client.get('/revisions/1')
+def test_revision_id_format(client, phabdouble):
+    revision = phabdouble.revision(repo=phabdouble.repo())
+    response = client.get('/revisions/{}'.format(revision['id']))
     assert response.status_code == 400
     assert response.json['title'] == 'Bad Request'
-    response = client.get('/revisions/d1')
+    response = client.get('/revisions/d{}'.format(revision['id']))
     assert response.status_code == 400
 
 
-def test_get_revision_no_reviewers(client, phabfactory):
-    phabfactory.revision(reviewers=[])
-    response = client.get('/revisions/D1')
+def test_get_revision_no_reviewers(client, phabdouble):
+    revision = phabdouble.revision(repo=phabdouble.repo())
+    response = client.get('/revisions/D{}'.format(revision['id']))
     assert response.status_code == 200
     assert response.json['reviewers'] == []
 
 
-def test_get_revision_multiple_reviewers(client, phabfactory):
-    phabfactory.revision(
-        reviewers=[
-            {
-                'id': 2,
-                'username': 'foo'
-            }, {
-                'id': 3,
-                'username': 'bar',
-                'status': 'rejected',
-                'isBlocking': True,
-                'phid': 'PHID-USER-forced-in-test'
-            }
-        ]
-    )
+def test_get_revision_multiple_reviewers(client, phabdouble):
+    revision = phabdouble.revision(repo=phabdouble.repo())
+    u1 = phabdouble.user(username='reviewer1')
+    u2 = phabdouble.user(username='reviewer2')
+    phabdouble.reviewer(revision, u1)
+    phabdouble.reviewer(revision, u2, status='rejected', isBlocking=True)
+
     response = client.get('/revisions/D1')
     assert response.status_code == 200
-    assert response.json['reviewers'] == CANNED_LANDO_REVIEWERS_PARTIAL
-
-
-def test_format_reviewers_reviewers_and_users_dont_match(get_phab_client):
-    phab = get_phab_client()
-    with requests_mock.mock() as m:
-        m.get(
-            phab_url('differential.query'),
-            status_code=200,
-            json=CANNED_REVISION_2_REVIEWERS
-        )
-        m.get(
-            phab_url('differential.revision.search'),
-            status_code=200,
-            json=CANNED_TWO_REVIEWERS_SEARCH_RESPONSE
-        )
-        m.get(
-            phab_url('user.search'),
-            status_code=200,
-            json=CANNED_USER_SEARCH_1
-        )
-        reviewers = _format_reviewers(phab.get_reviewers(1))
-
-    assert reviewers == CANNED_REVIEWERS_USER_DONT_MATCH_PARTIAL
+    assert response.json['reviewers'] == [
+        {
+            'phid': u1['phid'],
+            'is_blocking': False,
+            'real_name': u1['realName'],
+            'status': 'accepted',
+            'username': u1['userName'],
+        }, {
+            'phid': u2['phid'],
+            'is_blocking': True,
+            'real_name': u2['realName'],
+            'status': 'rejected',
+            'username': u2['userName'],
+        }
+    ]

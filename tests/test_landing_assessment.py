@@ -13,11 +13,14 @@ class MockProblem(LandingProblem):
     id = 'M0CK'
 
 
-def test_no_warnings_or_blockers(client, db, phabfactory, auth0_mock):
-    phabfactory.revision('D23')
+def test_no_warnings_or_blockers(client, db, phabdouble, auth0_mock):
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
     response = client.post(
         '/landings/dryrun',
-        json=dict(revision_id='D23', diff_id=1),
+        json=dict(
+            revision_id='D{}'.format(revision['id']), diff_id=diff['id']
+        ),
         headers=auth0_mock.mock_headers,
     )
 
@@ -204,15 +207,18 @@ def test_hash_object_throws_error():
     ]
 )
 def test_blockers_for_bad_userinfo(
-    client, db, auth0_mock, phabfactory, userinfo, status, expected_blockers
+    client, db, auth0_mock, phabdouble, userinfo, status, expected_blockers
 ):
     # Remove SCM level 3 claim from Mozilla claim groups
     auth0_mock.userinfo = userinfo
-    phabfactory.revision()
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
 
     response = client.post(
         '/landings/dryrun',
-        json=dict(revision_id='D1', diff_id=1),
+        json=dict(
+            revision_id='D{}'.format(revision['id']), diff_id=diff['id']
+        ),
         headers=auth0_mock.mock_headers,
         content_type='application/json',
     )
@@ -221,16 +227,15 @@ def test_blockers_for_bad_userinfo(
     assert response.json['blockers'] == expected_blockers
 
 
-def test_inactive_diff_warns(
-    db, client, phabfactory, transfactory, auth0_mock
-):
-    phabfactory.diff(id=1)
-    d2 = phabfactory.diff(id=2)
-    phabfactory.revision(active_diff=d2, diffs=["1"])
+def test_inactive_diff_warns(db, client, phabdouble, transfactory, auth0_mock):
+    d1 = phabdouble.diff()
+    revision = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    d2 = phabdouble.diff(revision=revision)
+
     transfactory.mock_successful_response()
     response = client.post(
         '/landings/dryrun',
-        json=dict(revision_id='D1', diff_id=1),
+        json=dict(revision_id='D{}'.format(revision['id']), diff_id=d1['id']),
         headers=auth0_mock.mock_headers,
         content_type='application/json',
     )
@@ -238,21 +243,25 @@ def test_inactive_diff_warns(
     assert response.json['warnings'][0] == {
         'id': 'W001',
         'message': (
-            'Diff 1 is not the latest diff for the revision. Diff 2 '
-            'is now the latest, you might want to land it instead.'
+            'Diff {} is not the latest diff for the revision. Diff {} '
+            'is now the latest, you might want to land it instead.'.format(
+                d1['id'], d2['id']
+            )
         ),
     }  # yapf: disable
 
 
 def test_previously_landed_warns(
-    db, client, phabfactory, transfactory, auth0_mock
+    db, client, phabdouble, transfactory, auth0_mock
 ):
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
     db.session.add(
         Landing(
             request_id=1,
-            revision_id=1,
-            diff_id=1,
-            active_diff_id=1,
+            revision_id=revision['id'],
+            diff_id=diff['id'],
+            active_diff_id=diff['id'],
             requester_email='tuser@example.com',
             tree='mozilla-central',
             status=LandingStatus.landed,
@@ -261,11 +270,11 @@ def test_previously_landed_warns(
     )
     db.session.commit()
 
-    diff = phabfactory.diff(id=1)
-    phabfactory.revision(active_diff=diff)
     response = client.post(
         '/landings/dryrun',
-        json=dict(revision_id='D1', diff_id=1),
+        json=dict(
+            revision_id='D{}'.format(revision['id']), diff_id=diff['id']
+        ),
         headers=auth0_mock.mock_headers,
         content_type='application/json',
     )
@@ -276,21 +285,25 @@ def test_previously_landed_warns(
             'This diff ({landed_diff_id}) has already landed as '
             'commit {commit_sha}. Unless this change has been backed '
             'out, new changes should use a new revision.'.format(
-                landed_diff_id=1, commit_sha='X'*40
+                landed_diff_id=diff['id'], commit_sha='X'*40
             )
         ),
     }  # yapf: disable
 
 
 def test_previously_landed_but_landed_since_still_warns(
-    db, client, phabfactory, transfactory, auth0_mock
+    db, client, phabdouble, transfactory, auth0_mock
 ):
+    diff1 = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff1, repo=phabdouble.repo())
+    diff2 = phabdouble.diff(revision=revision)
+
     db.session.add(
         Landing(
             request_id=1,
-            revision_id=1,
-            diff_id=1,
-            active_diff_id=1,
+            revision_id=revision['id'],
+            diff_id=diff1['id'],
+            active_diff_id=diff1['id'],
             requester_email='tuser@example.com',
             tree='mozilla-central',
             status=LandingStatus.landed,
@@ -302,9 +315,9 @@ def test_previously_landed_but_landed_since_still_warns(
     db.session.add(
         Landing(
             request_id=2,
-            revision_id=1,
-            diff_id=2,
-            active_diff_id=2,
+            revision_id=revision['id'],
+            diff_id=diff2['id'],
+            active_diff_id=diff2['id'],
             requester_email='tuser@example.com',
             tree='mozilla-central',
             status=LandingStatus.failed,
@@ -313,12 +326,11 @@ def test_previously_landed_but_landed_since_still_warns(
     )
     db.session.commit()
 
-    phabfactory.diff(id=1)
-    diff = phabfactory.diff(id=2)
-    phabfactory.revision(active_diff=diff, diffs=['1'])
     response = client.post(
         '/landings/dryrun',
-        json=dict(revision_id='D1', diff_id=2),
+        json=dict(
+            revision_id='D{}'.format(revision['id']), diff_id=diff2['id']
+        ),
         headers=auth0_mock.mock_headers,
         content_type='application/json',
     )
@@ -329,20 +341,24 @@ def test_previously_landed_but_landed_since_still_warns(
             'Another diff ({landed_diff_id}) of this revision has already '
             'landed as commit {commit_sha}. Unless this change has been '
             'backed out, new changes should use a new revision.'.format(
-                landed_diff_id=1, commit_sha='X'*40
+                landed_diff_id=diff1['id'], commit_sha='X'*40
             )
         ),
     }  # yapf: disable
 
 
 @pytest.mark.parametrize('status', OPEN_STATUSES)
-def test_open_parent(status, client, db, phabfactory, auth0_mock):
-    parent_data = phabfactory.revision(status=status.value)
-    phabfactory.revision(id='D2', depends_on=parent_data)
+def test_open_parent(status, client, db, phabdouble, auth0_mock):
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(
+        diff=diff, repo=phabdouble.repo(), depends_on=[phabdouble.revision()]
+    )
 
     response = client.post(
         '/landings/dryrun',
-        json=dict(revision_id='D2', diff_id=1),
+        json=dict(
+            revision_id='D{}'.format(revision['id']), diff_id=diff['id']
+        ),
         headers=auth0_mock.mock_headers,
     )
 
