@@ -99,7 +99,7 @@ def test_landing_revision_calls_transplant_service(
 
     tsclient = MagicMock(spec=TransplantClient)
     tsclient().land.return_value = 1
-    monkeypatch.setattr('landoapi.models.landing.TransplantClient', tsclient)
+    monkeypatch.setattr('landoapi.api.landings.TransplantClient', tsclient)
     client.post(
         '/landings',
         json={
@@ -141,7 +141,7 @@ def test_push_bookmark_sent_when_supported_repo(
 
     tsclient = MagicMock(spec=TransplantClient)
     tsclient().land.return_value = 1
-    monkeypatch.setattr('landoapi.models.landing.TransplantClient', tsclient)
+    monkeypatch.setattr('landoapi.api.landings.TransplantClient', tsclient)
     client.post(
         '/landings',
         json={
@@ -268,7 +268,7 @@ def test_land_nonexisting_revision_returns_404(
     assert response.json['title'] == 'Revision not found'
 
 
-def test_land_nonexisting_diff_returns_400(db, client, phabdouble, auth0_mock):
+def test_land_nonexisting_diff_returns_404(db, client, phabdouble, auth0_mock):
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
     diff_404 = 9000
@@ -283,8 +283,8 @@ def test_land_nonexisting_diff_returns_400(db, client, phabdouble, auth0_mock):
         headers=auth0_mock.mock_headers,
     )
 
-    assert response.status_code == 400
-    assert response.json['title'] == 'Diff not related to the revision'
+    assert response.status_code == 404
+    assert response.json['title'] == 'Diff not found'
 
 
 def test_land_inactive_diff_without_acknowledgement_fails(

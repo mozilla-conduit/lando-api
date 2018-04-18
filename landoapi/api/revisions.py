@@ -6,15 +6,22 @@ Revision API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 import logging
+import urllib.parse
 from datetime import datetime, timezone
 
-from connexion import problem, ProblemException
-from flask import g
+from connexion import problem
+from flask import current_app, g
 
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.models.patch import DiffNotInRevisionException, Patch
-from landoapi.phabricator import collect_accepted_reviewers
+from landoapi.landings import (
+    lazy_get_reviewers,
+    lazy_user_search,
+)
+from landoapi.phabricator import (
+    PhabricatorClient,
+    ReviewerStatus,
+)
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
@@ -29,15 +36,20 @@ def get(revision_id, diff_id=None):
         diff_id: (integer) Id of the diff to return with the revision. By
             default the active diff will be returned.
     """
-    phab = g.phabricator
     revision_id = revision_id_to_int(revision_id)
-    revision = g.phabricator.single(
-        g.phabricator.call_conduit('differential.query', ids=[revision_id]),
-        none_when_empty=True
-    )
 
+    phab = g.phabricator
+    revision = phab.call_conduit(
+        'differential.revision.search',
+        constraints={'ids': [revision_id]},
+        attachments={
+            'reviewers': True,
+            'reviewers-extra': True,
+        }
+    )
+    revision = phab.expect(revision, 'data')
+    revision = phab.single(revision, none_when_empty=True)
     if not revision:
-        # We could not find a matching revision.
         return problem(
             404,
             'Revision not found',
@@ -45,21 +57,20 @@ def get(revision_id, diff_id=None):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
 
-    try:
-        return _format_revision(
-            phab,
-            revision,
-            diff_id=diff_id,
-            include_diff=True,
-        ), 200
-    except DiffNotInRevisionException:
-        logger.info(
-            {
-                'revision': revision_id,
-                'diff_id': diff_id,
-                'msg': 'Diff not it revision.',
-            }, 'revision.error'
+    latest_diff_phid = phab.expect(revision, 'fields', 'diffPHID')
+    latest_diff_id = phab.diff_phid_to_id(phid=latest_diff_phid)
+    diff_id = diff_id or latest_diff_id
+    diff = phab.call_conduit('differential.querydiffs', ids=[diff_id])
+    diff = diff.get(str(diff_id))
+    if diff is None:
+        return problem(
+            404,
+            'Diff not found',
+            'The requested diff does not exist',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
+
+    if phab.expect(diff, 'revisionID') != str(revision_id):
         return problem(
             400,
             'Diff not related to the revision',
@@ -67,185 +78,100 @@ def get(revision_id, diff_id=None):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
         )
 
+    author_phid = phab.expect(revision, 'fields', 'authorPHID')
 
-def _format_revision(
-    phab,
-    revision,
-    diff_id=None,
-    include_diff=False,
-    last_author=None,
-):
-    """Formats a revision given by Phabricator to match Lando's spec.
+    # Immediately execute the lazy functions.
+    reviewers = lazy_get_reviewers(phab, revision)()
+    users = lazy_user_search(phab, list(reviewers.keys()) + [author_phid])()
 
-    See the swagger.yml spec for the Revision definition.
-
-    Args:
-        phab: The PhabricatorClient to use to make additional requests.
-        revision: The initial revision to format.
-        diff_id: The id of one of this revision's diffs to include. If no id
-            is given the most recent diff will be used.
-        include_diff: A flag to choose whether to include the revision's diff.
-        last_author: A hash of the author who created the revision. This is
-            mainly used by this method itself when recursively loading parent
-            revisions so as to prevent excess requests for what is often the
-            same author on each parent revision.
-    Returns:
-        A dict of the formatted revision information.
-    """
-    bug_id = phab.extract_bug_id(revision)
-    revision_id = int(revision['id'])
-    raw_reviewers = phab.get_reviewers(revision_id)
-    reviewers = _format_reviewers(raw_reviewers)
-    commit_message_title, commit_message = format_commit_message(
-        revision['title'],
-        bug_id,
-        [
-            r['fields']['username']
-            for r in collect_accepted_reviewers(raw_reviewers)
-            if r.get('fields')
-        ],
-        revision['summary'],
-        revision['uri'],
-    )
-    author = _build_author(phab, revision, last_author)
-    repo = _build_repo(phab, revision)
-
-    diff = None
-    latest_diff_id = None
-    if include_diff:
-        latest_diff_id = phab.diff_phid_to_id(phid=revision['activeDiffPHID'])
-        diff = _build_diff(phab, revision, diff_id or latest_diff_id)
-
-    return {
-        'id': 'D{}'.format(revision_id),
-        'phid': revision['phid'],
-        'bug_id': bug_id,
-        'title': revision['title'],
-        'url': revision['uri'],
-        'date_created': _epoch_to_isoformat_time(revision['dateCreated']),
-        'date_modified': _epoch_to_isoformat_time(revision['dateModified']),
-        'status': int(revision['status']),
-        'status_name': revision['statusName'],
-        'summary': revision['summary'],
-        'test_plan': revision['testPlan'],
-        'commit_message_title': commit_message_title,
-        'commit_message': commit_message,
-        'diff': diff,
-        'latest_diff_id': latest_diff_id,
-        'author': author,
-        'repo': repo,
-        'reviewers': reviewers,
-    }
-
-
-def _build_diff(phab, revision, diff_id):
-    """Helper method to build the repo json for a revision response.
-
-    Args:
-        phab: The PhabricatorClient to use to make additional requests.
-        revision: The revision to get the most recent diff from.
-        diff_id: (integer) Id of the diff to return with the revision.
-    """
-    phab_diff = phab.call_conduit('differential.querydiffs', ids=[diff_id])
-    phab_diff = phab_diff.get(str(diff_id)) if phab_diff else None
-
-    if phab_diff is None:
-        raise ProblemException(
-            404,
-            'Diff not found',
-            'The requested diff does not exist',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
-        )  # yapf: disable
-
-    if diff_id:
-        Patch.validate_diff_assignment(diff_id, revision)
-
-    diff = {
-        'id': int(phab_diff['id']),
-        'revision_id': 'D{}'.format(phab_diff['revisionID']),
-        'date_created': _epoch_to_isoformat_time(phab_diff['dateCreated']),
-        'date_modified': _epoch_to_isoformat_time(phab_diff['dateModified']),
-        'vcs_base_revision': phab_diff['sourceControlBaseRevision'],
-        'authors': [],  # TODO: Remove after UI stops using.
-        'author': {
-            'name': phab_diff.get('authorName', ''),
-            'email': phab_diff.get('authorEmail', ''),
-        },
-    }
-
-    return diff
-
-
-def _build_author(phab, revision, last_author):
-    """Helper method to build the author json for a revision response.
-
-    Args:
-        phab: The PhabricatorClient to use to make additional requests.
-        revision: The revision to get the most recent diff from.
-        last_author: The author of a child revision that will be checked,
-            if it has the same phid, then it will be used instead of making
-            additional requests to Phabricator.
-    """
-    if last_author and revision['authorPHID'] == last_author['phid']:
-        return last_author
-
-    raw_author = phab.single(
-        phab.call_conduit('user.query', phids=[revision['authorPHID']])
-    )
-    return {
-        'phid': raw_author['phid'],
-        'username': raw_author['userName'],
-        'real_name': raw_author['realName'],
-        'url': raw_author['uri'],
-        'image_url': raw_author['image'],
-    }
-
-
-def _format_reviewers(reviewers_list):
-    """Helper method to build the reviewers list for a revision response.
-
-    Takes reviewers data as returned by `phab.get_reviewers`. If user is not
-    found for the reviewer's PHID, an empty string is set as a value of
-    username and real_name keys.
-
-    Args:
-        reviewers_list: The list of reviewers.
-
-    Returns:
-        List of the reviewers data for the revision
-    """
-    return [
-        {
-            'phid': r['reviewerPHID'],
-            # fields key is empty if user info not found for reviewer
-            'username': r['fields']['username'] if r.get('fields') else '',
-            'status': r['status'],
-            'real_name': r['fields']['realName'] if r.get('fields') else '',
-            'is_blocking': r['isBlocking']
-        } for r in reviewers_list
+    accepted_reviewers = [
+        phab.expect(users, phid, 'fields', 'username')
+        for phid, r in reviewers.items()
+        if r['status'] is ReviewerStatus.ACCEPTED
     ]
 
+    title = phab.expect(revision, 'fields', 'title')
+    summary = phab.expect(revision, 'fields', 'summary')
+    bug_id = phab.expect(revision, 'fields').get('bugzilla.bug-id')
+    bug_id = int(bug_id) if bug_id is not None else None
+    human_revision_id = 'D{}'.format(revision_id)
+    revision_url = urllib.parse.urljoin(
+        current_app.config['PHABRICATOR_URL'], human_revision_id
+    )
+    commit_message_title, commit_message = format_commit_message(
+        title, bug_id, accepted_reviewers, summary, revision_url
+    )
 
-def _build_repo(phab, revision):
-    """Helper method to build the repo json for a revision response.
+    reviewers_response = _render_reviewers_response(reviewers, users)
+    author_response = _render_author_response(author_phid, users)
+    diff_response = _render_diff_response(diff)
 
-    Args:
-        phab: The PhabricatorClient to use to make additional requests.
-        revision: The revision to get the most recent diff from.
-    """
-    repo_phid = phab.expect(revision, 'repositoryPHID')
-    if repo_phid:
-        repo = phab.call_conduit(
-            'diffusion.repository.search', constraints={'phids': [repo_phid]}
+    return {
+        'id': human_revision_id,
+        'phid': phab.expect(revision, 'phid'),
+        'bug_id': bug_id,
+        'title': title,
+        'url': revision_url,
+        'date_created': _epoch_to_isoformat_time(
+            phab.expect(revision, 'fields', 'dateCreated')
+        ),
+        'date_modified': _epoch_to_isoformat_time(
+            phab.expect(revision, 'fields', 'dateModified')
+        ),
+        'summary': summary,
+        'commit_message_title': commit_message_title,
+        'commit_message': commit_message,
+        'diff': diff_response,
+        'latest_diff_id': latest_diff_id,
+        'author': author_response,
+        'reviewers': reviewers_response,
+    }, 200  # yapf: disable
+
+
+def _render_reviewers_response(collated_reviewers, user_search_data):
+    reviewers = []
+
+    for phid, r in collated_reviewers.items():
+        user_fields = user_search_data.get(phid, {}).get('fields', {})
+        reviewers.append(
+            {
+                'phid': phid,
+                'status': r['status'].value,
+                'is_blocking': r['isBlocking'],
+                'username': user_fields.get('username', ''),
+                'real_name': user_fields.get('realName', ''),
+            }
         )
-        repo = phab.expect(repo, 'data', 0)
 
-        return {
-            'phid': phab.expect(repo, 'phid'),
-            'name': phab.expect(repo, 'fields', 'name'),
-        }
+    return reviewers
 
-    return None
+
+def _render_author_response(phid, user_search_data):
+    author = user_search_data.get(phid, {})
+    return {
+        'phid': PhabricatorClient.expect(author, 'phid'),
+        'username': PhabricatorClient.expect(author, 'fields', 'username'),
+        'real_name': PhabricatorClient.expect(author, 'fields', 'realName'),
+    }
+
+
+def _render_diff_response(querydiffs_data):
+    return {
+        'id': int(PhabricatorClient.expect(querydiffs_data, 'id')),
+        'date_created': _epoch_to_isoformat_time(
+            PhabricatorClient.expect(querydiffs_data, 'dateCreated')
+        ),
+        'date_modified': _epoch_to_isoformat_time(
+            PhabricatorClient.expect(querydiffs_data, 'dateModified')
+        ),
+        'vcs_base_revision': PhabricatorClient.expect(
+            querydiffs_data, 'sourceControlBaseRevision'
+        ),
+        'author': {
+            'name': querydiffs_data.get('authorName', ''),
+            'email': querydiffs_data.get('authorEmail', ''),
+        },
+    }  # yapf: disable
 
 
 def _epoch_to_isoformat_time(seconds):

@@ -5,11 +5,7 @@ import datetime
 import enum
 import logging
 
-from flask import current_app
-
-from landoapi.models.patch import Patch
 from landoapi.storage import db
-from landoapi.transplant_client import TransplantClient, TransplantError
 
 logger = logging.getLogger(__name__)
 
@@ -75,91 +71,6 @@ class Landing(db.Model):
         default=db.func.now(),
         onupdate=db.func.now()
     )
-
-    @classmethod
-    def create(
-        cls, revision, diff_id, requester_email, phab, active_diff_id,
-        landing_repo
-    ):
-        """Land revision.
-
-        A typical successful story:
-            * Revision and Diff are loaded from Phabricator.
-            * Patch is created and uploaded to S3 bucket.
-            * Landing object is created (without request_id)
-            * A request to land the patch is send to Transplant client.
-            * Created landing object is updated with returned `request_id`
-              and status `submitted`. It is then saved and returned.
-
-        Args:
-            revision: A dict of the revision data just as it is returned
-                by Phabricator.
-            diff_id: The id of the diff to be landed
-            requester_email: The LDAP email address of the person requesting
-                the landing
-            phab: The PhabricatorClient instance to use
-            active_diff_id: The diff id of the latest diff for the given
-                revision. Not always equal to diff_id.
-            landing_repo: A landoapi.repos.Repo describing where to land.
-
-        Returns:
-            A new Landing object
-
-        Raises:
-            LandingNotCreatedException: landing request in Transplant failed
-        """
-        assert revision is not None
-        revision_id = int(revision['id'])
-
-        # Save the initial landing request
-        landing = cls(
-            diff_id=diff_id,
-            active_diff_id=active_diff_id,
-            revision_id=revision_id,
-            requester_email=requester_email,
-            tree=landing_repo.tree
-        )
-        db.session.add(landing)
-        db.session.commit()
-
-        # Create a patch and upload it to S3
-        patch = Patch(landing.id, revision, diff_id)
-        patch.upload(phab)
-
-        # Send the request to transplant for landing
-        trans = TransplantClient(
-            current_app.config['TRANSPLANT_URL'],
-            current_app.config['TRANSPLANT_USERNAME'],
-            current_app.config['TRANSPLANT_PASSWORD'],
-        )
-        try:
-            request_id = trans.land(
-                revision_id=revision_id,
-                ldap_username=landing.requester_email,
-                patch_urls=[patch.s3_url],
-                tree=landing_repo.tree,
-                pingback=current_app.config['PINGBACK_URL'],
-                push_bookmark=landing_repo.push_bookmark
-            )
-        except TransplantError:
-            raise LandingNotCreatedException
-
-        if not request_id:
-            raise LandingNotCreatedException
-
-        landing.request_id = request_id
-        landing.status = LandingStatus.submitted
-        db.session.commit()
-
-        logger.info(
-            {
-                'revision_id': revision_id,
-                'landing_id': landing.id,
-                'msg': 'landing created for revision'
-            }, 'landing.success'
-        )
-
-        return landing
 
     @classmethod
     def is_revision_submitted(cls, revision_id):
@@ -229,8 +140,3 @@ class Landing(db.Model):
             )
         else:
             self.status = LandingStatus.landed
-
-
-class LandingNotCreatedException(Exception):
-    """Transplant service failed to land a revision."""
-    pass

@@ -6,7 +6,7 @@ import pytest
 from landoapi.landings import LandingAssessment, LandingProblem
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
-from landoapi.phabricator import OPEN_STATUSES
+from landoapi.phabricator import RevisionStatus
 
 
 class MockProblem(LandingProblem):
@@ -347,7 +347,7 @@ def test_previously_landed_but_landed_since_still_warns(
     }  # yapf: disable
 
 
-@pytest.mark.parametrize('status', OPEN_STATUSES)
+@pytest.mark.parametrize('status', [s for s in RevisionStatus if not s.closed])
 def test_open_parent(status, client, db, phabdouble, auth0_mock):
     diff = phabdouble.diff()
     revision = phabdouble.revision(

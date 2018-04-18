@@ -4,10 +4,10 @@
 from copy import deepcopy
 
 from landoapi.phabricator import (
-    CLOSED_STATUSES,
     PhabricatorAPIException,
     PhabricatorClient,
-    Statuses,
+    RevisionStatus,
+    ReviewerStatus,
 )
 
 from tests.canned_responses.phabricator.diffs import (
@@ -71,7 +71,7 @@ class PhabricatorDouble:
         diff=None,
         author=None,
         repo=None,
-        status=None,
+        status=RevisionStatus.ACCEPTED,
         depends_on=[],
         bug_id=None
     ):
@@ -85,16 +85,6 @@ class PhabricatorDouble:
 
         author = self.user() if author is None else author
 
-        status = Statuses.APPROVED if status is None else status
-        status_name = {
-            '0': 'Needs Review',
-            '1': 'Needs Revision',
-            '2': 'Approved',
-            '3': 'Closed',
-            '4': 'Abandoned',
-            '5': 'Changes Planned',
-        }[status.value]
-
         revision = {
             "id": revision_id,
             "type": "DREV",
@@ -104,8 +94,7 @@ class PhabricatorDouble:
             "dateCreated": 1495638270,
             "dateModified": 1496239141,
             "authorPHID": author['phid'],
-            "status": status.value,
-            "statusName": status_name,
+            "status": status,
             "properties": [],
             "branch": None,
             "summary": "my test revision summary",
@@ -144,7 +133,7 @@ class PhabricatorDouble:
                 "type": "DREV",
                 "name": "D{}".format(revision_id),
                 "fullName": "D{} {}".format(revision_id, title),
-                "status": "closed" if status in CLOSED_STATUSES else "open",
+                "status": "closed" if status.closed else "open",
             }
         )
 
@@ -290,7 +279,7 @@ class PhabricatorDouble:
         revision,
         user,
         *,
-        status='accepted',
+        status=ReviewerStatus.ACCEPTED,
         isBlocking=False,
         actor=None,
         on_diff=None,
@@ -325,6 +314,76 @@ class PhabricatorDouble:
 
         return reviewer
 
+    @conduit_method('edge.search')
+    def edge_search(
+        self,
+        *,
+        sourcePHIDs=None,
+        types=None,
+        destinationPHIDs=None,
+        before=None,
+        after=None,
+        limit=100
+    ):
+        def to_response(i):
+            return deepcopy(
+                {
+                    'edgeType': i['edgeType'],
+                    'sourcePHID': i['sourcePHID'],
+                    'destinationPHID': i['destinationPHID'],
+                }
+            )
+
+        if not sourcePHIDs:
+            error_info = 'Edge object query must be executed with a nonempty list of source PHIDs.'  # noqa
+            raise PhabricatorAPIException(
+                error_info,
+                error_code='ERR-CONDUIT-CORE',
+                error_info=error_info
+            )
+
+        if not types:
+            error_info = 'Edge search must specify a nonempty list of edge types.'  # noqa
+            raise PhabricatorAPIException(
+                error_info,
+                error_code='ERR-CONDUIT-CORE',
+                error_info=error_info
+            )
+
+        if not set(types) <= set(
+            (
+                'commit.revision', 'commit.task', 'mention', 'mentioned-in',
+                'revision.child', 'revision.commit', 'revision.parent',
+                'revision.task', 'task.commit', 'task.duplicate',
+                'task.merged-in', 'task.parent', 'task.revision',
+                'task.subtask',
+            )
+        ):
+            error_info = 'Edge type "<type-is-here>" is not a recognized edge type.'  # noqa
+            raise PhabricatorAPIException(
+                error_info,
+                error_code='ERR-CONDUIT-CORE',
+                error_info=error_info
+            )
+
+        items = [e for e in self._edges]
+        items = [i for i in items if i['sourcePHID'] in sourcePHIDs]
+        items = [i for i in items if i['edgeType'] in types]
+
+        if destinationPHIDs:
+            items = [
+                i for i in items if i['destinationPHID'] in destinationPHIDs
+            ]
+
+        return {
+            "data": [to_response(i) for i in items],
+            "cursor": {
+                "limit": limit,
+                "after": after,
+                "before": before,
+            }
+        }
+
     @conduit_method('differential.revision.search')
     def differential_revision_search(
         self,
@@ -342,6 +401,10 @@ class PhabricatorDouble:
                 (d for d in self._diffs if d['revisionID'] == i['id']),
                 key=lambda d: d['id']
             )
+            bug_id = (
+                str(i['bugzilla.bug-id'])
+                if i['bugzilla.bug-id'] is not None else None
+            )
 
             resp = {
                 'id': i['id'],
@@ -351,10 +414,10 @@ class PhabricatorDouble:
                     'title': i['title'],
                     'authorPHID': i['authorPHID'],
                     'status': {
-                        'value': 'published',
-                        'name': 'Closed',
-                        'closed': True,
-                        'color.ansi': 'cyan',
+                        'value': i['status'].value,
+                        'name': i['status'].output_name,
+                        'closed': i['status'].closed,
+                        'color.ansi': i['status'].color,
                     },
                     'repositoryPHID': i['repositoryPHID'],
                     'diffPHID': diffs[-1]['phid'],
@@ -365,7 +428,7 @@ class PhabricatorDouble:
                         'view': 'public',
                         'edit': 'users',
                     },
-                    'bugzilla.bug-id': str(i['bugzilla.bug-id']),
+                    'bugzilla.bug-id': bug_id,
                 },
                 'attachments': {},
             }
@@ -374,19 +437,19 @@ class PhabricatorDouble:
                 r for r in self._reviewers if r['revisionPHID'] == i['phid']
             ]
 
-            if attachments.get('reviewers'):
+            if attachments and attachments.get('reviewers'):
                 resp['attachments']['reviewers'] = {
                     'reviewers': [
                         {
                             'reviewerPHID': r['reviewerPHID'],
-                            'status': r['status'],
+                            'status': r['status'].value,
                             'isBlocking': r['isBlocking'],
                             'actorPHID': r['actorPHID'],
                         } for r in reviewers
                     ],
                 }
 
-            if attachments.get('reviewers-extra'):
+            if attachments and attachments.get('reviewers-extra'):
                 resp['attachments']['reviewers-extra'] = {
                     'reviewers-extra': [
                         {
@@ -401,11 +464,36 @@ class PhabricatorDouble:
 
         items = [r for r in self._revisions]
 
-        if 'ids' in constraints:
+        if constraints and 'ids' in constraints:
             items = [i for i in items if i['id'] in constraints['ids']]
 
-        if 'phids' in constraints:
+        if constraints and 'phids' in constraints:
             items = [i for i in items if i['phid'] in constraints['phids']]
+
+        if constraints and 'statuses' in constraints:
+            status_set = set(constraints['statuses'])
+            if 'open()' in status_set:
+                status_set.remove('open()')
+                status_set.update(
+                    {
+                        s.value
+                        for s in RevisionStatus
+                        if not s.closed and
+                        s is not RevisionStatus.UNEXPECTED_STATUS
+                    }
+                )
+            if 'closed()' in status_set:
+                status_set.remove('closed()')
+                status_set.update(
+                    {
+                        s.value
+                        for s in RevisionStatus
+                        if s.closed and
+                        s is not RevisionStatus.UNEXPECTED_STATUS
+                    }
+                )
+
+            items = [i for i in items if i['status'].value in status_set]
 
         return {
             "data": [to_response(i) for i in items],
@@ -469,6 +557,8 @@ class PhabricatorDouble:
                 'activeDiffPHID': diffs[-1]['phid'],
                 'diffs': [str(d['id']) for d in reversed(diffs)],
                 'auxiliary': auxiliary,
+                'status': i['status'].deprecated_id,
+                'statusName': i['status'].output_name,
                 'reviewers': {
                     r['reviewerPHID']: r['reviewerPHID']
                     for r in self._reviewers if r['revisionPHID'] == i['phid']
@@ -476,9 +566,9 @@ class PhabricatorDouble:
             }
 
             for k in (
-                "phid", "title", "uri", "authorPHID", "status", "statusName",
-                "properties", "branch", "summary", "testPlan", "hashes", "ccs",
-                "repositoryPHID", "sourcePath"
+                "phid", "title", "uri", "authorPHID", "properties", "branch",
+                "summary", "testPlan", "hashes", "ccs", "repositoryPHID",
+                "sourcePath",
             ):
                 resp[k] = i[k]
 

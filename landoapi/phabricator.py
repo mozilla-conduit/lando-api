@@ -6,25 +6,134 @@ import logging
 from json.decoder import JSONDecodeError
 
 import requests
-from enum import Enum
+from enum import Enum, unique
 
 logger = logging.getLogger(__name__)
 
 
-class Statuses(Enum):
-    NEEDS_REVIEW = '0'
-    NEEDS_REVISION = '1'
-    APPROVED = '2'
-    CLOSED = '3'
-    ABANDONED = '4'
-    CHANGES_PLANNED = '5'
+@unique
+class RevisionStatus(Enum):
+    """Enumeration of statuses a revision may have.
+
+    These statuses were exhaustive at the time of creation, but
+    Phabricator may add statuses in the future (such as the DRAFT
+    status that was recently added).
+    """
+    ABANDONED = "abandoned"
+    ACCEPTED = "accepted"
+    CHANGES_PLANNED = "changes-planned"
+    PUBLISHED = "published"
+    NEEDS_REVIEW = "needs-review"
+    NEEDS_REVISION = "needs-revision"
+    DRAFT = "draft"
+    UNEXPECTED_STATUS = None
+
+    @classmethod
+    def from_deprecated_id(cls, identifier, *, name=None):
+        return {
+            '0': cls.DRAFT if name == 'Draft' else cls.NEEDS_REVIEW,
+            '1': cls.NEEDS_REVISION,
+            '2': cls.ACCEPTED,
+            '3': cls.PUBLISHED,
+            '4': cls.ABANDONED,
+            '5': cls.CHANGES_PLANNED,
+        }.get(str(identifier), cls.UNEXPECTED_STATUS)
+
+    @classmethod
+    def from_status(cls, value):
+        try:
+            return cls(value)
+        except ValueError:
+            pass
+
+        return cls.UNEXPECTED_STATUS
+
+    @classmethod
+    def meta(cls):
+        return {
+            cls.ABANDONED: {
+                'name': 'Abandoned',
+                'closed': True,
+                'color.ansi': None,
+                'deprecated_id': '4',
+            },
+            cls.ACCEPTED: {
+                'name': 'Accepted',
+                'closed': False,
+                'color.ansi': 'green',
+                'deprecated_id': '2',
+            },
+            cls.CHANGES_PLANNED: {
+                'name': 'Changes Planned',
+                'closed': False,
+                'color.ansi': 'red',
+                'deprecated_id': '5',
+            },
+            cls.PUBLISHED: {
+                'name': 'Closed',
+                'closed': True,
+                'color.ansi': 'cyan',
+                'deprecated_id': '3',
+            },
+            cls.NEEDS_REVIEW: {
+                'name': 'Needs Review',
+                'closed': False,
+                'color.ansi': 'magenta',
+                'deprecated_id': '0',
+            },
+            cls.NEEDS_REVISION: {
+                'name': 'Needs Revision',
+                'closed': False,
+                'color.ansi': 'red',
+                'deprecated_id': '1',
+            },
+            cls.DRAFT: {
+                'name': 'Draft',
+                'closed': False,
+                'color.ansi': None,
+                'deprecated_id': '0',
+            },
+        }
+
+    @property
+    def deprecated_id(self):
+        return self.meta().get(self, {}).get('deprecated_id', '')
+
+    @property
+    def output_name(self):
+        return self.meta().get(self, {}).get('name', '')
+
+    @property
+    def closed(self):
+        return self.meta().get(self, {}).get('closed', False)
+
+    @property
+    def color(self):
+        return self.meta().get(self, {}).get('color.ansi')
 
 
-CLOSED_STATUSES = [Statuses.CLOSED, Statuses.ABANDONED]
-OPEN_STATUSES = [
-    Statuses.NEEDS_REVIEW, Statuses.NEEDS_REVISION, Statuses.APPROVED,
-    Statuses.CHANGES_PLANNED
-]
+@unique
+class ReviewerStatus(Enum):
+    """Enumeration of statuses a reviewer may have.
+
+    These statuses were exhaustive at the time of creation, but
+    Phabricator may add statuses in the future.
+    """
+    ADDED = 'added'
+    ACCEPTED = 'accepted'
+    BLOCKING = 'blocking'
+    REJECTED = 'rejected'
+    RESIGNED = 'resigned'
+    UNEXPECTED_STATUS = None
+
+    @classmethod
+    def from_status(cls, value):
+        try:
+            return cls(value)
+        except ValueError:
+            pass
+
+        return cls.UNEXPECTED_STATUS
 
 
 class PhabricatorClient:
@@ -157,65 +266,6 @@ class PhabricatorClient:
         diff_uri = self.expect(phid_query_result, phid, 'uri')
         return self._extract_diff_id_from_uri(diff_uri)
 
-    def get_reviewers(self, revision_id):
-        """Gets reviewers of the revision.
-
-        Requests `revision.search` to get the reviewers data. Then - with the
-        received reviewerPHID keys - a new request is made to `user.search`
-        to get the user info. A new dict indexed by phid is created with keys
-        and values from both requests.
-
-        Attributes:
-            revision_id: integer, ID of the revision in Phabricator
-
-        Returns:
-            A list sorted by phid of combined reviewers and users info.
-        """
-        # Get basic information about the reviewers
-        # reviewerPHID, actorPHID, status, and isBlocking is provided
-        result = self.call_conduit(
-            'differential.revision.search',
-            constraints={'ids': [revision_id]},
-            attachments={'reviewers': True}
-        )
-        data = self.expect(result, 'data')
-        reviewers = self.expect(
-            data, 0, 'attachments', 'reviewers', 'reviewers'
-        )
-
-        if not reviewers:
-            return {}
-
-        # Get user info of all revision reviewers
-        reviewers_phids = [self.expect(r, 'reviewerPHID') for r in reviewers]
-        result = self.call_conduit(
-            'user.search', constraints={'phids': reviewers_phids}
-        )
-        reviewers_info = self.expect(result, 'data')
-
-        if len(reviewers) != len(reviewers_info):
-            logger.warning(
-                {
-                    'reviewers_phids': reviewers_phids,
-                    'users_phids': [r['phid'] for r in reviewers_info],
-                    'revision_id': revision_id,
-                    'msg': 'Number of reviewers and user accounts do not match'
-                }, 'get_reviewers.warning'
-            )
-
-        # Create a dict of all reviewers and users info identified by PHID.
-        reviewers_dict = {}
-        for data in reviewers, reviewers_info:
-            for reviewer in data:
-                phid = reviewer.get('reviewerPHID') or reviewer.get('phid')
-                reviewers_dict[phid] = reviewers_dict.get(phid, {})
-                reviewers_dict[phid].update(reviewer)
-
-        # Translate the dict to a list sorted by the key (PHID)
-        return [
-            r[1] for r in sorted(reviewers_dict.items(), key=lambda x: x[0])
-        ]
-
     def verify_api_token(self):
         """ Verifies that the api token is valid.
 
@@ -227,22 +277,6 @@ class PhabricatorClient:
         except PhabricatorAPIException:
             return False
         return True
-
-    @classmethod
-    def extract_bug_id(cls, revision):
-        """Helper method to extract the bug id from a Phabricator revision.
-
-        Args:
-            revision: dict containing revision info.
-
-        Returns:
-            (int) Bugzilla bug id or None
-        """
-        bug_id = cls.expect(revision, 'auxiliary').get('bugzilla.bug-id', None)
-        try:
-            return int(bug_id)
-        except (TypeError, ValueError):
-            return None
 
     @staticmethod
     def _extract_diff_id_from_uri(uri):
@@ -288,12 +322,59 @@ class PhabricatorCommunicationException(PhabricatorAPIException):
     """Exception when communicating with Phabricator fails."""
 
 
-def collect_accepted_reviewers(reviewers):
-    """Return a generator of reviewers who have accepted.
+def collate_reviewer_attachments(reviewers, reviewers_extra):
+    """Return collated reviewer data.
 
     Args:
-        reviewers: an iterable of reviewer data dicts.
+        reviewers: Data from the 'reviewers' attachment of
+            differential.revision.search.
+        reviewers_extra: Data from the 'reviewers-extra'
+            attachment of differential.revision.search.
     """
-    for r in reviewers:
-        if r['status'] == 'accepted':
-            yield r
+    phids = {}
+    for reviewer in reviewers:
+        data = {}
+        for k in ('reviewerPHID', 'isBlocking', 'actorPHID'):
+            data[k] = PhabricatorClient.expect(reviewer, k)
+
+        data['status'] = ReviewerStatus.from_status(
+            PhabricatorClient.expect(reviewer, 'status')
+        )
+
+        phids[data['reviewerPHID']] = data
+
+    for reviewer in reviewers_extra:
+        data = {}
+        for k in ('reviewerPHID', 'diffPHID', 'voidedPHID'):
+            data[k] = PhabricatorClient.expect(reviewer, k)
+
+        data.update(phids.get(data['reviewerPHID'], {}))
+        phids[data['reviewerPHID']] = data
+
+    if len(phids) > min(len(reviewers), len(reviewers_extra)):
+        raise PhabricatorCommunicationException(
+            'Phabricator responded with unexpected data'
+        )
+
+    return phids
+
+
+def result_list_to_phid_dict(result_list, *, phid_key='phid'):
+    """Return a dictionary mapping phid to items from a result list.
+
+    Args:
+        result_list: A list of result items from phabricator which
+            contain a phid in the key specified by `phid_key`
+        phid_key: The key to access the phid from each item.
+    """
+    result = {}
+    for i in result_list:
+        phid = PhabricatorClient.expect(i, phid_key)
+        if phid in result:
+            raise PhabricatorCommunicationException(
+                'Phabricator responded with unexpected data'
+            )
+
+        result[phid] = i
+
+    return result

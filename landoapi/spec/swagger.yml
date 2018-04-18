@@ -2,7 +2,7 @@ swagger: '2.0'
 info:
   title: Lando API
   description: An API to get and land Phabricator revisions.
-  version: "0.1.0"
+  version: "0.2.0"
 securityDefinitions:
   PhabricatorAPIKeyHeader:
     type: apiKey
@@ -371,30 +371,10 @@ definitions:
         description: |
           The date that the revision was last modified as an ISO format UTC
           timestamp.
-      status:
-        type: integer
-        description: |
-          An integer representing the review status of the revision.
-          0 - Needs Review.
-          1 - Needs Revision.
-          2 - Approved.
-          3 - Closed.
-          4 - Abandoned.
-          5 - Changes Planned.
-          Phabricator may use other integers to represent other statuses, but,
-          these are not known at this time.
-      status_name:
-        type: string
-        description: |
-          A string representation of the status as determined by Phabricator.
       summary:
         type: string
         description: |
           The summary provided on the revision.
-      test_plan:
-        type: string
-        description: |
-          The test plan provided on the revision.
       commit_message_title:
         type: string
         description: |
@@ -416,8 +396,6 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/Reviewer'
-      repo:
-        $ref: '#/definitions/Repo'
   User:
     type: object
     properties:
@@ -433,14 +411,6 @@ definitions:
         type: string
         description: |
           The user's real name as they set it on Phabricator.
-      url:
-        type: string
-        description: |
-          A url pointing to the user on Phabricator.
-      image_url:
-        type: string
-        description: |
-          A url pointing to the user's Phabricator avatar.
   Reviewer:
     type: object
     description: |
@@ -471,17 +441,6 @@ definitions:
           consistent about this field. If the user is added as a blocking
           reviewer it's value is true. However after the user accepts or
           rejects the revision, is_blocking value changes to false.
-  Repo:
-    type: object
-    properties:
-      phid:
-        type: string
-        description: |
-          The phid of the repo.
-      name:
-        type: string
-        description: |
-          The name of the repo.
   Diff:
     type: object
     properties:
@@ -489,10 +448,6 @@ definitions:
         type: integer
         description: |
           The integer id of the Diff.
-      revision_id:
-        type: string
-        description: |
-          The id of the Revision that this Diff belongs to e.g. 'D123'.
       date_created:
         type: string
         description: |
@@ -506,17 +461,6 @@ definitions:
         description: |
           The commit hash id of the commit that this Diff was based on. I.e.
           the parent commit of the commits used to make this Diff.
-      authors:
-        type: array
-        description: |
-          DEPRECATED, will always be an empty array.
-        items:
-          type: object
-          properties:
-            name:
-              type: string
-            email:
-              type: string
       author:
         type: object
         description: |

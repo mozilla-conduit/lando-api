@@ -6,26 +6,32 @@ Landing API
 See the OpenAPI Specification for this API in the spec/swagger.yml file.
 """
 import logging
+import urllib.parse
 
 from connexion import problem
 from flask import current_app, g, jsonify, request
 from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
+from landoapi.commit_message import format_commit_message
 from landoapi.decorators import lazy, require_phabricator_api_key
+from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.landings import (
     check_landing_conditions,
+    lazy_get_diff,
     lazy_get_landing_repo,
+    lazy_get_open_parents,
     lazy_get_repository,
+    lazy_get_reviewers,
     lazy_get_revision,
     lazy_latest_diff_id,
+    lazy_reviewers_search,
 )
-from landoapi.models.landing import (
-    Landing,
-    LandingNotCreatedException,
-)
-from landoapi.models.patch import DiffNotFoundException
+from landoapi.models.landing import Landing, LandingStatus
+from landoapi.patches import upload
+from landoapi.phabricator import ReviewerStatus
 from landoapi.storage import db
+from landoapi.transplant_client import TransplantClient, TransplantError
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
@@ -43,16 +49,33 @@ def dryrun(data):
     Returns a LandingAssessment for the given Revision ID.
     """
     revision_id, diff_id = unmarshal_landing_request(data)
-    get_revision = lazy_get_revision(g.phabricator, revision_id)
-    get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
+    phab = g.phabricator
+
+    get_revision = lazy_get_revision(phab, revision_id)
+    get_diff = lazy_get_diff(phab, diff_id)
+    get_latest_diff_id = lazy_latest_diff_id(phab, get_revision)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
-    get_repository = lazy_get_repository(g.phabricator, get_revision)
+    get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
-        g.phabricator, get_repository, current_app.config.get('ENVIRONMENT')
+        phab, get_repository, current_app.config.get('ENVIRONMENT')
     )
+    get_open_parents = lazy_get_open_parents(phab, get_revision)
+    get_reviewers = lazy_get_reviewers(phab, get_revision)
+    get_reviewer_users = lazy_reviewers_search(phab, get_reviewers)
     assessment = check_landing_conditions(
-        g.auth0_user, revision_id, diff_id, g.phabricator, get_revision,
-        get_latest_diff_id, get_latest_landed, get_repository, get_landing_repo
+        g.auth0_user,
+        revision_id,
+        diff_id,
+        phab,
+        get_revision,
+        get_latest_diff_id,
+        get_latest_landed,
+        get_repository,
+        get_landing_repo,
+        get_diff,
+        get_open_parents,
+        get_reviewers,
+        get_reviewer_users,
     )
     return jsonify(assessment.to_dict())
 
@@ -71,61 +94,128 @@ def post(data):
     )
 
     revision_id, diff_id = unmarshal_landing_request(data)
-    get_revision = lazy_get_revision(g.phabricator, revision_id)
-    get_latest_diff_id = lazy_latest_diff_id(g.phabricator, get_revision)
+    phab = g.phabricator
+
+    get_revision = lazy_get_revision(phab, revision_id)
+    get_diff = lazy_get_diff(phab, diff_id)
+    get_latest_diff_id = lazy_latest_diff_id(phab, get_revision)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
-    get_repository = lazy_get_repository(g.phabricator, get_revision)
+    get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
-        g.phabricator, get_repository, current_app.config.get('ENVIRONMENT')
+        phab, get_repository, current_app.config.get('ENVIRONMENT')
     )
+    get_open_parents = lazy_get_open_parents(phab, get_revision)
+    get_reviewers = lazy_get_reviewers(phab, get_revision)
+    get_reviewer_users = lazy_reviewers_search(phab, get_reviewers)
     assessment = check_landing_conditions(
         g.auth0_user,
         revision_id,
         diff_id,
-        g.phabricator,
+        phab,
         get_revision,
         get_latest_diff_id,
         get_latest_landed,
         get_repository,
         get_landing_repo,
-        short_circuit=True
+        get_diff,
+        get_open_parents,
+        get_reviewers,
+        get_reviewer_users,
+        short_circuit=True,
     )
     assessment.raise_if_blocked_or_unacknowledged(None)
 
-    # This is guaranteed to return an actual revision since we're
-    # running it after checking_landing_conditions().
+    # These are guaranteed to return proper data since we're
+    # running after checking_landing_conditions().
     revision = get_revision()
+    landing_repo = get_landing_repo()
+    diff = get_diff()
 
+    # TODO: Fallback to something else from auth0/phabricator.
+    author_name = diff.get('authorName', 'Unknown')
+    author_email = diff.get('authorEmail', '')
+
+    # Collect the usernames of reviewers who have accepted.
+    reviewers = get_reviewers()
+    users = get_reviewer_users()
+    accepted_reviewers = [
+        phab.expect(users, phid, 'fields', 'username')
+        for phid, r in reviewers.items()
+        if r['status'] is ReviewerStatus.ACCEPTED
+    ]
+
+    # Seconds since Unix Epoch, UTC.
+    date_modified = phab.expect(revision, 'fields', 'dateModified')
+
+    title = phab.expect(revision, 'fields', 'title')
+    summary = phab.expect(revision, 'fields', 'summary')
+    bug_id = phab.expect(revision, 'fields').get('bugzilla.bug-id')
+    bug_id = int(bug_id) if bug_id is not None else None
+    human_revision_id = 'D{}'.format(revision_id)
+    revision_url = urllib.parse.urljoin(
+        current_app.config['PHABRICATOR_URL'], human_revision_id
+    )
+    commit_message = format_commit_message(
+        title, bug_id, accepted_reviewers, summary, revision_url
+    )
+
+    # Construct the patch that will be sent to transplant.
+    raw_diff = phab.call_conduit('differential.getrawdiff', diffID=diff_id)
+    patch = build_patch_for_revision(
+        raw_diff, author_name, author_email, commit_message[1], date_modified
+    )
+
+    # Save the initial landing request.
+    # TODO: Fix race condition between checking
+    # if a landing is already in progress and
+    # creating our own.
+    landing = Landing(
+        diff_id=diff_id,
+        active_diff_id=get_latest_diff_id(),
+        revision_id=revision_id,
+        requester_email=g.auth0_user.email,
+        tree=landing_repo.tree
+    )
+    db.session.add(landing)
+    db.session.commit()
+
+    # Upload the patch to S3
+    patch_url = upload(
+        landing.id,
+        revision_id,
+        diff_id,
+        patch,
+        current_app.config['PATCH_BUCKET_NAME'],
+        aws_access_key=current_app.config['AWS_ACCESS_KEY'],
+        aws_secret_key=current_app.config['AWS_SECRET_KEY'],
+    )
+
+    # Send the request to transplant for landing
+    trans = TransplantClient(
+        current_app.config['TRANSPLANT_URL'],
+        current_app.config['TRANSPLANT_USERNAME'],
+        current_app.config['TRANSPLANT_PASSWORD'],
+    )
     try:
-        landing = Landing.create(
-            revision, diff_id, g.auth0_user.email, g.phabricator,
-            get_latest_diff_id(), get_landing_repo()
+        transplant_request_id = trans.land(
+            revision_id=revision_id,
+            ldap_username=landing.requester_email,
+            patch_urls=[patch_url],
+            tree=landing_repo.tree,
+            pingback=current_app.config['PINGBACK_URL'],
+            push_bookmark=landing_repo.push_bookmark
         )
-    except DiffNotFoundException:
-        # If we get here something has gone quite wrong with phabricator.
-        # Before this point we should have verified that the provided diff
-        # id was a diff associated with the revision, so failing to find
-        # the raw diff itself is puzzling.
-        logger.info(
-            {
-                'diff': diff_id,
-                'msg': 'diff not found'
-            }, 'landing.failure'
-        )
-        return problem(
-            404,
-            'Diff not found',
-            'The requested diff does not exist',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
-        )
-    except LandingNotCreatedException as exc:
+    except TransplantError as exc:
         logger.info(
             {
                 'revision': revision_id,
-                'exc': exc,
+                'exc': str(exc),
                 'msg': 'error creating landing',
             }, 'landing.error'
         )
+        transplant_request_id = None
+
+    if not transplant_request_id:
         return problem(
             502,
             'Landing not created',
@@ -133,6 +223,17 @@ def post(data):
             'Please retry your request at a later time.',
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502'
         )
+
+    landing.request_id = transplant_request_id
+    landing.status = LandingStatus.submitted
+    db.session.commit()
+    logger.info(
+        {
+            'revision_id': revision_id,
+            'landing_id': landing.id,
+            'msg': 'landing created for revision'
+        }, 'landing.success'
+    )
 
     return {'id': landing.id}, 202
 
@@ -142,7 +243,13 @@ def get_list(revision_id):
     """API endpoint at GET /landings to return a list of Landing objects."""
     # Verify that the client is permitted to see the associated revision.
     revision_id = revision_id_to_int(revision_id)
-    if not g.phabricator.call_conduit('differential.query', ids=[revision_id]):
+    revision = g.phabricator.call_conduit(
+        'differential.revision.search',
+        constraints={'ids': [revision_id]},
+    )
+    revision = g.phabricator.expect(revision, 'data')
+    revision = g.phabricator.single(revision, none_when_empty=True)
+    if not revision:
         return problem(
             404,
             'Revision not found',
@@ -161,9 +268,13 @@ def get(landing_id):
 
     if landing:
         # Verify that the client has permission to see the associated revision.
-        if g.phabricator.call_conduit(
-            'differential.query', ids=[landing.revision_id]
-        ):
+        revision = g.phabricator.call_conduit(
+            'differential.revision.search',
+            constraints={'ids': [landing.revision_id]},
+        )
+        revision = g.phabricator.expect(revision, 'data')
+        revision = g.phabricator.single(revision, none_when_empty=True)
+        if revision:
             return landing.serialize(), 200
 
     return problem(

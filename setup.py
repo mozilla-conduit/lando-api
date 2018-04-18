@@ -13,7 +13,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='landoapi',
-    version='0.1',
+    version='0.2.0',
     description='Turn Phabricator revisions into Mercurial commits.',
     long_description=long_description,
     url='https://github.com/mozilla-conduit/lando-api',

@@ -4,6 +4,8 @@
 
 import pytest
 
+from landoapi.phabricator import ReviewerStatus
+
 pytestmark = pytest.mark.usefixtures('docker_env_vars')
 
 
@@ -87,22 +89,29 @@ def test_get_revision_multiple_reviewers(client, phabdouble):
     u1 = phabdouble.user(username='reviewer1')
     u2 = phabdouble.user(username='reviewer2')
     phabdouble.reviewer(revision, u1)
-    phabdouble.reviewer(revision, u2, status='rejected', isBlocking=True)
+    phabdouble.reviewer(
+        revision, u2, status=ReviewerStatus.REJECTED, isBlocking=False
+    )
 
     response = client.get('/revisions/D1')
     assert response.status_code == 200
-    assert response.json['reviewers'] == [
-        {
-            'phid': u1['phid'],
-            'is_blocking': False,
-            'real_name': u1['realName'],
-            'status': 'accepted',
-            'username': u1['userName'],
-        }, {
-            'phid': u2['phid'],
-            'is_blocking': True,
-            'real_name': u2['realName'],
-            'status': 'rejected',
-            'username': u2['userName'],
-        }
-    ]
+
+    reviewers = response.json['reviewers']
+    assert len(reviewers) == 2
+    for reviewer in reviewers:
+        if reviewer['phid'] == u1['phid']:
+            assert reviewer == {
+                'phid': u1['phid'],
+                'is_blocking': False,
+                'real_name': u1['realName'],
+                'status': 'accepted',
+                'username': u1['userName'],
+            }
+        else:
+            assert reviewer == {
+                'phid': u2['phid'],
+                'is_blocking': False,
+                'real_name': u2['realName'],
+                'status': 'rejected',
+                'username': u2['userName'],
+            }
