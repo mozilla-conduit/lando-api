@@ -196,12 +196,16 @@ class PhabricatorClient:
     def create_session():
         return requests.Session()
 
-    @staticmethod
-    def single(result, *, none_when_empty=False):
+    @classmethod
+    def single(cls, result, *subkeys, none_when_empty=False):
         """Return the first item of a phabricator result.
 
         Args:
+            cls: class this method is called on.
             result: Data from the result key of a Phabricator API response.
+            *subkeys: An iterable of subkeys which the list of items is
+                present under. A common value would be ['data'] for standard
+                search conduit methods.
             none_when_empty: `None` is returned if the result is empty if
                 `none_when_empty` is True.
 
@@ -213,6 +217,9 @@ class PhabricatorClient:
             PhabricatorCommunicationException:
                 If there is more or less than a single item.
         """
+        if subkeys:
+            result = cls.expect(result, *subkeys)
+
         if len(result) > 1 or (not result and not none_when_empty):
             raise PhabricatorCommunicationException(
                 'Phabricator responded with unexpected data'
@@ -247,25 +254,6 @@ class PhabricatorClient:
 
         return result
 
-    def diff_phid_to_id(self, phid):
-        """Convert Diff PHID to the Diff id.
-
-        Send a request to Phabricator's `phid.query` API.
-        Extract Diff id from URI provided in result.
-
-        Args:
-            phid: The PHID of the diff.
-
-        Returns:
-            Integer representing the Diff id in Phabricator
-        """
-        phid_query_result = self.call_conduit('phid.query', phids=[phid])
-        if not phid_query_result:
-            return None
-
-        diff_uri = self.expect(phid_query_result, phid, 'uri')
-        return self._extract_diff_id_from_uri(diff_uri)
-
     def verify_api_token(self):
         """ Verifies that the api token is valid.
 
@@ -277,26 +265,6 @@ class PhabricatorClient:
         except PhabricatorAPIException:
             return False
         return True
-
-    @staticmethod
-    def _extract_diff_id_from_uri(uri):
-        """Extract a diff ID from a Diff uri."""
-        # The diff is part of a URI, such as
-        # "https://secure.phabricator.com/differential/diff/43480/".
-        parts = uri.rsplit('/', 4)
-
-        # Check that the URI Path is something we understand.  Fail if the
-        # URI path changed (signalling that the diff id part of the URI may
-        # be in a different segment of the URI string).
-        if parts[1:-2] != ['differential', 'diff']:
-            raise RuntimeError(
-                "Phabricator Diff URI parsing error: The "
-                "URI {} is not in a format we "
-                "understand!".format(uri)
-            )
-
-        # Take the second-last member because of the trailing slash on the URL.
-        return int(parts[-2])
 
 
 class PhabricatorAPIException(Exception):

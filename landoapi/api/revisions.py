@@ -47,9 +47,8 @@ def get(revision_id, diff_id=None):
             'reviewers-extra': True,
         }
     )
-    revision = phab.expect(revision, 'data')
-    revision = phab.single(revision, none_when_empty=True)
-    if not revision:
+    revision = phab.single(revision, 'data', none_when_empty=True)
+    if revision is None:
         return problem(
             404,
             'Revision not found',
@@ -57,11 +56,26 @@ def get(revision_id, diff_id=None):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
 
-    latest_diff_phid = phab.expect(revision, 'fields', 'diffPHID')
-    latest_diff_id = phab.diff_phid_to_id(phid=latest_diff_phid)
-    diff_id = diff_id or latest_diff_id
-    diff = phab.call_conduit('differential.querydiffs', ids=[diff_id])
-    diff = diff.get(str(diff_id))
+    latest_diff = phab.single(
+        phab.call_conduit(
+            'differential.diff.search',
+            constraints={
+                'phids': [phab.expect(revision, 'fields', 'diffPHID')]
+            },
+        ), 'data'
+    )
+    latest_diff_id = phab.expect(latest_diff, 'id')
+    if diff_id is not None and diff_id != latest_diff_id:
+        diff = phab.single(
+            phab.call_conduit(
+                'differential.diff.search', constraints={'ids': [diff_id]}
+            ),
+            'data',
+            none_when_empty=True
+        )
+    else:
+        diff = latest_diff
+
     if diff is None:
         return problem(
             404,
@@ -70,7 +84,8 @@ def get(revision_id, diff_id=None):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
 
-    if phab.expect(diff, 'revisionID') != str(revision_id):
+    revision_phid = phab.expect(revision, 'phid')
+    if phab.expect(diff, 'fields', 'revisionPHID') != revision_phid:
         return problem(
             400,
             'Diff not related to the revision',
@@ -78,10 +93,18 @@ def get(revision_id, diff_id=None):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
         )
 
+    # TODO: remove when commit author information is available in
+    # the 'commits' attachment of 'differential.revision.search'.
+    diff_id = phab.expect(diff, 'id')
+    querydiffs_diff = phab.call_conduit(
+        'differential.querydiffs', ids=[diff_id]
+    )
+    querydiffs_diff = phab.expect(querydiffs_diff, str(diff_id))
+
     author_phid = phab.expect(revision, 'fields', 'authorPHID')
 
     # Immediately execute the lazy functions.
-    reviewers = lazy_get_reviewers(phab, revision)()
+    reviewers = lazy_get_reviewers(revision)()
     users = lazy_user_search(phab, list(reviewers.keys()) + [author_phid])()
 
     accepted_reviewers = [
@@ -104,7 +127,7 @@ def get(revision_id, diff_id=None):
 
     reviewers_response = _render_reviewers_response(reviewers, users)
     author_response = _render_author_response(author_phid, users)
-    diff_response = _render_diff_response(diff)
+    diff_response = _render_diff_response(querydiffs_diff)
 
     return {
         'id': human_revision_id,
@@ -163,9 +186,6 @@ def _render_diff_response(querydiffs_data):
         ),
         'date_modified': _epoch_to_isoformat_time(
             PhabricatorClient.expect(querydiffs_data, 'dateModified')
-        ),
-        'vcs_base_revision': PhabricatorClient.expect(
-            querydiffs_data, 'sourceControlBaseRevision'
         ),
         'author': {
             'name': querydiffs_data.get('authorName', ''),

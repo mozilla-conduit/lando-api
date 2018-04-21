@@ -20,11 +20,11 @@ from landoapi.landings import (
     check_landing_conditions,
     lazy_get_diff,
     lazy_get_landing_repo,
+    lazy_get_latest_diff,
     lazy_get_open_parents,
     lazy_get_repository,
     lazy_get_reviewers,
     lazy_get_revision,
-    lazy_latest_diff_id,
     lazy_reviewers_search,
 )
 from landoapi.models.landing import Landing, LandingStatus
@@ -52,23 +52,22 @@ def dryrun(data):
     phab = g.phabricator
 
     get_revision = lazy_get_revision(phab, revision_id)
-    get_diff = lazy_get_diff(phab, diff_id)
-    get_latest_diff_id = lazy_latest_diff_id(phab, get_revision)
+    get_latest_diff = lazy_get_latest_diff(phab, get_revision)
+    get_diff = lazy_get_diff(phab, diff_id, get_latest_diff)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
     get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
-        phab, get_repository, current_app.config.get('ENVIRONMENT')
+        get_repository, current_app.config.get('ENVIRONMENT')
     )
     get_open_parents = lazy_get_open_parents(phab, get_revision)
-    get_reviewers = lazy_get_reviewers(phab, get_revision)
+    get_reviewers = lazy_get_reviewers(get_revision)
     get_reviewer_users = lazy_reviewers_search(phab, get_reviewers)
     assessment = check_landing_conditions(
         g.auth0_user,
         revision_id,
         diff_id,
-        phab,
         get_revision,
-        get_latest_diff_id,
+        get_latest_diff,
         get_latest_landed,
         get_repository,
         get_landing_repo,
@@ -97,23 +96,22 @@ def post(data):
     phab = g.phabricator
 
     get_revision = lazy_get_revision(phab, revision_id)
-    get_diff = lazy_get_diff(phab, diff_id)
-    get_latest_diff_id = lazy_latest_diff_id(phab, get_revision)
+    get_latest_diff = lazy_get_latest_diff(phab, get_revision)
+    get_diff = lazy_get_diff(phab, diff_id, get_latest_diff)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
     get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
-        phab, get_repository, current_app.config.get('ENVIRONMENT')
+        get_repository, current_app.config.get('ENVIRONMENT')
     )
     get_open_parents = lazy_get_open_parents(phab, get_revision)
-    get_reviewers = lazy_get_reviewers(phab, get_revision)
+    get_reviewers = lazy_get_reviewers(get_revision)
     get_reviewer_users = lazy_reviewers_search(phab, get_reviewers)
     assessment = check_landing_conditions(
         g.auth0_user,
         revision_id,
         diff_id,
-        phab,
         get_revision,
-        get_latest_diff_id,
+        get_latest_diff,
         get_latest_landed,
         get_repository,
         get_landing_repo,
@@ -129,11 +127,14 @@ def post(data):
     # running after checking_landing_conditions().
     revision = get_revision()
     landing_repo = get_landing_repo()
-    diff = get_diff()
+    diff, querydiffs_diff = get_diff()
+    latest_diff_id = get_latest_diff()['id']
 
     # TODO: Fallback to something else from auth0/phabricator.
-    author_name = diff.get('authorName', 'Unknown')
-    author_email = diff.get('authorEmail', '')
+    # TODO: Get author information from 'commits' attachment
+    # on diff object.
+    author_name = querydiffs_diff.get('authorName', 'Unknown')
+    author_email = querydiffs_diff.get('authorEmail', '')
 
     # Collect the usernames of reviewers who have accepted.
     reviewers = get_reviewers()
@@ -171,7 +172,7 @@ def post(data):
     # creating our own.
     landing = Landing(
         diff_id=diff_id,
-        active_diff_id=get_latest_diff_id(),
+        active_diff_id=latest_diff_id,
         revision_id=revision_id,
         requester_email=g.auth0_user.email,
         tree=landing_repo.tree

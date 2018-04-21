@@ -10,6 +10,7 @@ from landoapi.decorators import lazy
 from landoapi.models.landing import Landing
 from landoapi.phabricator import (
     collate_reviewer_attachments,
+    PhabricatorClient,
     result_list_to_phid_dict,
 )
 from landoapi.repos import get_repos_for_env
@@ -121,10 +122,9 @@ class LandingProblem:
 
     @classmethod
     def check(
-        cls, *, auth0_user, revision_id, diff_id, phabricator, get_revision,
-        get_latest_diff_id, get_latest_landed, get_repository,
-        get_landing_repo, get_diff, get_open_parents, get_reviewers,
-        get_reviewer_users
+        cls, *, auth0_user, revision_id, diff_id, get_revision,
+        get_latest_diff, get_latest_landed, get_repository, get_landing_repo,
+        get_diff, get_open_parents, get_reviewers, get_reviewer_users
     ):
         raise NotImplementedError(
             'check(...) must be implemented on LandingProblem subclasses.'
@@ -189,11 +189,12 @@ class OpenDependencies(LandingProblem):
     id = "E004"
 
     @classmethod
-    def check(cls, *, phabricator, get_open_parents, **kwargs):
+    def check(cls, *, get_open_parents, **kwargs):
         open_parents = get_open_parents()
         if open_parents:
             open_text = ', '.join(
-                'D{}'.format(phabricator.expect(r, 'id')) for r in open_parents
+                'D{}'.format(PhabricatorClient.expect(r, 'id'))
+                for r in open_parents
             )
             if len(open_parents) > 1:
                 return cls(
@@ -211,8 +212,10 @@ class InvalidRepository(LandingProblem):
     id = "E005"
 
     @classmethod
-    def check(cls, *, phabricator, get_revision, get_landing_repo, **kwargs):
-        if not phabricator.expect(get_revision(), 'fields', 'repositoryPHID'):
+    def check(cls, *, get_revision, get_landing_repo, **kwargs):
+        if not PhabricatorClient.expect(
+            get_revision(), 'fields', 'repositoryPHID'
+        ):
             return cls(
                 'This revision is not associated with a repository. '
                 'In order to land, a revision must be associated with a '
@@ -238,7 +241,8 @@ class DoesNotExist(LandingProblem):
                 type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404' # noqa
             )  # yapf: disable
 
-        if get_diff() is None:
+        diff, _ = get_diff()
+        if diff is None:
             raise ProblemException(
                 404,
                 'Diff not found',
@@ -251,9 +255,13 @@ class DiffNotPartOfRevision(LandingProblem):
     id = "X000"
 
     @classmethod
-    def check(cls, *, phabricator, revision_id, get_diff, **kwargs):
-        diff_revision_id = phabricator.expect(get_diff(), 'revisionID')
-        if diff_revision_id != str(revision_id):
+    def check(cls, *, get_revision, get_diff, **kwargs):
+        diff, _ = get_diff()
+        revision = get_revision()
+        if (
+            PhabricatorClient.expect(revision, 'phid') !=
+            PhabricatorClient.expect(diff, 'fields', 'revisionPHID')
+        ):
             raise ProblemException(
                 400,
                 'Diff not related to the revision',
@@ -266,8 +274,8 @@ class DiffNotLatest(LandingProblem):
     id = "W001"
 
     @classmethod
-    def check(cls, *, diff_id, get_latest_diff_id, **kwargs):
-        latest = get_latest_diff_id()
+    def check(cls, *, diff_id, get_latest_diff, **kwargs):
+        latest = PhabricatorClient.expect(get_latest_diff(), 'id')
         return None if diff_id == latest else cls(
             'Diff {} is not the latest diff for the revision. Diff {} '
             'is now the latest, you might want to land it instead.'.format(
@@ -307,9 +315,8 @@ def check_landing_conditions(
     auth0_user,
     revision_id,
     diff_id,
-    phabricator,
     get_revision,
-    get_latest_diff_id,
+    get_latest_diff,
     get_latest_landed,
     get_repository,
     get_landing_repo,
@@ -346,9 +353,8 @@ def check_landing_conditions(
             auth0_user=auth0_user,
             revision_id=revision_id,
             diff_id=diff_id,
-            phabricator=phabricator,
             get_revision=get_revision,
-            get_latest_diff_id=get_latest_diff_id,
+            get_latest_diff=get_latest_diff,
             get_latest_landed=get_latest_landed,
             get_repository=get_repository,
             get_landing_repo=get_landing_repo,
@@ -369,9 +375,8 @@ def check_landing_conditions(
             auth0_user=auth0_user,
             revision_id=revision_id,
             diff_id=diff_id,
-            phabricator=phabricator,
             get_revision=get_revision,
-            get_latest_diff_id=get_latest_diff_id,
+            get_latest_diff=get_latest_diff,
             get_latest_landed=get_latest_landed,
             get_repository=get_repository,
             get_landing_repo=get_landing_repo,
@@ -388,16 +393,21 @@ def check_landing_conditions(
 
 
 @lazy
-def lazy_latest_diff_id(phabricator, revision):
-    """Return the id of the latest diff for the given revision.
+def lazy_get_latest_diff(phabricator, revision):
+    """Return the latest diff as define by the Phabricator API.
 
     Args:
         phabricator: A PhabricatorClient instance.
         revision: A dict of the revision data just as it is returned
             by Phabricator.
     """
-    return phabricator.diff_phid_to_id(
-        phabricator.expect(revision, 'fields', 'diffPHID')
+    return phabricator.single(
+        phabricator.call_conduit(
+            'differential.diff.search',
+            constraints={
+                'phids': [phabricator.expect(revision, 'fields', 'diffPHID')]
+            },
+        ), 'data'
     )
 
 
@@ -427,21 +437,42 @@ def lazy_get_revision(phabricator, revision_id):
 
 
 @lazy
-def lazy_get_diff(phabricator, diff_id):
-    """Return a diff as defined by the Phabricator API.
+def lazy_get_diff(phabricator, diff_id, latest_diff):
+    """Return diff objects as defined by the Phabricator API.
 
     Args:
         phabricator: A PhabricatorClient instance.
         diff_id: The integer id of the diff.
 
     Returns:
-        The diff data from the Phabricator API for the provided
-        `diff_id`. If the diff is not found None is returned.
+        A 2-tuple of diff data from the Phabricator API for the provided
+        `diff_id`. Data for the first entry comes from a
+        'differential.diff.search', with the second entry coming from
+        'differential.querydiffs'. If the diff is not found None is returned.
     """
-    # TODO: Switch to differential.diff.search after PHI593.
-    diff = phabricator.call_conduit('differential.querydiffs', ids=[diff_id])
-    diff = diff.get(str(diff_id))
-    return diff
+    latest_diff_id = phabricator.expect(latest_diff, 'id')
+    if diff_id is not None and diff_id != latest_diff_id:
+        diff = phabricator.single(
+            phabricator.call_conduit(
+                'differential.diff.search',
+                constraints={'ids': [diff_id]},
+            ),
+            'data',
+            none_when_empty=True
+        )
+    else:
+        diff = latest_diff
+
+    if diff is None:
+        return None, None
+
+    # TODO: Remove this and return only above diff result after
+    # 'commits' attachment can be accessed on 'differential.diff.search'.
+    querydiffs_diff = phabricator.call_conduit(
+        'differential.querydiffs', ids=[diff_id]
+    )
+    querydiffs_diff = querydiffs_diff.get(str(diff_id))
+    return diff, querydiffs_diff
 
 
 @lazy
@@ -476,11 +507,10 @@ def lazy_get_repository(phabricator, revision):
 
 
 @lazy
-def lazy_get_landing_repo(phabricator, repository, env):
+def lazy_get_landing_repo(repository, env):
     """Return a landoapi.repos.Repo for the provided repository.
 
     Args:
-        phabricator: A PhabricatorClient instance.
         repository: A dict of the repository data just as it is returned
             by Phabricator.
         env: The environment Lando API is running in.
@@ -499,7 +529,7 @@ def lazy_get_landing_repo(phabricator, repository, env):
     if not repository:
         return None
 
-    shortname = phabricator.expect(repository, 'fields', 'shortName')
+    shortname = PhabricatorClient.expect(repository, 'fields', 'shortName')
     return get_repos_for_env(env).get(shortname)
 
 
@@ -564,16 +594,17 @@ def lazy_reviewers_search(phabricator, reviewers):
 
 
 @lazy
-def lazy_get_reviewers(phabricator, revision):
+def lazy_get_reviewers(revision):
     """Return a dictionary mapping phid to collated reviewer attachment data.
 
     Args:
-        phabricator: A PhabricatorClient instance.
         revision: A dict of the revision data from differential.revision.search
             with the 'reviewers' and 'reviewers-extra' attachments.
     """
-    attachments = phabricator.expect(revision, 'attachments')
+    attachments = PhabricatorClient.expect(revision, 'attachments')
     return collate_reviewer_attachments(
-        phabricator.expect(attachments, 'reviewers', 'reviewers'),
-        phabricator.expect(attachments, 'reviewers-extra', 'reviewers-extra')
+        PhabricatorClient.expect(attachments, 'reviewers', 'reviewers'),
+        PhabricatorClient.expect(
+            attachments, 'reviewers-extra', 'reviewers-extra'
+        )
     )

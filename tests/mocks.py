@@ -44,6 +44,7 @@ class PhabricatorDouble:
         self._reviewers = []
         self._repos = []
         self._diffs = []
+        self._diff_refs = []
         self._phids = []
         self._phid_counters = {}
         self._edges = []
@@ -80,10 +81,12 @@ class PhabricatorDouble:
         uri = "http://phabricator.test/D{}".format(revision_id)
         title = "my test revision title"
 
+        author = self.user() if author is None else author
+
         diff = self.diff() if diff is None else diff
         diff['revisionID'] = revision_id
-
-        author = self.user() if author is None else author
+        diff['revisionPHID'] = phid
+        diff['authorPHID'] = author['phid']
 
         revision = {
             "id": revision_id,
@@ -186,14 +189,34 @@ class PhabricatorDouble:
 
         return user
 
-    def diff(self, *, revision=None, rawdiff=CANNED_RAW_DEFAULT_DIFF):
+    def diff(
+        self, *, revision=None, rawdiff=CANNED_RAW_DEFAULT_DIFF, repo=None
+    ):
         diff_id = self._new_id(self._diffs)
         phid = self._new_phid('DIFF-')
         uri = "http://phabricator.test/differential/diff/{}/".format(diff_id)
         revision_id = revision['id'] if revision is not None else None
+        revision_phid = revision['phid'] if revision is not None else None
+        author_phid = revision['authorPHID'] if revision is not None else None
+        repo_phid = (
+            repo['phid'] if repo is not None else
+            (revision['repositoryPHID'] if revision is not None else None)
+        )
+
+        base = 'cff9ba1622714e0dd82c39f912f405210489fce8'
+
+        self._diff_refs += [
+            {
+                'diff_id': diff_id,
+                'type': 'base',
+                'identifier': base,
+            },
+        ]
+
         diff = {
             'id': diff_id,
             'phid': phid,
+            'type': 'DIFF',
             'rawdiff': rawdiff,
             'bookmark': None,
             'branch': None,
@@ -205,14 +228,18 @@ class PhabricatorDouble:
             'lintStatus': '0',
             'properties': [],
             'revisionID': revision_id,
-            'sourceControlBaseRevision': (
-                'cff9ba1622714e0dd82c39f912f405210489fce8'
-            ),
+            'revisionPHID': revision_phid,
+            'authorPHID': author_phid,
+            'repositoryPHID': repo_phid,
+            'sourceControlBaseRevision': base,
             'sourceControlPath': '/',
             'sourceControlSystem': 'hg',
             'unitStatus': '0',
             'authorName': "Mark Cote",
-            'authorEmail': "mcote@mozilla.example"
+            'authorEmail': "mcote@mozilla.example",
+            'policy': {
+                'view': 'public',
+            },
         }  # yapf: disable
 
         self._diffs.append(diff)
@@ -313,6 +340,73 @@ class PhabricatorDouble:
             self._reviewers.append(reviewer)
 
         return reviewer
+
+    @conduit_method('differential.diff.search')
+    def differential_diff_search(
+        self,
+        *,
+        queryKey=None,
+        constraints=None,
+        attachments=None,
+        order=None,
+        before=None,
+        after=None,
+        limit=100
+    ):
+        def to_response(i):
+            refs = [r for r in self._diff_refs if r['diff_id'] == i['id']]
+            return deepcopy(
+                {
+                    'id': i['id'],
+                    'type': i['type'],
+                    'phid': i['phid'],
+                    'fields': {
+                        'revisionPHID': i['revisionPHID'],
+                        'authorPHID': i['authorPHID'],
+                        'repositoryPHID': i['repositoryPHID'],
+                        'refs': [
+                            {
+                                'type': r['type'],
+                                'identifier': r['identifier'],
+                            } for r in refs
+                        ],
+                        'dateCreated': i['dateCreated'],
+                        'dateModified': i['dateModified'],
+                        'policy': {
+                            'view': i['policy']['view'],
+                        },
+                    },
+                    'attachments': {},
+                }
+            )  # yapf: disable
+
+        items = [r for r in self._diffs]
+
+        if constraints and 'ids' in constraints:
+            items = [i for i in items if i['id'] in constraints['ids']]
+
+        if constraints and 'phids' in constraints:
+            items = [i for i in items if i['phid'] in constraints['phids']]
+
+        if constraints and 'revisionPHIDs' in constraints:
+            items = [
+                i for i in items
+                if i['revisionPHID'] in constraints['revisionPHIDs']
+            ]
+
+        return {
+            "data": [to_response(i) for i in items],
+            "maps": {},
+            "query": {
+                "queryKey": queryKey,
+            },
+            "cursor": {
+                "limit": limit,
+                "after": after,
+                "before": before,
+                "order": order,
+            }
+        }
 
     @conduit_method('edge.search')
     def edge_search(
