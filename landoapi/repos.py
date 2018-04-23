@@ -28,6 +28,7 @@ REPO_CONFIG = {
     'devsvcprod': {
         'phabricator-qa-stage': Repo('phabricator-qa-stage', ''),
         'version-control-tools': Repo('version-control-tools', '@'),
+        'build-tools': Repo('build-tools', ''),
     },
 }
 
