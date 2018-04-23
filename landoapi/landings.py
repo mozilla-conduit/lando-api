@@ -12,8 +12,11 @@ from landoapi.phabricator import (
     collate_reviewer_attachments,
     PhabricatorClient,
     result_list_to_phid_dict,
+    ReviewerStatus,
+    RevisionStatus,
 )
 from landoapi.repos import get_repos_for_env
+from landoapi.reviews import calculate_review_extra_state
 
 
 def tokens_are_equal(t1, t2):
@@ -124,7 +127,8 @@ class LandingProblem:
     def check(
         cls, *, auth0_user, revision_id, diff_id, get_revision,
         get_latest_diff, get_latest_landed, get_repository, get_landing_repo,
-        get_diff, get_open_parents, get_reviewers, get_reviewer_users
+        get_diff, get_open_parents, get_reviewers, get_reviewer_users,
+        get_revision_status
     ):
         raise NotImplementedError(
             'check(...) must be implemented on LandingProblem subclasses.'
@@ -228,6 +232,18 @@ class InvalidRepository(LandingProblem):
         )
 
 
+class AuthorPlannedChanges(LandingProblem):
+    id = "E006"
+
+    @classmethod
+    def check(cls, *, get_revision_status, **kwargs):
+        if get_revision_status() is RevisionStatus.CHANGES_PLANNED:
+            return cls(
+                'The author has indicated they are planning changes '
+                'to this revision.'
+            )
+
+
 class DoesNotExist(LandingProblem):
     id = "X000"
 
@@ -311,6 +327,67 @@ class PreviouslyLanded(LandingProblem):
         )
 
 
+class BlockingReviews(LandingProblem):
+    # TODO: Make this a proper blocker instead of a warning when
+    # we want to enforce proper reviews to allow landing.
+    id = "W003"
+
+    @classmethod
+    def check(cls, *, get_reviewers_extra_state, get_reviewer_users, **kwargs):
+        blocking_phids = [
+            phid for phid, state in get_reviewers_extra_state().items()
+            if state['blocking_landing']
+        ]
+        if not blocking_phids:
+            return None
+
+        users = get_reviewer_users()
+        blocking_users = [
+            '@' + PhabricatorClient.expect(users, phid, 'fields', 'username')
+            for phid in blocking_phids
+        ]
+        if len(blocking_users) > 1:
+            return cls(
+                'Reviews from {all_but_last_user}, and {last_user} are in a '
+                'state which is intended to prevent landings.'.format(
+                    all_but_last_user=', '.join(blocking_users[:-1]),
+                    last_user=blocking_users[-1],
+                )
+            )
+
+        return cls(
+            'The review from {username} is in a state which is '
+            'intended to prevent landings.'.format(
+                username=blocking_users[0],
+            )
+        )
+
+
+class AcceptanceNotClean(LandingProblem):
+    id = "W004"
+
+    @classmethod
+    def check(
+        cls, *, get_revision_status, get_reviewers, get_reviewers_extra_state,
+        **kwargs
+    ):
+        if get_revision_status() is not RevisionStatus.ACCEPTED:
+            return cls('This revision is not currently accepted.')
+
+        accepted_phids = [
+            phid for phid, r in get_reviewers().items()
+            if r['status'] is ReviewerStatus.ACCEPTED
+        ]
+        extra_state = get_reviewers_extra_state()
+        if all(
+            [extra_state[phid]['for_other_diff'] for phid in accepted_phids]
+        ):
+            return cls(
+                'This version of the diff has not been accepted '
+                'by any reviewer.'
+            )
+
+
 def check_landing_conditions(
     auth0_user,
     revision_id,
@@ -324,20 +401,25 @@ def check_landing_conditions(
     get_open_parents,
     get_reviewers,
     get_reviewer_users,
+    get_reviewers_extra_state,
+    get_revision_status,
     *,
     short_circuit=False,
     blockers_to_check=[
         NoAuth0Email,
         SCMLevelInsufficient,
-        DoesNotExist,
+        DoesNotExist,  # Exception on failure.
         LandingInProgress,
         InvalidRepository,
-        DiffNotPartOfRevision,
+        DiffNotPartOfRevision,  # Exception on failure.
         OpenDependencies,
+        AuthorPlannedChanges,
     ],
     warnings_to_check=[
         DiffNotLatest,
         PreviouslyLanded,
+        BlockingReviews,
+        AcceptanceNotClean,
     ]
 ):
     """Return a LandingAssessment indicating any warnings or blockers.
@@ -362,6 +444,8 @@ def check_landing_conditions(
             get_open_parents=get_open_parents,
             get_reviewers=get_reviewers,
             get_reviewer_users=get_reviewer_users,
+            get_reviewers_extra_state=get_reviewers_extra_state,
+            get_revision_status=get_revision_status,
         )
 
         if result is not None:
@@ -369,6 +453,11 @@ def check_landing_conditions(
 
             if short_circuit:
                 return assessment
+
+    if assessment.blockers:
+        # Warnings should not be generated if something is
+        # blocking landing.
+        return assessment
 
     for check in warnings_to_check:
         result = check.check(
@@ -384,6 +473,8 @@ def check_landing_conditions(
             get_open_parents=get_open_parents,
             get_reviewers=get_reviewers,
             get_reviewer_users=get_reviewer_users,
+            get_reviewers_extra_state=get_reviewers_extra_state,
+            get_revision_status=get_revision_status,
         )
 
         if result is not None:
@@ -434,6 +525,19 @@ def lazy_get_revision(phabricator, revision_id):
     revision = phabricator.expect(revision, 'data')
     revision = phabricator.single(revision, none_when_empty=True)
     return revision
+
+
+@lazy
+def lazy_get_revision_status(revision):
+    """Return a landoapi.phabricator.RevisionStatus.
+
+    Args:
+        revision: A dict of the revision data just as it is returned
+            by Phabricator.
+    """
+    return RevisionStatus.from_status(
+        PhabricatorClient.expect(revision, 'fields', 'status', 'value')
+    )
 
 
 @lazy
@@ -608,3 +712,21 @@ def lazy_get_reviewers(revision):
             attachments, 'reviewers-extra', 'reviewers-extra'
         )
     )
+
+
+@lazy
+def lazy_get_reviewers_extra_state(reviewers, diff):
+    """Return a dictionary mapping phid to extra reviewer state.
+
+    Args:
+        reviewers: a dictionary mapping phid to collated reviewer
+            attachment data
+        diff: diff data from the Phabricator API
+    """
+    diff_phid = PhabricatorClient.expect(diff[0], 'phid')
+    return {
+        phid: calculate_review_extra_state(
+            diff_phid, r['status'], r['diffPHID'], r['voidedPHID']
+        )
+        for phid, r in reviewers.items()
+    }

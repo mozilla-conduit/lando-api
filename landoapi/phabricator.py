@@ -135,6 +135,43 @@ class ReviewerStatus(Enum):
 
         return cls.UNEXPECTED_STATUS
 
+    @classmethod
+    def meta(cls):
+        return {
+            cls.ADDED: {
+                'voidable': False,
+                'diff_specific': False,
+            },
+            cls.ACCEPTED: {
+                'voidable': True,
+                'diff_specific': True,
+            },
+            cls.BLOCKING: {
+                'voidable': False,
+                'diff_specific': False,
+            },
+            cls.REJECTED: {
+                'voidable': False,
+                'diff_specific': True,
+            },
+            cls.RESIGNED: {
+                'voidable': False,
+                'diff_specific': False,
+            },
+            cls.UNEXPECTED_STATUS: {
+                'voidable': False,
+                'diff_specific': False,
+            },
+        }
+
+    @property
+    def voidable(self):
+        return self.meta().get(self, {}).get('voidable', False)
+
+    @property
+    def diff_specific(self):
+        return self.meta().get(self, {}).get('diff_specific', False)
+
 
 class PhabricatorClient:
     """A class to interface with Phabricator's Conduit API.

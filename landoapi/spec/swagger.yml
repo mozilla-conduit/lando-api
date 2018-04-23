@@ -434,13 +434,21 @@ definitions:
         type: string
         description: |
           The reviewer's real name as they set it on Phabricator.
+      for_other_diff:
+        type: boolean
+        description: |
+          True if the reviewer's status (acceptance/rejection) is on a
+          different diff.
+      blocking_landing:
+        type: boolean
+        description: |
+          True if this reviewer is blocking the revision/diff from landing,
+          such as not having reviewed yet as a blocking reviewer or having
+          rejected the particular diff.
       is_blocking:
         type: boolean
         description: |
-          True if the reviewer is blocking the revision. Phabricator is not
-          consistent about this field. If the user is added as a blocking
-          reviewer it's value is true. However after the user accepts or
-          rejects the revision, is_blocking value changes to false.
+          DEPRECATED, always `false`.
   Diff:
     type: object
     properties:

@@ -22,6 +22,7 @@ from landoapi.phabricator import (
     PhabricatorClient,
     ReviewerStatus,
 )
+from landoapi.reviews import calculate_review_extra_state
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
@@ -125,7 +126,9 @@ def get(revision_id, diff_id=None):
         title, bug_id, accepted_reviewers, summary, revision_url
     )
 
-    reviewers_response = _render_reviewers_response(reviewers, users)
+    reviewers_response = _render_reviewers_response(
+        reviewers, users, phab.expect(diff, 'phid')
+    )
     author_response = _render_author_response(author_phid, users)
     diff_response = _render_diff_response(querydiffs_diff)
 
@@ -151,18 +154,26 @@ def get(revision_id, diff_id=None):
     }, 200  # yapf: disable
 
 
-def _render_reviewers_response(collated_reviewers, user_search_data):
+def _render_reviewers_response(
+    collated_reviewers, user_search_data, diff_phid
+):
     reviewers = []
 
     for phid, r in collated_reviewers.items():
         user_fields = user_search_data.get(phid, {}).get('fields', {})
+        state = calculate_review_extra_state(
+            diff_phid, r['status'], r['diffPHID'], r['voidedPHID']
+        )
         reviewers.append(
             {
                 'phid': phid,
                 'status': r['status'].value,
-                'is_blocking': r['isBlocking'],
+                'for_other_diff': state['for_other_diff'],
+                'blocking_landing': state['blocking_landing'],
                 'username': user_fields.get('username', ''),
                 'real_name': user_fields.get('realName', ''),
+                # Deprecated, remove after lando UI stops use.
+                'is_blocking': False,
             }
         )
 

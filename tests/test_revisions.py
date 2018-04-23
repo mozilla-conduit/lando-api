@@ -106,6 +106,8 @@ def test_get_revision_multiple_reviewers(client, phabdouble):
                 'real_name': u1['realName'],
                 'status': 'accepted',
                 'username': u1['userName'],
+                'for_other_diff': False,
+                'blocking_landing': False,
             }
         else:
             assert reviewer == {
@@ -114,4 +116,6 @@ def test_get_revision_multiple_reviewers(client, phabdouble):
                 'real_name': u2['realName'],
                 'status': 'rejected',
                 'username': u2['userName'],
+                'for_other_diff': False,
+                'blocking_landing': True,
             }

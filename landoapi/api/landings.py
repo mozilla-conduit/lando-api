@@ -24,7 +24,9 @@ from landoapi.landings import (
     lazy_get_open_parents,
     lazy_get_repository,
     lazy_get_reviewers,
+    lazy_get_reviewers_extra_state,
     lazy_get_revision,
+    lazy_get_revision_status,
     lazy_reviewers_search,
 )
 from landoapi.models.landing import Landing, LandingStatus
@@ -62,6 +64,10 @@ def dryrun(data):
     get_open_parents = lazy_get_open_parents(phab, get_revision)
     get_reviewers = lazy_get_reviewers(get_revision)
     get_reviewer_users = lazy_reviewers_search(phab, get_reviewers)
+    get_reviewers_extra_state = lazy_get_reviewers_extra_state(
+        get_reviewers, get_diff
+    )
+    get_revision_status = lazy_get_revision_status(get_revision)
     assessment = check_landing_conditions(
         g.auth0_user,
         revision_id,
@@ -75,6 +81,8 @@ def dryrun(data):
         get_open_parents,
         get_reviewers,
         get_reviewer_users,
+        get_reviewers_extra_state,
+        get_revision_status,
     )
     return jsonify(assessment.to_dict())
 
@@ -106,6 +114,10 @@ def post(data):
     get_open_parents = lazy_get_open_parents(phab, get_revision)
     get_reviewers = lazy_get_reviewers(get_revision)
     get_reviewer_users = lazy_reviewers_search(phab, get_reviewers)
+    get_reviewers_extra_state = lazy_get_reviewers_extra_state(
+        get_reviewers, get_diff
+    )
+    get_revision_status = lazy_get_revision_status(get_revision)
     assessment = check_landing_conditions(
         g.auth0_user,
         revision_id,
@@ -119,6 +131,8 @@ def post(data):
         get_open_parents,
         get_reviewers,
         get_reviewer_users,
+        get_reviewers_extra_state,
+        get_revision_status,
         short_circuit=True,
     )
     assessment.raise_if_blocked_or_unacknowledged(None)

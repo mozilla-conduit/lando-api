@@ -16,6 +16,7 @@ class MockProblem(LandingProblem):
 def test_no_warnings_or_blockers(client, db, phabdouble, auth0_mock):
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
+    phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
     response = client.post(
         '/landings/dryrun',
         json=dict(
@@ -364,3 +365,66 @@ def test_open_parent(status, client, db, phabdouble, auth0_mock):
 
     assert response.status_code == 200
     assert response.json['blockers'][0]['id'] == 'E004'
+
+
+def test_author_planned_changes(client, db, phabdouble, auth0_mock):
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(
+        diff=diff,
+        repo=phabdouble.repo(),
+        status=RevisionStatus.CHANGES_PLANNED,
+    )
+
+    response = client.post(
+        '/landings/dryrun',
+        json=dict(
+            revision_id='D{}'.format(revision['id']), diff_id=diff['id']
+        ),
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json['blockers'][0]['id'] == 'E006'
+
+
+def test_unaccepted_warns(client, db, phabdouble, auth0_mock):
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(
+        diff=diff,
+        repo=phabdouble.repo(),
+        status=RevisionStatus.NEEDS_REVIEW,
+    )
+
+    response = client.post(
+        '/landings/dryrun',
+        json=dict(
+            revision_id='D{}'.format(revision['id']), diff_id=diff['id']
+        ),
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json['warnings'][0]['id'] == 'W004'
+
+
+def test_accepted_older_warns(client, db, phabdouble, auth0_mock):
+    revision = phabdouble.revision(
+        diff=phabdouble.diff(),
+        repo=phabdouble.repo(),
+        status=RevisionStatus.ACCEPTED,
+    )
+    phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
+
+    # Add a new diff so the acceptance is on an older diff.
+    diff = phabdouble.diff(revision=revision)
+
+    response = client.post(
+        '/landings/dryrun',
+        json=dict(
+            revision_id='D{}'.format(revision['id']), diff_id=diff['id']
+        ),
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json['warnings'][0]['id'] == 'W004'

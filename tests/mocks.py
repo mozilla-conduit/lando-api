@@ -312,8 +312,14 @@ class PhabricatorDouble:
         on_diff=None,
         voided_by_phid=None
     ):
+        if on_diff is None:
+            # Default to the latest.
+            diffs = sorted(
+                (d for d in self._diffs if d['revisionID'] == revision['id']),
+                key=lambda d: d['id']
+            )
+            on_diff = diffs[-1]
         actor_phid = revision['authorPHID'] if actor is None else actor['phid']
-        diff_phid = on_diff['phid'] if on_diff is not None else None
         reviewer = {
             'revisionPHID': revision['phid'],
             'revisionID': revision['id'],
@@ -322,7 +328,7 @@ class PhabricatorDouble:
             'status': status,
             'isBlocking': isBlocking,
             'actorPHID': actor_phid,
-            'diffPHID': diff_phid,
+            'diffPHID': on_diff['phid'],
             'voidedPHID': voided_by_phid,
         }
 
