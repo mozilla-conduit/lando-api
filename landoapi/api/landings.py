@@ -165,7 +165,7 @@ def post(data):
     title = phab.expect(revision, 'fields', 'title')
     summary = phab.expect(revision, 'fields', 'summary')
     bug_id = phab.expect(revision, 'fields').get('bugzilla.bug-id')
-    bug_id = int(bug_id) if bug_id is not None else None
+    bug_id = int(bug_id) if bug_id and not isinstance(bug_id, int) else None
     human_revision_id = 'D{}'.format(revision_id)
     revision_url = urllib.parse.urljoin(
         current_app.config['PHABRICATOR_URL'], human_revision_id

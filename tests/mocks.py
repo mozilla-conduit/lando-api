@@ -503,7 +503,7 @@ class PhabricatorDouble:
             )
             bug_id = (
                 str(i['bugzilla.bug-id'])
-                if i['bugzilla.bug-id'] is not None else None
+                if i['bugzilla.bug-id'] is not None else ''
             )
 
             resp = {
@@ -642,12 +642,15 @@ class PhabricatorDouble:
                 )
             ]
 
+            bug_id = (
+                str(i['bugzilla.bug-id'])
+                if i['bugzilla.bug-id'] is not None else ''
+            )
             auxiliary = {
                 'phabricator:depends-on': dependencies,
                 'phabricator:projects': [],
+                'bugzilla.bug-id': bug_id,
             }
-            if i['bugzilla.bug-id'] is not None:
-                auxiliary['bugzilla.bug-id'] = i['bugzilla.bug-id']
 
             resp = {
                 'id': str(i['id']),
