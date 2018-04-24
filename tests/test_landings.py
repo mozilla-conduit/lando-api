@@ -11,7 +11,7 @@ from freezegun import freeze_time
 
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
-from landoapi.repos import Repo
+from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.transplant_client import TransplantClient
 
 
@@ -70,14 +70,17 @@ def test_landing_revision_saves_data_in_db(
     assert landing.request_id == land_request_id
 
 
-def test_landing_without_auth0_permissions(client, auth0_mock):
+def test_landing_without_auth0_permissions(client, auth0_mock, phabdouble, db):
     auth0_mock.userinfo = CANNED_USERINFO['NO_CUSTOM_CLAIMS']
 
+    repo = phabdouble.repo(name='mozilla-central')
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff, repo=repo)
     response = client.post(
         '/landings',
         json={
-            'revision_id': 'D1',
-            'diff_id': 1,
+            'revision_id': 'D{}'.format(revision['id']),
+            'diff_id': diff['id'],
         },
         headers=auth0_mock.mock_headers,
     )
@@ -126,7 +129,7 @@ def test_push_bookmark_sent_when_supported_repo(
     mock_repo_config(
         {
             'test': {
-                'mozilla-central': Repo('mozilla-central', '@')
+                'mozilla-central': Repo('mozilla-central', SCM_LEVEL_3, '@')
             },
         }
     )

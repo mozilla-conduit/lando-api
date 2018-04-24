@@ -130,6 +130,15 @@ class LandingProblem:
         get_diff, get_open_parents, get_reviewers, get_reviewer_users,
         get_revision_status
     ):
+        """Returns an instance of cls if the check fails.
+
+        Args:
+            cls: The class object for this check.
+            **kwargs: Various data and getters needed for checks.
+
+        Returns:
+            An instance of cls if the check fails or None if it passes.
+        """
         raise NotImplementedError(
             'check(...) must be implemented on LandingProblem subclasses.'
         )
@@ -155,16 +164,22 @@ class SCMLevelInsufficient(LandingProblem):
     id = "E002"
 
     @classmethod
-    def check(cls, *, auth0_user, **kwargs):
-        if auth0_user.is_in_groups('active_scm_level_3'):
+    def check(cls, *, auth0_user, get_landing_repo, **kwargs):
+        repo = get_landing_repo()
+        if not repo:
             return None
 
-        if auth0_user.is_in_groups('all_scm_level_3'):
-            return cls('Your scm_level_3 access has expired.')
+        if auth0_user.is_in_groups(repo.access_group.active_group):
+            return None
+
+        if auth0_user.is_in_groups(repo.access_group.membership_group):
+            return cls(
+                'Your {} has expired.'.format(repo.access_group.display_name)
+            )
 
         return cls(
-            'You have insufficient permissions to land. scm_level_3 '
-            'access is required.'
+            'You have insufficient permissions to land. '
+            '{} is required.'.format(repo.access_group.display_name)
         )
 
 
@@ -407,10 +422,10 @@ def check_landing_conditions(
     short_circuit=False,
     blockers_to_check=[
         NoAuth0Email,
-        SCMLevelInsufficient,
         DoesNotExist,  # Exception on failure.
         LandingInProgress,
         InvalidRepository,
+        SCMLevelInsufficient,
         DiffNotPartOfRevision,  # Exception on failure.
         OpenDependencies,
         AuthorPlannedChanges,

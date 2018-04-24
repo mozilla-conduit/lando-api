@@ -183,8 +183,8 @@ def test_hash_object_throws_error():
                     'id':
                     'E002',
                     'message':
-                    'You have insufficient permissions to land. scm_level_3 '
-                    'access is required.',
+                    'You have insufficient permissions to land. Level 3 '
+                    'Commit Access is required.',
                 },
             ]
         ),
@@ -192,7 +192,7 @@ def test_hash_object_throws_error():
             CANNED_USERINFO['EXPIRED_L3'], 200, [
                 {
                     'id': 'E002',
-                    'message': 'Your scm_level_3 access has expired.',
+                    'message': 'Your Level 3 Commit Access has expired.',
                 },
             ]
         ),
@@ -210,7 +210,6 @@ def test_hash_object_throws_error():
 def test_blockers_for_bad_userinfo(
     client, db, auth0_mock, phabdouble, userinfo, status, expected_blockers
 ):
-    # Remove SCM level 3 claim from Mozilla claim groups
     auth0_mock.userinfo = userinfo
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
