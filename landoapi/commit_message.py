@@ -4,13 +4,7 @@
 """Add revision data to commit message."""
 import re
 
-COMMIT_MSG_TEMPLATE = """
-{title}
-
-{summary}
-
-Differential Revision: {url}
-""".strip()
+REVISION_URL_TEMPLATE = 'Differential Revision: {url}'
 
 # These regular expressions are not very robust. Specifically, they fail to
 # handle lists well.
@@ -88,21 +82,26 @@ def format_commit_message(title, bug, reviewers, summary, revision_url):
         part will be added, or the title will be used unmodified if it is
         already valid.
     """
-    first_line = title
-
-    if bug and bug not in parse_bugs(first_line):
+    if bug and bug not in parse_bugs(title):
         # All we really care about is if a bug is known it should
         # appear in the first line of the commit message. If it
         # isn't already there we'll add it.
-        first_line = 'Bug {} - {}'.format(bug, first_line)
+        title = 'Bug {} - {}'.format(bug, title)
 
     # Ensure that the actual reviewers are recorded in the
     # first line of the commit message.
-    first_line = replace_reviewers(first_line, reviewers)
+    title = replace_reviewers(title, reviewers)
 
-    return first_line, COMMIT_MSG_TEMPLATE.format(
-        title=first_line, summary=summary, url=revision_url
+    # Clear any leading / trailing whitespace.
+    title = title.strip()
+    summary = summary.strip()
+
+    # Construct the final message as a series of sections with
+    # a blank line between each. Blank sections are filtered out.
+    sections = filter(
+        None, [title, summary, REVISION_URL_TEMPLATE.format(url=revision_url)]
     )
+    return title, '\n\n'.join(sections)
 
 
 def parse_bugs(s):

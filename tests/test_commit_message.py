@@ -29,3 +29,13 @@ def test_commit_message_reviewers_replaced():
         'http://phabricator.test/D123'
     )
     assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
+
+
+def test_commit_message_blank_summary():
+    first_line, message = format_commit_message(
+        'A title.', 1, ['reviewer'], '', 'http://phabricator.test/D123'
+    )
+
+    # A blank summary should result in only a single blank line between
+    # the title and other fields, not several.
+    assert len(message.splitlines()) == 3
