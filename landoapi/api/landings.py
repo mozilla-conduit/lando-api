@@ -154,7 +154,7 @@ def post(data):
     reviewers = get_reviewers()
     users = get_reviewer_users()
     accepted_reviewers = [
-        phab.expect(users, phid, 'fields', 'username')
+        users.get(phid, {}).get('fields', {}).get('username', '<unknown>')
         for phid, r in reviewers.items()
         if r['status'] is ReviewerStatus.ACCEPTED
     ]

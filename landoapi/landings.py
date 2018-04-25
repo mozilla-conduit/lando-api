@@ -358,9 +358,11 @@ class BlockingReviews(LandingProblem):
 
         users = get_reviewer_users()
         blocking_users = [
-            '@' + PhabricatorClient.expect(users, phid, 'fields', 'username')
+            '@' + users.get(phid, {}).get('fields', {}).get(
+                'username', '<unknown>'
+            )
             for phid in blocking_phids
-        ]
+        ]  # yapf: disable
         if len(blocking_users) > 1:
             return cls(
                 'Reviews from {all_but_last_user}, and {last_user} are in a '

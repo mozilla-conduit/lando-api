@@ -109,7 +109,7 @@ def get(revision_id, diff_id=None):
     users = lazy_user_search(phab, list(reviewers.keys()) + [author_phid])()
 
     accepted_reviewers = [
-        phab.expect(users, phid, 'fields', 'username')
+        users.get(phid, {}).get('fields', {}).get('username', '<unknown>')
         for phid, r in reviewers.items()
         if r['status'] is ReviewerStatus.ACCEPTED
     ]
