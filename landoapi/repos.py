@@ -35,6 +35,9 @@ SCM_VERSIONCONTROL = AccessGroup(
 SCM_CONDUIT = AccessGroup(
     'active_scm_conduit', 'all_scm_conduit', 'scm_conduit'
 )
+SCM_L10N_INFRA = AccessGroup(
+    'active_scm_l10n_infra', 'all_scm_l10n_infra', 'scm_l10n_infra'
+)
 
 Repo = namedtuple(
     'Repo',
@@ -62,6 +65,7 @@ REPO_CONFIG = {
             'version-control-tools', SCM_VERSIONCONTROL, '@'
         ),
         'build-tools': Repo('build-tools', SCM_LEVEL_3, ''),
+        'fluent-migration': Repo('fluent-migration', SCM_L10N_INFRA, ''),
     },
 }  # yapf: disable
 
