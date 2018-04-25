@@ -693,6 +693,9 @@ def lazy_user_search(phabricator, user_phids):
         phabricator: A PhabricatorClient instance.
         user_phids: A list of user phids to search.
     """
+    if not user_phids:
+        return {}
+
     users = phabricator.call_conduit(
         'user.search', constraints={'phids': user_phids}
     )

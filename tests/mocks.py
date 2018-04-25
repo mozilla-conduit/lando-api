@@ -832,12 +832,36 @@ class PhabricatorDouble:
         items = [u for u in self._users]
 
         if 'ids' in constraints:
+            if not constraints['ids']:
+                error_info = 'Error while reading "ids": Expected a nonempty list, but value is an empty list.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info,
+                    error_code='ERR-CONDUIT-CORE',
+                    error_info=error_info
+                )
+
             items = [i for i in items if i['id'] in constraints['ids']]
 
         if 'phids' in constraints:
+            if not constraints['phids']:
+                error_info = 'Error while reading "phids": Expected a nonempty list, but value is an empty list.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info,
+                    error_code='ERR-CONDUIT-CORE',
+                    error_info=error_info
+                )
+
             items = [i for i in items if i['phid'] in constraints['phids']]
 
         if 'usernames' in constraints:
+            if not constraints['usernames']:
+                error_info = 'Error while reading "usernames": Expected a nonempty list, but value is an empty list.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info,
+                    error_code='ERR-CONDUIT-CORE',
+                    error_info=error_info
+                )
+
             items = [
                 i for i in items if i['userName'] in constraints['usernames']
             ]
