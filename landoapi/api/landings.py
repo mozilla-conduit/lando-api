@@ -139,6 +139,15 @@ def post(data):
         short_circuit=True,
     )
     assessment.raise_if_blocked_or_unacknowledged(None)
+    if assessment.warnings:
+        # Log any warnings that were acknowledged, for auditing.
+        logger.info(
+            {
+                'revision_id': revision_id,
+                'warnings': [w.serialize() for w in assessment.warnings],
+                'msg': 'Landing with acknowledged warnings is being requested',
+            }, 'landing.warnings_present'
+        )
 
     # These are guaranteed to return proper data since we're
     # running after checking_landing_conditions().
