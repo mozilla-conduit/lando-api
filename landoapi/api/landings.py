@@ -18,6 +18,8 @@ from landoapi.decorators import lazy, require_phabricator_api_key
 from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.landings import (
     check_landing_conditions,
+    LandingAssessment,
+    LandingInProgress,
     lazy_get_diff,
     lazy_get_landing_repo,
     lazy_get_latest_diff,
@@ -181,23 +183,8 @@ def post(data):
         raw_diff, author_name, author_email, commit_message[1], date_modified
     )
 
-    # Save the initial landing request.
-    # TODO: Fix race condition between checking
-    # if a landing is already in progress and
-    # creating our own.
-    landing = Landing(
-        diff_id=diff_id,
-        active_diff_id=latest_diff_id,
-        revision_id=revision_id,
-        requester_email=g.auth0_user.email,
-        tree=landing_repo.tree
-    )
-    db.session.add(landing)
-    db.session.commit()
-
     # Upload the patch to S3
     patch_url = upload(
-        landing.id,
         revision_id,
         diff_id,
         patch,
@@ -206,21 +193,54 @@ def post(data):
         aws_secret_key=current_app.config['AWS_SECRET_KEY'],
     )
 
-    # Send the request to transplant for landing
     trans = TransplantClient(
         current_app.config['TRANSPLANT_URL'],
         current_app.config['TRANSPLANT_USERNAME'],
         current_app.config['TRANSPLANT_PASSWORD'],
     )
+
+    submitted_assessment = LandingAssessment(
+        blockers=[
+            LandingInProgress(
+                'This revision was submitted for landing by another user at '
+                'the same time.'
+            )
+        ]
+    )
+    ldap_username = g.auth0_user.email
+
     try:
-        transplant_request_id = trans.land(
-            revision_id=revision_id,
-            ldap_username=landing.requester_email,
-            patch_urls=[patch_url],
-            tree=landing_repo.tree,
-            pingback=current_app.config['PINGBACK_URL'],
-            push_bookmark=landing_repo.push_bookmark
-        )
+        # WARNING: Entering critical section, do not add additional
+        # code unless absolutely necessary. Aquires a lock on the
+        # landings table which gives exclusive write access and
+        # prevents readers who are entering this critical section.
+        # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
+        # for more details on the specifics of the lock mode.
+        with db.session.begin_nested():
+            db.session.execute(
+                'LOCK TABLE landings IN SHARE ROW EXCLUSIVE MODE;'
+            )
+            if Landing.is_revision_submitted(revision_id):
+                submitted_assessment.raise_if_blocked_or_unacknowledged(None)
+
+            transplant_request_id = trans.land(
+                revision_id=revision_id,
+                ldap_username=ldap_username,
+                patch_urls=[patch_url],
+                tree=landing_repo.tree,
+                pingback=current_app.config['PINGBACK_URL'],
+                push_bookmark=landing_repo.push_bookmark
+            )
+            landing = Landing(
+                request_id=transplant_request_id,
+                revision_id=revision_id,
+                diff_id=diff_id,
+                active_diff_id=latest_diff_id,
+                requester_email=ldap_username,
+                tree=landing_repo.tree,
+                status=LandingStatus.submitted
+            )
+            db.session.add(landing)
     except TransplantError as exc:
         logger.info(
             {
@@ -229,9 +249,6 @@ def post(data):
                 'msg': 'error creating landing',
             }, 'landing.error'
         )
-        transplant_request_id = None
-
-    if not transplant_request_id:
         return problem(
             502,
             'Landing not created',
@@ -240,9 +257,6 @@ def post(data):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502'
         )
 
-    landing.request_id = transplant_request_id
-    landing.status = LandingStatus.submitted
-    db.session.commit()
     logger.info(
         {
             'revision_id': revision_id,
@@ -250,7 +264,6 @@ def post(data):
             'msg': 'landing created for revision'
         }, 'landing.success'
     )
-
     return {'id': landing.id}, 202
 
 

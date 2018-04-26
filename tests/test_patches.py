@@ -41,14 +41,13 @@ def test_upload(s3, contents):
     url = patches.upload(
         1,
         1,
-        1,
         contents,
         'landoapi.test.bucket',
         aws_access_key=None,
         aws_secret_key=None
     )
-    patch = s3.Object('landoapi.test.bucket', patches.name(1, 1, 1))
+    patch = s3.Object('landoapi.test.bucket', patches.name(1, 1))
     patch = patch.get()['Body'].read().decode("utf-8")
 
     assert patch == contents
-    assert url == patches.url('landoapi.test.bucket', patches.name(1, 1, 1))
+    assert url == patches.url('landoapi.test.bucket', patches.name(1, 1))

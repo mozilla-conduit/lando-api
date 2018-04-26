@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 from freezegun import freeze_time
 
+from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing import Landing, LandingStatus
 from landoapi.repos import Repo, SCM_LEVEL_3
@@ -95,9 +96,8 @@ def test_landing_revision_calls_transplant_service(
     repo = phabdouble.repo(name='mozilla-central')
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=repo)
-
-    patch_url = 's3://landoapi.test.bucket/L1_D{}_{}.patch'.format(
-        revision['id'], diff['id']
+    patch_url = patches.url(
+        'landoapi.test.bucket', patches.name(revision['id'], diff['id'])
     )
 
     tsclient = MagicMock(spec=TransplantClient)
@@ -138,8 +138,8 @@ def test_push_bookmark_sent_when_supported_repo(
     repo = phabdouble.repo(name='mozilla-central')
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=repo)
-    patch_url = 's3://landoapi.test.bucket/L1_D{}_{}.patch'.format(
-        revision['id'], diff['id']
+    patch_url = patches.url(
+        'landoapi.test.bucket', patches.name(revision['id'], diff['id'])
     )
 
     tsclient = MagicMock(spec=TransplantClient)

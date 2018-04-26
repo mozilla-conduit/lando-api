@@ -8,13 +8,11 @@ import tempfile
 logger = logging.getLogger(__name__)
 
 PATCH_URL_FORMAT = 's3://{bucket}/{patch_name}'
-PATCH_NAME_FORMAT = 'L{landing_id}_D{revision_id}_{diff_id}.patch'
+PATCH_NAME_FORMAT = 'V1_D{revision_id}_{diff_id}.patch'
 
 
-def name(landing_id, revision_id, diff_id):
-    return PATCH_NAME_FORMAT.format(
-        landing_id=landing_id, revision_id=revision_id, diff_id=diff_id
-    )
+def name(revision_id, diff_id):
+    return PATCH_NAME_FORMAT.format(revision_id=revision_id, diff_id=diff_id)
 
 
 def url(bucket, name):
@@ -22,20 +20,21 @@ def url(bucket, name):
 
 
 def upload(
-    landing_id, revision_id, diff_id, patch, s3_bucket, *, aws_access_key,
-    aws_secret_key
+    revision_id, diff_id, patch, s3_bucket, *, aws_access_key, aws_secret_key
 ):
     """Upload a patch to S3 Bucket.
 
     Build the patch contents and upload to S3.
 
     Args:
-        landing_id: Integer ID of the landing in Lando.
         revision_id: Integer ID of the Phabricator revision for
             the provided patch.
         diff_id: Integer ID of the Phabricator diff for
             the provided patch
         patch: Raw patch string to be uploaded.
+        s3_bucket: Name of the S3 bucket.
+        aws_access_key: AWS access key.
+        aws_secret_key: AWS secret key.
 
     Returns:
         The s3:// url of the uploaded patch.
@@ -45,7 +44,7 @@ def upload(
         aws_access_key_id=aws_access_key,
         aws_secret_access_key=aws_secret_key
     )
-    patch_name = name(landing_id, revision_id, diff_id)
+    patch_name = name(revision_id, diff_id)
     patch_url = url(s3_bucket, patch_name)
 
     with tempfile.TemporaryFile() as f:
