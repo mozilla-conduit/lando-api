@@ -40,6 +40,7 @@ class PhabricatorDouble:
 
     def __init__(self, monkeypatch):
         self._users = []
+        self._projects = []
         self._revisions = []
         self._reviewers = []
         self._repos = []
@@ -304,7 +305,7 @@ class PhabricatorDouble:
     def reviewer(
         self,
         revision,
-        user,
+        user_or_project,
         *,
         status=ReviewerStatus.ACCEPTED,
         isBlocking=False,
@@ -323,8 +324,8 @@ class PhabricatorDouble:
         reviewer = {
             'revisionPHID': revision['phid'],
             'revisionID': revision['id'],
-            'reviewerPHID': user['phid'],
-            'reviewerID': user['id'],
+            'reviewerPHID': user_or_project['phid'],
+            'reviewerID': user_or_project['id'],
             'status': status,
             'isBlocking': isBlocking,
             'actorPHID': actor_phid,
@@ -346,6 +347,145 @@ class PhabricatorDouble:
             self._reviewers.append(reviewer)
 
         return reviewer
+
+    def project(self, name, *, no_slug=False):
+        """Return a Phabricator Project."""
+        projects = [p for p in self._projects if p['name'] == name]
+        if projects:
+            return projects[0]
+
+        phid = self._new_phid('PROJ-')
+        uri = "http://phabricator.test/tag/{}/".format(name)
+
+        project = {
+            "id": self._new_id(self._projects),
+            "type": "PROJ",
+            "phid": phid,
+            "uri": uri,
+            "name": name,
+            "slug": None if no_slug else name,
+            "milestone": None,
+            # Subprojects not mocked.
+            "depth": 0,
+            "parent": None,
+            "icon": {
+                "key": "experimental",
+                "name": "Experimental",
+                "icon": "fa-flask",
+            },
+            "color": {
+                "key": "orange",
+                "name": "Orange",
+            },
+            "dateCreated": 1524762062,
+            "dateModified": 1524762062,
+            "policy": {
+                "view": "public",
+                "edit": "admin",
+                "join": "admin",
+            },
+            "description": "Project named {}".format(name),
+        }
+        self._projects.append(project)
+        self._phids.append(
+            {
+                "phid": phid,
+                "uri": uri,
+                "typeName": "Project",
+                "type": "PROJ",
+                "name": name,
+                "fullName": name,
+                "status": "open",
+            }
+        )
+
+        return project
+
+    @conduit_method('project.search')
+    def project_search(
+        self,
+        *,
+        queryKey=None,
+        constraints={},
+        attachments={},
+        order=None,
+        before=None,
+        after=None,
+        limit=100
+    ):
+        def to_response(i):
+            return deepcopy(
+                {
+                    "id": i['id'],
+                    "type": i['type'],
+                    "phid": i['phid'],
+                    "fields": {
+                        "name": i['name'],
+                        "slug": i['slug'],
+                        "milestone": i['milestone'],
+                        "depth": i['depth'],
+                        "parent": i['parent'],
+                        "icon": {
+                            "key": i['icon']['key'],
+                            "name": i['icon']['name'],
+                            "icon": i['icon']['icon'],
+                        },
+                        "color": {
+                            "key": i['color']['key'],
+                            "name": i['color']['name'],
+                        },
+                        "dateCreated": i['dateCreated'],
+                        "dateModified": i['dateModified'],
+                        "policy": {
+                            "view": i['policy']['view'],
+                            "edit": i['policy']['edit'],
+                            "join": i['policy']['join'],
+                        },
+                        "description": i['description'],
+                    },
+                    "attachments": {},
+                }
+            )
+
+        items = [p for p in self._projects]
+
+        if 'ids' in constraints:
+            if not constraints['ids']:
+                error_info = 'Error while reading "ids": Expected a nonempty list, but value is an empty list.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info,
+                    error_code='ERR-CONDUIT-CORE',
+                    error_info=error_info
+                )
+
+            items = [i for i in items if i['id'] in constraints['ids']]
+
+        if 'phids' in constraints:
+            if not constraints['phids']:
+                error_info = 'Error while reading "phids": Expected a nonempty list, but value is an empty list.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info,
+                    error_code='ERR-CONDUIT-CORE',
+                    error_info=error_info
+                )
+
+            items = [i for i in items if i['phid'] in constraints['phids']]
+
+        return {
+            "data": [to_response(i) for i in items],
+            "maps": {
+                "slugMap": {},
+            },
+            "query": {
+                "queryKey": queryKey,
+            },
+            "cursor": {
+                "limit": limit,
+                "after": after,
+                "before": before,
+                "order": order,
+            }
+        }
 
     @conduit_method('differential.diff.search')
     def differential_diff_search(

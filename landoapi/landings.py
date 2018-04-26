@@ -16,7 +16,7 @@ from landoapi.phabricator import (
     RevisionStatus,
 )
 from landoapi.repos import get_repos_for_env
-from landoapi.reviews import calculate_review_extra_state
+from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 
 
 def tokens_are_equal(t1, t2):
@@ -127,7 +127,7 @@ class LandingProblem:
     def check(
         cls, *, auth0_user, revision_id, diff_id, get_revision,
         get_latest_diff, get_latest_landed, get_repository, get_landing_repo,
-        get_diff, get_open_parents, get_reviewers, get_reviewer_users,
+        get_diff, get_open_parents, get_reviewers, get_reviewer_info,
         get_revision_status
     ):
         """Returns an instance of cls if the check fails.
@@ -348,7 +348,7 @@ class BlockingReviews(LandingProblem):
     id = "W003"
 
     @classmethod
-    def check(cls, *, get_reviewers_extra_state, get_reviewer_users, **kwargs):
+    def check(cls, *, get_reviewers_extra_state, get_reviewer_info, **kwargs):
         blocking_phids = [
             phid for phid, state in get_reviewers_extra_state().items()
             if state['blocking_landing']
@@ -356,26 +356,24 @@ class BlockingReviews(LandingProblem):
         if not blocking_phids:
             return None
 
-        users = get_reviewer_users()
-        blocking_users = [
-            '@' + users.get(phid, {}).get('fields', {}).get(
-                'username', '<unknown>'
-            )
+        users, projects = get_reviewer_info()
+        blocking_reviewers = [
+            '@' + reviewer_identity(phid, users, projects).identifier
             for phid in blocking_phids
         ]  # yapf: disable
-        if len(blocking_users) > 1:
+        if len(blocking_reviewers) > 1:
             return cls(
-                'Reviews from {all_but_last_user}, and {last_user} are in a '
-                'state which is intended to prevent landings.'.format(
-                    all_but_last_user=', '.join(blocking_users[:-1]),
-                    last_user=blocking_users[-1],
+                'Reviews from {all_but_last_reviewer}, and {last_reviewer} '
+                'are in a state which is intended to prevent landings.'.format(
+                    all_but_last_reviewer=', '.join(blocking_reviewers[:-1]),
+                    last_reviewer=blocking_reviewers[-1],
                 )
             )
 
         return cls(
             'The review from {username} is in a state which is '
             'intended to prevent landings.'.format(
-                username=blocking_users[0],
+                username=blocking_reviewers[0],
             )
         )
 
@@ -417,7 +415,7 @@ def check_landing_conditions(
     get_diff,
     get_open_parents,
     get_reviewers,
-    get_reviewer_users,
+    get_reviewer_info,
     get_reviewers_extra_state,
     get_revision_status,
     *,
@@ -460,7 +458,7 @@ def check_landing_conditions(
             get_diff=get_diff,
             get_open_parents=get_open_parents,
             get_reviewers=get_reviewers,
-            get_reviewer_users=get_reviewer_users,
+            get_reviewer_info=get_reviewer_info,
             get_reviewers_extra_state=get_reviewers_extra_state,
             get_revision_status=get_revision_status,
         )
@@ -489,7 +487,7 @@ def check_landing_conditions(
             get_diff=get_diff,
             get_open_parents=get_open_parents,
             get_reviewers=get_reviewers,
-            get_reviewer_users=get_reviewer_users,
+            get_reviewer_info=get_reviewer_info,
             get_reviewers_extra_state=get_reviewers_extra_state,
             get_revision_status=get_revision_status,
         )
@@ -703,6 +701,23 @@ def lazy_user_search(phabricator, user_phids):
 
 
 @lazy
+def lazy_project_search(phabricator, project_phids):
+    """Return a dictionary mapping phid to project data from a project.search.
+
+    Args:
+        phabricator: A PhabricatorClient instance.
+        project_phids: A list of project phids to search.
+    """
+    if not project_phids:
+        return {}
+
+    projects = phabricator.call_conduit(
+        'project.search', constraints={'phids': project_phids}
+    )
+    return result_list_to_phid_dict(phabricator.expect(projects, 'data'))
+
+
+@lazy
 def lazy_reviewers_search(phabricator, reviewers):
     """Return a dictionary mapping phid to user information for reviewers.
 
@@ -713,8 +728,11 @@ def lazy_reviewers_search(phabricator, reviewers):
     """
     phids = list(reviewers.keys())
 
-    # Immediately execute the lazy function.
-    return lazy_user_search(phabricator, phids)()
+    # Immediately execute the lazy functions.
+    return (
+        lazy_user_search(phabricator, phids)(),
+        lazy_project_search(phabricator, phids)()
+    )
 
 
 @lazy

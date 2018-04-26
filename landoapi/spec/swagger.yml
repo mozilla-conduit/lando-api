@@ -420,35 +420,41 @@ definitions:
         type: string
         description: |
           The phid of the user.
-      username:
-        type: string
-        description: |
-          The reviewer's username on Phabricator.
       status:
         type: string
         enum: [added, accepted, blocking, rejected, resigned]
         description: |
           Status set by or on the reviewer. Users added as blocking reviewers
           have status set to "blocking" instead of "added".
-      real_name:
-        type: string
-        description: |
-          The reviewer's real name as they set it on Phabricator.
       for_other_diff:
         type: boolean
         description: |
           True if the reviewer's status (acceptance/rejection) is on a
           different diff.
+      identifier:
+        type: string
+        description: |
+          The identifying name for this reviewer. Username or project name
+          for reviewers that are users or projects respectively.
+      full_name:
+        type: string
+        description: |
+          A longer name for the reviewer. For a user this would be their
+          realName.
       blocking_landing:
         type: boolean
         description: |
           True if this reviewer is blocking the revision/diff from landing,
           such as not having reviewed yet as a blocking reviewer or having
           rejected the particular diff.
-      is_blocking:
-        type: boolean
+      username:
+        type: string
         description: |
-          DEPRECATED, always `false`.
+          DEPRECATED, use identifier.
+      real_name:
+        type: string
+        description: |
+          DEPRECATED, use full_name.
   Diff:
     type: object
     properties:

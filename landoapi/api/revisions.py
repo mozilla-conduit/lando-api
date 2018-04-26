@@ -16,13 +16,14 @@ from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.landings import (
     lazy_get_reviewers,
+    lazy_project_search,
     lazy_user_search,
 )
 from landoapi.phabricator import (
     PhabricatorClient,
     ReviewerStatus,
 )
-from landoapi.reviews import calculate_review_extra_state
+from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
@@ -107,9 +108,10 @@ def get(revision_id, diff_id=None):
     # Immediately execute the lazy functions.
     reviewers = lazy_get_reviewers(revision)()
     users = lazy_user_search(phab, list(reviewers.keys()) + [author_phid])()
+    projects = lazy_project_search(phab, list(reviewers.keys()))()
 
     accepted_reviewers = [
-        users.get(phid, {}).get('fields', {}).get('username', '<unknown>')
+        reviewer_identity(phid, users, projects).identifier
         for phid, r in reviewers.items()
         if r['status'] is ReviewerStatus.ACCEPTED
     ]
@@ -127,7 +129,7 @@ def get(revision_id, diff_id=None):
     )
 
     reviewers_response = _render_reviewers_response(
-        reviewers, users, phab.expect(diff, 'phid')
+        reviewers, users, projects, phab.expect(diff, 'phid')
     )
     author_response = _render_author_response(author_phid, users)
     diff_response = _render_diff_response(querydiffs_diff)
@@ -155,12 +157,14 @@ def get(revision_id, diff_id=None):
 
 
 def _render_reviewers_response(
-    collated_reviewers, user_search_data, diff_phid
+    collated_reviewers, user_search_data, project_search_data, diff_phid
 ):
     reviewers = []
 
     for phid, r in collated_reviewers.items():
-        user_fields = user_search_data.get(phid, {}).get('fields', {})
+        identity = reviewer_identity(
+            phid, user_search_data, project_search_data
+        )
         state = calculate_review_extra_state(
             diff_phid, r['status'], r['diffPHID'], r['voidedPHID']
         )
@@ -170,10 +174,11 @@ def _render_reviewers_response(
                 'status': r['status'].value,
                 'for_other_diff': state['for_other_diff'],
                 'blocking_landing': state['blocking_landing'],
-                'username': user_fields.get('username', ''),
-                'real_name': user_fields.get('realName', ''),
+                'identifier': identity.identifier,
+                'full_name': identity.full_name,
                 # Deprecated, remove after lando UI stops use.
-                'is_blocking': False,
+                'username': identity.identifier,
+                'real_name': identity.full_name,
             }
         )
 

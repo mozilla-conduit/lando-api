@@ -32,6 +32,7 @@ from landoapi.landings import (
 from landoapi.models.landing import Landing, LandingStatus
 from landoapi.patches import upload
 from landoapi.phabricator import ReviewerStatus
+from landoapi.reviews import reviewer_identity
 from landoapi.storage import db
 from landoapi.transplant_client import TransplantClient, TransplantError
 from landoapi.validation import revision_id_to_int
@@ -63,7 +64,7 @@ def dryrun(data):
     )
     get_open_parents = lazy_get_open_parents(phab, get_revision)
     get_reviewers = lazy_get_reviewers(get_revision)
-    get_reviewer_users = lazy_reviewers_search(phab, get_reviewers)
+    get_reviewer_info = lazy_reviewers_search(phab, get_reviewers)
     get_reviewers_extra_state = lazy_get_reviewers_extra_state(
         get_reviewers, get_diff
     )
@@ -80,7 +81,7 @@ def dryrun(data):
         get_diff,
         get_open_parents,
         get_reviewers,
-        get_reviewer_users,
+        get_reviewer_info,
         get_reviewers_extra_state,
         get_revision_status,
     )
@@ -113,7 +114,7 @@ def post(data):
     )
     get_open_parents = lazy_get_open_parents(phab, get_revision)
     get_reviewers = lazy_get_reviewers(get_revision)
-    get_reviewer_users = lazy_reviewers_search(phab, get_reviewers)
+    get_reviewer_info = lazy_reviewers_search(phab, get_reviewers)
     get_reviewers_extra_state = lazy_get_reviewers_extra_state(
         get_reviewers, get_diff
     )
@@ -130,7 +131,7 @@ def post(data):
         get_diff,
         get_open_parents,
         get_reviewers,
-        get_reviewer_users,
+        get_reviewer_info,
         get_reviewers_extra_state,
         get_revision_status,
         short_circuit=True,
@@ -152,9 +153,9 @@ def post(data):
 
     # Collect the usernames of reviewers who have accepted.
     reviewers = get_reviewers()
-    users = get_reviewer_users()
+    users, projects = get_reviewer_info()
     accepted_reviewers = [
-        users.get(phid, {}).get('fields', {}).get('username', '<unknown>')
+        reviewer_identity(phid, users, projects).identifier
         for phid, r in reviewers.items()
         if r['status'] is ReviewerStatus.ACCEPTED
     ]

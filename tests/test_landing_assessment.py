@@ -17,6 +17,7 @@ def test_no_warnings_or_blockers(client, db, phabdouble, auth0_mock):
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
     phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
+    phabdouble.reviewer(revision, phabdouble.project('reviewer2'))
     response = client.post(
         '/landings/dryrun',
         json=dict(
@@ -413,6 +414,7 @@ def test_accepted_older_warns(client, db, phabdouble, auth0_mock):
         status=RevisionStatus.ACCEPTED,
     )
     phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
+    phabdouble.reviewer(revision, phabdouble.project('reviewer2'))
 
     # Add a new diff so the acceptance is on an older diff.
     diff = phabdouble.diff(revision=revision)

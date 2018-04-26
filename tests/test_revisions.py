@@ -88,34 +88,51 @@ def test_get_revision_multiple_reviewers(client, phabdouble):
     revision = phabdouble.revision(repo=phabdouble.repo())
     u1 = phabdouble.user(username='reviewer1')
     u2 = phabdouble.user(username='reviewer2')
+    p1 = phabdouble.project('test-project')
     phabdouble.reviewer(revision, u1)
     phabdouble.reviewer(
         revision, u2, status=ReviewerStatus.REJECTED, isBlocking=False
+    )
+    phabdouble.reviewer(
+        revision, p1, status=ReviewerStatus.BLOCKING, isBlocking=True
     )
 
     response = client.get('/revisions/D1')
     assert response.status_code == 200
 
     reviewers = response.json['reviewers']
-    assert len(reviewers) == 2
+    assert len(reviewers) == 3
     for reviewer in reviewers:
         if reviewer['phid'] == u1['phid']:
             assert reviewer == {
                 'phid': u1['phid'],
-                'is_blocking': False,
                 'real_name': u1['realName'],
                 'status': 'accepted',
                 'username': u1['userName'],
+                'identifier': u1['userName'],
+                'full_name': u1['realName'],
                 'for_other_diff': False,
                 'blocking_landing': False,
             }
-        else:
+        elif reviewer['phid'] == u2['phid']:
             assert reviewer == {
                 'phid': u2['phid'],
-                'is_blocking': False,
                 'real_name': u2['realName'],
                 'status': 'rejected',
                 'username': u2['userName'],
+                'identifier': u2['userName'],
+                'full_name': u2['realName'],
+                'for_other_diff': False,
+                'blocking_landing': True,
+            }
+        else:
+            assert reviewer == {
+                'phid': p1['phid'],
+                'real_name': p1['name'],
+                'status': 'blocking',
+                'username': p1['name'],
+                'identifier': p1['name'],
+                'full_name': p1['name'],
                 'for_other_diff': False,
                 'blocking_landing': True,
             }

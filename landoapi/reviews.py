@@ -2,7 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from landoapi.phabricator import ReviewerStatus
+import logging
+from collections import namedtuple
+
+from landoapi.phabricator import PhabricatorClient, ReviewerStatus
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_review_extra_state(
@@ -40,3 +45,34 @@ def calculate_review_extra_state(
         'for_other_diff': other_diff,
         'blocking_landing': blocks_landing,
     }
+
+
+ReviewerIdentity = namedtuple(
+    'ReviewerIdentity', ('identifier', 'full_name', )
+)
+
+
+def reviewer_identity(phid, user_search_data, project_search_data):
+    if phid in user_search_data:
+        return ReviewerIdentity(
+            PhabricatorClient.expect(
+                user_search_data, phid, 'fields', 'username'
+            ),
+            PhabricatorClient.expect(
+                user_search_data, phid, 'fields', 'realName'
+            )
+        )
+
+    if phid in project_search_data:
+        name = PhabricatorClient.expect(
+            project_search_data, phid, 'fields', 'name'
+        )
+        return ReviewerIdentity(name, name)
+
+    logger.info(
+        {
+            'msg': 'A reviewer was missing from user / project search data',
+            'phid': phid,
+        }, 'reviewer.unknown'
+    )
+    return ReviewerIdentity('<unknown>', 'Unknown User/Project')

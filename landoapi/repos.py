@@ -73,7 +73,7 @@ REPO_CONFIG = {
 def get_repos_for_env(env):
     if env not in REPO_CONFIG:
         logger.warning(
-            'Repo config requested for unkown env: "{}"'.format(env)
+            'Repo config requested for unknown env: "{}"'.format(env)
         )
         env = 'default'
 
