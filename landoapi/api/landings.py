@@ -104,6 +104,8 @@ def post(data):
     )
 
     revision_id, diff_id = unmarshal_landing_request(data)
+    confirmation_token = data.get('confirmation_token') or None
+
     phab = g.phabricator
 
     get_revision = lazy_get_revision(phab, revision_id)
@@ -138,7 +140,7 @@ def post(data):
         get_revision_status,
         short_circuit=True,
     )
-    assessment.raise_if_blocked_or_unacknowledged(None)
+    assessment.raise_if_blocked_or_unacknowledged(confirmation_token)
     if assessment.warnings:
         # Log any warnings that were acknowledged, for auditing.
         logger.info(

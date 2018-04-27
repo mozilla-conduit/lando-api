@@ -46,6 +46,7 @@ def test_landing_revision_saves_data_in_db(
     repo = phabdouble.repo()
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=repo)
+    phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
     transfactory.mock_successful_response(land_request_id)
 
     response = client.post(
@@ -96,6 +97,7 @@ def test_landing_revision_calls_transplant_service(
     repo = phabdouble.repo(name='mozilla-central')
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=repo)
+    phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
     patch_url = patches.url(
         'landoapi.test.bucket', patches.name(revision['id'], diff['id'])
     )
@@ -138,6 +140,7 @@ def test_push_bookmark_sent_when_supported_repo(
     repo = phabdouble.repo(name='mozilla-central')
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=repo)
+    phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
     patch_url = patches.url(
         'landoapi.test.bucket', patches.name(revision['id'], diff['id'])
     )
@@ -176,6 +179,7 @@ def test_transplant_error_responds_with_502(
 ):
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
+    phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
     getattr(transfactory, mock_error_method)()
 
     response = client.post(
@@ -595,6 +599,7 @@ def test_land_failed_revision(
 ):
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
+    phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
     _create_landing(
         db,
         revision_id=revision['id'],

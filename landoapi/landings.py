@@ -22,12 +22,10 @@ from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 def tokens_are_equal(t1, t2):
     """Return whether t1 and t2 are equal.
 
-    This function exists to make disabling confirmation_token checking
-    easy until we have proper lando UI support. It also makes mocking
-    or ignorning confirmation token checks very simple.
+    This function exists to make mocking or ignorning confirmation token
+    checks very simple.
     """
-    # TODO: return t1 == t2
-    return True
+    return t1 == t2
 
 
 class LandingAssessment:
