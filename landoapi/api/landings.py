@@ -268,6 +268,9 @@ def post(data):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502'
         )
 
+    # Transaction succeeded, commit the session.
+    db.session.commit()
+
     logger.info(
         {
             'revision_id': revision_id,

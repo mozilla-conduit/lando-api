@@ -62,6 +62,9 @@ def test_landing_revision_saves_data_in_db(
     # Id of the Landing object in Lando API
     assert response.json == {'id': landing_id}
 
+    # Ensure DB access isn't using uncommitted data.
+    db.session.close()
+
     # Get Landing object by its id
     landing = Landing.query.get(landing_id)
     assert landing.id == landing_id
@@ -482,6 +485,10 @@ def test_update_landing(db, client):
     )
 
     assert response.status_code == 200
+
+    # Ensure DB access isn't using uncommitted data.
+    db.session.close()
+
     landing = Landing.query.get(1)
     assert landing.status == LandingStatus.landed
 
@@ -620,6 +627,10 @@ def test_land_failed_revision(
         content_type='application/json'
     )
     assert response.status_code == 202
+
+    # Ensure DB access isn't using uncommitted data.
+    db.session.close()
+
     assert Landing.is_revision_submitted(revision['id'])
 
 
