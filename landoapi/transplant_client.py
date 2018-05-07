@@ -93,37 +93,31 @@ class TransplantClient:
             return response.json()['request_id']
         except requests.HTTPError as e:
             sentry.captureException()
-            logger.info(
-                {
-                    'message': 'Transplant Submission HTTPError: %s' % str(e),
+            logger.warning(
+                'Transplant Submission HTTPError',
+                extra={
                     'status_code': e.response.status_code,
                     'body': e.response.text,
-                }, '_submit_landing_request.http_error'
+                },
+                exc_info=e
             )
             raise TransplantError()
         except (requests.ConnectionError, requests.ConnectTimeout) as e:
-            logger.info(
-                {
-                    'message': 'Transplant Connection Error: %s' % str(e),
-                }, '_submit_landing_request.connection_error'
-            )
+            logger.warning('Transplant Connection Error', exc_info=e)
             raise TransplantError()
         except requests.RequestException as e:
             sentry.captureException()
-            logger.info(
-                {
-                    'message': 'Transplant Request Exception: %s' % str(e),
-                }, '_submit_landing_request.request_exception'
-            )
+            logger.warning('Transplant Request Exception', exc_info=e)
             raise TransplantError()
         except (json.JSONDecodeError, KeyError) as e:
             sentry.captureException()
-            logger.info(
-                {
-                    'message': 'Transplant Data Parse Error: %s' % str(e),
+            logger.warning(
+                'Transplant Data Parse Error',
+                extra={
                     'status_code': response.status_code,
                     'body': response.text,
-                }, '_submit_landing_request.data_parse_error'
+                },
+                exc_info=e
             )
             raise TransplantError()
 
@@ -132,8 +126,8 @@ class TransplantClient:
         pingback_url, push_bookmark
     ):
         logger.info(
-            {
-                'message': 'Initiating transplant landing request.',
+            'Initiating transplant landing request',
+            extra={
                 'ldap_username': ldap_username,
                 'tree': tree,
                 'rev': rev,
@@ -141,7 +135,7 @@ class TransplantClient:
                 'destination': destination,
                 'push_bookmark': push_bookmark,
                 'pingback_url': pingback_url,
-            }, '_submit_landing_request.initiation'
+            }
         )
 
         submit_url = self.transplant_url + '/autoland'
@@ -162,10 +156,8 @@ class TransplantClient:
         response.raise_for_status()
 
         logger.info(
-            {
-                'message': 'Successfully submitted landing request.',
-                'status_code': response.status_code,
-            }, '_submit_landing_request.completion'
+            'Successfully submitted landing request',
+            extra={'status_code': response.status_code}
         )
         return response
 

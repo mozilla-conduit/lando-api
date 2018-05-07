@@ -70,9 +70,7 @@ def reviewer_identity(phid, user_search_data, project_search_data):
         return ReviewerIdentity(name, name)
 
     logger.info(
-        {
-            'msg': 'A reviewer was missing from user / project search data',
-            'phid': phid,
-        }, 'reviewer.unknown'
+        'reviewer was missing from user / project search data',
+        extra={'phid': phid}
     )
     return ReviewerIdentity('<unknown>', 'Unknown User/Project')

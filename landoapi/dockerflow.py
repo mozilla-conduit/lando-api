@@ -46,12 +46,10 @@ def heartbeat():
         phab.call_conduit('conduit.ping')
     except PhabricatorAPIException:
         logger.warning(
-            {
-                'msg': 'problem connecting to Phabricator',
-            }, 'heartbeat'
+            'heartbeat failure', extra={'services': ['Phabricator']}
         )
         return 'heartbeat: problem', 502
-    logger.info({'msg': 'ok, all services are up'}, 'heartbeat')
+
     return 'heartbeat: ok', 200
 
 

@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
-import logging
 import os
 from types import SimpleNamespace
 
@@ -126,16 +125,7 @@ def disable_migrations(monkeypatch):
 
 
 @pytest.fixture
-def disable_log_output():
-    """Disable Python standard logging output to the console."""
-    logging.disable(logging.CRITICAL)
-
-
-@pytest.fixture
-def app(
-    versionfile, docker_env_vars, disable_migrations, disable_log_output,
-    mocked_repo_config
-):
+def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     """Needed for pytest-flask."""
     app = create_app(versionfile.strpath)
     flask_app = app.app

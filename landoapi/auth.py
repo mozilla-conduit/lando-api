@@ -132,11 +132,7 @@ def get_jwks():
     try:
         jwks = jwks_response.json()
     except ValueError:
-        logger.error(
-            {
-                'msg': 'Auth0 jwks response was not valid json.'
-            }, 'auth0.error'
-        )
+        logger.error('Auth0 jwks response was not valid json')
         raise ProblemException(
             500,
             'Auth0 Response Error',
@@ -209,11 +205,7 @@ def get_auth0_userinfo(access_token, user_sub):
     if resp.status_code == 429:
         # We should hopefully never hit this in production, so log an error
         # to make sure we investigate.
-        logger.error(
-            {
-                'msg': 'Auth0 Rate limit hit when requesting userinfo'
-            }, 'auth0.rate_limited'
-        )
+        logger.error('Auth0 Rate limit hit when requesting userinfo')
         raise ProblemException(
             429,
             'Auth0 Rate Limit',
@@ -241,11 +233,7 @@ def get_auth0_userinfo(access_token, user_sub):
     try:
         userinfo = resp.json()
     except ValueError:
-        logger.error(
-            {
-                'msg': 'Auth0 userinfo response was not valid json.'
-            }, 'auth0.error'
-        )
+        logger.error('Auth0 userinfo response was not valid json')
         raise ProblemException(
             500,
             'Auth0 Response Error',
@@ -416,11 +404,7 @@ class require_auth0:
             try:
                 key = get_rsa_key(jwks, token)
             except KeyError:
-                logger.error(
-                    {
-                        'msg': 'Auth0 jwks response structure unexpected.'
-                    }, 'auth0.error'
-                )
+                logger.error('Auth0 jwks response structure unexpected')
                 raise ProblemException(
                     500,
                     'Auth0 Response Error',
@@ -517,20 +501,18 @@ def require_transplant_authentication(f):
                 # First try to log any arguments that were going to
                 # the endpoint (could fail json serialization).
                 logger.warning(
-                    {
-                        'args': args,
-                        'kwargs': kwargs,
+                    'Attempt to access a disabled pingback',
+                    extra={
+                        'arguments': args,
+                        'kw_arguments': kwargs,
                         'remote_addr': request.remote_addr,
-                        'msg': 'Attempt to access a disabled pingback',
-                    }, 'security.pingback'
+                    }
                 )
             except TypeError:
                 # Reattempt logging without the arguments.
                 logger.warning(
-                    {
-                        'remote_addr': request.remote_addr,
-                        'msg': 'Attempt to access a disabled pingback',
-                    }, 'security.pingback'
+                    'Attempt to access a disabled pingback',
+                    extra={'remote_addr': request.remote_addr}
                 )
 
             raise _not_authorized_problem_exception()
@@ -541,20 +523,18 @@ def require_transplant_authentication(f):
                 # First try to log any arguments that were going to
                 # the endpoint (could fail json serialization).
                 logger.critical(
-                    {
-                        'args': args,
-                        'kwargs': kwargs,
+                    'Attempt to pingback without API-Key header',
+                    extra={
+                        'arguments': args,
+                        'kw_arguments': kwargs,
                         'remote_addr': request.remote_addr,
-                        'msg': 'Attempt to pingback without API-Key header',
-                    }, 'security.pingback'
+                    }
                 )
             except TypeError:
                 # Reattempt logging without the arguments.
                 logger.critical(
-                    {
-                        'remote_addr': request.remote_addr,
-                        'msg': 'Attempt to pingback without API-Key header',
-                    }, 'security.pingback'
+                    'Attempt to pingback without API-Key header',
+                    extra={'remote_addr': request.remote_addr}
                 )
 
             raise _not_authorized_problem_exception()
@@ -565,20 +545,18 @@ def require_transplant_authentication(f):
                 # First try to log any arguments that were going to
                 # the endpoint (could fail json serialization).
                 logger.critical(
-                    {
-                        'args': args,
-                        'kwargs': kwargs,
+                    'Attempt to pingback with incorrect API-Key',
+                    extra={
+                        'arguments': args,
+                        'kw_arguments': kwargs,
                         'remote_addr': request.remote_addr,
-                        'msg': 'Attempt to pingback with incorrect API-Key',
-                    }, 'security.pingback'
+                    }
                 )
             except TypeError:
                 # Reattempt logging without the arguments.
                 logger.critical(
-                    {
-                        'remote_addr': request.remote_addr,
-                        'msg': 'Attempt to pingback with incorrect API-Key',
-                    }, 'security.pingback'
+                    'Attempt to pingback with incorrect API-Key',
+                    extra={'remote_addr': request.remote_addr}
                 )
             raise _not_authorized_problem_exception()
 

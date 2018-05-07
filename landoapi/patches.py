@@ -52,10 +52,5 @@ def upload(
         f.seek(0)
         s3.meta.client.upload_fileobj(f, s3_bucket, patch_name)
 
-    logger.info(
-        {
-            'patch_url': patch_url,
-            'msg': 'Patch file uploaded'
-        }, 'patches.uploaded'
-    )
+    logger.info('patch uploaded', extra={'patch_url': patch_url})
     return patch_url

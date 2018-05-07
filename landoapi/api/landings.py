@@ -95,12 +95,12 @@ def dryrun(data):
 def post(data):
     """API endpoint at POST /landings to land revision."""
     logger.info(
-        {
+        'landing requested by user',
+        extra={
             'path': request.path,
             'method': request.method,
             'data': data,
-            'msg': 'landing requested by user'
-        }, 'landing.invoke'
+        }
     )
 
     revision_id, diff_id = unmarshal_landing_request(data)
@@ -144,11 +144,11 @@ def post(data):
     if assessment.warnings:
         # Log any warnings that were acknowledged, for auditing.
         logger.info(
-            {
+            'Landing with acknowledged warnings is being requested',
+            extra={
                 'revision_id': revision_id,
                 'warnings': [w.serialize() for w in assessment.warnings],
-                'msg': 'Landing with acknowledged warnings is being requested',
-            }, 'landing.warnings_present'
+            }
         )
 
     # These are guaranteed to return proper data since we're
@@ -254,11 +254,9 @@ def post(data):
             db.session.add(landing)
     except TransplantError as exc:
         logger.info(
-            {
-                'revision': revision_id,
-                'exc': str(exc),
-                'msg': 'error creating landing',
-            }, 'landing.error'
+            'error creating landing',
+            extra={'revision': revision_id},
+            exc_info=exc
         )
         return problem(
             502,
@@ -272,11 +270,11 @@ def post(data):
     db.session.commit()
 
     logger.info(
-        {
+        'landing created',
+        extra={
             'revision_id': revision_id,
             'landing_id': landing.id,
-            'msg': 'landing created for revision'
-        }, 'landing.success'
+        }
     )
     return {'id': landing.id}, 202
 

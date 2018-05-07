@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import logging
+import logging.config
 import os
 import re
 import sys
@@ -10,12 +11,12 @@ import sys
 import click
 import connexion
 from connexion.resolver import RestyResolver
-from mozlogging import MozLogFormatter
 
 import landoapi.models  # noqa, makes sure alembic knows about the models.
 from landoapi.cache import cache
 from landoapi.dockerflow import dockerflow
 from landoapi.hooks import initialize_hooks
+from landoapi.logging import MozLogFormatter
 from landoapi.sentry import sentry
 from landoapi.storage import alembic, db
 
@@ -64,7 +65,7 @@ def configure_app(flask_app, version_path):
     # Application version metadata
     flask_app.config['VERSION_PATH'] = version_path
     version_info = json.load(open(version_path))
-    logger.info(version_info, 'app.version')
+    logger.info('application version', extra=version_info)
 
     # Phabricator.
     flask_app.config['PHABRICATOR_URL'] = os.getenv('PHABRICATOR_URL')
@@ -179,13 +180,7 @@ def initialize_sentry(flask_app, release):
             the Sentry client configuration docs for details.
     """
     sentry_dsn = os.environ.get('SENTRY_DSN', None)
-
-    if sentry_dsn:
-        dsn_text = '********'  # Sanitize the DSN
-    else:
-        dsn_text = 'none (sentry disabled)'
-    logger.info({'SENTRY_DSN': dsn_text}, 'app.configure')
-
+    logger.info('sentry status', extra={'enabled': bool(sentry_dsn)})
     sentry.init_app(flask_app, dsn=sentry_dsn)
 
     # Set these attributes directly because their keyword arguments can't be
@@ -196,28 +191,49 @@ def initialize_sentry(flask_app, release):
 
 def initialize_logging():
     """Initialize application-wide logging."""
-    mozlog_handler = logging.StreamHandler()
-    mozlog_handler.setFormatter(MozLogFormatter())
-
-    # We need to configure the logger just for our application code.  This is
-    # because the MozLogFormatter changes the signature of the standard
-    # library logging functions.  Any code that tries to log a message assuming
-    # the standard library's formatter is in place, such as the code in the
-    # libraries we use, with throw an error if the MozLogFormatter tries to
-    # handle the message.
-    app_logger = logging.getLogger('landoapi')
-
-    # Stop our specially-formatted log messages from bubbling up to any
-    # Flask-installed loggers that may be present.  They will throw an
-    # exception if they handle our messages.
-    app_logger.propagate = False
-
-    app_logger.addHandler(mozlog_handler)
-
     level = os.environ.get('LOG_LEVEL', 'INFO')
-    app_logger.setLevel(level)
-
-    logger.info({'LOG_LEVEL': level}, 'app.configure')
+    logging.config.dictConfig(
+        {
+            'version': 1,
+            'formatters': {
+                'mozlog': {
+                    '()': MozLogFormatter,
+                    'mozlog_logger': 'lando-api',
+                },
+            },
+            'handlers': {
+                'console': {
+                    'class': 'logging.StreamHandler',
+                    'formatter': 'mozlog',
+                },
+                'null': {
+                    'class': 'logging.NullHandler',
+                }
+            },
+            'loggers': {
+                'landoapi': {
+                    'level': level,
+                    'handlers': ['console'],
+                },
+                'request.summary': {
+                    'level': level,
+                    'handlers': ['console'],
+                },
+                'flask': {
+                    'handlers': ['null'],
+                },
+                'werkzeug': {
+                    'level': 'ERROR',
+                    'handlers': ['console'],
+                },
+            },
+            'root': {
+                'handlers': ['null'],
+            },
+            'disable_existing_loggers': True,
+        }
+    )
+    logger.info('logging configured', extra={'LOG_LEVEL': level})
 
 
 def log_app_config(flask_app, keys_before_setup):
@@ -238,13 +254,13 @@ def log_app_config(flask_app, keys_before_setup):
     keys_to_log = keys_after_setup.difference(keys_before_setup)
 
     safe_keys = keys_to_log.difference(keys_to_sanitize)
-    settings = dict((k, flask_app.config[k]) for k in safe_keys)
+    settings = {k: flask_app.config[k] for k in safe_keys}
 
     sensitive_keys = keys_to_log.intersection(keys_to_sanitize)
     cleaned_settings = dict((k, '********') for k in sensitive_keys)
     settings.update(cleaned_settings)
 
-    logger.info(settings, 'app.configure')
+    logger.info('app configured', extra={'configuration': settings})
 
 
 @click.command()

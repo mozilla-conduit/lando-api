@@ -3,14 +3,16 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import logging
+import time
 
 from connexion import FlaskApi, problem
-from flask import current_app
+from flask import current_app, g, request
 
 from landoapi.phabricator import PhabricatorAPIException
 from landoapi.sentry import sentry
 
 logger = logging.getLogger(__name__)
+request_logger = logging.getLogger('request.summary')
 
 
 def set_app_wide_headers(response):
@@ -31,14 +33,38 @@ def set_app_wide_headers(response):
     return response
 
 
+def request_logging_before_request():
+    g._request_start_timestamp = time.time()
+
+
+def request_logging_after_request(response):
+    summary = {
+        'errno': 0 if response.status_code < 400 else 1,
+        'agent': request.headers.get('User-Agent', ''),
+        'lang': request.headers.get('Accept-Language', ''),
+        'method': request.method,
+        'path': request.path,
+        'code': response.status_code,
+    }
+
+    start = g.get('_request_start_timestamp', None)
+    if start is not None:
+        summary['t'] = int(1000 * (time.time() - start))
+
+    request_logger.info('request summary', extra=summary)
+
+    return response
+
+
 def handle_phabricator_api_exception(exc):
     sentry.captureException()
     logger.error(
-        {
-            'msg': str(exc),
+        'phabricator exception',
+        extra={
             'error_code': exc.error_code,
             'error_info': exc.error_info,
-        }, 'phabricator.exception'
+        },
+        exc_info=exc
     )
     return FlaskApi.get_response(
         problem(
@@ -52,6 +78,10 @@ def handle_phabricator_api_exception(exc):
 
 def initialize_hooks(flask_app):
     flask_app.after_request(set_app_wide_headers)
+
+    flask_app.before_request(request_logging_before_request)
+    flask_app.after_request(request_logging_after_request)
+
     flask_app.register_error_handler(
         PhabricatorAPIException,
         handle_phabricator_api_exception,
