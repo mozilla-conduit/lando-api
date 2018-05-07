@@ -27,7 +27,13 @@ def create_app(version_path):
     initialize_logging()
 
     app = connexion.App(__name__, specification_dir='spec/')
-    app.add_api('swagger.yml', resolver=RestyResolver('landoapi.api'))
+
+    swagger_ui_enabled = os.environ.get('ENV', None) == 'localdev'
+    app.add_api(
+        'swagger.yml',
+        resolver=RestyResolver('landoapi.api'),
+        swagger_ui=swagger_ui_enabled
+    )
 
     # Get the Flask app being wrapped by the Connexion app.
     flask_app = app.app

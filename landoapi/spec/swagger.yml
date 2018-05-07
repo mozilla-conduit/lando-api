@@ -24,10 +24,10 @@ produces:
 paths:
   /:
     get:
-      summary: Redirect to the API UI and documentation
+      summary: Redirect to the API specification
       responses:
         302:
-          description: Redirect to the UI
+          description: Redirect to swagger.json
           headers:
             Location:
               description: Where to redirect to

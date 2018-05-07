@@ -4,9 +4,5 @@
 
 
 def get():
-    """Return a redirect repsonse to the swagger-ui.
-
-    Requesting the '/' endpoint will redirect to the swagger-ui
-    so that the documentation can be found easily.
-    """
-    return None, 302, {'Location': '/ui/'}
+    """Return a redirect repsonse to the swagger specification."""
+    return None, 302, {'Location': '/swagger.json'}
