@@ -3,4 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from flask_caching import Cache
 
+from landoapi.redis import SuppressRedisFailure
+
 cache = Cache()
+cache.suppress_failure = SuppressRedisFailure

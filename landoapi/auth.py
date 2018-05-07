@@ -93,7 +93,11 @@ def get_jwks():
     """Return the auth0 jwks."""
     jwks_url = current_app.config['OIDC_JWKS_URL']
     cache_key = jwks_cache_key(jwks_url)
-    jwks = cache.get(cache_key)
+
+    jwks = None
+    with cache.suppress_failure():
+        jwks = cache.get(cache_key)
+
     if jwks is not None:
         return jwks
 
@@ -140,7 +144,9 @@ def get_jwks():
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
         )  # yapf: disable
 
-    cache.set(cache_key, jwks, timeout=60)
+    with cache.suppress_failure():
+        cache.set(cache_key, jwks, timeout=60)
+
     return jwks
 
 
@@ -166,7 +172,11 @@ def fetch_auth0_userinfo(access_token):
 def get_auth0_userinfo(access_token, user_sub):
     """Return userinfo data from auth0."""
     cache_key = userinfo_cache_key(access_token, user_sub)
-    userinfo = cache.get(cache_key)
+
+    userinfo = None
+    with cache.suppress_failure():
+        userinfo = cache.get(cache_key)
+
     if userinfo is not None:
         return userinfo
 
@@ -241,7 +251,9 @@ def get_auth0_userinfo(access_token, user_sub):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500'
         )  # yapf: disable
 
-    cache.set(cache_key, userinfo, timeout=60)
+    with cache.suppress_failure():
+        cache.set(cache_key, userinfo, timeout=60)
+
     return userinfo
 
 
