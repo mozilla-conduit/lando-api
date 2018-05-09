@@ -16,19 +16,25 @@ request_logger = logging.getLogger('request.summary')
 
 
 def set_app_wide_headers(response):
+    local_dev = current_app.config.get('ENVIRONMENT') == 'localdev'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-Content-Type-Options'] = 'nosniff'
 
-    csp = [
-        "default-src 'none';",
-        "script-src 'self' 'unsafe-inline';",
-        "connect-src 'self';",
-        "img-src 'self';",
-        "style-src 'self' 'unsafe-inline';",
-    ]
+    csp = ["default-src 'none'"]
+    if local_dev:
+        # Serve an appropriate CSP for swagger UI when
+        # developing locally.
+        csp.extend(
+            [
+                "script-src 'self' 'unsafe-inline'",
+                "connect-src 'self'",
+                "img-src 'self'",
+                "style-src 'self' 'unsafe-inline'",
+            ]
+        )
     report_uri = current_app.config.get('CSP_REPORTING_URL')
-    report_uri and csp.append("report-uri {};".format(report_uri))
-    response.headers['Content-Security-Policy'] = ' '.join(csp)
+    report_uri and csp.append("report-uri {}".format(report_uri))
+    response.headers['Content-Security-Policy'] = '; '.join(csp)
 
     return response
 

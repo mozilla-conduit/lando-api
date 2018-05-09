@@ -17,13 +17,7 @@ def test_app_wide_headers_set(client):
 
     assert response.headers['X-Frame-Options'] == 'DENY'
     assert response.headers['X-Content-Type-Options'] == 'nosniff'
-    assert response.headers['Content-Security-Policy'] == (
-        "default-src 'none'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "connect-src 'self'; "
-        "img-src 'self'; "
-        "style-src 'self' 'unsafe-inline';"
-    )
+    assert response.headers['Content-Security-Policy'] == "default-src 'none'"
 
 
 def test_app_wide_headers_csp_report_uri(client, config):
@@ -35,7 +29,7 @@ def test_app_wide_headers_csp_report_uri(client, config):
     config['CSP_REPORTING_URL'] = '/__cspreport__'
     response = client.get('/__version__')
     assert response.status_code == 200
-    assert 'report-uri /__cspreport__;' in (
+    assert 'report-uri /__cspreport__' in (
         response.headers['Content-Security-Policy']
     )
 
