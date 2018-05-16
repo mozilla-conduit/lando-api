@@ -4,9 +4,7 @@
 
 import json
 
-import requests_mock
-
-from tests.utils import phab_url
+from tests.utils import phab_url, trans_url
 
 
 def test_dockerflow_lb_endpoint_returns_200(client):
@@ -24,35 +22,31 @@ def test_dockerflow_version_matches_disk_contents(client, versionfile):
     assert response.json == json.load(versionfile.open())
 
 
-def test_heartbeat_returns_200_if_phabricator_api_is_up(client):
-    with requests_mock.mock() as m:
-        m.get(
-            phab_url('conduit.ping'),
-            status_code=200,
-            json={
-                "result": [],
-                "error_code": None,
-                "error_info": None,
-            }
-        )
-
-        response = client.get('/__heartbeat__')
-
-        assert m.called
-        assert response.status_code == 200
+def test_heartbeat_returns_200(
+    client, db, phabdouble, request_mocker, redis_cache, s3, jwks
+):
+    request_mocker.get(
+        trans_url(''), status_code=200, text='Welcome to Autoland'
+    )
+    assert client.get('/__heartbeat__').status_code == 200
 
 
-def test_heartbeat_returns_http_502_if_phabricator_ping_returns_error(client):
+def test_heartbeat_returns_http_502_if_phabricator_ping_returns_error(
+    client, request_mocker, redis_cache, s3, jwks
+):
     error_json = {
         "result": None,
         "error_code": "ERR-CONDUIT-CORE",
         "error_info": "BOOM"
     }
 
-    with requests_mock.mock() as m:
-        m.get(phab_url('conduit.ping'), status_code=500, json=error_json)
+    request_mocker.get(
+        trans_url(''), status_code=200, text='Welcome to Autoland'
+    )
+    request_mocker.get(
+        phab_url('conduit.ping'), status_code=500, json=error_json
+    )
+    response = client.get('/__heartbeat__')
 
-        response = client.get('/__heartbeat__')
-
-        assert m.called
-        assert response.status_code == 502
+    assert request_mocker.called
+    assert response.status_code == 502

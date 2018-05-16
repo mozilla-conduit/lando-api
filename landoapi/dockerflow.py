@@ -11,10 +11,7 @@ import logging
 
 from flask import Blueprint, current_app, jsonify
 
-from landoapi.phabricator import (
-    PhabricatorClient,
-    PhabricatorAPIException,
-)
+from landoapi import health
 
 logger = logging.getLogger(__name__)
 
@@ -38,19 +35,10 @@ def heartbeat():
     and return a 200 iff those services and the app itself are
     performing normally. Return a 5XX if something goes wrong.
     """
-    phab = PhabricatorClient(
-        current_app.config['PHABRICATOR_URL'],
-        current_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
-    )
-    try:
-        phab.call_conduit('conduit.ping')
-    except PhabricatorAPIException:
-        logger.warning(
-            'heartbeat failure', extra={'services': ['Phabricator']}
-        )
-        return 'heartbeat: problem', 502
+    healthy, service_healths = health.run_checks()
 
-    return 'heartbeat: ok', 200
+    status = 200 if healthy else 502
+    return jsonify({'healthy': healthy, 'services': service_healths}), status
 
 
 @dockerflow.route('/__lbheartbeat__')

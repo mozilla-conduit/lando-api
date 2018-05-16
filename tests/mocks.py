@@ -401,6 +401,10 @@ class PhabricatorDouble:
 
         return project
 
+    @conduit_method('conduit.ping')
+    def conduit_ping(self):
+        return 'ip-123-123-123-123.us-west-2.compute.internal'
+
     @conduit_method('project.search')
     def project_search(
         self,

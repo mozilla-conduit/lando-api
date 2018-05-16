@@ -161,6 +161,10 @@ class TransplantClient:
         )
         return response
 
+    def ping(self):
+        """Make a GET request to Transplant to check connectivity."""
+        return requests.get(url=self.transplant_url)
+
 
 class TransplantError(Exception):
     pass

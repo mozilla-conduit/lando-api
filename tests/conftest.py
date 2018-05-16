@@ -13,6 +13,7 @@ from flask import current_app
 from moto import mock_s3
 
 from landoapi.app import create_app
+from landoapi.cache import cache
 from landoapi.landings import tokens_are_equal
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
@@ -229,3 +230,25 @@ def get_phab_client(app):
         )
 
     return get_client
+
+
+@pytest.fixture
+def redis_cache(app):
+    with app.app_context():
+        cache.init_app(
+            app,
+            config={
+                'CACHE_TYPE': 'redis',
+                'CACHE_REDIS_HOST': 'redis.cache',
+            }
+        )
+        cache.clear()
+        yield cache
+        cache.clear()
+        cache.init_app(
+            app,
+            config={
+                'CACHE_TYPE': 'null',
+                'CACHE_NO_NULL_WARNING': True,
+            }
+        )
