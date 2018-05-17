@@ -21,6 +21,7 @@ from landoapi.landings import (
     LandingAssessment,
     LandingInProgress,
     lazy_get_diff,
+    lazy_get_diff_author,
     lazy_get_landing_repo,
     lazy_get_latest_diff,
     lazy_get_open_parents,
@@ -59,6 +60,7 @@ def dryrun(data):
     get_revision = lazy_get_revision(phab, revision_id)
     get_latest_diff = lazy_get_latest_diff(phab, get_revision)
     get_diff = lazy_get_diff(phab, diff_id, get_latest_diff)
+    get_diff_author = lazy_get_diff_author(get_diff)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
     get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
@@ -81,6 +83,7 @@ def dryrun(data):
         get_repository,
         get_landing_repo,
         get_diff,
+        get_diff_author,
         get_open_parents,
         get_reviewers,
         get_reviewer_info,
@@ -111,6 +114,7 @@ def post(data):
     get_revision = lazy_get_revision(phab, revision_id)
     get_latest_diff = lazy_get_latest_diff(phab, get_revision)
     get_diff = lazy_get_diff(phab, diff_id, get_latest_diff)
+    get_diff_author = lazy_get_diff_author(get_diff)
     get_latest_landed = lazy(Landing.latest_landed)(revision_id)
     get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
@@ -133,6 +137,7 @@ def post(data):
         get_repository,
         get_landing_repo,
         get_diff,
+        get_diff_author,
         get_open_parents,
         get_reviewers,
         get_reviewer_info,
@@ -157,12 +162,7 @@ def post(data):
     landing_repo = get_landing_repo()
     diff, querydiffs_diff = get_diff()
     latest_diff_id = get_latest_diff()['id']
-
-    # TODO: Fallback to something else from auth0/phabricator.
-    # TODO: Get author information from 'commits' attachment
-    # on diff object.
-    author_name = querydiffs_diff.get('authorName', 'Unknown')
-    author_email = querydiffs_diff.get('authorEmail', '')
+    author_name, author_email = get_diff_author()
 
     # Collect the usernames of reviewers who have accepted.
     reviewers = get_reviewers()

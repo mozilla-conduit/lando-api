@@ -125,8 +125,8 @@ class LandingProblem:
     def check(
         cls, *, auth0_user, revision_id, diff_id, get_revision,
         get_latest_diff, get_latest_landed, get_repository, get_landing_repo,
-        get_diff, get_open_parents, get_reviewers, get_reviewer_info,
-        get_revision_status
+        get_diff, get_diff_author, get_open_parents, get_reviewers,
+        get_reviewer_info, get_revision_status
     ):
         """Returns an instance of cls if the check fails.
 
@@ -254,6 +254,22 @@ class AuthorPlannedChanges(LandingProblem):
             return cls(
                 'The author has indicated they are planning changes '
                 'to this revision.'
+            )
+
+
+class DiffAuthorUnknown(LandingProblem):
+    id = "E007"
+
+    @classmethod
+    def check(cls, *, get_diff_author, **kwargs):
+        author_name, author_email = get_diff_author()
+        if not author_name or not author_email:
+            return cls(
+                'This diff does not have the proper author information '
+                'uploaded to Phabricator. This can happen if the diff '
+                'was created using the web UI, or a non standard client. '
+                'The author should re-upload the diff to Phabricator using '
+                'the "arc diff" command.'
             )
 
 
@@ -411,6 +427,7 @@ def check_landing_conditions(
     get_repository,
     get_landing_repo,
     get_diff,
+    get_diff_author,
     get_open_parents,
     get_reviewers,
     get_reviewer_info,
@@ -425,6 +442,7 @@ def check_landing_conditions(
         InvalidRepository,
         SCMLevelInsufficient,
         DiffNotPartOfRevision,  # Exception on failure.
+        DiffAuthorUnknown,
         OpenDependencies,
         AuthorPlannedChanges,
     ],
@@ -454,6 +472,7 @@ def check_landing_conditions(
             get_repository=get_repository,
             get_landing_repo=get_landing_repo,
             get_diff=get_diff,
+            get_diff_author=get_diff_author,
             get_open_parents=get_open_parents,
             get_reviewers=get_reviewers,
             get_reviewer_info=get_reviewer_info,
@@ -483,6 +502,7 @@ def check_landing_conditions(
             get_repository=get_repository,
             get_landing_repo=get_landing_repo,
             get_diff=get_diff,
+            get_diff_author=get_diff_author,
             get_open_parents=get_open_parents,
             get_reviewers=get_reviewers,
             get_reviewer_info=get_reviewer_info,
@@ -590,6 +610,17 @@ def lazy_get_diff(phabricator, diff_id, latest_diff):
     )
     querydiffs_diff = querydiffs_diff.get(str(diff_id))
     return diff, querydiffs_diff
+
+
+@lazy
+def lazy_get_diff_author(diff):
+    # TODO: Fallback to something else from auth0/phabricator.
+    # TODO: Get author information from 'commits' attachment
+    # on diff object.
+    _, querydiffs_diff = diff
+    author_name = querydiffs_diff.get('authorName')
+    author_email = querydiffs_diff.get('authorEmail')
+    return author_name, author_email
 
 
 @lazy

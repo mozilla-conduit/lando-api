@@ -191,7 +191,13 @@ class PhabricatorDouble:
         return user
 
     def diff(
-        self, *, revision=None, rawdiff=CANNED_RAW_DEFAULT_DIFF, repo=None
+        self,
+        *,
+        revision=None,
+        rawdiff=CANNED_RAW_DEFAULT_DIFF,
+        repo=None,
+        author_name="Mark Cote",
+        author_email="mcote@mozilla.example"
     ):
         diff_id = self._new_id(self._diffs)
         phid = self._new_phid('DIFF-')
@@ -236,8 +242,8 @@ class PhabricatorDouble:
             'sourceControlPath': '/',
             'sourceControlSystem': 'hg',
             'unitStatus': '0',
-            'authorName': "Mark Cote",
-            'authorEmail': "mcote@mozilla.example",
+            'authorName': author_name,
+            'authorEmail': author_email,
             'policy': {
                 'view': 'public',
             },
@@ -922,12 +928,15 @@ class PhabricatorDouble:
                 'dateModified': str(i['dateModified']),
             }
 
+            if i['authorName'] is not None and i['authorEmail'] is not None:
+                resp['authorName'] = i['authorName']
+                resp['authorEmail'] = i['authorEmail']
+
             for k in (
                 'bookmark', 'branch', 'changes', 'creationMethod',
                 'description', 'lintStatus', 'properties',
                 'sourceControlBaseRevision', 'sourceControlPath',
-                'sourceControlSystem', 'unitStatus', 'authorName',
-                'authorEmail'
+                'sourceControlSystem', 'unitStatus'
             ):
                 resp[k] = i[k]
 

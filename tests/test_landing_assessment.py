@@ -429,3 +429,17 @@ def test_accepted_older_warns(client, db, phabdouble, auth0_mock):
 
     assert response.status_code == 200
     assert response.json['warnings'][0]['id'] == 'W004'
+
+
+def test_diff_author_unknown_blocks(db, client, phabdouble, auth0_mock):
+    d1 = phabdouble.diff(author_name=None, author_email=None)
+    revision = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+
+    response = client.post(
+        '/landings/dryrun',
+        json=dict(revision_id='D{}'.format(revision['id']), diff_id=d1['id']),
+        headers=auth0_mock.mock_headers,
+        content_type='application/json',
+    )
+    assert response.status_code == 200
+    assert response.json['blockers'][0]['id'] == 'E007'
