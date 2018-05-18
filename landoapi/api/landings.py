@@ -222,7 +222,7 @@ def post(data):
 
     try:
         # WARNING: Entering critical section, do not add additional
-        # code unless absolutely necessary. Aquires a lock on the
+        # code unless absolutely necessary. Acquires a lock on the
         # landings table which gives exclusive write access and
         # prevents readers who are entering this critical section.
         # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
