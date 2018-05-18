@@ -186,12 +186,21 @@ def _render_reviewers_response(
 
 
 def _render_author_response(phid, user_search_data):
-    author = user_search_data.get(phid, {})
-    return {
-        'phid': PhabricatorClient.expect(author, 'phid'),
-        'username': PhabricatorClient.expect(author, 'fields', 'username'),
-        'real_name': PhabricatorClient.expect(author, 'fields', 'realName'),
+    response = {
+        'phid': phid,
+        'username': None,
+        'real_name': None,
     }
+    author = user_search_data.get(phid)
+    if author is not None:
+        response['username'] = PhabricatorClient.expect(
+            author, 'fields', 'username'
+        )
+        response['real_name'] = PhabricatorClient.expect(
+            author, 'fields', 'realName'
+        )
+
+    return response
 
 
 def _render_diff_response(querydiffs_data):
