@@ -187,6 +187,10 @@ def initialize_sentry(flask_app, release):
     # passed into Sentry.__init__() or make_client().
     sentry.client.release = release
     sentry.client.environment = flask_app.config['ENVIRONMENT']
+    sentry.client.processors = (
+        'raven.processors.SanitizePasswordsProcessor',
+        'raven.processors.RemoveStackLocalsProcessor',
+    )
 
 
 def initialize_logging():
