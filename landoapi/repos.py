@@ -66,6 +66,7 @@ REPO_CONFIG = {
         ),
         'build-tools': Repo('build-tools', SCM_LEVEL_3, ''),
         'fluent-migration': Repo('fluent-migration', SCM_L10N_INFRA, ''),
+        'mozilla-central': Repo('gecko', SCM_LEVEL_3, ''),
     },
 }  # yapf: disable
 
