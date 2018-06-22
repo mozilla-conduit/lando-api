@@ -56,6 +56,9 @@ REPO_CONFIG = {
     #     '<phabricator-short-name>': Repo(...)
     # }
     'default': {},
+    'localdev': {
+        'test-repo': Repo('test-repo', SCM_LEVEL_1, ''),
+    },
     'devsvcdev': {
         'test-repo': Repo('test-repo', SCM_LEVEL_1, ''),
     },

@@ -316,6 +316,10 @@ def _mock_userinfo_claims(userinfo):
         userinfo['https://sso.mozilla.com/claim/groups'] = [
             'active_scm_level_3',
             'all_scm_level_3',
+            'active_scm_level_2',
+            'all_scm_level_2',
+            'active_scm_level_1',
+            'all_scm_level_1',
         ]
     elif a0_mock_option == 'inject_invalid':
         userinfo['https://sso.mozilla.com/claim/groups'] = [
