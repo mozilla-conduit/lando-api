@@ -297,51 +297,6 @@ def test_land_nonexisting_diff_returns_404(db, client, phabdouble, auth0_mock):
     assert response.json['title'] == 'Diff not found'
 
 
-def test_land_inactive_diff_without_acknowledgement_fails(
-    db, client, phabdouble, transfactory, auth0_mock,
-    set_confirmation_token_comparison
-):
-    diff1 = phabdouble.diff()
-    revision = phabdouble.revision(diff=diff1, repo=phabdouble.repo())
-    phabdouble.diff(revision=revision)
-
-    transfactory.mock_successful_response()
-    set_confirmation_token_comparison(False)
-    response = client.post(
-        '/landings',
-        json={
-            'revision_id': 'D{}'.format(revision['id']),
-            'diff_id': diff1['id'],
-        },
-        headers=auth0_mock.mock_headers,
-    )
-    assert response.status_code == 400
-    assert response.json['title'] == 'Unacknowledged Warnings'
-    assert response.json['warnings'][0]['id'] == 'W001'
-
-
-def test_land_inactive_diff_with_acknowledgement(
-    db, client, phabdouble, transfactory, auth0_mock, s3,
-    set_confirmation_token_comparison
-):
-    diff1 = phabdouble.diff()
-    revision = phabdouble.revision(diff=diff1, repo=phabdouble.repo())
-    phabdouble.diff(revision=revision)
-
-    transfactory.mock_successful_response()
-    set_confirmation_token_comparison(True)
-    response = client.post(
-        '/landings',
-        json={
-            'revision_id': 'D{}'.format(revision['id']),
-            'diff_id': diff1['id'],
-        },
-        headers=auth0_mock.mock_headers,
-    )
-    assert response.status_code == 202
-    assert 'id' in response.json
-
-
 def test_land_with_open_parent(db, client, phabdouble, auth0_mock):
     repo = phabdouble.repo()
     diff = phabdouble.diff()

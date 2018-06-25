@@ -273,6 +273,18 @@ class DiffAuthorUnknown(LandingProblem):
             )
 
 
+class DiffNotLatest(LandingProblem):
+    id = "E008"
+
+    @classmethod
+    def check(cls, *, diff_id, get_latest_diff, **kwargs):
+        latest = PhabricatorClient.expect(get_latest_diff(), 'id')
+        return None if diff_id == latest else cls(
+            'Diff {} is not the latest diff for the revision. Diff {} '
+            'is now the latest, you may only land it.'.format(diff_id, latest)
+        )
+
+
 class DoesNotExist(LandingProblem):
     id = "X000"
 
@@ -315,18 +327,8 @@ class DiffNotPartOfRevision(LandingProblem):
             )  # yapf: disable
 
 
-class DiffNotLatest(LandingProblem):
+class LegacyWarning001(LandingProblem):
     id = "W001"
-
-    @classmethod
-    def check(cls, *, diff_id, get_latest_diff, **kwargs):
-        latest = PhabricatorClient.expect(get_latest_diff(), 'id')
-        return None if diff_id == latest else cls(
-            'Diff {} is not the latest diff for the revision. Diff {} '
-            'is now the latest, you might want to land it instead.'.format(
-                diff_id, latest
-            )
-        )
 
 
 class PreviouslyLanded(LandingProblem):
@@ -443,11 +445,11 @@ def check_landing_conditions(
         SCMLevelInsufficient,
         DiffNotPartOfRevision,  # Exception on failure.
         DiffAuthorUnknown,
+        DiffNotLatest,
         OpenDependencies,
         AuthorPlannedChanges,
     ],
     warnings_to_check=[
-        DiffNotLatest,
         PreviouslyLanded,
         BlockingReviews,
         AcceptanceNotClean,

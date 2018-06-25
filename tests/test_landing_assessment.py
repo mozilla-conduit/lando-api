@@ -228,7 +228,9 @@ def test_blockers_for_bad_userinfo(
     assert response.json['blockers'] == expected_blockers
 
 
-def test_inactive_diff_warns(db, client, phabdouble, transfactory, auth0_mock):
+def test_inactive_diff_blocks(
+    db, client, phabdouble, transfactory, auth0_mock
+):
     d1 = phabdouble.diff()
     revision = phabdouble.revision(diff=d1, repo=phabdouble.repo())
     d2 = phabdouble.diff(revision=revision)
@@ -241,11 +243,11 @@ def test_inactive_diff_warns(db, client, phabdouble, transfactory, auth0_mock):
         content_type='application/json',
     )
     assert response.status_code == 200
-    assert response.json['warnings'][0] == {
-        'id': 'W001',
+    assert response.json['blockers'][0] == {
+        'id': 'E008',
         'message': (
-            'Diff {} is not the latest diff for the revision. Diff {} '
-            'is now the latest, you might want to land it instead.'.format(
+            'Diff {} is not the latest diff for the revision. '
+            'Diff {} is now the latest, you may only land it.'.format(
                 d1['id'], d2['id']
             )
         ),
