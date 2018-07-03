@@ -67,6 +67,10 @@ class PhabricatorDouble:
 
         return handler(**kwargs)
 
+    @staticmethod
+    def get_phabricator_client():
+        return PhabricatorClient('https://localhost', 'DOESNT-MATTER')
+
     def revision(
         self,
         *,
@@ -1097,7 +1101,7 @@ class PhabricatorDouble:
         }
 
     def _new_phid(self, prefix):
-        suffix = self._phid_counters.get(prefix, '')
+        suffix = self._phid_counters.get(prefix, 0)
         self._phid_counters[prefix] = self._phid_counters.get(prefix, 0) + 1
         return 'PHID-{}{}'.format(prefix, suffix)
 
