@@ -462,14 +462,6 @@ definitions:
           True if this reviewer is blocking the revision/diff from landing,
           such as not having reviewed yet as a blocking reviewer or having
           rejected the particular diff.
-      username:
-        type: string
-        description: |
-          DEPRECATED, use identifier.
-      real_name:
-        type: string
-        description: |
-          DEPRECATED, use full_name.
   Diff:
     type: object
     properties:

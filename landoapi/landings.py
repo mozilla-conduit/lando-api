@@ -9,14 +9,18 @@ from connexion import ProblemException
 from landoapi.decorators import lazy
 from landoapi.models.landing import Landing
 from landoapi.phabricator import (
-    collate_reviewer_attachments,
     PhabricatorClient,
     result_list_to_phid_dict,
     ReviewerStatus,
     RevisionStatus,
 )
 from landoapi.repos import get_repos_for_env
-from landoapi.reviews import calculate_review_extra_state, reviewer_identity
+from landoapi.reviews import (
+    calculate_review_extra_state,
+    get_collated_reviewers,
+    reviewer_identity,
+)
+from landoapi.revisions import select_diff_author
 
 
 def tokens_are_equal(t1, t2):
@@ -298,8 +302,7 @@ class DoesNotExist(LandingProblem):
                 type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404' # noqa
             )  # yapf: disable
 
-        diff, _ = get_diff()
-        if diff is None:
+        if get_diff() is None:
             raise ProblemException(
                 404,
                 'Diff not found',
@@ -313,7 +316,7 @@ class DiffNotPartOfRevision(LandingProblem):
 
     @classmethod
     def check(cls, *, get_revision, get_diff, **kwargs):
-        diff, _ = get_diff()
+        diff = get_diff()
         revision = get_revision()
         if (
             PhabricatorClient.expect(revision, 'phid') !=
@@ -533,6 +536,7 @@ def lazy_get_latest_diff(phabricator, revision):
             constraints={
                 'phids': [phabricator.expect(revision, 'fields', 'diffPHID')]
             },
+            attachments={'commits': True},
         ), 'data'
     )
 
@@ -582,12 +586,14 @@ def lazy_get_diff(phabricator, diff_id, latest_diff):
     Args:
         phabricator: A PhabricatorClient instance.
         diff_id: The integer id of the diff.
+        latest_diff: A dictionary with data from a
+            'differential.diff.search' which represents the
+            latest diff for a revision. If `latest_diff` has
+            the same id as `diff_id` it will be returned.
 
     Returns:
-        A 2-tuple of diff data from the Phabricator API for the provided
-        `diff_id`. Data for the first entry comes from a
-        'differential.diff.search', with the second entry coming from
-        'differential.querydiffs'. If the diff is not found None is returned.
+        A dictionary with data from a 'differential.diff.search'.
+        If the diff is not found None is returned.
     """
     latest_diff_id = phabricator.expect(latest_diff, 'id')
     if diff_id is not None and diff_id != latest_diff_id:
@@ -595,6 +601,7 @@ def lazy_get_diff(phabricator, diff_id, latest_diff):
             phabricator.call_conduit(
                 'differential.diff.search',
                 constraints={'ids': [diff_id]},
+                attachments={'commits': True},
             ),
             'data',
             none_when_empty=True
@@ -602,27 +609,13 @@ def lazy_get_diff(phabricator, diff_id, latest_diff):
     else:
         diff = latest_diff
 
-    if diff is None:
-        return None, None
-
-    # TODO: Remove this and return only above diff result after
-    # 'commits' attachment can be accessed on 'differential.diff.search'.
-    querydiffs_diff = phabricator.call_conduit(
-        'differential.querydiffs', ids=[diff_id]
-    )
-    querydiffs_diff = querydiffs_diff.get(str(diff_id))
-    return diff, querydiffs_diff
+    return diff
 
 
 @lazy
 def lazy_get_diff_author(diff):
     # TODO: Fallback to something else from auth0/phabricator.
-    # TODO: Get author information from 'commits' attachment
-    # on diff object.
-    _, querydiffs_diff = diff
-    author_name = querydiffs_diff.get('authorName')
-    author_email = querydiffs_diff.get('authorEmail')
-    return author_name, author_email
+    return select_diff_author(diff)
 
 
 @lazy
@@ -755,7 +748,7 @@ def lazy_reviewers_search(phabricator, reviewers):
     Args:
         phabricator: A PhabricatorClient instance.
         reviewers: A dict of reviewer attachment data as returned by
-            `landoapi.phabricator.collate_reviewer_attachments`.
+            `landoapi.reviews.collate_reviewer_attachments`.
     """
     phids = list(reviewers.keys())
 
@@ -768,19 +761,7 @@ def lazy_reviewers_search(phabricator, reviewers):
 
 @lazy
 def lazy_get_reviewers(revision):
-    """Return a dictionary mapping phid to collated reviewer attachment data.
-
-    Args:
-        revision: A dict of the revision data from differential.revision.search
-            with the 'reviewers' and 'reviewers-extra' attachments.
-    """
-    attachments = PhabricatorClient.expect(revision, 'attachments')
-    return collate_reviewer_attachments(
-        PhabricatorClient.expect(attachments, 'reviewers', 'reviewers'),
-        PhabricatorClient.expect(
-            attachments, 'reviewers-extra', 'reviewers-extra'
-        )
-    )
+    return get_collated_reviewers(revision)
 
 
 @lazy
@@ -792,7 +773,7 @@ def lazy_get_reviewers_extra_state(reviewers, diff):
             attachment data
         diff: diff data from the Phabricator API
     """
-    diff_phid = PhabricatorClient.expect(diff[0], 'phid')
+    diff_phid = PhabricatorClient.expect(diff, 'phid')
     return {
         phid: calculate_review_extra_state(
             diff_phid, r['status'], r['diffPHID'], r['voidedPHID']

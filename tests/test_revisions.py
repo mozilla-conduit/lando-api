@@ -106,9 +106,7 @@ def test_get_revision_multiple_reviewers(client, phabdouble):
         if reviewer['phid'] == u1['phid']:
             assert reviewer == {
                 'phid': u1['phid'],
-                'real_name': u1['realName'],
                 'status': 'accepted',
-                'username': u1['userName'],
                 'identifier': u1['userName'],
                 'full_name': u1['realName'],
                 'for_other_diff': False,
@@ -117,9 +115,7 @@ def test_get_revision_multiple_reviewers(client, phabdouble):
         elif reviewer['phid'] == u2['phid']:
             assert reviewer == {
                 'phid': u2['phid'],
-                'real_name': u2['realName'],
                 'status': 'rejected',
-                'username': u2['userName'],
                 'identifier': u2['userName'],
                 'full_name': u2['realName'],
                 'for_other_diff': False,
@@ -128,9 +124,7 @@ def test_get_revision_multiple_reviewers(client, phabdouble):
         else:
             assert reviewer == {
                 'phid': p1['phid'],
-                'real_name': p1['name'],
                 'status': 'blocking',
-                'username': p1['name'],
                 'identifier': p1['name'],
                 'full_name': p1['name'],
                 'for_other_diff': False,

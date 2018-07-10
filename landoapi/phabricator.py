@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import logging
+from datetime import datetime, timezone
 from json.decoder import JSONDecodeError
 
 import requests
@@ -291,6 +292,19 @@ class PhabricatorClient:
 
         return result
 
+    @staticmethod
+    def to_datetime(timestamp):
+        """Return a datetime corresponding to a Phabricator timestamp.
+
+        Args:
+            timestamp: An integer, or integer string, timestamp from
+            Phabricator which is the epoch in seconds UTC.
+
+        Returns:
+            A python datetime object for the same time.
+        """
+        return datetime.fromtimestamp(int(timestamp), timezone.utc)
+
     def verify_api_token(self):
         """ Verifies that the api token is valid.
 
@@ -325,43 +339,6 @@ class PhabricatorAPIException(Exception):
 
 class PhabricatorCommunicationException(PhabricatorAPIException):
     """Exception when communicating with Phabricator fails."""
-
-
-def collate_reviewer_attachments(reviewers, reviewers_extra):
-    """Return collated reviewer data.
-
-    Args:
-        reviewers: Data from the 'reviewers' attachment of
-            differential.revision.search.
-        reviewers_extra: Data from the 'reviewers-extra'
-            attachment of differential.revision.search.
-    """
-    phids = {}
-    for reviewer in reviewers:
-        data = {}
-        for k in ('reviewerPHID', 'isBlocking', 'actorPHID'):
-            data[k] = PhabricatorClient.expect(reviewer, k)
-
-        data['status'] = ReviewerStatus.from_status(
-            PhabricatorClient.expect(reviewer, 'status')
-        )
-
-        phids[data['reviewerPHID']] = data
-
-    for reviewer in reviewers_extra:
-        data = {}
-        for k in ('reviewerPHID', 'diffPHID', 'voidedPHID'):
-            data[k] = PhabricatorClient.expect(reviewer, k)
-
-        data.update(phids.get(data['reviewerPHID'], {}))
-        phids[data['reviewerPHID']] = data
-
-    if len(phids) > min(len(reviewers), len(reviewers_extra)):
-        raise PhabricatorCommunicationException(
-            'Phabricator responded with unexpected data'
-        )
-
-    return phids
 
 
 def result_list_to_phid_dict(result_list, *, phid_key='phid'):

@@ -200,8 +200,28 @@ class PhabricatorDouble:
         revision=None,
         rawdiff=CANNED_RAW_DEFAULT_DIFF,
         repo=None,
-        author_name="Mark Cote",
-        author_email="mcote@mozilla.example"
+        commits=[
+            {
+                'identifier': 'b15b8fbc79c2c3977aff9e17f0dfcc34c66ec29f',
+                'tree': None,
+                'parents': [
+                    'cff9ba1622714e0dd82c39f912f405210489fce8',
+                ],
+                'author': {
+                    'name': 'Mark Cote',
+                    'email': 'mcote@mozilla.com',
+                    'raw': '"Mark Cote" <mcote@mozilla.com>',
+                    'epoch': 1524854743,
+                },
+                'message': 'This is the commit message.',
+            },
+        ],
+        refs=[
+            {
+                'type': 'base',
+                'identifier': 'cff9ba1622714e0dd82c39f912f405210489fce8',
+            },
+        ]
     ):
         diff_id = self._new_id(self._diffs)
         phid = self._new_phid('DIFF-')
@@ -214,15 +234,19 @@ class PhabricatorDouble:
             (revision['repositoryPHID'] if revision is not None else None)
         )
 
-        base = 'cff9ba1622714e0dd82c39f912f405210489fce8'
+        refs = deepcopy(refs)
+        base = None
+        for ref in refs:
+            ref['diff_id'] = diff_id
+            if ref['type'] == 'base':
+                base = ref['identifier']
 
-        self._diff_refs += [
-            {
-                'diff_id': diff_id,
-                'type': 'base',
-                'identifier': base,
-            },
-        ]
+        self._diff_refs += refs
+
+        author_name, author_email = None, None
+        if commits:
+            author_name = commits[0]['author']['name']
+            author_email = commits[0]['author']['email']
 
         diff = {
             'id': diff_id,
@@ -251,6 +275,7 @@ class PhabricatorDouble:
             'policy': {
                 'view': 'public',
             },
+            'commits': deepcopy(commits)
         }  # yapf: disable
 
         self._diffs.append(diff)
@@ -515,30 +540,35 @@ class PhabricatorDouble:
     ):
         def to_response(i):
             refs = [r for r in self._diff_refs if r['diff_id'] == i['id']]
-            return deepcopy(
-                {
-                    'id': i['id'],
-                    'type': i['type'],
-                    'phid': i['phid'],
-                    'fields': {
-                        'revisionPHID': i['revisionPHID'],
-                        'authorPHID': i['authorPHID'],
-                        'repositoryPHID': i['repositoryPHID'],
-                        'refs': [
-                            {
-                                'type': r['type'],
-                                'identifier': r['identifier'],
-                            } for r in refs
-                        ],
-                        'dateCreated': i['dateCreated'],
-                        'dateModified': i['dateModified'],
-                        'policy': {
-                            'view': i['policy']['view'],
-                        },
+            resp = {
+                'id': i['id'],
+                'type': i['type'],
+                'phid': i['phid'],
+                'fields': {
+                    'revisionPHID': i['revisionPHID'],
+                    'authorPHID': i['authorPHID'],
+                    'repositoryPHID': i['repositoryPHID'],
+                    'refs': [
+                        {
+                            'type': r['type'],
+                            'identifier': r['identifier'],
+                        } for r in refs
+                    ],
+                    'dateCreated': i['dateCreated'],
+                    'dateModified': i['dateModified'],
+                    'policy': {
+                        'view': i['policy']['view'],
                     },
-                    'attachments': {},
+                },
+                'attachments': {},
+            }  # yapf: disable
+
+            if attachments and attachments.get('commits'):
+                resp['attachments']['commits'] = {
+                    'commits': i['commits'],
                 }
-            )  # yapf: disable
+
+            return deepcopy(resp)
 
         items = [r for r in self._diffs]
 
@@ -921,40 +951,6 @@ class PhabricatorDouble:
             )
 
         return to_response(diffs[0])
-
-    @conduit_method('differential.querydiffs')
-    def differential_querydiffs(self, *, ids=None, revisionIDs=None):
-        def to_response(i):
-            resp = {
-                'id': str(i['id']),
-                'revisionID': str(i['revisionID']),
-                'dateCreated': str(i['dateCreated']),
-                'dateModified': str(i['dateModified']),
-            }
-
-            if i['authorName'] is not None and i['authorEmail'] is not None:
-                resp['authorName'] = i['authorName']
-                resp['authorEmail'] = i['authorEmail']
-
-            for k in (
-                'bookmark', 'branch', 'changes', 'creationMethod',
-                'description', 'lintStatus', 'properties',
-                'sourceControlBaseRevision', 'sourceControlPath',
-                'sourceControlSystem', 'unitStatus'
-            ):
-                resp[k] = i[k]
-
-            return deepcopy(resp)
-
-        items = self._diffs
-
-        if ids:
-            items = [i for i in items if i['id'] in ids]
-
-        if revisionIDs:
-            items = [i for i in items if i['revisionID'] in revisionIDs]
-
-        return {str(i['id']): to_response(i) for i in items}
 
     @conduit_method('user.search')
     def user_search(

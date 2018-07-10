@@ -434,7 +434,7 @@ def test_accepted_older_warns(client, db, phabdouble, auth0_mock):
 
 
 def test_diff_author_unknown_blocks(db, client, phabdouble, auth0_mock):
-    d1 = phabdouble.diff(author_name=None, author_email=None)
+    d1 = phabdouble.diff(commits=[])
     revision = phabdouble.revision(diff=d1, repo=phabdouble.repo())
 
     response = client.post(

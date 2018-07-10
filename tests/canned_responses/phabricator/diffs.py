@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 # yapf: disable
 
-CANNED_DEFAULT_DIFF_CHANGES =  [
+CANNED_DEFAULT_DIFF_CHANGES = [
     {
         'addLines': '3',
         'awayPaths': [],

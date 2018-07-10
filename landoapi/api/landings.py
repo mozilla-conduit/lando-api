@@ -37,6 +37,7 @@ from landoapi.patches import upload
 from landoapi.phabricator import ReviewerStatus
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import reviewer_identity
+from landoapi.revisions import get_bugzilla_bug
 from landoapi.storage import db
 from landoapi.transplant_client import TransplantClient, TransplantError
 from landoapi.validation import revision_id_to_int
@@ -161,7 +162,6 @@ def post(data):
     # running after checking_landing_conditions().
     revision = get_revision()
     landing_repo = get_landing_repo()
-    diff, querydiffs_diff = get_diff()
     latest_diff_id = get_latest_diff()['id']
     author_name, author_email = get_diff_author()
 
@@ -179,8 +179,7 @@ def post(data):
 
     title = phab.expect(revision, 'fields', 'title')
     summary = phab.expect(revision, 'fields', 'summary')
-    bug_id = phab.expect(revision, 'fields').get('bugzilla.bug-id')
-    bug_id = int(bug_id) if bug_id and not isinstance(bug_id, int) else None
+    bug_id = get_bugzilla_bug(revision)
     human_revision_id = 'D{}'.format(revision_id)
     revision_url = urllib.parse.urljoin(
         current_app.config['PHABRICATOR_URL'], human_revision_id
