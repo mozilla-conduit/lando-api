@@ -282,6 +282,30 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /stacks/{revision_id}:
+    get:
+      description: |
+        Get the stack a revision is part of
+      security:
+        - {}
+        - PhabricatorAPIKeyHeader: []
+      parameters:
+        - name: revision_id
+          in: path
+          type: string
+          description: |
+            The id of the revision in the form of 'D{number}', e.g. 'D12345'.
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/Stack'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
 definitions:
   LandingRequest:
     type: object
@@ -353,6 +377,49 @@ definitions:
         format: date-time
         description: |
           UTC time of the last update
+  Stack:
+    type: object
+    properties:
+      edges:
+        type: array
+        description: |
+          A list of edges defining the stacks dependency graph.
+        items:
+          $ref: '#/definitions/StackEdge'
+      landable_paths:
+        type: array
+        description: |
+          A list of landable paths through the stack graph.
+        items:
+          $ref: '#definitions/LandablePath'
+      revisions:
+        type: array
+        description: |
+          A list of revisions which are part of the stack.
+        items:
+          $ref: '#/definitions/Revision'
+  LandablePath:
+    type: array
+    description: |
+      A path through a revision stack indicating the set of revisions are
+      landable. Each item in the list is a child revision of the item before
+      it.
+    minItems: 1
+    items:
+      type: string
+      description: |
+        A revision PHID
+  StackEdge:
+    type: array
+    description: |
+      An edge between two revisions in a stack. The first item is the child
+      the second is the parent.
+    minItems: 2
+    maxItems: 2
+    items:
+      type: string
+      description: |
+        A revision PHID.
   Revision:
     type: object
     properties:
@@ -403,8 +470,6 @@ definitions:
           and revision URL.
       diff:
         $ref: '#/definitions/Diff'
-        description: |
-          The most recent diff for the revision.
       author:
         $ref: '#/definitions/User'
       reviewers:
@@ -469,6 +534,10 @@ definitions:
         type: integer
         description: |
           The integer id of the Diff.
+      phid:
+        type: string
+        description: |
+          The phid of the Diff.
       date_created:
         type: string
         description: |
