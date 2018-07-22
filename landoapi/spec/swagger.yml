@@ -162,6 +162,36 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /transplants/dryrun:
+    post:
+      operationId: landoapi.api.transplants.dryrun
+      description: |
+        Check for any issues that may prevent the caller from landing the given
+        revision. By default only public revisions are accessible. If a
+        Phabricator API key is set in the X-Phabricator-API-Key header, then
+        you may access private Revisions which the owner of the api key has
+        access to.
+      security:
+        - Auth0AccessToken: []
+        - Auth0AccessToken: []
+          PhabricatorAPIKeyHeader: []
+      parameters:
+        - name: data
+          description: The data required to request a landing.
+          required: true
+          in: body
+          schema:
+            $ref: '#/definitions/TransplantRequest'
+      responses:
+        200:
+          description: OK
+          schema:
+            $ref: '#/definitions/LandingAssessment'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
   /landings/dryrun:
     post:
       operationId: landoapi.api.landings.dryrun
@@ -323,6 +353,31 @@ definitions:
         description: |
           The ID of a phabricator diff which is associated with the provided
           revision_id.
+  TransplantRequest:
+    type: object
+    required:
+      - landing_path
+    properties:
+      landing_path:
+        type: array
+        description: |
+          A list of revision and diff pairs which form the path to land.
+        items:
+          type: object
+          required:
+            - revision_id
+            - diff_id
+          properties:
+            revision_id:
+              type: string
+              description: |
+                The ID of a revision in the form of 'D{number}', e.g.
+                'D12345'.
+            diff_id:
+              type: integer
+              description: |
+                The ID of a phabricator diff which is associated with the
+                provided revision_id.
   Landing:
     type: object
     properties:

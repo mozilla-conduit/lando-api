@@ -337,3 +337,32 @@ class RevisionStack:
         for child, parent in self.edges:
             self.children[parent].add(child)
             self.parents[child].add(parent)
+
+
+def get_landable_repos_for_revision_data(revision_data, supported_repos):
+    """Return a dictionary mapping string PHID to landable Repo
+
+    Args:
+        revision_data: A RevisionData.
+        supported_repos: A dictionary mapping repository shortname to
+        a Repo for repositories lando supports.
+
+    Returns:
+        A dictionary where each key is a string PHID for a repository from
+        revision_data and the value is a Repo taken from supported_repos.
+        Repositories in revision_data which are unsupported will not be
+        present in the dictionary.
+    """
+    repo_phids = {
+        PhabricatorClient.expect(revision, 'fields', 'repositoryPHID')
+        for revision in revision_data.revisions.values()
+        if PhabricatorClient.expect(revision, 'fields', 'repositoryPHID')
+    }
+    repos = {
+        phid: supported_repos.get(
+            PhabricatorClient.
+            expect(revision_data.repositories[phid], 'fields', 'shortName')
+        )
+        for phid in repo_phids if phid in revision_data.repositories
+    }
+    return {phid: repo for phid, repo in repos.items() if repo}

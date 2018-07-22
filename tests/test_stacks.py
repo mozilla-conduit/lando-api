@@ -3,9 +3,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from landoapi.phabricator import RevisionStatus
+from landoapi.repos import get_repos_for_env
 from landoapi.stacks import (
     build_stack_graph,
     calculate_landable_subgraphs,
+    get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
 
@@ -584,3 +586,59 @@ def test_calculate_landable_subgraphs_extra_check(phabdouble):
     ]
     assert r3['phid'] in blocked and r4['phid'] in blocked
     assert blocked[r3['phid']] == REASON
+
+
+def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
+    phab = phabdouble.get_phabricator_client()
+
+    repo1 = phabdouble.repo(name='mozilla-central')
+    repo2 = phabdouble.repo(name='not-mozilla-central')
+    r1 = phabdouble.revision(repo=repo1)
+    r2 = phabdouble.revision(repo=repo2, depends_on=[r1])
+
+    supported_repos = get_repos_for_env('test')
+    revision_data = request_extended_revision_data(
+        phab, [r1['phid'], r2['phid']]
+    )
+
+    landable_repos = get_landable_repos_for_revision_data(
+        revision_data, supported_repos
+    )
+    assert repo1['phid'] in landable_repos
+    assert repo2['phid'] not in landable_repos
+    assert landable_repos[repo1['phid']].tree == 'mozilla-central'
+
+
+def test_integrated_stack_endpoint_simple(
+    client, phabdouble, mocked_repo_config
+):
+    repo = phabdouble.repo()
+    unsupported_repo = phabdouble.repo(name='not-mozilla-central')
+    r1 = phabdouble.revision(repo=repo)
+    r2 = phabdouble.revision(repo=repo, depends_on=[r1])
+    r3 = phabdouble.revision(repo=repo, depends_on=[r1])
+    r4 = phabdouble.revision(repo=unsupported_repo, depends_on=[r2, r3])
+
+    response = client.get('/stacks/D{}'.format(r3['id']))
+    assert response.status_code == 200
+
+    assert len(response.json['edges']) == 4
+    assert [r2['phid'], r1['phid']] in response.json['edges']
+    assert [r3['phid'], r1['phid']] in response.json['edges']
+    assert [r4['phid'], r2['phid']] in response.json['edges']
+    assert [r4['phid'], r3['phid']] in response.json['edges']
+
+    assert len(response.json['landable_paths']) == 2
+    assert [r1['phid'], r2['phid']] in response.json['landable_paths']
+    assert [r1['phid'], r3['phid']] in response.json['landable_paths']
+
+    assert len(response.json['revisions']) == 4
+    revisions = {r['phid']: r for r in response.json['revisions']}
+    assert r1['phid'] in revisions
+    assert r2['phid'] in revisions
+    assert r3['phid'] in revisions
+    assert r4['phid'] in revisions
+
+    assert revisions[r4['phid']]['blocked_reason'] == (
+        "Repository is not supported by Lando."
+    )

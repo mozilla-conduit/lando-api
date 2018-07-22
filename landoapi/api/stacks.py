@@ -30,6 +30,7 @@ from landoapi.revisions import (
 from landoapi.stacks import (
     build_stack_graph,
     calculate_landable_subgraphs,
+    get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
 from landoapi.validation import revision_id_to_int
@@ -67,17 +68,9 @@ def get(revision_id):
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
 
     supported_repos = get_repos_for_env(current_app.config.get('ENVIRONMENT'))
-    landable_repos = {
-        phab.expect(revision, 'fields', 'repositoryPHID')
-        for revision in stack_data.revisions.values()
-        if phab.expect(revision, 'fields', 'repositoryPHID')
-    }
-    landable_repos = {
-        phid
-        for phid in landable_repos
-        if phid in stack_data.repositories and supported_repos.
-        get(phab.expect(stack_data.repositories[phid], 'fields', 'shortName'))
-    }
+    landable_repos = get_landable_repos_for_revision_data(
+        stack_data, supported_repos
+    )
     landable, blocked = calculate_landable_subgraphs(
         stack_data, edges, landable_repos
     )
