@@ -68,6 +68,8 @@ REPO_CONFIG = {
             'version-control-tools', SCM_VERSIONCONTROL, '@'
         ),
         'build-tools': Repo('build-tools', SCM_LEVEL_3, ''),
+        'ci-admin': Repo('ci-admin', SCM_LEVEL_3, ''),
+        'ci-configuration': Repo('ci-configuration', SCM_LEVEL_3, ''),
         'fluent-migration': Repo('fluent-migration', SCM_L10N_INFRA, ''),
         'mozilla-central': Repo('gecko', SCM_LEVEL_3, ''),
     },
