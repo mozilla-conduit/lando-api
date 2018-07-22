@@ -4,7 +4,7 @@
 
 FROM python:3.5-alpine
 
-RUN pip install yapf==0.16.1 && pip install flake8==3.3.0 && pip install pytest==3.0.7
+RUN pip install yapf==0.16.1 && pip install flake8==3.5.0 && pip install pytest==3.6.3
 
 ADD . /code/
 WORKDIR /code/

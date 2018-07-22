@@ -62,6 +62,10 @@ services:
     volumes:
       - ./:/app
       - ./migrations/:/migrations/
+      # Prevent writing python cache to the host.
+      - caches_pycache:/app/tests/__pycache__/
+      - caches_cache:/app/.cache/
+      - caches_pytest_cache:/app/.pytest_cache
     depends_on:
       - lando-api.db
       - redis.cache
@@ -85,3 +89,6 @@ services:
     image: redis:3.2-alpine # Elasticache version.
 volumes:
   postgres_db:
+  caches_pycache:
+  caches_cache:
+  caches_pytest_cache:

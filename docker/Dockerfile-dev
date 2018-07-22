@@ -5,17 +5,17 @@
 FROM python:3.5-alpine
 
 RUN apk --update --no-cache add \
-	gcc \
-	musl-dev \
-	postgresql-dev \
-	sqlite
+    gcc \
+    musl-dev \
+    postgresql-dev \
+    sqlite \
+    libffi-dev
 
 RUN mkdir /db
 
 RUN mkdir /python_requirements
 COPY requirements/* /python_requirements/
-RUN pip install --no-cache -r /python_requirements/common.txt \
-    && pip install --no-cache -r /python_requirements/dev.txt
+RUN pip install --no-cache -r /python_requirements/base.txt
 
 # Create a Dockerflow version file at the root so
 # we don't map over it below.
