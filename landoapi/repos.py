@@ -12,7 +12,7 @@ AccessGroup = namedtuple(
     (
         # LDAP group for active members. Required for landing.
         'active_group',
-        # LDAP group for all memembers. If a user is in
+        # LDAP group for all members. If a user is in
         # membership_group but not active_group, their access
         # has expired.
         'membership_group',
@@ -49,6 +49,8 @@ Repo = namedtuple(
         # Bookmark to be landed to and updated as part of push. Should be
         # an empty string to not use bookmarks.
         'push_bookmark',
+        # Repository url, e.g. as found on https://hg.mozilla.org.
+        'url'
     )
 )
 REPO_CONFIG = {
@@ -57,21 +59,45 @@ REPO_CONFIG = {
     # }
     'default': {},
     'localdev': {
-        'test-repo': Repo('test-repo', SCM_LEVEL_1, ''),
+        'test-repo': Repo(
+            'test-repo', SCM_LEVEL_1, '', 'http://hg.test'
+        ),
     },
     'devsvcdev': {
-        'test-repo': Repo('test-repo', SCM_LEVEL_1, ''),
+        'test-repo': Repo(
+            'test-repo', SCM_LEVEL_1, '',
+            'https://autolandhg.devsvcdev.mozaws.net'
+        ),
     },
     'devsvcprod': {
-        'phabricator-qa-stage': Repo('phabricator-qa-stage', SCM_LEVEL_3, ''),
-        'version-control-tools': Repo(
-            'version-control-tools', SCM_VERSIONCONTROL, '@'
+        'phabricator-qa-stage': Repo(
+            'phabricator-qa-stage', SCM_LEVEL_3, '',
+            'https://hg.mozilla.org/automation/phabricator-qa-stage'
         ),
-        'build-tools': Repo('build-tools', SCM_LEVEL_3, ''),
-        'ci-admin': Repo('ci-admin', SCM_LEVEL_3, ''),
-        'ci-configuration': Repo('ci-configuration', SCM_LEVEL_3, ''),
-        'fluent-migration': Repo('fluent-migration', SCM_L10N_INFRA, ''),
-        'mozilla-central': Repo('gecko', SCM_LEVEL_3, ''),
+        'version-control-tools': Repo(
+            'version-control-tools', SCM_VERSIONCONTROL, '@',
+            'https://hg.mozilla.org/hgcustom/version-control-tools'
+        ),
+        'build-tools': Repo(
+            'build-tools', SCM_LEVEL_3, '',
+            'https://hg.mozilla.org/build/tools'
+        ),
+        'ci-admin': Repo(
+            'ci-admin', SCM_LEVEL_3, '',
+            'https://hg.mozilla.org/build/ci-admin'
+        ),
+        'ci-configuration': Repo(
+            'ci-configuration', SCM_LEVEL_3, '',
+            'https://hg.mozilla.org/build/ci-configuration'
+        ),
+        'fluent-migration': Repo(
+            'fluent-migration', SCM_L10N_INFRA, '',
+            'https://hg.mozilla.org/l10n/fluent-migration'
+        ),
+        'mozilla-central': Repo(
+            'gecko', SCM_LEVEL_3, '',
+            'https://hg.mozilla.org/integration/autoland'
+        ),
     },
 }  # yapf: disable
 

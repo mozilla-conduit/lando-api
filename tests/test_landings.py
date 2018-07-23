@@ -134,10 +134,12 @@ def test_push_bookmark_sent_when_supported_repo(
     mock_repo_config(
         {
             'test': {
-                'mozilla-central': Repo('mozilla-central', SCM_LEVEL_3, '@')
+                'mozilla-central': Repo(
+                    'mozilla-central', SCM_LEVEL_3, '@', 'http://hg.test'
+                )
             },
         }
-    )
+    )  # yapf: disable
 
     # Mock the phabricator response data
     repo = phabdouble.repo(name='mozilla-central')
@@ -364,6 +366,7 @@ def test_get_jobs_by_revision_id(db, client, phabdouble):
                 'result': '',
                 'requester_email': 'tuser@example.com',
                 'tree': 'mozilla-central',
+                'tree_url': 'http://hg.test',
                 'created_at': '2017-11-02T00:00:00+00:00',
                 'updated_at': '2017-11-02T00:00:00+00:00',
             }, {
@@ -377,6 +380,7 @@ def test_get_jobs_by_revision_id(db, client, phabdouble):
                 'result': '',
                 'requester_email': 'tuser@example.com',
                 'tree': 'mozilla-central',
+                'tree_url': 'http://hg.test',
                 'created_at': '2017-11-02T00:00:00+00:00',
                 'updated_at': '2017-11-02T00:00:00+00:00',
             }, {
@@ -390,6 +394,7 @@ def test_get_jobs_by_revision_id(db, client, phabdouble):
                 'result': '',
                 'requester_email': 'tuser@example.com',
                 'tree': 'mozilla-central',
+                'tree_url': 'http://hg.test',
                 'created_at': '2017-11-02T00:00:00+00:00',
                 'updated_at': '2017-11-02T00:00:00+00:00',
             }

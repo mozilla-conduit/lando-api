@@ -339,6 +339,10 @@ definitions:
         type: string
         description: |
           The repo the revision will land to
+      tree_url:
+        type: string
+        description: |
+          The source url of the repo the revision will land to
       created_at:
         type: string
         format: date-time

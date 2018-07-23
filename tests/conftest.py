@@ -195,10 +195,12 @@ def mocked_repo_config(mock_repo_config):
     mock_repo_config(
         {
             'test': {
-                'mozilla-central': Repo('mozilla-central', SCM_LEVEL_3, ''),
+                'mozilla-central': Repo(
+                    'mozilla-central', SCM_LEVEL_3, '', 'http://hg.test'
+                ),
             },
         }
-    )
+    )  # yapf: disable
 
 
 @pytest.fixture

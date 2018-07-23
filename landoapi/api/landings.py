@@ -35,6 +35,7 @@ from landoapi.landings import (
 from landoapi.models.landing import Landing, LandingStatus
 from landoapi.patches import upload
 from landoapi.phabricator import ReviewerStatus
+from landoapi.repos import get_repos_for_env
 from landoapi.reviews import reviewer_identity
 from landoapi.storage import db
 from landoapi.transplant_client import TransplantClient, TransplantError
@@ -299,7 +300,7 @@ def get_list(revision_id):
         )
 
     landings = Landing.query.filter_by(revision_id=revision_id).all()
-    return [l.serialize() for l in landings], 200
+    return [_add_tree_url(l.serialize()) for l in landings], 200
 
 
 @require_phabricator_api_key(optional=True)
@@ -316,7 +317,7 @@ def get(landing_id):
         revision = g.phabricator.expect(revision, 'data')
         revision = g.phabricator.single(revision, none_when_empty=True)
         if revision:
-            return landing.serialize(), 200
+            return _add_tree_url(landing.serialize()), 200
 
     return problem(
         404,
@@ -367,3 +368,18 @@ def update(data):
     )
     db.session.commit()
     return {}, 200
+
+
+def _add_tree_url(landing):
+    """Finds and adds the right landoapi.repos.Repo.url to the landing."""
+    landing['tree_url'] = ''
+    repo_config = get_repos_for_env(current_app.config.get('ENVIRONMENT'))
+
+    # We search by tree instead of repo short name to avoid an additional
+    # network request to phabricator. This also could still work in the future
+    # when the same revision can be landed in different trees (e.g. to try).
+    for key, val in repo_config.items():
+        if landing['tree'] == val.tree:
+            landing['tree_url'] = val.url
+
+    return landing
