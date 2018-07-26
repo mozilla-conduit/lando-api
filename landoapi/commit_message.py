@@ -46,10 +46,12 @@ REVIEWERS_RE = re.compile(
     r'(' + SPECIFIER + r')' +           # flag
     r'(' +                              # capture all reviewers
         IRC_NICK +                      # reviewer
+        r'!?' +                        # Optional '!' blocking indicator
         r'(?:' +                        # additional reviewers
             LIST +                      # delimiter
             r'(?![a-z0-9\.\-]+[=?])' +  # don't extend match into next flag
             IRC_NICK +                  # reviewer
+            r'!?' +                    # Optional '!' blocking indicator
         r')*' +
     r')?')                              # noqa yapf: disable
 
