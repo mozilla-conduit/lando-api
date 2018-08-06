@@ -4,7 +4,7 @@
 import logging
 from collections import Counter
 
-from landoapi.phabricator import PhabricatorClient
+from landoapi.phabricator import PhabricatorClient, RevisionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,33 @@ def serialize_diff(diff):
             'email': author_email or '',
         },
     }  # yapf: disable
+
+
+def serialize_status(revision):
+    status_value = PhabricatorClient.expect(
+        revision, 'fields', 'status', 'value'
+    )
+    status = RevisionStatus.from_status(status_value)
+
+    if status is RevisionStatus.UNEXPECTED_STATUS:
+        logger.warning(
+            'Revision had unexpected status',
+            extra={
+                'id': PhabricatorClient.expection(revision, 'id'),
+                'value': status_value,
+            }
+        )
+        return {
+            'closed': False,
+            'value': None,
+            'display': 'Unknown',
+        }
+
+    return {
+        'closed': status.closed,
+        'value': status.value,
+        'display': status.output_name,
+    }
 
 
 def select_diff_author(diff):

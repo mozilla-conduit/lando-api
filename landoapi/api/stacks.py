@@ -25,6 +25,7 @@ from landoapi.revisions import (
     get_bugzilla_bug,
     serialize_author,
     serialize_diff,
+    serialize_status,
 )
 from landoapi.stacks import (
     build_stack_graph,
@@ -118,6 +119,7 @@ def get(revision_id):
         revisions_response.append({
             'id': human_revision_id,
             'phid': PhabricatorClient.expect(revision, 'phid'),
+            'status': serialize_status(revision),
             'bug_id': bug_id,
             'title': title,
             'url': revision_url,

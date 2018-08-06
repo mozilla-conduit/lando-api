@@ -431,6 +431,23 @@ definitions:
         type: string
         description: |
           The phid of the revision.
+      status:
+        type: object
+        description: |
+          The status of the revision.
+        properties:
+          value:
+            type: string
+            description: |
+              The value of this status from Phabricator, a unique identifier.
+          display:
+            type: string
+            description: |
+              A string suitable for displaying this status to a user.
+          closed:
+            type: boolean
+            description: |
+              Whether this status implies the revision is closed.
       bug_id:
         type: integer
         description: |
