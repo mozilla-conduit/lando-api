@@ -78,7 +78,9 @@ def get(revision_id):
         if phid in stack_data.repositories and supported_repos.
         get(phab.expect(stack_data.repositories[phid], 'fields', 'shortName'))
     }
-    landable = calculate_landable_subgraphs(stack_data, edges, landable_repos)
+    landable, blocked = calculate_landable_subgraphs(
+        stack_data, edges, landable_repos
+    )
 
     involved_phids = set()
     for revision in stack_data.revisions.values():
@@ -91,6 +93,7 @@ def get(revision_id):
 
     revisions_response = []
     for phid, revision in stack_data.revisions.items():
+        revision_phid = PhabricatorClient.expect(revision, 'phid')
         fields = PhabricatorClient.expect(revision, 'fields')
         diff_phid = PhabricatorClient.expect(fields, 'diffPHID')
         diff = stack_data.diffs[diff_phid]
@@ -118,8 +121,9 @@ def get(revision_id):
 
         revisions_response.append({
             'id': human_revision_id,
-            'phid': PhabricatorClient.expect(revision, 'phid'),
+            'phid': revision_phid,
             'status': serialize_status(revision),
+            'blocked_reason': blocked.get(revision_phid, ''),
             'bug_id': bug_id,
             'title': title,
             'url': revision_url,

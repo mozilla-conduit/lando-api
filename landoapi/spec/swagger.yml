@@ -448,6 +448,11 @@ definitions:
             type: boolean
             description: |
               Whether this status implies the revision is closed.
+      blocked_reason:
+        type: string
+        description: |
+          The reason a revision is blocked from landing. Will be an empty
+          string if the revision is not blocked.
       bug_id:
         type: integer
         description: |

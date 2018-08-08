@@ -125,36 +125,64 @@ def request_extended_revision_data(phab, revision_phids):
     return RevisionData(revs, diffs, repos)
 
 
-def calculate_landable_subgraphs(revision_data, edges, landable_repos):
+def calculate_landable_subgraphs(
+    revision_data, edges, landable_repos, *, other_checks=[]
+):
     """Return a list of landable DAG paths.
 
     Args:
         revision_data: A RevisionData with data for all phids present
             in `edges`.
         edges: a set of tuples (child, parent) each representing an edge
-        between two nodes. `child` and `parent` are also string
-        PHIDs.
+            between two nodes. `child` and `parent` are also string
+            PHIDs.
         landable_repos: a set of string PHIDs for repositories that
-        are supported for landing.
+            are supported for landing.
+        other_checks: An iterable of callables which will be executed
+            for each revision to determine if it should be blocked. These
+            checks must not rely on the structure the stack graph takes,
+            instead they may check only properties specific to a single
+            revision. If a revision is blocked for other reasons it's
+            possible that a check may not be called for that revision. The
+            callables must have the following signature:
+                Args:
+                    revision: A dictionary of revision data.
+                    diff: A dictionary of diff data for the diff of the
+                        given revision.
+                    repo: A dictionary of repository data for the repository
+                        the revision applies to.
+                Returns:
+                    None if the check passed and doesn't block the revision,
+                    a string containing the reason if the check fails and
+                    should block.
 
     Returns:
-        A list of lists with each sub-list being a series of PHID strings
+        A 2-tuple of (landable_paths, blockers). landable_paths is
+        a list of lists with each sub-list being a series of PHID strings
         which identify a DAG path. These paths are the set of landable
-        paths in the revision stack.
+        paths in the revision stack. blockers is a dictionary mapping
+        revision phid to a string reason for that revision being blocked.
+        Revisions appearing in landable_paths will not have an entry
+        in blockers.
     """
-    # We need to walk from the roots to the heads to build the landable
-    # subgraphs so identify the roots and build adjacency lists
-    children = {phid: set() for phid in revision_data.revisions}
-    parents = {phid: set() for phid in revision_data.revisions}
-    roots = set(revision_data.revisions.keys())
-    for child, parent in edges:
-        roots.discard(child)
-        children[parent].add(child)
-        parents[child].add(parent)
+    # We need to indicate why a revision isn't landable, so keep track
+    # of the reason whenever we remove a revision from consideration.
+    blocked = {}
 
-    # We only want to consider paths starting from the open children of the
-    # first revision found with open children, along the path from a root.
-    # So grab the status for all revisions.
+    def block(node, reason):
+        if node not in blocked:
+            blocked[node] = reason
+
+    # We won't land anything that has a repository we don't support, so make
+    # a pass over all the revisions and block these.
+    for phid, revision in revision_data.revisions.items():
+        if PhabricatorClient.expect(
+            revision, 'fields', 'repositoryPHID'
+        ) not in landable_repos:
+            block(phid, "Repository is not supported by Lando.")
+
+    # We only want to consider paths starting from the open revisions
+    # do grab the status for all revisions.
     statuses = {
         phid: RevisionStatus.from_status(
             PhabricatorClient.expect(revision, 'fields', 'status', 'value')
@@ -162,8 +190,19 @@ def calculate_landable_subgraphs(revision_data, edges, landable_repos):
         for phid, revision in revision_data.revisions.items()
     }
 
-    # Identify all the open children of the first revision with open
-    # children on our paths from a root, these become our new `roots`.
+    # Mark all closed revisions as blocked.
+    for phid, status in statuses.items():
+        if status.closed:
+            block(phid, "Revision is closed.")
+
+    # We need to walk from the roots to the heads to build the landable
+    # subgraphs so identify the roots and insantiate a RevisionStack
+    # to use its adjacency lists.
+    stack = RevisionStack(set(revision_data.revisions.keys()), edges)
+    roots = {phid for phid in stack.nodes if not stack.parents[phid]}
+
+    # All of the roots may not be open so we need to walk from them
+    # and find the first open revision along each path.
     to_process = roots
     roots = set()
     while to_process:
@@ -172,60 +211,129 @@ def calculate_landable_subgraphs(revision_data, edges, landable_repos):
             roots.add(phid)
             continue
 
-        to_process.update(children[phid])
+        to_process.update(stack.children[phid])
 
     # Because `roots` may no longer contain just true roots of the DAG,
     # a "root" could be the descendent of another. Filter out these "roots".
     to_process = set()
     for root in roots:
-        to_process.update(children[root])
+        to_process.update(stack.children[root])
     while to_process:
         phid = to_process.pop()
         roots.discard(phid)
-        to_process.update(children[phid])
+        to_process.update(stack.children[phid])
 
-    # Filter out roots that have a repository we don't support landing to.
-    # This will take care of filtering all unsupported repository revisions
-    # since multiple revisions along a path are not supported.
-    roots = {
-        root
-        for root in roots
-        if PhabricatorClient.expect(
-            revision_data.revisions[root], 'fields', 'repositoryPHID'
-        ) in landable_repos
-    }
+    # Filter out roots that we have blocked already.
+    roots = roots - blocked.keys()
 
-    # Now we can walk from the roots and find the end of each path that
-    # is landable.
-    def is_valid_next_revision(path_tip, child):
-        other_open_parents = [
-            p
-            for p in parents[child] if p != path_tip and not statuses[p].closed
-        ]
-        repos_match = (
-            PhabricatorClient.expect(
-                revision_data.revisions[path_tip], 'fields', 'repositoryPHID'
-            ) == PhabricatorClient.expect(
-                revision_data.revisions[child], 'fields', 'repositoryPHID'
-            )
+    # Do a pass over the roots to check if they're blocked, so we only
+    # start landable paths with unblocked roots.
+    to_process = roots
+    roots = set()
+    for root in to_process:
+        reason = _blocked_by(
+            root,
+            revision_data,
+            statuses,
+            stack,
+            blocked,
+            other_checks=other_checks
         )
-        return (
-            not statuses[child].closed and not other_open_parents and
-            repos_match
-        )
+        if reason is None:
+            roots.add(root)
+        else:
+            block(root, reason)
 
+    # Now walk from the unblocked roots to identify landable paths.
+    landable = roots.copy()
     paths = []
     to_process = [[root] for root in roots]
     while to_process:
         path = to_process.pop()
 
-        valid_children = [
-            child for child in children[path[-1]]
-            if is_valid_next_revision(path[-1], child)
-        ]
+        valid_children = []
+        for child in stack.children[path[-1]]:
+            if statuses[child].closed:
+                continue
+
+            reason = _blocked_by(
+                child,
+                revision_data,
+                statuses,
+                stack,
+                blocked,
+                other_checks=other_checks
+            )
+            if reason is None:
+                valid_children.append(child)
+                landable.add(child)
+            else:
+                block(child, reason)
+
         if valid_children:
             to_process.extend([path + [child] for child in valid_children])
         else:
             paths.append(path)
 
-    return paths
+    # Do one final pass to set blocked for anything that's not landable and
+    # and hasn't already been marked blocked. These are the descendents we
+    # never managed to reach walking the landable paths.
+    for phid in stack.nodes - landable - set(blocked.keys()):
+        block(phid, "Has an open ancestor revision that is blocked.")
+
+    return paths, blocked
+
+
+def _blocked_by(
+    phid, revision_data, statuses, stack, blocked, *, other_checks=[]
+):
+    # If this revision has already been marked as blocked just return
+    # the reason that was given previously.
+    if phid in blocked:
+        return blocked[phid]
+
+    parents = stack.parents[phid]
+    open_parents = {p for p in parents if not statuses[p].closed}
+    if len(open_parents) > 1:
+        return 'Depends on multiple open parents.'
+
+    for parent in open_parents:
+        if parent in blocked:
+            return 'Depends on D{} which is open and blocked.'.format(
+                PhabricatorClient.expect(revision_data[parent], 'id')
+            )
+
+    if open_parents:
+        assert len(open_parents) == 1
+        parent = open_parents.pop()
+        if (
+            revision_data.revisions[phid]['fields']['repositoryPHID']
+            != revision_data.revisions[parent]['fields']['repositoryPHID']
+        ):
+            return (
+                'Depends on D{} which is open and has a different repository.'
+            ).format(revision_data.revisions[parent]['id'])
+
+    # Perform extra blocker checks that don't depend on the
+    # structure of the stack graph.
+    revision = revision_data.revisions[phid]
+    diff = revision_data.diffs[revision['fields']['diffPHID']]
+    repo = revision_data.repositories[revision['fields']['repositoryPHID']]
+    for check in other_checks:
+        result = check(revision, diff, repo)
+        if result:
+            return result
+
+    return None
+
+
+class RevisionStack:
+    def __init__(self, nodes, edges):
+        self.nodes = nodes
+        self.edges = edges
+
+        self.children = {phid: set() for phid in self.nodes}
+        self.parents = {phid: set() for phid in self.nodes}
+        for child, parent in self.edges:
+            self.children[parent].add(child)
+            self.parents[child].add(parent)

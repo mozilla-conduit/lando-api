@@ -256,7 +256,7 @@ def test_calculate_landable_subgraphs_no_edges_open(phabdouble):
     revision = phabdouble.revision(repo=repo)
     ext_data = request_extended_revision_data(phab, [revision['phid']])
 
-    landable = calculate_landable_subgraphs(ext_data, [], {repo['phid']})
+    landable, _ = calculate_landable_subgraphs(ext_data, [], {repo['phid']})
 
     assert len(landable) == 1
     assert landable[0] == [revision['phid']]
@@ -269,7 +269,7 @@ def test_calculate_landable_subgraphs_no_edges_closed(phabdouble):
     revision = phabdouble.revision(repo=repo, status=RevisionStatus.PUBLISHED)
     ext_data = request_extended_revision_data(phab, [revision['phid']])
 
-    landable = calculate_landable_subgraphs(ext_data, [], {repo['phid']})
+    landable, _ = calculate_landable_subgraphs(ext_data, [], {repo['phid']})
 
     assert not landable
 
@@ -284,7 +284,7 @@ def test_calculate_landable_subgraphs_closed_root(phabdouble):
     nodes, edges = build_stack_graph(phab, r1['phid'])
     ext_data = request_extended_revision_data(phab, [r1['phid'], r2['phid']])
 
-    landable = calculate_landable_subgraphs(ext_data, edges, {repo['phid']})
+    landable, _ = calculate_landable_subgraphs(ext_data, edges, {repo['phid']})
     assert landable == [
         [r2['phid']],
     ]
@@ -309,7 +309,7 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble):
         ]
     )
 
-    landable = calculate_landable_subgraphs(ext_data, edges, {repo['phid']})
+    landable, _ = calculate_landable_subgraphs(ext_data, edges, {repo['phid']})
     assert [r3['phid']] not in landable
     assert [r3['phid'], r4['phid']] not in landable
     assert [r4['phid']] not in landable
@@ -334,7 +334,7 @@ def test_calculate_landable_subgraphs_stops_multiple_repo_paths(phabdouble):
         ]
     )
 
-    landable = calculate_landable_subgraphs(
+    landable, _ = calculate_landable_subgraphs(
         ext_data, edges, {repo1['phid'], repo2['phid']}
     )
     assert landable == [[r1['phid'], r2['phid']]]
@@ -364,7 +364,7 @@ def test_calculate_landable_subgraphs_allows_distinct_repo_paths(phabdouble):
         ]
     )
 
-    landable = calculate_landable_subgraphs(
+    landable, _ = calculate_landable_subgraphs(
         ext_data, edges, {repo1['phid'], repo2['phid']}
     )
     assert len(landable) == 2
@@ -392,7 +392,7 @@ def test_calculate_landable_subgraphs_different_repo_parents(phabdouble):
         ]
     )
 
-    landable = calculate_landable_subgraphs(
+    landable, _ = calculate_landable_subgraphs(
         ext_data, edges, {repo1['phid'], repo2['phid']}
     )
     assert len(landable) == 2
@@ -420,7 +420,7 @@ def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble):
         ]
     )
 
-    landable = calculate_landable_subgraphs(
+    landable, _ = calculate_landable_subgraphs(
         ext_data, edges, {repo1['phid'], repo2['phid']}
     )
     assert len(landable) == 1
@@ -456,7 +456,7 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble):
         ]
     )
 
-    landable = calculate_landable_subgraphs(ext_data, edges, {repo['phid']})
+    landable, _ = calculate_landable_subgraphs(ext_data, edges, {repo['phid']})
     assert len(landable) == 3
     assert [r1['phid'], r2['phid'], r3['phid']] in landable
     assert [r1['phid'], r4['phid'], r5['phid']] in landable
@@ -536,7 +536,7 @@ def test_calculate_landable_subgraphs_complex_graph(phabdouble):
         ]
     )
 
-    landable = calculate_landable_subgraphs(
+    landable, _ = calculate_landable_subgraphs(
         ext_data, edges, {repoA['phid'], repoB['phid']}
     )
     assert len(landable) == 3
@@ -555,3 +555,32 @@ def test_calculate_landable_subgraphs_complex_graph(phabdouble):
         rA8['phid'],
     ] in landable
     assert [rB1['phid']] in landable
+
+
+def test_calculate_landable_subgraphs_extra_check(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+
+    repo = phabdouble.repo()
+    r1 = phabdouble.revision(repo=repo)
+    r2 = phabdouble.revision(repo=repo, depends_on=[r1])
+    r3 = phabdouble.revision(repo=repo, depends_on=[r2])
+    r4 = phabdouble.revision(repo=repo, depends_on=[r3])
+
+    nodes, edges = build_stack_graph(phab, r1['phid'])
+    ext_data = request_extended_revision_data(
+        phab, [r1['phid'], r2['phid'], r3['phid'], r4['phid']]
+    )
+
+    REASON = "Blocked by custom check."
+
+    def custom_check(revision, diff, repository):
+        return REASON if revision['id'] == r3['id'] else None
+
+    landable, blocked = calculate_landable_subgraphs(
+        ext_data, edges, {repo['phid']}, other_checks=[custom_check]
+    )
+    assert landable == [
+        [r1['phid'], r2['phid']],
+    ]
+    assert r3['phid'] in blocked and r4['phid'] in blocked
+    assert blocked[r3['phid']] == REASON
