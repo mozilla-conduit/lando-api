@@ -11,7 +11,7 @@ from freezegun import freeze_time
 
 from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
-from landoapi.models.landing import Landing, LandingStatus
+from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.transplant_client import TransplantClient
 
@@ -65,14 +65,13 @@ def test_landing_revision_saves_data_in_db(
     # Ensure DB access isn't using uncommitted data.
     db.session.close()
 
-    # Get Landing object by its id
-    landing = Landing.query.get(landing_id)
-    assert landing.id == landing_id
-    assert landing.revision_id == revision['id']
-    assert landing.diff_id == diff['id']
-    assert landing.status == LandingStatus.submitted
-    assert landing.active_diff_id == diff['id']
-    assert landing.request_id == land_request_id
+    # Get Transplant object by its id
+    transplant = Transplant.query.get(landing_id)
+    assert transplant.id == landing_id
+    assert transplant.revision_to_diff_id == {str(revision['id']): diff['id']}
+    assert transplant.revision_order == [str(revision['id'])]
+    assert transplant.status == TransplantStatus.submitted
+    assert transplant.request_id == land_request_id
 
 
 def test_landing_without_auth0_permissions(client, auth0_mock, phabdouble, db):
@@ -248,12 +247,12 @@ def test_get_transplant_status(db, client, phabdouble):
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
 
-    _create_landing(
+    _create_transplant(
         db,
         request_id=1,
         revision_id=revision['id'],
         diff_id=diff['id'],
-        status=LandingStatus.submitted
+        status=TransplantStatus.submitted
     )
     response = client.get('/landings/1')
     data = response.json
@@ -332,20 +331,20 @@ def test_get_jobs_by_revision_id(db, client, phabdouble):
     diff4 = phabdouble.diff(revision=revision1)
     diff5 = phabdouble.diff(revision=revision2)
 
-    _create_landing(
-        db, 1, revision1['id'], diff1['id'], status=LandingStatus.submitted
+    _create_transplant(
+        db, 1, revision1['id'], diff1['id'], status=TransplantStatus.submitted
     )
-    _create_landing(
-        db, 2, revision1['id'], diff2['id'], status=LandingStatus.landed
+    _create_transplant(
+        db, 2, revision1['id'], diff2['id'], status=TransplantStatus.landed
     )
-    _create_landing(
-        db, 3, revision2['id'], diff3['id'], status=LandingStatus.submitted
+    _create_transplant(
+        db, 3, revision2['id'], diff3['id'], status=TransplantStatus.submitted
     )
-    _create_landing(
-        db, 4, revision1['id'], diff4['id'], status=LandingStatus.submitted
+    _create_transplant(
+        db, 4, revision1['id'], diff4['id'], status=TransplantStatus.submitted
     )
-    _create_landing(
-        db, 5, revision2['id'], diff5['id'], status=LandingStatus.landed
+    _create_transplant(
+        db, 5, revision2['id'], diff5['id'], status=TransplantStatus.landed
     )
 
     response = client.get('/landings?revision_id=D1')
@@ -406,7 +405,7 @@ def test_get_jobs_by_revision_id(db, client, phabdouble):
 def test_no_revision_for_landing(db, client, phabdouble):
     # Create a landing pointing at a revision that will not
     # be returned by phabricator.
-    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
+    _create_transplant(db, 1, 1, 1, status=TransplantStatus.submitted)
     response = client.get('/landings/1')
     assert response.status_code == 404
 
@@ -420,13 +419,13 @@ def test_not_authorized_to_view_landing_by_revision(db, client, phabdouble):
     # Create a landing pointing at a revision which will
     # not be returned by phabricator (like if the user didn't
     # have permissions to view that revision).
-    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
+    _create_transplant(db, 1, 1, 1, status=TransplantStatus.submitted)
     response = client.get('/landings?revision_id=D1')
     assert response.status_code == 404
 
 
 def test_get_jobs_wrong_revision_id_format(db, client):
-    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
+    _create_transplant(db, 1, 1, 1, status=TransplantStatus.submitted)
     response = client.get('/landings?revision_id=1')
     assert response.status_code == 400
 
@@ -435,7 +434,7 @@ def test_get_jobs_wrong_revision_id_format(db, client):
 
 
 def test_update_landing(db, client):
-    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
+    _create_transplant(db, 1, 1, 1, status=TransplantStatus.submitted)
     response = client.post(
         '/landings/update',
         json={'request_id': 1,
@@ -449,12 +448,12 @@ def test_update_landing(db, client):
     # Ensure DB access isn't using uncommitted data.
     db.session.close()
 
-    landing = Landing.query.get(1)
-    assert landing.status == LandingStatus.landed
+    transplant = Transplant.query.get(1)
+    assert transplant.status == TransplantStatus.landed
 
 
 def test_update_landing_bad_request_id(db, client):
-    _create_landing(db, 1, 1, 1, status=LandingStatus.submitted)
+    _create_transplant(db, 1, 1, 1, status=TransplantStatus.submitted)
     response = client.post(
         '/landings/update',
         json={'request_id': 2,
@@ -530,36 +529,32 @@ def test_pingback_incorrect_api_key(client, config):
     assert response.status_code == 403
 
 
-def test_typecasting():
-    Landing(revision_id='x', diff_id=1, active_diff_id=1)
-
-
 @pytest.mark.parametrize(
     'status, considered_submitted', [
-        (LandingStatus.submitted, True),
-        (LandingStatus.landed, False),
-        (LandingStatus.failed, False),
-        (LandingStatus.aborted, False),
+        (TransplantStatus.submitted, True),
+        (TransplantStatus.landed, False),
+        (TransplantStatus.failed, False),
+        (TransplantStatus.aborted, False),
     ]
 )
 def test_revision_already_submitted(db, status, considered_submitted):
-    landing = _create_landing(db, status=status, diff_id=2)
+    landing = _create_transplant(db, status=status, diff_id=2)
     if considered_submitted:
-        assert Landing.is_revision_submitted(1) == landing
+        assert Transplant.is_revision_submitted(1) == landing
     else:
-        assert not Landing.is_revision_submitted(1)
+        assert not Transplant.is_revision_submitted(1)
 
 
 @pytest.mark.parametrize(
-    'status', [LandingStatus.aborted, LandingStatus.failed]
+    'status', [TransplantStatus.aborted, TransplantStatus.failed]
 )
 def test_revision_not_submitted(db, status):
-    _create_landing(db, status=status)
-    assert not Landing.is_revision_submitted(1)
+    _create_transplant(db, status=status)
+    assert not Transplant.is_revision_submitted(1)
 
 
 @pytest.mark.parametrize(
-    'status', [LandingStatus.aborted, LandingStatus.failed]
+    'status', [TransplantStatus.aborted, TransplantStatus.failed]
 )
 def test_land_failed_revision(
     db, client, auth0_mock, phabdouble, s3, transfactory, status
@@ -567,7 +562,7 @@ def test_land_failed_revision(
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
     phabdouble.reviewer(revision, phabdouble.user(username='reviewer'))
-    _create_landing(
+    _create_transplant(
         db,
         revision_id=revision['id'],
         diff_id=diff['id'],
@@ -591,17 +586,17 @@ def test_land_failed_revision(
     # Ensure DB access isn't using uncommitted data.
     db.session.close()
 
-    assert Landing.is_revision_submitted(revision['id'])
+    assert Transplant.is_revision_submitted(revision['id'])
 
 
 def test_land_submitted_revision(db, client, phabdouble, auth0_mock):
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
-    _create_landing(
+    _create_transplant(
         db,
         revision_id=revision['id'],
         diff_id=diff['id'],
-        status=LandingStatus.submitted,
+        status=TransplantStatus.submitted,
     )
     response = client.post(
         '/landings',
@@ -660,25 +655,25 @@ def test_land_revision_with_unmapped_repo(
     assert response.json['blockers'][0]['id'] == 'E005'
 
 
-def _create_landing(
+def _create_transplant(
     db,
     request_id=1,
     revision_id=1,
     diff_id=1,
-    active_diff_id=None,
     requester_email='tuser@example.com',
     tree='mozilla-central',
-    status=LandingStatus.submitted
+    repository_url='http://hg.test',
+    status=TransplantStatus.submitted
 ):
-    landing = Landing(
+    transplant = Transplant(
         request_id=request_id,
-        revision_id=revision_id,
-        diff_id=diff_id,
-        active_diff_id=(active_diff_id or diff_id),
+        revision_to_diff_id={str(revision_id): diff_id},
+        revision_order=[str(revision_id)],
         requester_email=requester_email,
         tree=tree,
+        repository_url=repository_url,
         status=status
     )
-    db.session.add(landing)
+    db.session.add(transplant)
     db.session.commit()
-    return landing
+    return transplant

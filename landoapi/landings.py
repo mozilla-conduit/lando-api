@@ -7,7 +7,7 @@ import json
 from connexion import ProblemException
 
 from landoapi.decorators import lazy
-from landoapi.models.landing import Landing
+from landoapi.models.transplant import Transplant
 from landoapi.phabricator import (
     PhabricatorClient,
     result_list_to_phid_dict,
@@ -190,11 +190,13 @@ class LandingInProgress(LandingProblem):
 
     @classmethod
     def check(cls, *, revision_id, diff_id, **kwargs):
-        already_submitted = Landing.is_revision_submitted(revision_id)
+        already_submitted = Transplant.is_revision_submitted(revision_id)
         if not already_submitted:
             return None
 
-        if diff_id == already_submitted.diff_id:
+        submit_diff = already_submitted.revision_to_diff_id[str(revision_id)]
+
+        if diff_id == submit_diff:
             return cls(
                 'This revision is already queued for landing with '
                 'the same diff.'
@@ -202,7 +204,7 @@ class LandingInProgress(LandingProblem):
         else:
             return cls(
                 'This revision is already queued for landing with '
-                'diff {}'.format(already_submitted.diff_id)
+                'diff {}'.format(submit_diff)
             )
 
 
@@ -338,17 +340,19 @@ class PreviouslyLanded(LandingProblem):
     id = "W002"
 
     @classmethod
-    def check(cls, *, diff_id, get_latest_landed, **kwargs):
+    def check(cls, *, revision_id, diff_id, get_latest_landed, **kwargs):
         latest = get_latest_landed()
         if latest is None:
             return None
 
-        if latest.diff_id == diff_id:
+        landed_diff_id = latest.revision_to_diff_id[str(revision_id)]
+
+        if landed_diff_id == diff_id:
             return cls(
                 'This diff ({landed_diff_id}) has already landed as '
                 'commit {commit_sha}. Unless this change has been backed '
                 'out, new changes should use a new revision.'.format(
-                    landed_diff_id=latest.diff_id, commit_sha=latest.result
+                    landed_diff_id=landed_diff_id, commit_sha=latest.result
                 )
             )
 
@@ -356,7 +360,7 @@ class PreviouslyLanded(LandingProblem):
             'Another diff ({landed_diff_id}) of this revision has already '
             'landed as commit {commit_sha}. Unless this change has been '
             'backed out, new changes should use a new revision.'.format(
-                landed_diff_id=latest.diff_id, commit_sha=latest.result
+                landed_diff_id=landed_diff_id, commit_sha=latest.result
             )
         )
 

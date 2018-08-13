@@ -5,7 +5,7 @@ import pytest
 
 from landoapi.landings import LandingAssessment, LandingProblem
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
-from landoapi.models.landing import Landing, LandingStatus
+from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import RevisionStatus
 
 
@@ -260,14 +260,14 @@ def test_previously_landed_warns(
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=phabdouble.repo())
     db.session.add(
-        Landing(
+        Transplant(
             request_id=1,
-            revision_id=revision['id'],
-            diff_id=diff['id'],
-            active_diff_id=diff['id'],
+            revision_to_diff_id={str(revision['id']): diff['id']},
+            revision_order=[str(revision['id'])],
             requester_email='tuser@example.com',
             tree='mozilla-central',
-            status=LandingStatus.landed,
+            repository_url='http://hg.test',
+            status=TransplantStatus.landed,
             result=('X' * 40)
         )
     )
@@ -302,28 +302,28 @@ def test_previously_landed_but_landed_since_still_warns(
     diff2 = phabdouble.diff(revision=revision)
 
     db.session.add(
-        Landing(
+        Transplant(
             request_id=1,
-            revision_id=revision['id'],
-            diff_id=diff1['id'],
-            active_diff_id=diff1['id'],
+            revision_to_diff_id={str(revision['id']): diff1['id']},
+            revision_order=[str(revision['id'])],
             requester_email='tuser@example.com',
             tree='mozilla-central',
-            status=LandingStatus.landed,
+            repository_url='http://hg.test',
+            status=TransplantStatus.landed,
             result=('X' * 40)
         )
     )
     db.session.commit()
 
     db.session.add(
-        Landing(
+        Transplant(
             request_id=2,
-            revision_id=revision['id'],
-            diff_id=diff2['id'],
-            active_diff_id=diff2['id'],
+            revision_to_diff_id={str(revision['id']): diff2['id']},
+            revision_order=[str(revision['id'])],
             requester_email='tuser@example.com',
             tree='mozilla-central',
-            status=LandingStatus.failed,
+            repository_url='http://hg.test',
+            status=TransplantStatus.failed,
             result=('X' * 40)
         )
     )

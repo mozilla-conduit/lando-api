@@ -32,10 +32,9 @@ from landoapi.landings import (
     lazy_get_revision_status,
     lazy_reviewers_search,
 )
-from landoapi.models.landing import Landing, LandingStatus
+from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.patches import upload
 from landoapi.phabricator import ReviewerStatus
-from landoapi.repos import get_repos_for_env
 from landoapi.reviews import reviewer_identity
 from landoapi.revisions import get_bugzilla_bug
 from landoapi.storage import db
@@ -63,7 +62,7 @@ def dryrun(data):
     get_latest_diff = lazy_get_latest_diff(phab, get_revision)
     get_diff = lazy_get_diff(phab, diff_id, get_latest_diff)
     get_diff_author = lazy_get_diff_author(get_diff)
-    get_latest_landed = lazy(Landing.latest_landed)(revision_id)
+    get_latest_landed = lazy(Transplant.legacy_latest_landed)(revision_id)
     get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
         get_repository, current_app.config.get('ENVIRONMENT')
@@ -117,7 +116,7 @@ def post(data):
     get_latest_diff = lazy_get_latest_diff(phab, get_revision)
     get_diff = lazy_get_diff(phab, diff_id, get_latest_diff)
     get_diff_author = lazy_get_diff_author(get_diff)
-    get_latest_landed = lazy(Landing.latest_landed)(revision_id)
+    get_latest_landed = lazy(Transplant.legacy_latest_landed)(revision_id)
     get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
         get_repository, current_app.config.get('ENVIRONMENT')
@@ -162,7 +161,6 @@ def post(data):
     # running after checking_landing_conditions().
     revision = get_revision()
     landing_repo = get_landing_repo()
-    latest_diff_id = get_latest_diff()['id']
     author_name, author_email = get_diff_author()
 
     # Collect the usernames of reviewers who have accepted.
@@ -223,15 +221,15 @@ def post(data):
     try:
         # WARNING: Entering critical section, do not add additional
         # code unless absolutely necessary. Acquires a lock on the
-        # landings table which gives exclusive write access and
+        # transplants table which gives exclusive write access and
         # prevents readers who are entering this critical section.
         # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
         # for more details on the specifics of the lock mode.
         with db.session.begin_nested():
             db.session.execute(
-                'LOCK TABLE landings IN SHARE ROW EXCLUSIVE MODE;'
+                'LOCK TABLE transplants IN SHARE ROW EXCLUSIVE MODE;'
             )
-            if Landing.is_revision_submitted(revision_id):
+            if Transplant.is_revision_submitted(revision_id):
                 submitted_assessment.raise_if_blocked_or_unacknowledged(None)
 
             transplant_request_id = trans.land(
@@ -242,19 +240,19 @@ def post(data):
                 pingback=current_app.config['PINGBACK_URL'],
                 push_bookmark=landing_repo.push_bookmark
             )
-            landing = Landing(
+            transplant = Transplant(
                 request_id=transplant_request_id,
-                revision_id=revision_id,
-                diff_id=diff_id,
-                active_diff_id=latest_diff_id,
+                revision_to_diff_id={str(revision_id): diff_id},
+                revision_order=[str(revision_id)],
                 requester_email=ldap_username,
                 tree=landing_repo.tree,
-                status=LandingStatus.submitted
+                repository_url=landing_repo.url,
+                status=TransplantStatus.submitted
             )
-            db.session.add(landing)
+            db.session.add(transplant)
     except TransplantError as exc:
         logger.info(
-            'error creating landing',
+            'error creating transplant',
             extra={'revision': revision_id},
             exc_info=exc
         )
@@ -270,13 +268,13 @@ def post(data):
     db.session.commit()
 
     logger.info(
-        'landing created',
+        'transplant created',
         extra={
             'revision_id': revision_id,
-            'landing_id': landing.id,
+            'transplant_id': transplant.id,
         }
     )
-    return {'id': landing.id}, 202
+    return {'id': transplant.id}, 202
 
 
 @require_phabricator_api_key(optional=True)
@@ -298,25 +296,34 @@ def get_list(revision_id):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
 
-    landings = Landing.query.filter_by(revision_id=revision_id).all()
-    return [_add_tree_url(l.serialize()) for l in landings], 200
+    transplants = Transplant.query.filter(
+        Transplant.revision_to_diff_id.has_key(str(revision_id))  # noqa
+    ).all()
+    return [t.legacy_serialize() for t in transplants], 200
 
 
 @require_phabricator_api_key(optional=True)
 def get(landing_id):
-    """API endpoint at /landings/{landing_id} to return stored Landing."""
-    landing = Landing.query.get(landing_id)
+    """API endpoint at /landings/{landing_id} to return stored Landing.
 
-    if landing:
+    Note, at the time of writing this isn't in use by Lando UI, and most
+    likely won't be in the near future. It is mainly used by the Lando
+    API test suite.
+    """
+    transplant = Transplant.query.get(landing_id)
+
+    # Only allow single revision transplants from this legacy endpoint.
+    if transplant and len(transplant.revision_order) == 1:
         # Verify that the client has permission to see the associated revision.
+        revision_id = int(transplant.revision_order[0])
         revision = g.phabricator.call_conduit(
             'differential.revision.search',
-            constraints={'ids': [landing.revision_id]},
+            constraints={'ids': [revision_id]},
         )
         revision = g.phabricator.expect(revision, 'data')
         revision = g.phabricator.single(revision, none_when_empty=True)
         if revision:
-            return _add_tree_url(landing.serialize()), 200
+            return transplant.legacy_serialize(), 200
 
     return problem(
         404,
@@ -351,7 +358,15 @@ def update(data):
             empty string if landed == false
     """
     try:
-        landing = Landing.query.filter_by(request_id=data['request_id']).one()
+        transplant = Transplant.query.filter_by(request_id=data['request_id'])
+        transplant = transplant.one()
+
+        transplant.update_from_transplant(
+            data['landed'],
+            error=data.get('error_msg', ''),
+            result=data.get('result', '')
+        )
+        db.session.commit()
     except NoResultFound:
         return problem(
             404,
@@ -360,25 +375,4 @@ def update(data):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
 
-    landing.update_from_transplant(
-        data['landed'],
-        error=data.get('error_msg', ''),
-        result=data.get('result', '')
-    )
-    db.session.commit()
     return {}, 200
-
-
-def _add_tree_url(landing):
-    """Finds and adds the right landoapi.repos.Repo.url to the landing."""
-    landing['tree_url'] = ''
-    repo_config = get_repos_for_env(current_app.config.get('ENVIRONMENT'))
-
-    # We search by tree instead of repo short name to avoid an additional
-    # network request to phabricator. This also could still work in the future
-    # when the same revision can be landed in different trees (e.g. to try).
-    for key, val in repo_config.items():
-        if landing['tree'] == val.tree:
-            landing['tree_url'] = val.url
-
-    return landing
