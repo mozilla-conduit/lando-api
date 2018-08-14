@@ -192,6 +192,32 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /transplants:
+    get:
+      operationId: landoapi.api.transplants.get_list
+      description: |
+        Returns the list of transplants for any revisions in the stack
+        of a given revision.
+      security:
+        - {}
+        - PhabricatorAPIKeyHeader: []
+      parameters:
+        - name: stack_revision_id
+          in: query
+          type: string
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Transplant'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
   /landings/dryrun:
     post:
       operationId: landoapi.api.landings.dryrun
@@ -353,31 +379,78 @@ definitions:
         description: |
           The ID of a phabricator diff which is associated with the provided
           revision_id.
+  LandingPath:
+    type: array
+    description: |
+      A list of revision and diff pairs which form the path to land.
+    items:
+      type: object
+      required:
+        - revision_id
+        - diff_id
+      properties:
+        revision_id:
+          type: string
+          description: |
+            The ID of a revision in the form of 'D{number}', e.g.
+            'D12345'.
+        diff_id:
+          type: integer
+          description: |
+            The ID of a phabricator diff which is associated with the
+            provided revision_id.
   TransplantRequest:
     type: object
     required:
       - landing_path
     properties:
       landing_path:
-        type: array
+        $ref: '#/definitions/LandingPath'
+  Transplant:
+    type: object
+    properties:
+      id:
+        type: integer
         description: |
-          A list of revision and diff pairs which form the path to land.
-        items:
-          type: object
-          required:
-            - revision_id
-            - diff_id
-          properties:
-            revision_id:
-              type: string
-              description: |
-                The ID of a revision in the form of 'D{number}', e.g.
-                'D12345'.
-            diff_id:
-              type: integer
-              description: |
-                The ID of a phabricator diff which is associated with the
-                provided revision_id.
+          The id of the Transplant.
+      request_id:
+        type: integer
+        description: |
+          The id of the Request in Autoland Transplant.
+      status:
+        type: string
+        enum: [aborted, landed, failed, submitted]
+        description: |
+          Status of the landing job in Autoland Transplant.
+      landing_path:
+        $ref: '#/definitions/LandingPath'
+      details:
+        type: string
+        description: |
+          revision (sha) of push if it is 'landed', otherwise a
+          status update or error message.
+      requester_email:
+        type: string
+        description: |
+          Email of the requester.
+      tree:
+        type: string
+        description: |
+          The repo the revision will land to.
+      repository_url:
+        type: string
+        description: |
+          The url of the repo the revision will land to.
+      created_at:
+        type: string
+        format: date-time
+        description: |
+          ISO format UTC time of creation.
+      updated_at:
+        type: string
+        format: date-time
+        description: |
+          ISO format UTC time of the last update.
   Landing:
     type: object
     properties:

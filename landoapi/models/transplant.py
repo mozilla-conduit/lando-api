@@ -135,6 +135,37 @@ class Transplant(db.Model):
         ).filter_by(status=TransplantStatus.landed
                    ).order_by(cls.updated_at.desc()).first()
 
+    def serialize(self):
+        """Return a JSON compatible dictionary."""
+        return {
+            'id': self.id,
+            'request_id': self.request_id,
+            'status': self.status.value,
+            'landing_path': [
+                {
+                    'revision_id': 'D{}'.format(r),
+                    'diff_id': self.revision_to_diff_id[r],
+                } for r in self.revision_order
+            ],
+            'details': (
+                self.error or self.result
+                if self.status in (
+                    TransplantStatus.failed,
+                    TransplantStatus.aborted
+                )
+                else self.result or self.error
+            ),
+            'requester_email': self.requester_email,
+            'tree': self.tree,
+            'repository_url': self.repository_url,
+            'created_at': (
+                self.created_at.astimezone(datetime.timezone.utc).isoformat()
+            ),
+            'updated_at': (
+                self.updated_at.astimezone(datetime.timezone.utc).isoformat()
+            ),
+        }  # yapf: disable
+
     def legacy_serialize(self):
         """DEPRECATED Serialize to JSON compatible dictionary."""
 

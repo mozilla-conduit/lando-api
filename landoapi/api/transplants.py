@@ -3,12 +3,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 
-from connexion import ProblemException
+from connexion import problem, ProblemException
 from flask import current_app, g
+from sqlalchemy.dialects.postgresql import array
 
 from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.landings import lazy_project_search, lazy_user_search
+from landoapi.models.transplant import Transplant
 from landoapi.phabricator import PhabricatorClient
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import get_collated_reviewers
@@ -166,3 +168,41 @@ def dryrun(data):
         g.auth0_user, to_land, repo, landing_repo, reviewers, users, projects
     )
     return assessment.to_dict()
+
+
+@require_phabricator_api_key(optional=True)
+def get_list(stack_revision_id):
+    """Return a list of Transplant objects"""
+    revision_id = revision_id_to_int(stack_revision_id)
+
+    phab = g.phabricator
+    revision = phab.call_conduit(
+        'differential.revision.search',
+        constraints={'ids': [revision_id]},
+    )
+    revision = phab.single(revision, 'data', none_when_empty=True)
+    if revision is None:
+        return problem(
+            404,
+            'Revision not found',
+            'The revision does not exist or you lack permission to see it.',
+            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+        )
+
+    # TODO: This assumes that all revisions and related objects in the stack
+    # have uniform view permissions for the requesting user. Some revisions
+    # being restricted could cause this to fail.
+    nodes, edges = build_stack_graph(phab, phab.expect(revision, 'phid'))
+    revision_phids = list(nodes)
+    revs = phab.call_conduit(
+        'differential.revision.search',
+        constraints={'phids': revision_phids},
+        limit=len(revision_phids),
+    )
+    revision_ids = [
+        str(phab.expect(r, 'id')) for r in phab.expect(revs, 'data')
+    ]
+    transplants = Transplant.query.filter(
+        Transplant.revision_to_diff_id.has_any(array(revision_ids))
+    ).all()
+    return [t.serialize() for t in transplants], 200
