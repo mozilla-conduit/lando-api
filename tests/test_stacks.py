@@ -575,7 +575,7 @@ def test_calculate_landable_subgraphs_extra_check(phabdouble):
 
     REASON = "Blocked by custom check."
 
-    def custom_check(revision, diff, repository):
+    def custom_check(*, revision, diff, repo):
         return REASON if revision['id'] == r3['id'] else None
 
     landable, blocked = calculate_landable_subgraphs(

@@ -23,6 +23,7 @@ from landoapi.stacks import (
 from landoapi.transplants import (
     check_landing_blockers,
     check_landing_warnings,
+    DEFAULT_OTHER_BLOCKER_CHECKS,
 )
 from landoapi.validation import revision_id_to_int
 
@@ -117,7 +118,10 @@ def dryrun(data):
         stack_data, supported_repos
     )
     landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos
+        stack_data,
+        edges,
+        landable_repos,
+        other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
     )
 
     assessment = check_landing_blockers(

@@ -77,6 +77,57 @@ def test_dryrun_invalid_path_blocks(client, db, phabdouble, auth0_mock):
     assert response.json['blocker'] is not None
 
 
+def test_dryrun_in_progress_transplant_blocks(
+    client, db, phabdouble, auth0_mock
+):
+    repo = phabdouble.repo()
+
+    # Structure:
+    # *     merge
+    # |\
+    # | *   r2
+    # *     r1
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=repo)
+
+    d2 = phabdouble.diff()
+    r2 = phabdouble.revision(diff=d2, repo=repo)
+
+    # merge
+    phabdouble.revision(diff=phabdouble.diff(), repo=repo, depends_on=[r1, r2])
+
+    # Create am in progress transplant on r2, which should
+    # block attempts to land r1.
+    _create_transplant(
+        db,
+        request_id=1,
+        landing_path=[(r1['id'], d1['id'])],
+        status=TransplantStatus.submitted
+    )
+
+    phabdouble.reviewer(r1, phabdouble.user(username='reviewer'))
+    phabdouble.reviewer(r1, phabdouble.project('reviewer2'))
+
+    response = client.post(
+        '/transplants/dryrun',
+        json={
+            'landing_path': [
+                {
+                    'revision_id': 'D{}'.format(r1['id']),
+                    'diff_id': d1['id'],
+                },
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert 200 == response.status_code
+    assert 'application/json' == response.content_type
+    assert response.json['blocker'] == (
+        'A landing for revisions in this stack is already in progress.'
+    )
+
+
 def test_dryrun_reviewers_warns(client, db, phabdouble, auth0_mock):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())

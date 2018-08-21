@@ -320,7 +320,7 @@ def _blocked_by(
     diff = revision_data.diffs[revision['fields']['diffPHID']]
     repo = revision_data.repositories[revision['fields']['repositoryPHID']]
     for check in other_checks:
-        result = check(revision, diff, repo)
+        result = check(revision=revision, diff=diff, repo=repo)
         if result:
             return result
 

@@ -116,3 +116,27 @@ def select_diff_author(diff):
 def get_bugzilla_bug(revision):
     bug = PhabricatorClient.expect(revision, 'fields').get('bugzilla.bug-id')
     return int(bug) if bug else None
+
+
+def check_diff_author_is_known(*, diff, **kwargs):
+    author_name, author_email = select_diff_author(diff)
+    if author_name and author_email:
+        return None
+
+    return (
+        'Diff does not have proper author information in Phabricator. '
+        'This can happen if the diff was created using the web UI, '
+        'or a non standard client.'
+    )
+
+
+def check_author_planned_changes(*, revision, **kwargs):
+    status = RevisionStatus.from_status(
+        PhabricatorClient.expect(revision, 'fields', 'status', 'value')
+    )
+    if status is not RevisionStatus.CHANGES_PLANNED:
+        return None
+
+    return (
+        'The author has indicated they are planning changes to this revision.'
+    )

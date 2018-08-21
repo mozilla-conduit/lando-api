@@ -33,6 +33,7 @@ from landoapi.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
+from landoapi.transplants import DEFAULT_OTHER_BLOCKER_CHECKS
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,10 @@ def get(revision_id):
         stack_data, supported_repos
     )
     landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos
+        stack_data,
+        edges,
+        landable_repos,
+        other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
     )
 
     involved_phids = set()

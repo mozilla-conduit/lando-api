@@ -15,8 +15,17 @@ from landoapi.reviews import (
     calculate_review_extra_state,
     reviewer_identity,
 )
+from landoapi.revisions import (
+    check_author_planned_changes,
+    check_diff_author_is_known,
+)
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_OTHER_BLOCKER_CHECKS = [
+    check_author_planned_changes,
+    check_diff_author_is_known,
+]
 
 
 class LandingAssessment:
@@ -282,6 +291,20 @@ def check_landing_blockers(
             return LandingAssessment(
                 blocker='A requested diff is not the latest.'
             )
+
+    # Check if there is already a landing for something in the stack.
+    if Transplant.revisions_query(
+        [
+            PhabricatorClient.expect(r, 'id')
+            for r in stack_data.revisions.values()
+        ]
+    ).filter_by(status=TransplantStatus.submitted).first() is not None:
+        return LandingAssessment(
+            blocker=(
+                'A landing for revisions in this stack is '
+                'already in progress.'
+            )
+        )
 
     # To be a landable path the entire path must have the same
     # repository, so we can get away with checking only one.
