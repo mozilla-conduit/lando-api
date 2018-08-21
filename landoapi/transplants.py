@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import functools
+import hashlib
+import json
 import logging
 from collections import namedtuple
 
@@ -27,13 +29,17 @@ DEFAULT_OTHER_BLOCKER_CHECKS = [
     check_diff_author_is_known,
 ]
 
+RevisionWarning = namedtuple(
+    'RevisionWarning', ('i', 'display', 'revision_id', 'details')
+)
+
 
 class LandingAssessment:
     """Represents an assessment of issues that may block a revision landing.
 
     Attributes:
         blocker: String reason landing is blocked.
-        warnings: List of warning LandingProblems.
+        warnings: List with each item being a RevisionWarning.
     """
 
     def __init__(self, *, blocker=None, warnings=None):
@@ -57,17 +63,24 @@ class LandingAssessment:
                 }
             )
 
-        # TODO: Generate a proper confirmation token.
         return {
             'blocker': self.blocker,
             'warnings': list(bucketed_warnings.values()),
-            'confirmation_token': None,
+            'confirmation_token': self.confirmation_token(self.warnings),
         }
 
+    @staticmethod
+    def confirmation_token(warnings):
+        """Return a hash of a serialized warning list.
 
-RevisionWarning = namedtuple(
-    'RevisionWarning', ('i', 'display', 'revision_id', 'details')
-)
+        Returns: String.  Returns None if given an empty list.
+        """
+        if not warnings:
+            return None
+
+        # Convert warnings to JSON serializable form and sort.
+        warnings = sorted((w.i, w.revision_id, w.details) for w in warnings)
+        return hashlib.sha256(json.dumps(warnings).encode('utf-8')).hexdigest()
 
 
 class RevisionWarningCheck:

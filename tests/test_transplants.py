@@ -8,6 +8,8 @@ from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import ReviewerStatus, RevisionStatus
 from landoapi.reviews import get_collated_reviewers
 from landoapi.transplants import (
+    LandingAssessment,
+    RevisionWarning,
     warning_not_accepted,
     warning_previously_landed,
     warning_reviews_not_current,
@@ -154,6 +156,7 @@ def test_dryrun_reviewers_warns(client, db, phabdouble, auth0_mock):
     assert 'application/json' == response.content_type
     assert response.json['warnings']
     assert response.json['warnings'][0]['id'] == 0
+    assert response.json['confirmation_token'] is not None
 
 
 def test_get_transplants_for_entire_stack(db, client, phabdouble):
@@ -442,6 +445,29 @@ def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
     assert warning_reviews_not_current(
         revision=revision, diff=diff, reviewers=reviewers
     ) is None
+
+
+def test_confirmation_token_warning_order():
+    warnings_a = [
+        RevisionWarning(0, 'W0', 123, 'Details123'),
+        RevisionWarning(0, 'W0', 124, 'Details124'),
+        RevisionWarning(1, 'W1', 123, 'Details123'),
+        RevisionWarning(3, 'W3', 13, 'Details3'),
+        RevisionWarning(1000, 'W1000', 13, 'Details3'),
+    ]
+    warnings_b = [
+        warnings_a[3],
+        warnings_a[1],
+        warnings_a[0],
+        warnings_a[4],
+        warnings_a[2],
+    ]
+
+    assert all(
+        LandingAssessment.confirmation_token(warnings_a) ==
+        LandingAssessment.confirmation_token(w)
+        for w in (warnings_b, reversed(warnings_a), reversed(warnings_b))
+    )
 
 
 def _create_transplant(
