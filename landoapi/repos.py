@@ -98,6 +98,10 @@ REPO_CONFIG = {
             'gecko', SCM_LEVEL_3, '',
             'https://hg.mozilla.org/integration/autoland'
         ),
+        'comm-central': Repo(
+            'comm-central', SCM_LEVEL_3, '',
+            'https://hg.mozilla.org/comm-central'
+        ),
     },
 }  # yapf: disable
 
