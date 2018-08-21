@@ -5,7 +5,12 @@ import functools
 import logging
 from collections import namedtuple
 
-from landoapi.phabricator import PhabricatorClient
+from landoapi.models.transplant import Transplant, TransplantStatus
+from landoapi.phabricator import (
+    PhabricatorClient,
+    ReviewerStatus,
+    RevisionStatus,
+)
 from landoapi.reviews import (
     calculate_review_extra_state,
     reviewer_identity,
@@ -76,18 +81,9 @@ class RevisionWarningCheck:
 
     def __call__(self, f):
         @functools.wraps(f)
-        def wrapped(
-            *, revision, diff, repo, landing_repo, reviewers, users, projects
-        ):
-            result = f(
-                revision=revision,
-                diff=diff,
-                repo=repo,
-                landing_repo=landing_repo,
-                reviewers=reviewers,
-                users=users,
-                projects=projects,
-            )
+        def wrapped(*, revision, **kwargs):
+            kwargs['revision'] = revision
+            result = f(**kwargs)
             return None if result is None else RevisionWarning(
                 self.i, self.display, 'D{}'.format(revision['id']), result
             )
@@ -133,6 +129,60 @@ def warning_blocking_reviews(
     )
 
 
+@RevisionWarningCheck(1, 'Has previously landed.')
+def warning_previously_landed(*, revision, diff, **kwargs):
+    revision_id = PhabricatorClient.expect(revision, 'id')
+    diff_id = PhabricatorClient.expect(diff, 'id')
+
+    landed_transplant = Transplant.revisions_query([revision_id]).filter_by(
+        status=TransplantStatus.landed
+    ).order_by(Transplant.updated_at.desc()).first()
+
+    if landed_transplant is None:
+        return None
+
+    landed_diff_id = landed_transplant.revision_to_diff_id[str(revision_id)]
+    same = diff_id == landed_diff_id
+    only_revision = len(landed_transplant.revision_order) == 1
+
+    return (
+        'Already landed with {is_same_string} diff ({landed_diff_id}), '
+        'pushed {push_string} {commit_sha}.'.format(
+            is_same_string=('the same' if same else 'an older'),
+            landed_diff_id=landed_diff_id,
+            push_string=('as' if only_revision else 'with new tip'),
+            commit_sha=landed_transplant.result
+        )
+    )
+
+
+@RevisionWarningCheck(2, 'Is not Accepted.')
+def warning_not_accepted(*, revision, **kwargs):
+    status = RevisionStatus.from_status(
+        PhabricatorClient.expect(revision, 'fields', 'status', 'value')
+    )
+    if status is RevisionStatus.ACCEPTED:
+        return None
+
+    return status.output_name
+
+
+@RevisionWarningCheck(3, 'No reviewer has accepted the current diff.')
+def warning_reviews_not_current(*, diff, reviewers, **kwargs):
+    for phid, r in reviewers.items():
+        extra = calculate_review_extra_state(
+            diff['phid'], r['status'], r['diffPHID'], r['voidedPHID']
+        )
+
+        if (
+            r['status'] is ReviewerStatus.ACCEPTED
+            and not extra['for_other_diff']
+        ):
+            return None
+
+    return 'Has no accepted review on the current diff.'
+
+
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return None if auth0_user.email else (
@@ -167,6 +217,9 @@ def check_landing_warnings(
     *,
     revision_warnings=[
         warning_blocking_reviews,
+        warning_previously_landed,
+        warning_not_accepted,
+        warning_reviews_not_current,
     ]
 ):
     assessment = LandingAssessment()

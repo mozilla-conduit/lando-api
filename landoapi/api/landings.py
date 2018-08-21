@@ -296,9 +296,7 @@ def get_list(revision_id):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
         )
 
-    transplants = Transplant.query.filter(
-        Transplant.revision_to_diff_id.has_key(str(revision_id))  # noqa
-    ).all()
+    transplants = Transplant.revisions_query([revision_id]).all()
     return [t.legacy_serialize() for t in transplants], 200
 
 

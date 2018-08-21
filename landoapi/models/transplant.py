@@ -5,6 +5,7 @@ import datetime
 import enum
 import logging
 
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
 
 from landoapi.storage import db
@@ -100,6 +101,19 @@ class Transplant(db.Model):
         else:
             self.status = TransplantStatus.landed
 
+    @property
+    def landing_path(self):
+        return [
+            (int(r), self.revision_to_diff_id[r]) for r in self.revision_order
+        ]
+
+    @classmethod
+    def revisions_query(cls, revisions):
+        revisions = [str(int(r)) for r in revisions]
+        return cls.query.filter(
+            cls.revision_to_diff_id.has_any(array(revisions))
+        )
+
     @classmethod
     def is_revision_submitted(cls, revision_id):
         """Check if revision is successfully submitted.
@@ -110,9 +124,9 @@ class Transplant(db.Model):
         Returns:
             Transplant object or False if not submitted.
         """
-        transplants = cls.query.filter(
-            cls.revision_to_diff_id.has_key(str(revision_id))  # noqa
-        ).filter_by(status=TransplantStatus.submitted).all()
+        transplants = cls.revisions_query([revision_id]).filter_by(
+            status=TransplantStatus.submitted
+        ).all()
 
         if not transplants:
             return False
@@ -130,10 +144,9 @@ class Transplant(db.Model):
             Latest transplant object with status landed, or None if
             none exist.
         """
-        return cls.query.filter(
-            cls.revision_to_diff_id.has_key(str(revision_id))  # noqa
-        ).filter_by(status=TransplantStatus.landed
-                   ).order_by(cls.updated_at.desc()).first()
+        return cls.revisions_query([revision_id]).filter_by(
+            status=TransplantStatus.landed
+        ).order_by(cls.updated_at.desc()).first()
 
     def serialize(self):
         """Return a JSON compatible dictionary."""

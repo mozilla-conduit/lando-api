@@ -5,7 +5,6 @@ import logging
 
 from connexion import problem, ProblemException
 from flask import current_app, g
-from sqlalchemy.dialects.postgresql import array
 
 from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
@@ -199,10 +198,8 @@ def get_list(stack_revision_id):
         constraints={'phids': revision_phids},
         limit=len(revision_phids),
     )
-    revision_ids = [
-        str(phab.expect(r, 'id')) for r in phab.expect(revs, 'data')
-    ]
-    transplants = Transplant.query.filter(
-        Transplant.revision_to_diff_id.has_any(array(revision_ids))
+
+    transplants = Transplant.revisions_query(
+        [phab.expect(r, 'id') for r in phab.expect(revs, 'data')]
     ).all()
     return [t.serialize() for t in transplants], 200
