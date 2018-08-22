@@ -2,7 +2,7 @@ swagger: '2.0'
 info:
   title: Lando API
   description: An API to get and land Phabricator revisions.
-  version: "0.2.0"
+  version: "1.0.0"
 securityDefinitions:
   PhabricatorAPIKeyHeader:
     type: apiKey
@@ -186,7 +186,7 @@ paths:
         200:
           description: OK
           schema:
-            $ref: '#/definitions/LandingAssessment'
+            $ref: '#/definitions/TransplantAssessment'
         default:
           description: Unexpected error
           schema:
@@ -215,6 +215,54 @@ paths:
               $ref: '#/definitions/Transplant'
         default:
           description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+    post:
+      description: |
+        Sends request to transplant service. If a Phabricator API
+        key is set in the X-Phabricator-API-Key header, then you may access
+        private Revisions which the owner of the api key has access to.
+      security:
+        - Auth0AccessToken: []
+        - Auth0AccessToken: []
+          PhabricatorAPIKeyHeader: []
+      parameters:
+        - name: data
+          description: The data required to request a landing.
+          required: true
+          in: body
+          schema:
+            allOf:
+              - $ref: '#/definitions/TransplantRequest'
+              - type: object
+                properties:
+                  confirmation_token:
+                    type: string
+                    description: |
+                      A token representing the set of acknowledged warnings
+                      when landing. The /transplants/dryrun endpoint responds
+                      with the current warnings and the matching token. If
+                      the warnings have changed between requesting a dryrun
+                      and requesting a landing, the landing will fail.
+      responses:
+        202:
+          description: OK
+          schema:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: |
+                  A newly created Transplant id
+        400:
+          description: Blockers or Unacknowledged Warnings
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+              - $ref: '#/definitions/TransplantAssessment'
+        default:
+          description: Error
           schema:
             allOf:
               - $ref: '#/definitions/Error'
@@ -519,7 +567,7 @@ definitions:
         description: |
           A list of landable paths through the stack graph.
         items:
-          $ref: '#definitions/LandablePath'
+          $ref: '#/definitions/LandablePath'
       revisions:
         type: array
         description: |
@@ -711,6 +759,55 @@ definitions:
             type: string
           email:
             type: string
+  TransplantAssessment:
+    type: object
+    properties:
+      confirmation_token:
+        type: string
+        description: |
+          A token to be passed along with the transplant request when the
+          caller goes to land a revision.  By receiving and passing the token
+          along the caller asserts that they have acknowledged all of the
+          warnings. For example, the caller could present a UI with the
+          warnings to the end user and have the user acknowledge the warnings
+          with a checkbox. Once acknowledged, the UI can pass the confirmation
+          token to the transplant endpoint so the transplant can proceed.
+      blocker:
+        type: string
+        description: |
+          A description of why landing is blocked. Only contains data when
+          the landing is blocked.
+      warnings:
+        type: array
+        description: |
+          A list of issues that the caller should acknowledge before landing
+          their revision.  The caller can signal acknowledgement by sending the
+          confirmation_token with their landing request.
+        items:
+          type: object
+          properties:
+            id:
+              type: string
+              description: A unique identifier for this warning type.
+            display:
+              type: string
+              description: A description of this warning type for display.
+            instances:
+              type: array
+              description: |
+                A list of instances of this warning type.
+              minItems: 1
+              items:
+                type: object
+                properties:
+                  revision_id:
+                    type: string
+                    description: |
+                      ID in "D<int>" form of the revision this warning is for.
+                  details:
+                    type: string
+                    description: |
+                      Details of this warning specific to this instance.
   LandingAssessment:
     type: object
     properties:

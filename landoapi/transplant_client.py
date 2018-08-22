@@ -50,12 +50,6 @@ class TransplantClient:
             elif transplant_mock_option == 'fail':
                 return None
 
-        # TODO: Although transplant accepts multiple patch urls to land
-        # our use of a single revision in 'rev' would open up a number
-        # of broken edge cases. Make sure we're not landing more than
-        # one patch before this has been fixed.
-        assert len(patch_urls) == 1
-
         try:
             # API structure from VCT/testing/autoland_mach_commands.py
             response = self._submit_landing_request(

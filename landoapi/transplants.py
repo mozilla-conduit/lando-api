@@ -7,6 +7,8 @@ import json
 import logging
 from collections import namedtuple
 
+from connexion import ProblemException
+
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import (
     PhabricatorClient,
@@ -34,7 +36,16 @@ RevisionWarning = namedtuple(
 )
 
 
-class LandingAssessment:
+def tokens_are_equal(t1, t2):
+    """Return whether t1 and t2 are equal.
+
+    This function exists to make mocking or ignorning confirmation token
+    checks very simple.
+    """
+    return t1 == t2
+
+
+class TransplantAssessment:
     """Represents an assessment of issues that may block a revision landing.
 
     Attributes:
@@ -81,6 +92,39 @@ class LandingAssessment:
         # Convert warnings to JSON serializable form and sort.
         warnings = sorted((w.i, w.revision_id, w.details) for w in warnings)
         return hashlib.sha256(json.dumps(warnings).encode('utf-8')).hexdigest()
+
+    def raise_if_blocked_or_unacknowledged(self, confirmation_token):
+        if self.blocker is not None:
+            raise ProblemException(
+                400,
+                'Landing is Blocked',
+                'There are landing blockers present which prevent landing.',
+                ext=self.to_dict(),
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400' # noqa
+            )  # yapf: disable
+
+        details = self.to_dict()
+        if not tokens_are_equal(
+            details['confirmation_token'], confirmation_token
+        ):
+            if confirmation_token is None:
+                raise ProblemException(
+                    400,
+                    'Unacknowledged Warnings',
+                    'There are landing warnings present which have not '
+                    'been acknowledged.',
+                    ext=details,
+                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400' # noqa
+                )  # yapf: disable
+
+            raise ProblemException(
+                400,
+                'Acknowledged Warnings Have Changed',
+                'The warnings present when the request was constructed have '
+                'changed. Please acknowledge the new warnings and try again.',
+                ext=details,
+                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400' # noqa
+            )  # yapf: disable
 
 
 class RevisionWarningCheck:
@@ -244,7 +288,7 @@ def check_landing_warnings(
         warning_reviews_not_current,
     ]
 ):
-    assessment = LandingAssessment()
+    assessment = TransplantAssessment()
     for revision, diff in to_land:
         for check in revision_warnings:
             result = check(
@@ -287,7 +331,7 @@ def check_landing_blockers(
         if revision_path == path[:len(revision_path)]:
             break
     else:
-        return LandingAssessment(
+        return TransplantAssessment(
             blocker='The requested set of revisions are not landable.'
         )
 
@@ -301,7 +345,7 @@ def check_landing_blockers(
         )
 
         if latest_diff_id != revision_to_diff_id[revision_phid]:
-            return LandingAssessment(
+            return TransplantAssessment(
                 blocker='A requested diff is not the latest.'
             )
 
@@ -312,7 +356,7 @@ def check_landing_blockers(
             for r in stack_data.revisions.values()
         ]
     ).filter_by(status=TransplantStatus.submitted).first() is not None:
-        return LandingAssessment(
+        return TransplantAssessment(
             blocker=(
                 'A landing for revisions in this stack is '
                 'already in progress.'
@@ -329,6 +373,6 @@ def check_landing_blockers(
     for block in user_blocks:
         result = block(auth0_user=auth0_user, landing_repo=repo)
         if result is not None:
-            return LandingAssessment(blocker=result)
+            return TransplantAssessment(blocker=result)
 
-    return LandingAssessment()
+    return TransplantAssessment()
