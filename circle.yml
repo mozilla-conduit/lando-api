@@ -10,7 +10,7 @@
 # DOCKER_PASS
 machine:
   pre:
-    - curl -sSL https://s3.amazonaws.com/circle-downloads/install-circleci-docker.sh | bash -s -- 1.10.0
+    - echo $MY_TEST_ENV
   services:
     - docker
   python:
