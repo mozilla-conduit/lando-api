@@ -1,0 +1,141 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# These environment variables must be set in CircleCI UI
+#
+# DOCKERHUB_REPO - docker hub repo, format: <username>/<repo>
+# DOCKER_EMAIL   - login info for docker hub
+# DOCKER_USER
+# DOCKER_PASS
+
+version: 2
+
+# This is not part of circleci, but it lets us not repeat ourselves.
+STUFF:
+  python_image: &python_image
+    image: python:3.5-alpine
+
+  # it's useful to not build branches that contain slashes,
+  # if it is later decided to map branches to docker tags.
+  main_filters: &main_filters
+    branches:
+      ignore:
+        - /\//
+
+jobs:
+  lint:
+    working_directory: /app
+    docker:
+      - *python_image
+    steps:
+      - checkout
+      - run: pip install yapf==0.16.1 && pip install flake8==3.5.0 && pip install pytest==3.6.3
+      - run: yapf --diff --recursive ./
+      - run: flake8 .
+
+  test:
+    working_directory: /app
+    docker:
+      - <<: *python_image
+        environment:
+          PGPASSWORD: password
+          PGUSER: postgres
+      - image: postgres:alpine
+        environment:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+      # - image: redis:3.2-alpine
+    steps:
+      - checkout
+      - run: |
+          apk --update --no-cache add postgresql-client perl \
+            gcc \
+            musl-dev \
+            postgresql-dev \
+            sqlite \
+            libffi-dev
+
+          mkdir /db
+          pip install --no-cache -r requirements/base.txt
+          pip install --no-cache .
+          perl -MSys::Hostname -i -pe 's/(?:redis\.cache|lando-api\.db)/hostname()/ge' tests/conftest.py
+      - run: |
+          while ! psql -w -h $(hostname) < docker/postgres-init-scripts/create_databases.sql &>/dev/null; do
+            echo "trying to setup db"
+            sleep 2
+          done
+      - run:
+          name: run tests
+          command: |
+            mkdir test-reports
+            pytest --junitxml=test-reports/junit.xml
+          environment:
+            # this is needed for pytest to run
+            PYTHONPATH: /app
+            # this lets you watch the build progress in the web UI
+            PYTHONUNBUFFERED: 1
+            # most of these are stubbed out in tests/conftest.py
+            PHABRICATOR_UNPRIVILEGED_API_KEY: api-0123456789012345678901234567
+
+      - store_test_results:
+          path: test-reports
+
+      - store_artifacts:
+          path: test-reports
+
+  build:
+    docker:
+      - image: docker:17.06.1-ce
+    steps:
+      - setup_remote_docker
+      - checkout
+      - run:
+          name: create version.json
+          command: |
+            echo "
+              {
+                'commit': '$CIRCLE_SHA1',
+                'version': '$CIRCLE_SHA1',
+                'source': 'https://github.com/mozilla-conduit/lando-api',
+                'build': '$CIRCLE_BUILD_URL'
+              }
+            " > version.json
+            mkdir /artifacts && cp version.json /artifacts/version.js
+      - run:
+          name: build the prod image
+          command: |
+            docker build --pull \
+              -f docker/Dockerfile-prod \
+              -t "${DOCKERHUB_REPO:-mozilla/landoapi}" .
+      - run:
+          name: get image id
+          command: |
+            docker inspect -f '{{.Id}}' "${DOCKERHUB_REPO:-mozilla/landoapi}" \
+              | tee /artifacts/docker-image-shasum256.txt
+      - store_artifacts:
+          path: /artifacts
+      - deploy:
+          command: |
+            if [[ "x$DOCKERHUB_REPO" != x && ${CIRCLE_BRANCH} == master ]]; then
+              docker login -e "$DOCKER_EMAIL" -u "$DOCKER_USER" -p "$DOCKER_PASS"
+              docker tag "${DOCKERHUB_REPO}" "${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
+              docker push "${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
+              docker push "${DOCKERHUB_REPO}:latest"
+            fi
+
+workflows:
+  version: 2
+  main:
+    jobs:
+      - lint:
+          filters: *main_filters
+      - test:
+          filters: *main_filters
+          requires:
+            - lint
+      - build:
+          filters: *main_filters
+          requires:
+            - lint
+            - test
