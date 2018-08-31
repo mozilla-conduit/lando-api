@@ -1,12 +1,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import json
 import os
 
 from invoke import Collection, run, task
 
-DOCKER_IMAGE_NAME = os.getenv('DOCKERHUB_REPO', 'mozilla/landoapi')
 # The 'pty' setting is nice, as it provides colour output, but it doesn't work
 # on Windows.
 USE_PTY = os.name != 'nt'
@@ -61,36 +59,6 @@ def format(ctx):
     )
 
 
-@task
-def version(ctx):
-    """Print Dockerflow version information in JSON format."""
-    version = {
-        'commit': os.getenv('CIRCLE_SHA1', None),
-        'version': os.getenv('CIRCLE_SHA1', None),
-        'source': 'https://github.com/mozilla-conduit/lando-api',
-        'build': os.getenv('CIRCLE_BUILD_URL', None)
-    }
-    print(json.dumps(version))
-
-
-@task
-def build(ctx):
-    """Build the production docker image."""
-    ctx.run(
-        'docker build --pull -t {image_name} '
-        '-f ./docker/Dockerfile-prod .'.format(image_name=DOCKER_IMAGE_NAME)
-    )
-
-
-@task(name='imageid')
-def imageid(ctx):
-    """Print the built docker image ID."""
-    ctx.run(
-        "docker inspect -f '{format}' {image_name}".
-        format(image_name=DOCKER_IMAGE_NAME, format='{{.Id}}')
-    )
-
-
 @task(name='add-migration')
 def add_migration(ctx, msg):
     """Call Alembic to create a migration revision"""
@@ -117,5 +85,5 @@ namespace = Collection(
         lint_all,
         lint_flake8,
         lint_yapf,
-    ), add_migration, build, format, imageid, init, test, upgrade, version
+    ), add_migration, format, init, test, upgrade
 )
