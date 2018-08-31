@@ -118,7 +118,7 @@ jobs:
       - deploy:
           command: |
             if [[ "x$DOCKERHUB_REPO" != x ]]; then
-              docker login -e "$DOCKER_EMAIL" -u "$DOCKER_USER" -p "$DOCKER_PASS"
+              docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
               docker tag "${DOCKERHUB_REPO}" "${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
               docker push "${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
               if [[ ${CIRCLE_BRANCH} == master ]]; then
