@@ -63,8 +63,9 @@ def _unmarshal_transplant_request(data):
             type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
         )
 
-    # Confirmation token is optional.
-    confirmation_token = data.get('confirmation_token')
+    # Confirmation token is optional. Convert usage of an empty
+    # string to None as well to make using the API easier.
+    confirmation_token = data.get('confirmation_token') or None
 
     return path, confirmation_token
 
