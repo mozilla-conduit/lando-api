@@ -95,10 +95,10 @@ jobs:
           command: |
             echo "
               {
-                'commit': '$CIRCLE_SHA1',
-                'version': '$CIRCLE_SHA1',
-                'source': 'https://github.com/mozilla-conduit/lando-api',
-                'build': '$CIRCLE_BUILD_URL'
+                \"commit\": \"$CIRCLE_SHA1\",
+                \"version\": \"$CIRCLE_SHA1\",
+                \"source\": \"https://github.com/mozilla-conduit/lando-api\",
+                \"build\": \"$CIRCLE_BUILD_URL\"
               }
             " > version.json
             mkdir /artifacts && cp version.json /artifacts/version.js
