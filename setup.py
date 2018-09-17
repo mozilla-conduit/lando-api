@@ -33,10 +33,7 @@ setup(
     package_data={'landoapi': ['spec/swagger.yml']},
     install_requires=[],
     extras_require={},
-    entry_points={
-        'console_scripts': [
-            'lando-api-dev = landoapi.app:development_server',
-            'lando-cli = landoapi.cli:cli',
-        ]
-    },
+    entry_points={'console_scripts': [
+        'lando-cli = landoapi.cli:cli',
+    ]},
 )

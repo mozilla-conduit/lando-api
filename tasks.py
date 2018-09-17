@@ -20,7 +20,7 @@ def test(ctx, testargs='', keep=False):
     """Run the test suite."""
     ctx.config.keep_containers = keep  # Stashed for our cleanup tasks
     run(
-        'docker-compose run {rm} lando-api pytest {args}'.format(
+        'docker-compose run {rm} lando-api test {args}'.format(
             args=testargs, rm=('' if keep else ' --rm')
         ),
         pty=USE_PTY,
@@ -31,17 +31,13 @@ def test(ctx, testargs='', keep=False):
 @task(name='flake8')
 def lint_flake8(ctx):
     """Run flake8."""
-    run('docker-compose run --rm py3-linter flake8 .', pty=USE_PTY, echo=True)
+    run('docker-compose run --rm lando-api lint', pty=USE_PTY, echo=True)
 
 
 @task(name='yapf')
 def lint_yapf(ctx):
     """Run yapf."""
-    run(
-        'docker-compose run --rm py3-linter yapf --diff --recursive ./',
-        pty=USE_PTY,
-        echo=True
-    )
+    run('docker-compose run --rm lando-api format', pty=USE_PTY, echo=True)
 
 
 @task(default=True, name='all', post=[lint_flake8, lint_yapf])
@@ -53,30 +49,25 @@ def lint_all(ctx):
 @task()
 def format(ctx):
     """Format project sourcecode. (WARNING: rewrites files!)"""
-    run(
-        'docker-compose run --rm py3-linter yapf --in-place --recursive ./',
-        echo=True
-    )
+    run('docker-compose run --rm lando-api format --in-place', echo=True)
 
 
 @task(name='add-migration')
 def add_migration(ctx, msg):
     """Call Alembic to create a migration revision"""
-    ctx.run(
-        "docker-compose run --rm lando-api lando-cli db revision '%s'" % msg
-    )
+    ctx.run("docker-compose run --rm lando-api db revision '%s'" % msg)
 
 
 @task(name='init')
 def init(ctx):
     """Run Lando API first run init."""
-    ctx.run("docker-compose run --rm lando-api lando-cli init")
+    ctx.run("docker-compose run --rm lando-api init")
 
 
 @task
 def upgrade(ctx):
     """Call Alembic to run all available migration upgrades."""
-    ctx.run("docker-compose run --rm lando-api lando-cli db upgrade")
+    ctx.run("docker-compose run --rm lando-api db upgrade")
 
 
 namespace = Collection(
