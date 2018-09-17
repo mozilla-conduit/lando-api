@@ -19,8 +19,7 @@ class SuppressRedisFailure(suppress):
         ret = super().__exit__(exctype, excinst, exctb)
         if exctype is not None and ret:
             logger.warning(
-                'suppressed redis exception',
-                exc_info=(exctype, excinst, exctb),
+                "suppressed redis exception", exc_info=(exctype, excinst, exctb)
             )
 
         return ret

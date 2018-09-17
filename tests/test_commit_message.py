@@ -13,29 +13,32 @@ A summary.
 Differential Revision: http://phabricator.test/D123
 """.strip()
 
-FIRST_LINE = 'Bug 1 - A title. r=reviewer_one,reviewer_two'
+FIRST_LINE = "Bug 1 - A title. r=reviewer_one,reviewer_two"
 
 
 def test_commit_message_for_multiple_reviewers():
-    reviewers = ['reviewer_one', 'reviewer_two']
+    reviewers = ["reviewer_one", "reviewer_two"]
     commit_message = format_commit_message(
-        'A title.', 1, reviewers, 'A summary.', 'http://phabricator.test/D123'
+        "A title.", 1, reviewers, "A summary.", "http://phabricator.test/D123"
     )
     assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
 
 
 def test_commit_message_reviewers_replaced():
-    reviewers = ['reviewer_one', 'reviewer_two']
+    reviewers = ["reviewer_one", "reviewer_two"]
     commit_message = format_commit_message(
-        'A title. r=not_reviewer r?bogus', 1, reviewers, 'A summary.',
-        'http://phabricator.test/D123'
+        "A title. r=not_reviewer r?bogus",
+        1,
+        reviewers,
+        "A summary.",
+        "http://phabricator.test/D123",
     )
     assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
 
 
 def test_commit_message_blank_summary():
     first_line, message = format_commit_message(
-        'A title.', 1, ['reviewer'], '', 'http://phabricator.test/D123'
+        "A title.", 1, ["reviewer"], "", "http://phabricator.test/D123"
     )
 
     # A blank summary should result in only a single blank line between
@@ -44,29 +47,33 @@ def test_commit_message_blank_summary():
 
 
 @pytest.mark.parametrize(
-    'reviewer_text', [
-        'r?blocker! r?didnt_review',
-        'r?blocker!,didnt_review',
-        'r?blocker! r?didnt_review!',
-        'r?blocker!,didnt_review!',
-        'r?didnt_review r?blocker!',
-        'r?didnt_review,blocker!',
-        'r?didnt_review! r?blocker',
-        'r?didnt_review!,blocker',
-        'r=blocker! r=didnt_review',
-        'r=blocker!,didnt_review',
-        'r=blocker! r=didnt_review!',
-        'r=blocker!,didnt_review!',
-        'r=didnt_review r=blocker!',
-        'r=didnt_review,blocker!',
-        'r=didnt_review! r=blocker',
-        'r=didnt_review!,blocker',
-    ]
+    "reviewer_text",
+    [
+        "r?blocker! r?didnt_review",
+        "r?blocker!,didnt_review",
+        "r?blocker! r?didnt_review!",
+        "r?blocker!,didnt_review!",
+        "r?didnt_review r?blocker!",
+        "r?didnt_review,blocker!",
+        "r?didnt_review! r?blocker",
+        "r?didnt_review!,blocker",
+        "r=blocker! r=didnt_review",
+        "r=blocker!,didnt_review",
+        "r=blocker! r=didnt_review!",
+        "r=blocker!,didnt_review!",
+        "r=didnt_review r=blocker!",
+        "r=didnt_review,blocker!",
+        "r=didnt_review! r=blocker",
+        "r=didnt_review!,blocker",
+    ],
 )
 def test_commit_message_blocking_reviewers_requested(reviewer_text):
     commit_message = format_commit_message(
-        'A title! {}'.format(reviewer_text), 1, ['blocker'], '',
-        'http://phabricator.test/D123'
+        "A title! {}".format(reviewer_text),
+        1,
+        ["blocker"],
+        "",
+        "http://phabricator.test/D123",
     )
 
-    assert commit_message[0] == 'Bug 1 - A title! r=blocker'
+    assert commit_message[0] == "Bug 1 - A title! r=blocker"

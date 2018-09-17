@@ -12,13 +12,14 @@ logger = logging.getLogger(__name__)
 @enum.unique
 class LandingStatus(enum.Enum):
     """DEPRECATED"""
+
     # Default value - stays in database only if landing request was aborted.
-    aborted = 'aborted'
+    aborted = "aborted"
 
     # Set from pingback
-    submitted = 'submitted'
-    landed = 'landed'
-    failed = 'failed'
+    submitted = "submitted"
+    landed = "landed"
+    failed = "failed"
 
 
 class Landing(db.Model):
@@ -29,6 +30,7 @@ class Landing(db.Model):
     migration has been completed this may been cleaned up and dropped from
     the database with another migration.
     """
+
     __tablename__ = "landings"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -39,8 +41,8 @@ class Landing(db.Model):
     status = db.Column(
         db.Enum(LandingStatus), nullable=False, default=LandingStatus.aborted
     )
-    error = db.Column(db.Text(), default='')
-    result = db.Column(db.Text(), default='')
+    error = db.Column(db.Text(), default="")
+    result = db.Column(db.Text(), default="")
     requester_email = db.Column(db.String(254))
     tree = db.Column(db.String(128))
     created_at = db.Column(
@@ -50,5 +52,5 @@ class Landing(db.Model):
         db.DateTime(timezone=True),
         nullable=False,
         default=db.func.now(),
-        onupdate=db.func.now()
+        onupdate=db.func.now(),
     )

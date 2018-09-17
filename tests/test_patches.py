@@ -30,24 +30,19 @@ emoji
 🏄🦈
 """.lstrip()
 
-EMPTY = ''
-LONG_LINE = 'LOOOOOOONG' * 20000
+EMPTY = ""
+LONG_LINE = "LOOOOOOONG" * 20000
 
 
 @pytest.mark.parametrize(
-    'contents', (SIMPLE_PATCH, UNICODE_CHARACTERS, EMPTY, LONG_LINE)
+    "contents", (SIMPLE_PATCH, UNICODE_CHARACTERS, EMPTY, LONG_LINE)
 )
 def test_upload(s3, contents):
     url = patches.upload(
-        1,
-        1,
-        contents,
-        'landoapi.test.bucket',
-        aws_access_key=None,
-        aws_secret_key=None
+        1, 1, contents, "landoapi.test.bucket", aws_access_key=None, aws_secret_key=None
     )
-    patch = s3.Object('landoapi.test.bucket', patches.name(1, 1))
-    patch = patch.get()['Body'].read().decode("utf-8")
+    patch = s3.Object("landoapi.test.bucket", patches.name(1, 1))
+    patch = patch.get()["Body"].read().decode("utf-8")
 
     assert patch == contents
-    assert url == patches.url('landoapi.test.bucket', patches.name(1, 1))
+    assert url == patches.url("landoapi.test.bucket", patches.name(1, 1))

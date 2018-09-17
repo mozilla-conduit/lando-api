@@ -15,106 +15,87 @@ def gather_involved_phids(revision):
     At the time of writing Users and Projects are the type of Phobjects
     which may author or review a revision.
     """
-    attachments = PhabricatorClient.expect(revision, 'attachments')
+    attachments = PhabricatorClient.expect(revision, "attachments")
 
-    entities = {PhabricatorClient.expect(revision, 'fields', 'authorPHID')}
+    entities = {PhabricatorClient.expect(revision, "fields", "authorPHID")}
     entities.update(
         {
-            PhabricatorClient.expect(r, 'reviewerPHID')
-            for r in
-            PhabricatorClient.expect(attachments, 'reviewers', 'reviewers')
+            PhabricatorClient.expect(r, "reviewerPHID")
+            for r in PhabricatorClient.expect(attachments, "reviewers", "reviewers")
         }
     )
     entities.update(
         {
-            PhabricatorClient.expect(r, 'reviewerPHID')
-            for r in PhabricatorClient.
-            expect(attachments, 'reviewers-extra', 'reviewers-extra')
+            PhabricatorClient.expect(r, "reviewerPHID")
+            for r in PhabricatorClient.expect(
+                attachments, "reviewers-extra", "reviewers-extra"
+            )
         }
     )
     return entities
 
 
 def serialize_author(phid, user_search_data):
-    out = {
-        'phid': phid,
-        'username': None,
-        'real_name': None,
-    }
+    out = {"phid": phid, "username": None, "real_name": None}
     author = user_search_data.get(phid)
     if author is not None:
-        out['username'] = PhabricatorClient.expect(
-            author, 'fields', 'username'
-        )
-        out['real_name'] = PhabricatorClient.expect(
-            author, 'fields', 'realName'
-        )
+        out["username"] = PhabricatorClient.expect(author, "fields", "username")
+        out["real_name"] = PhabricatorClient.expect(author, "fields", "realName")
 
     return out
 
 
 def serialize_diff(diff):
     author_name, author_email = select_diff_author(diff)
-    fields = PhabricatorClient.expect(diff, 'fields')
+    fields = PhabricatorClient.expect(diff, "fields")
 
     return {
-        'id': PhabricatorClient.expect(diff, 'id'),
-        'phid': PhabricatorClient.expect(diff, 'phid'),
-        'date_created': PhabricatorClient.to_datetime(
-            PhabricatorClient.expect(fields, 'dateCreated')
+        "id": PhabricatorClient.expect(diff, "id"),
+        "phid": PhabricatorClient.expect(diff, "phid"),
+        "date_created": PhabricatorClient.to_datetime(
+            PhabricatorClient.expect(fields, "dateCreated")
         ).isoformat(),
-        'date_modified': PhabricatorClient.to_datetime(
-            PhabricatorClient.expect(fields, 'dateModified')
+        "date_modified": PhabricatorClient.to_datetime(
+            PhabricatorClient.expect(fields, "dateModified")
         ).isoformat(),
-        'author': {
-            'name': author_name or '',
-            'email': author_email or '',
-        },
-    }  # yapf: disable
+        "author": {"name": author_name or "", "email": author_email or ""},
+    }
 
 
 def serialize_status(revision):
-    status_value = PhabricatorClient.expect(
-        revision, 'fields', 'status', 'value'
-    )
+    status_value = PhabricatorClient.expect(revision, "fields", "status", "value")
     status = RevisionStatus.from_status(status_value)
 
     if status is RevisionStatus.UNEXPECTED_STATUS:
         logger.warning(
-            'Revision had unexpected status',
+            "Revision had unexpected status",
             extra={
-                'id': PhabricatorClient.expection(revision, 'id'),
-                'value': status_value,
-            }
+                "id": PhabricatorClient.expection(revision, "id"),
+                "value": status_value,
+            },
         )
-        return {
-            'closed': False,
-            'value': None,
-            'display': 'Unknown',
-        }
+        return {"closed": False, "value": None, "display": "Unknown"}
 
     return {
-        'closed': status.closed,
-        'value': status.value,
-        'display': status.output_name,
+        "closed": status.closed,
+        "value": status.value,
+        "display": status.output_name,
     }
 
 
 def select_diff_author(diff):
-    commits = PhabricatorClient.expect(
-        diff, 'attachments', 'commits', 'commits'
-    )
+    commits = PhabricatorClient.expect(diff, "attachments", "commits", "commits")
     if not commits:
         return None, None
 
-    authors = [c.get('author', {}) for c in commits]
-    authors = Counter((a.get('name'), a.get('email')) for a in authors)
+    authors = [c.get("author", {}) for c in commits]
+    authors = Counter((a.get("name"), a.get("email")) for a in authors)
     authors = authors.most_common(1)
     return authors[0][0] if authors else (None, None)
 
 
 def get_bugzilla_bug(revision):
-    bug = PhabricatorClient.expect(revision, 'fields').get('bugzilla.bug-id')
+    bug = PhabricatorClient.expect(revision, "fields").get("bugzilla.bug-id")
     return int(bug) if bug else None
 
 
@@ -124,19 +105,17 @@ def check_diff_author_is_known(*, diff, **kwargs):
         return None
 
     return (
-        'Diff does not have proper author information in Phabricator. '
-        'This can happen if the diff was created using the web UI, '
-        'or a non standard client.'
+        "Diff does not have proper author information in Phabricator. "
+        "This can happen if the diff was created using the web UI, "
+        "or a non standard client."
     )
 
 
 def check_author_planned_changes(*, revision, **kwargs):
     status = RevisionStatus.from_status(
-        PhabricatorClient.expect(revision, 'fields', 'status', 'value')
+        PhabricatorClient.expect(revision, "fields", "status", "value")
     )
     if status is not RevisionStatus.CHANGES_PLANNED:
         return None
 
-    return (
-        'The author has indicated they are planning changes to this revision.'
-    )
+    return "The author has indicated they are planning changes to this revision."

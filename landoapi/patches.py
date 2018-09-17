@@ -7,8 +7,8 @@ import tempfile
 
 logger = logging.getLogger(__name__)
 
-PATCH_URL_FORMAT = 's3://{bucket}/{patch_name}'
-PATCH_NAME_FORMAT = 'V1_D{revision_id}_{diff_id}.patch'
+PATCH_URL_FORMAT = "s3://{bucket}/{patch_name}"
+PATCH_NAME_FORMAT = "V1_D{revision_id}_{diff_id}.patch"
 
 
 def name(revision_id, diff_id):
@@ -19,9 +19,7 @@ def url(bucket, name):
     return PATCH_URL_FORMAT.format(bucket=bucket, patch_name=name)
 
 
-def upload(
-    revision_id, diff_id, patch, s3_bucket, *, aws_access_key, aws_secret_key
-):
+def upload(revision_id, diff_id, patch, s3_bucket, *, aws_access_key, aws_secret_key):
     """Upload a patch to S3 Bucket.
 
     Build the patch contents and upload to S3.
@@ -40,17 +38,15 @@ def upload(
         The s3:// url of the uploaded patch.
     """
     s3 = boto3.resource(
-        's3',
-        aws_access_key_id=aws_access_key,
-        aws_secret_access_key=aws_secret_key
+        "s3", aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key
     )
     patch_name = name(revision_id, diff_id)
     patch_url = url(s3_bucket, patch_name)
 
     with tempfile.TemporaryFile() as f:
-        f.write(patch.encode('utf-8'))
+        f.write(patch.encode("utf-8"))
         f.seek(0)
         s3.meta.client.upload_fileobj(f, s3_bucket, patch_name)
 
-    logger.info('patch uploaded', extra={'patch_url': patch_url})
+    logger.info("patch uploaded", extra={"patch_url": patch_url})
     return patch_url
