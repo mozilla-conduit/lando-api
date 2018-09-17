@@ -8,7 +8,6 @@ import os
 import re
 import sys
 
-import click
 import connexion
 from connexion.resolver import RestyResolver
 
@@ -265,20 +264,3 @@ def log_app_config(flask_app, keys_before_setup):
     settings.update(cleaned_settings)
 
     logger.info('app configured', extra={'configuration': settings})
-
-
-@click.command()
-@click.option('--debug', envvar='DEBUG', is_flag=True)
-@click.option('--port', envvar='PORT', default=8888)
-@click.option(
-    '--version-path', envvar='VERSION_PATH', default='/app/version.json'
-)
-def development_server(debug, port, version_path):
-    """Run the development server.
-
-    This server should not be used for production deployments. Instead
-    the application should be served by an external webserver as a wsgi
-    app.
-    """
-    app = create_app(version_path)
-    app.run(debug=debug, port=port, host='0.0.0.0')
