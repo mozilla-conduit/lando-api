@@ -10,88 +10,17 @@
 # DOCKER_PASS
 
 version: 2
-
-# This is not part of circleci, but it lets us not repeat ourselves.
-STUFF:
-  python_image: &python_image
-    image: python:3.5-alpine
-
-  # it's useful to not build branches that contain slashes,
-  # if it is later decided to map branches to docker tags.
-  main_filters: &main_filters
-    branches:
-      ignore:
-        - /\//
-
 jobs:
-  lint:
-    working_directory: /app
+  full:
     docker:
-      - *python_image
-    steps:
-      - checkout
-      - run: pip install yapf==0.16.1 && pip install flake8==3.5.0 && pip install pytest==3.6.3
-      - run: yapf --diff --recursive ./
-      - run: flake8 .
-
-  test:
-    working_directory: /app
-    docker:
-      - <<: *python_image
-        environment:
-          PGPASSWORD: password
-          PGUSER: postgres
-      - image: postgres:alpine
-        environment:
-          POSTGRES_PASSWORD: password
-          POSTGRES_USER: postgres
-      - image: redis:3.2-alpine
-    steps:
-      - checkout
-      - run: |
-          apk --update --no-cache add postgresql-client perl \
-            gcc \
-            musl-dev \
-            postgresql-dev \
-            sqlite \
-            libffi-dev
-
-          mkdir /db
-          pip install --no-cache -r requirements/base.txt
-          pip install --no-cache .
-          perl -MSys::Hostname -i -pe 's/(?:redis\.cache|lando-api\.db)/hostname()/ge' tests/conftest.py
-      - run: |
-          while ! psql -w -h $(hostname) < docker/postgres-init-scripts/create_databases.sql &>/dev/null; do
-            echo "trying to setup db"
-            sleep 2
-          done
-      - run:
-          name: run tests
-          command: |
-            mkdir test-reports
-            pytest --junitxml=test-reports/junit.xml
-          environment:
-            # this is needed for pytest to run
-            PYTHONPATH: /app
-            # this lets you watch the build progress in the web UI
-            PYTHONUNBUFFERED: 1
-            # most of these are stubbed out in tests/conftest.py
-            PHABRICATOR_UNPRIVILEGED_API_KEY: api-0123456789012345678901234567
-
-      - store_test_results:
-          path: test-reports
-
-      - store_artifacts:
-          path: test-reports
-
-  build:
-    docker:
-      - image: docker:17.06.1-ce
+      # Use the python image, all we really care about is the preinstalled
+      # tools in a circleci image.
+      - image: circleci/python
     steps:
       - setup_remote_docker
       - checkout
       - run:
-          name: create version.json
+          name: Create version.json
           command: |
             echo "
               {
@@ -101,25 +30,81 @@ jobs:
                 \"build\": \"$CIRCLE_BUILD_URL\"
               }
             " > version.json
-            mkdir /artifacts && cp version.json /artifacts/version.js
+            mkdir /tmp/artifacts && cp version.json /tmp/artifacts/version.js
+
       - run:
-          name: build the prod image
+          name: Build the image
           command: |
             docker build --pull \
-              -f docker/Dockerfile-prod \
-              -t "${DOCKERHUB_REPO:-mozilla/landoapi}" .
+              -f Dockerfile \
+              -t mozilla/landoapi .
       - run:
-          name: get image id
+          name: Get image id
           command: |
-            docker inspect -f '{{.Id}}' "${DOCKERHUB_REPO:-mozilla/landoapi}" \
-              | tee /artifacts/docker-image-shasum256.txt
+            docker inspect -f '{{.Id}}' mozilla/landoapi \
+              | tee /tmp/artifacts/docker-image-shasum256.txt
       - store_artifacts:
-          path: /artifacts
+          path: /tmp/artifacts
+
+      - run:
+          name: Create docker volumes for copying data
+          command: |
+            docker volume create landoapi_database_init
+            docker volume create landoapi_lando_test_results
+            docker create --name temp_container \
+              -v landoapi_database_init:/landoapi_database_init \
+              -v landoapi_lando_test_results:/landoapi_lando_test_results \
+              hello-world
+
+      - run:
+          name: Copy database intiailization script
+          command: |
+            docker cp \
+              ./docker/postgres-init-scripts/create_databases.sql \
+              temp_container:/landoapi_database_init/create_databases.sql
+
+
+      - run:
+          name: Start the database.
+          command: |
+            docker-compose -f docker-compose.ci.yml -p circlecitest up -d lando-api.db
+            until docker-compose -f docker-compose.ci.yml -p circlecitest run \
+              -e PGPASSWORD=password \
+              --rm \
+              lando-api.db \
+              psql -h lando-api.db -w -U postgres -c "SELECT 1;"
+            do
+              echo "Waiting for DB to start"
+              sleep 2
+            done
+
+      - run:
+          name: Run the tests
+          command: |
+            docker-compose \
+              -f docker-compose.ci.yml \
+              -p landoapi \
+              run lando-api test --junitxml=/test_results/junit.xml
+
+      - run:
+          name: Copy the test report
+          when: always
+          command: |
+            mkdir /tmp/test-reports
+            docker cp temp_container:/landoapi_lando_test_results/junit.xml /tmp/test-reports/junit.xml
+
+      - store_test_results:
+          path: /tmp/test-reports
+
+      - store_artifacts:
+          path: /tmp/test-reports
+
       - deploy:
           command: |
             if [[ "x$DOCKERHUB_REPO" != x ]]; then
               docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
-              docker tag "${DOCKERHUB_REPO}" "${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
+              docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}"
+              docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
               docker push "${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
               if [[ ${CIRCLE_BRANCH} == master ]]; then
                 docker push "${DOCKERHUB_REPO}:latest"
@@ -130,14 +115,8 @@ workflows:
   version: 2
   main:
     jobs:
-      - lint:
-          filters: *main_filters
-      - test:
-          filters: *main_filters
-          requires:
-            - lint
-      - build:
-          filters: *main_filters
-          requires:
-            - lint
-            - test
+      - full:
+          filters:
+            branches:
+              ignore:
+                - /\//

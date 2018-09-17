@@ -3,10 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import functools
 
-from connexion import (
-    problem,
-    request,
-)
+from connexion import problem, request
 from flask import current_app, g
 
 from landoapi.phabricator import PhabricatorClient
@@ -36,28 +33,30 @@ class require_phabricator_api_key:
     def __call__(self, f):
         @functools.wraps(f)
         def wrapped(*args, **kwargs):
-            api_key = request.headers.get('X-Phabricator-API-Key')
+            api_key = request.headers.get("X-Phabricator-API-Key")
 
             if api_key is None and not self.optional:
                 return problem(
                     401,
-                    'X-Phabricator-API-Key Required',
-                    ('Phabricator api key not provided in '
-                     'X-Phabricator-API-Key header'),
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401'  # noqa: E501
-                )  # yapf: disable
+                    "X-Phabricator-API-Key Required",
+                    (
+                        "Phabricator api key not provided in "
+                        "X-Phabricator-API-Key header"
+                    ),
+                    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
+                )
 
             g.phabricator = PhabricatorClient(
-                current_app.config['PHABRICATOR_URL'], api_key or
-                current_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
+                current_app.config["PHABRICATOR_URL"],
+                api_key or current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
             )
             if api_key is not None and not g.phabricator.verify_api_token():
                 return problem(
                     403,
-                    'X-Phabricator-API-Key Invalid',
-                    'Phabricator api key is not valid',
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403'  # noqa: E501
-                )  # yapf: disable
+                    "X-Phabricator-API-Key Invalid",
+                    "Phabricator api key is not valid",
+                    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+                )
 
             return f(*args, **kwargs)
 
@@ -75,8 +74,7 @@ class LazyValue:
     def __call__(self):
         if not self._cached:
             args = [
-                (arg() if isinstance(arg, LazyValue) else arg)
-                for arg in self._args
+                (arg() if isinstance(arg, LazyValue) else arg) for arg in self._args
             ]
             kwargs = {
                 k: (v() if isinstance(v, LazyValue) else v)

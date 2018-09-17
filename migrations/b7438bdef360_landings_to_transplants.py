@@ -12,9 +12,9 @@ from sqlalchemy.schema import MetaData, Table
 from sqlalchemy.sql import select
 
 # revision identifiers, used by Alembic.
-revision = 'b7438bdef360'
+revision = "b7438bdef360"
 down_revision = None
-branch_labels = ('default', )
+branch_labels = ("default",)
 depends_on = None
 
 REPO_URLS = {}
@@ -25,52 +25,48 @@ def _get_repo_url(tree):
         return REPO_URLS.get(tree, None)
 
     from landoapi.repos import REPO_CONFIG
+
     for env in REPO_CONFIG:
-        for name, repo in REPO_CONFIG[env].items():
+        for _, repo in REPO_CONFIG[env].items():
             REPO_URLS[repo.tree] = repo.url
 
 
 def upgrade():
     # Create the new table.
     transplants = op.create_table(
-        'transplants',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('request_id', sa.Integer(), nullable=True),
+        "transplants",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("request_id", sa.Integer(), nullable=True),
         sa.Column(
-            'status',
+            "status",
             sa.Enum(
-                'aborted',
-                'submitted',
-                'landed',
-                'failed',
-                name='transplantstatus'
+                "aborted", "submitted", "landed", "failed", name="transplantstatus"
             ),
-            nullable=False
+            nullable=False,
         ),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column(
-            'revision_to_diff_id',
+            "revision_to_diff_id",
             postgresql.JSONB(astext_type=sa.Text()),
-            nullable=False
+            nullable=False,
         ),
         sa.Column(
-            'revision_order',
-            postgresql.JSONB(astext_type=sa.Text()),
-            nullable=False
+            "revision_order", postgresql.JSONB(astext_type=sa.Text()), nullable=False
         ),
-        sa.Column('error', sa.Text(), nullable=True),
-        sa.Column('result', sa.Text(), nullable=True),
-        sa.Column('requester_email', sa.String(length=254), nullable=True),
-        sa.Column('repository_url', sa.Text(), nullable=True),
-        sa.Column('tree', sa.String(length=128), nullable=True),
-        sa.PrimaryKeyConstraint('id'), sa.UniqueConstraint('request_id')
+        sa.Column("error", sa.Text(), nullable=True),
+        sa.Column("result", sa.Text(), nullable=True),
+        sa.Column("requester_email", sa.String(length=254), nullable=True),
+        sa.Column("repository_url", sa.Text(), nullable=True),
+        sa.Column("tree", sa.String(length=128), nullable=True),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("request_id"),
     )
 
     # Grab the landings table using reflection.
     connection = op.get_bind()
     meta = MetaData(bind=connection)
-    landings = Table('landings', meta, autoload=True)
+    landings = Table("landings", meta, autoload=True)
 
     # Migrate all of the landings to equivalent transplants.
     # We do the silly thing and load everything into memory,

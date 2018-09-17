@@ -7,15 +7,15 @@ services:
   lando-api:
     build:
       context: ./
-      dockerfile: ./docker/Dockerfile-dev
+      dockerfile: ./Dockerfile
+    command: ["run", "--host=0.0.0.0", "--port=8888"]
     ports:
-      - "8888:80"
+      - "8888:8888"
     environment:
-      - PORT=80
+      # We install a dummy version.json and tell lando-api to use it
+      # during development. The proper /app/version.json is built in CI.
       - VERSION_PATH=/version.json
       - PHABRICATOR_URL=https://phabricator-dev.allizom.org/
-      # To set the API key, login as a user on phabricator-dev,
-      # create a new Conduit API token and add it here.
       - PHABRICATOR_UNPRIVILEGED_API_KEY=api-0123456789012345678901234567
       - DATABASE_URL=postgresql://postgres:password@lando-api.db/lando_api_dev
       - ENV=localdev
@@ -31,9 +31,9 @@ services:
       - OIDC_DOMAIN=
       # - CSP_REPORTING_URL=/__cspreport__
       - CACHE_REDIS_HOST=redis.cache
-#      - CACHE_REDIS_PORT=
-#      - CACHE_REDIS_PASSWORD=
-#      - CACHE_REDIS_DB=
+      # - CACHE_REDIS_PORT=
+      # - CACHE_REDIS_PASSWORD=
+      # - CACHE_REDIS_DB=
       # Leave AWS credentials unconfigured in production
       - AWS_ACCESS_KEY=
       - AWS_SECRET_KEY=
@@ -58,9 +58,11 @@ services:
       # * A random number is chosen between 0 and 10,000,000, will crash if
       # you get the same number twice due to db uniqueness constraint.
       - LOCALDEV_MOCK_TRANSPLANT_SUBMIT=
-
+    # So that the container can write volume mounted files during development.
+    user: root
     volumes:
       - ./:/app
+      - ./docker/dev-version.json:/version.json
       - ./migrations/:/migrations/
       # Prevent writing python cache to the host.
       - caches_pycache:/app/tests/__pycache__/
@@ -69,12 +71,6 @@ services:
     depends_on:
       - lando-api.db
       - redis.cache
-  py3-linter:
-    build:
-      context: ./
-      dockerfile: ./docker/py3-linter-dockerfile
-    volumes:
-      - ./:/code/
   lando-api.db:
     image: postgres:alpine
     environment:

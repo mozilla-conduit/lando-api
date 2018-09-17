@@ -44,36 +44,35 @@ class JSONClient(flask.testing.FlaskClient):
             content_type: optional, will override the default
                 of 'application/json'.
         """
-        assert not (('data' in kwargs) and ('json' in kwargs))
-        kwargs.setdefault('content_type', 'application/json')
-        if 'json' in kwargs:
-            kwargs['data'] = json.dumps(kwargs['json'], sort_keys=True)
-            del kwargs['json']
+        assert not (("data" in kwargs) and ("json" in kwargs))
+        kwargs.setdefault("content_type", "application/json")
+        if "json" in kwargs:
+            kwargs["data"] = json.dumps(kwargs["json"], sort_keys=True)
+            del kwargs["json"]
         return super(JSONClient, self).open(*args, **kwargs)
 
 
 @pytest.fixture
 def docker_env_vars(monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
-    monkeypatch.setenv('ENV', 'test')
+    monkeypatch.setenv("ENV", "test")
     monkeypatch.setenv(
-        'DATABASE_URL',
-        'postgresql://postgres:password@lando-api.db/lando_api_test'
+        "DATABASE_URL", "postgresql://postgres:password@lando-api.db/lando_api_test"
     )
-    monkeypatch.setenv('PHABRICATOR_URL', 'http://phabricator.test')
-    monkeypatch.setenv('TRANSPLANT_URL', 'http://autoland.test')
-    monkeypatch.setenv('TRANSPLANT_API_KEY', 'someapikey')
-    monkeypatch.setenv('TRANSPLANT_USERNAME', 'autoland')
-    monkeypatch.setenv('TRANSPLANT_PASSWORD', 'autoland')
-    monkeypatch.setenv('PINGBACK_ENABLED', 'y')
-    monkeypatch.setenv('PINGBACK_HOST_URL', 'http://lando-api.test')
-    monkeypatch.setenv('PATCH_BUCKET_NAME', 'landoapi.test.bucket')
-    monkeypatch.delenv('AWS_ACCESS_KEY', raising=False)
-    monkeypatch.delenv('AWS_SECRET_KEY', raising=False)
-    monkeypatch.setenv('OIDC_IDENTIFIER', 'lando-api')
-    monkeypatch.setenv('OIDC_DOMAIN', 'lando-api.auth0.test')
-    monkeypatch.delenv('CACHE_REDIS_HOST', raising=False)
-    monkeypatch.delenv('CSP_REPORTING_URL', raising=False)
+    monkeypatch.setenv("PHABRICATOR_URL", "http://phabricator.test")
+    monkeypatch.setenv("TRANSPLANT_URL", "http://autoland.test")
+    monkeypatch.setenv("TRANSPLANT_API_KEY", "someapikey")
+    monkeypatch.setenv("TRANSPLANT_USERNAME", "autoland")
+    monkeypatch.setenv("TRANSPLANT_PASSWORD", "autoland")
+    monkeypatch.setenv("PINGBACK_ENABLED", "y")
+    monkeypatch.setenv("PINGBACK_HOST_URL", "http://lando-api.test")
+    monkeypatch.setenv("PATCH_BUCKET_NAME", "landoapi.test.bucket")
+    monkeypatch.delenv("AWS_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
+    monkeypatch.setenv("OIDC_IDENTIFIER", "lando-api")
+    monkeypatch.setenv("OIDC_DOMAIN", "lando-api.auth0.test")
+    monkeypatch.delenv("CACHE_REDIS_HOST", raising=False)
+    monkeypatch.delenv("CSP_REPORTING_URL", raising=False)
 
 
 @pytest.fixture
@@ -98,14 +97,14 @@ def transfactory(request_mocker):
 @pytest.fixture
 def versionfile(tmpdir):
     """Provide a temporary version.json on disk."""
-    v = tmpdir.mkdir('app').join('version.json')
+    v = tmpdir.mkdir("app").join("version.json")
     v.write(
         json.dumps(
             {
-                'source': 'https://github.com/mozilla-conduit/lando-api',
-                'version': '0.0.0',
-                'commit': '',
-                'build': 'test',
+                "source": "https://github.com/mozilla-conduit/lando-api",
+                "version": "0.0.0",
+                "commit": "",
+                "build": "test",
             }
         )
     )
@@ -123,7 +122,7 @@ def disable_migrations(monkeypatch):
         def init_app(self, app):
             pass
 
-    monkeypatch.setattr('landoapi.app.alembic', StubAlembic())
+    monkeypatch.setattr("landoapi.app.alembic", StubAlembic())
 
 
 @pytest.fixture
@@ -154,9 +153,9 @@ def db(app):
 @pytest.fixture
 def s3(docker_env_vars):
     """Provide s3 mocked connection."""
-    bucket = os.getenv('PATCH_BUCKET_NAME')
+    bucket = os.getenv("PATCH_BUCKET_NAME")
     with mock_s3():
-        s3 = boto3.resource('s3')
+        s3 = boto3.resource("s3")
         # We need to create the bucket since this is all in Moto's
         # 'virtual' AWS account
         s3.create_bucket(Bucket=bucket)
@@ -165,9 +164,7 @@ def s3(docker_env_vars):
 
 @pytest.fixture
 def jwks(monkeypatch):
-    monkeypatch.setattr(
-        'landoapi.auth.get_jwks', lambda *args, **kwargs: TEST_JWKS
-    )
+    monkeypatch.setattr("landoapi.auth.get_jwks", lambda *args, **kwargs: TEST_JWKS)
 
 
 @pytest.fixture
@@ -177,8 +174,7 @@ def auth0_mock(jwks, monkeypatch):
         status_code=200, json=lambda: mock_auth0.userinfo
     )
     monkeypatch.setattr(
-        'landoapi.auth.fetch_auth0_userinfo',
-        lambda token: mock_userinfo_response
+        "landoapi.auth.fetch_auth0_userinfo", lambda token: mock_userinfo_response
     )
     return mock_auth0
 
@@ -186,7 +182,7 @@ def auth0_mock(jwks, monkeypatch):
 @pytest.fixture
 def mock_repo_config(monkeypatch):
     def set_repo_config(config):
-        monkeypatch.setattr('landoapi.repos.REPO_CONFIG', config)
+        monkeypatch.setattr("landoapi.repos.REPO_CONFIG", config)
 
     return set_repo_config
 
@@ -195,33 +191,30 @@ def mock_repo_config(monkeypatch):
 def mocked_repo_config(mock_repo_config):
     mock_repo_config(
         {
-            'test': {
-                'mozilla-central': Repo(
-                    'mozilla-central', SCM_LEVEL_3, '', 'http://hg.test'
-                ),
-            },
+            "test": {
+                "mozilla-central": Repo(
+                    "mozilla-central", SCM_LEVEL_3, "", "http://hg.test"
+                )
+            }
         }
-    )  # yapf: disable
+    )
 
 
 @pytest.fixture
 def set_confirmation_token_comparison(monkeypatch):
-    mem = {
-        'set': False,
-        'val': None,
-    }
+    mem = {"set": False, "val": None}
 
     def set_value(val):
-        mem['set'] = True
-        mem['val'] = val
+        mem["set"] = True
+        mem["val"] = val
 
     monkeypatch.setattr(
-        'landoapi.landings.tokens_are_equal',
-        lambda t1, t2: mem['val'] if mem['set'] else l_tokens_are_equal(t1, t2)
+        "landoapi.landings.tokens_are_equal",
+        lambda t1, t2: mem["val"] if mem["set"] else l_tokens_are_equal(t1, t2),
     )
     monkeypatch.setattr(
-        'landoapi.transplants.tokens_are_equal',
-        lambda t1, t2: mem['val'] if mem['set'] else t_tokens_are_equal(t1, t2)
+        "landoapi.transplants.tokens_are_equal",
+        lambda t1, t2: mem["val"] if mem["set"] else t_tokens_are_equal(t1, t2),
     )
     return set_value
 
@@ -229,12 +222,8 @@ def set_confirmation_token_comparison(monkeypatch):
 @pytest.fixture
 def get_phab_client(app):
     def get_client(api_key=None):
-        api_key = (
-            api_key or current_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
-        )
-        return PhabricatorClient(
-            current_app.config['PHABRICATOR_URL'], api_key
-        )
+        api_key = api_key or current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
+        return PhabricatorClient(current_app.config["PHABRICATOR_URL"], api_key)
 
     return get_client
 
@@ -243,19 +232,11 @@ def get_phab_client(app):
 def redis_cache(app):
     with app.app_context():
         cache.init_app(
-            app,
-            config={
-                'CACHE_TYPE': 'redis',
-                'CACHE_REDIS_HOST': 'redis.cache',
-            }
+            app, config={"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": "redis.cache"}
         )
         cache.clear()
         yield cache
         cache.clear()
         cache.init_app(
-            app,
-            config={
-                'CACHE_TYPE': 'null',
-                'CACHE_NO_NULL_WARNING': True,
-            }
+            app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True}
         )

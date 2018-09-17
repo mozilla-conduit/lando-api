@@ -15,10 +15,7 @@ from werkzeug.contrib.cache import RedisCache
 
 from landoapi import auth
 from landoapi.cache import cache
-from landoapi.phabricator import (
-    PhabricatorClient,
-    PhabricatorAPIException,
-)
+from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
 from landoapi.storage import db
 from landoapi.transplant_client import TransplantClient
 
@@ -33,11 +30,8 @@ def run_checks():
         if errors:
             healthy = False
             logger.warning(
-                'unhealthy: problem with backing service',
-                extra={
-                    'service_name': name,
-                    'errors': errors,
-                }
+                "unhealthy: problem with backing service",
+                extra={"service_name": name, "errors": errors},
             )
 
     return healthy, {name: not errors for name, errors in results.items()}
@@ -51,54 +45,54 @@ def health_check(name):
     return decorate
 
 
-@health_check('database')
+@health_check("database")
 def check_database():
     try:
         with db.engine.connect() as conn:
-            conn.execute('SELECT 1;')
+            conn.execute("SELECT 1;")
     except DBAPIError as exc:
-        return ['DBAPIError: {!s}'.format(exc)]
+        return ["DBAPIError: {!s}".format(exc)]
     except SQLAlchemyError as exc:
-        return ['SQLAlchemyError: {!s}'.format(exc)]
+        return ["SQLAlchemyError: {!s}".format(exc)]
 
     return []
 
 
-@health_check('phabricator')
+@health_check("phabricator")
 def check_phabricator():
     try:
         PhabricatorClient(
-            current_app.config['PHABRICATOR_URL'],
-            current_app.config['PHABRICATOR_UNPRIVILEGED_API_KEY']
-        ).call_conduit('conduit.ping')
+            current_app.config["PHABRICATOR_URL"],
+            current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
+        ).call_conduit("conduit.ping")
     except PhabricatorAPIException as exc:
-        return ['PhabricatorAPIException: {!s}'.format(exc)]
+        return ["PhabricatorAPIException: {!s}".format(exc)]
 
     return []
 
 
-@health_check('transplant')
+@health_check("transplant")
 def check_transplant():
     tc = TransplantClient(
-        current_app.config['TRANSPLANT_URL'],
-        current_app.config['TRANSPLANT_USERNAME'],
-        current_app.config['TRANSPLANT_PASSWORD'],
+        current_app.config["TRANSPLANT_URL"],
+        current_app.config["TRANSPLANT_USERNAME"],
+        current_app.config["TRANSPLANT_PASSWORD"],
     )
     try:
         resp = tc.ping()
     except requests.RequestException as exc:
-        return ['RequestException: {!s}'.format(exc)]
+        return ["RequestException: {!s}".format(exc)]
 
     if resp.status_code != 200:
-        return ['Unexpected Status Code: {}'.format(resp.status_code)]
+        return ["Unexpected Status Code: {}".format(resp.status_code)]
 
     return []
 
 
-@health_check('cache')
+@health_check("cache")
 def check_cache():
     if not isinstance(cache.cache, RedisCache):
-        return ['Cache is not configured to use redis']
+        return ["Cache is not configured to use redis"]
 
     # Dirty, but if this breaks in the future we can instead
     # create our own redis-py client with its own connection
@@ -108,37 +102,37 @@ def check_cache():
     try:
         redis.ping()
     except RedisError as exc:
-        return ['RedisError: {!s}'.format(exc)]
+        return ["RedisError: {!s}".format(exc)]
 
     return []
 
 
-@health_check('s3_bucket')
+@health_check("s3_bucket")
 def check_s3_bucket():
-    bucket = current_app.config.get('PATCH_BUCKET_NAME')
+    bucket = current_app.config.get("PATCH_BUCKET_NAME")
     if not bucket:
-        return ['PATCH_BUCKET_NAME not configured']
+        return ["PATCH_BUCKET_NAME not configured"]
 
     s3 = boto3.resource(
-        's3',
-        aws_access_key_id=current_app.config.get('AWS_ACCESS_KEY'),
-        aws_secret_access_key=current_app.config.get('AWS_SECRET_KEY')
+        "s3",
+        aws_access_key_id=current_app.config.get("AWS_ACCESS_KEY"),
+        aws_secret_access_key=current_app.config.get("AWS_SECRET_KEY"),
     )
     try:
         s3.meta.client.head_bucket(Bucket=bucket)
     except botocore.exceptions.ClientError as exc:
-        return ['ClientError: {!s}'.format(exc)]
+        return ["ClientError: {!s}".format(exc)]
     except botocore.exceptions.BotoCoreError as exc:
-        return ['BotoCoreError: {!s}'.format(exc)]
+        return ["BotoCoreError: {!s}".format(exc)]
 
     return []
 
 
-@health_check('auth0')
+@health_check("auth0")
 def check_auth0():
     try:
         auth.get_jwks()
     except ProblemException as exc:
-        return ['Exception when requesting jwks: {}'.format(exc.detail)]
+        return ["Exception when requesting jwks: {}".format(exc.detail)]
 
     return []

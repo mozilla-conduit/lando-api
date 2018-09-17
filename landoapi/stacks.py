@@ -40,32 +40,31 @@ def build_stack_graph(phab, revision_phid):
     while new_phids:
         phids.update(new_phids)
         edges = phab.call_conduit(
-            'edge.search',
-            types=['revision.parent', 'revision.child'],
+            "edge.search",
+            types=["revision.parent", "revision.child"],
             sourcePHIDs=[phid for phid in phids],
             limit=10000,
         )
-        edges = phab.expect(edges, 'data')
+        edges = phab.expect(edges, "data")
         new_phids = set()
         for edge in edges:
-            new_phids.add(edge['sourcePHID'])
-            new_phids.add(edge['destinationPHID'])
+            new_phids.add(edge["sourcePHID"])
+            new_phids.add(edge["destinationPHID"])
 
         new_phids = new_phids - phids
 
     # Treat the stack like a commit DAG, we only care about edges going
     # from child to parent. This is enough to represent the graph.
     edges = {
-        (edge['sourcePHID'], edge['destinationPHID'])
-        for edge in edges if edge['edgeType'] == 'revision.parent'
+        (edge["sourcePHID"], edge["destinationPHID"])
+        for edge in edges
+        if edge["edgeType"] == "revision.parent"
     }
 
     return phids, edges
 
 
-RevisionData = namedtuple(
-    'RevisionData', ('revisions', 'diffs', 'repositories')
-)
+RevisionData = namedtuple("RevisionData", ("revisions", "diffs", "repositories"))
 
 
 def request_extended_revision_data(phab, revision_phids):
@@ -82,43 +81,37 @@ def request_extended_revision_data(phab, revision_phids):
         return RevisionData({}, {}, {})
 
     revs = phab.call_conduit(
-        'differential.revision.search',
-        constraints={'phids': revision_phids},
-        attachments={
-            'reviewers': True,
-            'reviewers-extra': True,
-        },
+        "differential.revision.search",
+        constraints={"phids": revision_phids},
+        attachments={"reviewers": True, "reviewers-extra": True},
         limit=len(revision_phids),
     )
-    phab.expect(revs, 'data', len(revision_phids) - 1)
-    revs = result_list_to_phid_dict(phab.expect(revs, 'data'))
+    phab.expect(revs, "data", len(revision_phids) - 1)
+    revs = result_list_to_phid_dict(phab.expect(revs, "data"))
 
     diffs = phab.call_conduit(
-        'differential.diff.search',
+        "differential.diff.search",
         constraints={
-            'phids':
-            [phab.expect(r, 'fields', 'diffPHID') for r in revs.values()]
+            "phids": [phab.expect(r, "fields", "diffPHID") for r in revs.values()]
         },
-        attachments={'commits': True},
+        attachments={"commits": True},
         limit=len(revs),
     )
-    phab.expect(diffs, 'data', len(revision_phids) - 1)
-    diffs = result_list_to_phid_dict(phab.expect(diffs, 'data'))
+    phab.expect(diffs, "data", len(revision_phids) - 1)
+    diffs = result_list_to_phid_dict(phab.expect(diffs, "data"))
 
-    repo_phids = [
-        phab.expect(r, 'fields', 'repositoryPHID') for r in revs.values()
-    ] + [phab.expect(d, 'fields', 'repositoryPHID') for d in diffs.values()]
+    repo_phids = [phab.expect(r, "fields", "repositoryPHID") for r in revs.values()] + [
+        phab.expect(d, "fields", "repositoryPHID") for d in diffs.values()
+    ]
     repo_phids = {phid for phid in repo_phids if phid is not None}
     if repo_phids:
         repos = phab.call_conduit(
-            'diffusion.repository.search',
-            constraints={
-                'phids': [phid for phid in repo_phids],
-            },
+            "diffusion.repository.search",
+            constraints={"phids": [phid for phid in repo_phids]},
             limit=len(repo_phids),
         )
-        phab.expect(repos, 'data', len(repo_phids) - 1)
-        repos = result_list_to_phid_dict(phab.expect(repos, 'data'))
+        phab.expect(repos, "data", len(repo_phids) - 1)
+        repos = result_list_to_phid_dict(phab.expect(repos, "data"))
     else:
         repos = {}
 
@@ -176,16 +169,17 @@ def calculate_landable_subgraphs(
     # We won't land anything that has a repository we don't support, so make
     # a pass over all the revisions and block these.
     for phid, revision in revision_data.revisions.items():
-        if PhabricatorClient.expect(
-            revision, 'fields', 'repositoryPHID'
-        ) not in landable_repos:
+        if (
+            PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+            not in landable_repos
+        ):
             block(phid, "Repository is not supported by Lando.")
 
     # We only want to consider paths starting from the open revisions
     # do grab the status for all revisions.
     statuses = {
         phid: RevisionStatus.from_status(
-            PhabricatorClient.expect(revision, 'fields', 'status', 'value')
+            PhabricatorClient.expect(revision, "fields", "status", "value")
         )
         for phid, revision in revision_data.revisions.items()
     }
@@ -232,12 +226,7 @@ def calculate_landable_subgraphs(
     roots = set()
     for root in to_process:
         reason = _blocked_by(
-            root,
-            revision_data,
-            statuses,
-            stack,
-            blocked,
-            other_checks=other_checks
+            root, revision_data, statuses, stack, blocked, other_checks=other_checks
         )
         if reason is None:
             roots.add(root)
@@ -262,7 +251,7 @@ def calculate_landable_subgraphs(
                 statuses,
                 stack,
                 blocked,
-                other_checks=other_checks
+                other_checks=other_checks,
             )
             if reason is None:
                 valid_children.append(child)
@@ -284,9 +273,7 @@ def calculate_landable_subgraphs(
     return paths, blocked
 
 
-def _blocked_by(
-    phid, revision_data, statuses, stack, blocked, *, other_checks=[]
-):
+def _blocked_by(phid, revision_data, statuses, stack, blocked, *, other_checks=[]):
     # If this revision has already been marked as blocked just return
     # the reason that was given previously.
     if phid in blocked:
@@ -295,30 +282,30 @@ def _blocked_by(
     parents = stack.parents[phid]
     open_parents = {p for p in parents if not statuses[p].closed}
     if len(open_parents) > 1:
-        return 'Depends on multiple open parents.'
+        return "Depends on multiple open parents."
 
     for parent in open_parents:
         if parent in blocked:
-            return 'Depends on D{} which is open and blocked.'.format(
-                PhabricatorClient.expect(revision_data[parent], 'id')
+            return "Depends on D{} which is open and blocked.".format(
+                PhabricatorClient.expect(revision_data[parent], "id")
             )
 
     if open_parents:
         assert len(open_parents) == 1
         parent = open_parents.pop()
         if (
-            revision_data.revisions[phid]['fields']['repositoryPHID']
-            != revision_data.revisions[parent]['fields']['repositoryPHID']
+            revision_data.revisions[phid]["fields"]["repositoryPHID"]
+            != revision_data.revisions[parent]["fields"]["repositoryPHID"]
         ):
             return (
-                'Depends on D{} which is open and has a different repository.'
-            ).format(revision_data.revisions[parent]['id'])
+                "Depends on D{} which is open and has a different repository."
+            ).format(revision_data.revisions[parent]["id"])
 
     # Perform extra blocker checks that don't depend on the
     # structure of the stack graph.
     revision = revision_data.revisions[phid]
-    diff = revision_data.diffs[revision['fields']['diffPHID']]
-    repo = revision_data.repositories[revision['fields']['repositoryPHID']]
+    diff = revision_data.diffs[revision["fields"]["diffPHID"]]
+    repo = revision_data.repositories[revision["fields"]["repositoryPHID"]]
     for check in other_checks:
         result = check(revision=revision, diff=diff, repo=repo)
         if result:
@@ -354,15 +341,17 @@ def get_landable_repos_for_revision_data(revision_data, supported_repos):
         present in the dictionary.
     """
     repo_phids = {
-        PhabricatorClient.expect(revision, 'fields', 'repositoryPHID')
+        PhabricatorClient.expect(revision, "fields", "repositoryPHID")
         for revision in revision_data.revisions.values()
-        if PhabricatorClient.expect(revision, 'fields', 'repositoryPHID')
+        if PhabricatorClient.expect(revision, "fields", "repositoryPHID")
     }
     repos = {
         phid: supported_repos.get(
-            PhabricatorClient.
-            expect(revision_data.repositories[phid], 'fields', 'shortName')
+            PhabricatorClient.expect(
+                revision_data.repositories[phid], "fields", "shortName"
+            )
         )
-        for phid in repo_phids if phid in revision_data.repositories
+        for phid in repo_phids
+        if phid in revision_data.repositories
     }
     return {phid: repo for phid, repo in repos.items() if repo}

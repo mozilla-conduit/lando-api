@@ -5,7 +5,7 @@ import re
 
 from connexion import ProblemException
 
-REVISION_ID_RE = re.compile(r'^D(?P<id>[1-9][0-9]*)$')
+REVISION_ID_RE = re.compile(r"^D(?P<id>[1-9][0-9]*)$")
 
 
 def revision_id_to_int(revision_id):
@@ -13,9 +13,9 @@ def revision_id_to_int(revision_id):
     if m is None:
         raise ProblemException(
             400,
-            'Bad Request',
+            "Bad Request",
             'Revision IDs must be of the form "D<integer>"',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'  # noqa
-        )  # yapf: disable
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
 
-    return int(m.group('id'))
+    return int(m.group("id"))

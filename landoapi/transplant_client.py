@@ -22,13 +22,7 @@ class TransplantClient:
         self.password = password
 
     def land(
-        self,
-        revision_id,
-        ldap_username,
-        patch_urls,
-        tree,
-        pingback,
-        push_bookmark=''
+        self, revision_id, ldap_username, patch_urls, tree, pingback, push_bookmark=""
     ):
         """Sends a POST request to Transplant API to land a patch
 
@@ -43,11 +37,11 @@ class TransplantClient:
         Returns:
             Integer request_id received from Transplant API.
         """
-        transplant_mock_option = os.getenv('LOCALDEV_MOCK_TRANSPLANT_SUBMIT')
-        if os.getenv('ENV') == 'localdev':
-            if transplant_mock_option == 'succeed':
+        transplant_mock_option = os.getenv("LOCALDEV_MOCK_TRANSPLANT_SUBMIT")
+        if os.getenv("ENV") == "localdev":
+            if transplant_mock_option == "succeed":
                 return randint(0, 10000000)
-            elif transplant_mock_option == 'fail':
+            elif transplant_mock_option == "fail":
                 return None
 
         try:
@@ -62,7 +56,7 @@ class TransplantClient:
                 # the landing is processed and has succeeded or
                 # failed 'rev' may be reused for a new landing
                 # request.
-                rev='D{}'.format(revision_id),
+                rev="D{}".format(revision_id),
                 patch_urls=patch_urls,
                 # TODO: The main purpose of destination is to
                 # support landing on try as well as the main
@@ -75,83 +69,84 @@ class TransplantClient:
                 # path is present in all of transplants
                 # repositories ('upstream' is hardcoded as
                 # the path that is pulled from).
-                destination='upstream',
+                destination="upstream",
                 pingback_url=pingback,
                 # push_bookmark should be sent to transplant as an empty
                 # string '' to indicate the repository does not use a
                 # push_bookmark. Sending null (None) will result in
                 # incorrect behaviour. Protect against this by
                 # making sure any falsey value is converted to ''.
-                push_bookmark=push_bookmark or ''
+                push_bookmark=push_bookmark or "",
             )
-            return response.json()['request_id']
+            return response.json()["request_id"]
         except requests.HTTPError as e:
             sentry.captureException()
             logger.warning(
-                'Transplant Submission HTTPError',
-                extra={
-                    'status_code': e.response.status_code,
-                    'body': e.response.text,
-                },
-                exc_info=e
+                "Transplant Submission HTTPError",
+                extra={"status_code": e.response.status_code, "body": e.response.text},
+                exc_info=e,
             )
             raise TransplantError()
         except (requests.ConnectionError, requests.ConnectTimeout) as e:
-            logger.warning('Transplant Connection Error', exc_info=e)
+            logger.warning("Transplant Connection Error", exc_info=e)
             raise TransplantError()
         except requests.RequestException as e:
             sentry.captureException()
-            logger.warning('Transplant Request Exception', exc_info=e)
+            logger.warning("Transplant Request Exception", exc_info=e)
             raise TransplantError()
         except (json.JSONDecodeError, KeyError) as e:
             sentry.captureException()
             logger.warning(
-                'Transplant Data Parse Error',
-                extra={
-                    'status_code': response.status_code,
-                    'body': response.text,
-                },
-                exc_info=e
+                "Transplant Data Parse Error",
+                extra={"status_code": response.status_code, "body": response.text},
+                exc_info=e,
             )
             raise TransplantError()
 
     def _submit_landing_request(
-        self, *, ldap_username, tree, rev, patch_urls, destination,
-        pingback_url, push_bookmark
+        self,
+        *,
+        ldap_username,
+        tree,
+        rev,
+        patch_urls,
+        destination,
+        pingback_url,
+        push_bookmark
     ):
         logger.info(
-            'Initiating transplant landing request',
+            "Initiating transplant landing request",
             extra={
-                'ldap_username': ldap_username,
-                'tree': tree,
-                'rev': rev,
-                'patch_urls': patch_urls,
-                'destination': destination,
-                'push_bookmark': push_bookmark,
-                'pingback_url': pingback_url,
-            }
+                "ldap_username": ldap_username,
+                "tree": tree,
+                "rev": rev,
+                "patch_urls": patch_urls,
+                "destination": destination,
+                "push_bookmark": push_bookmark,
+                "pingback_url": pingback_url,
+            },
         )
 
-        submit_url = self.transplant_url + '/autoland'
+        submit_url = self.transplant_url + "/autoland"
         response = requests.post(
             url=submit_url,
             json={
-                'ldap_username': ldap_username,
-                'tree': tree,
-                'rev': rev,
-                'patch_urls': patch_urls,
-                'destination': destination,
-                'push_bookmark': push_bookmark,
-                'pingback_url': pingback_url,
+                "ldap_username": ldap_username,
+                "tree": tree,
+                "rev": rev,
+                "patch_urls": patch_urls,
+                "destination": destination,
+                "push_bookmark": push_bookmark,
+                "pingback_url": pingback_url,
             },
             auth=(self.username, self.password),
-            timeout=10
+            timeout=10,
         )
         response.raise_for_status()
 
         logger.info(
-            'Successfully submitted landing request',
-            extra={'status_code': response.status_code}
+            "Successfully submitted landing request",
+            extra={"status_code": response.status_code},
         )
         return response
 

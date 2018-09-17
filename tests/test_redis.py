@@ -14,7 +14,7 @@ def test_suppress_redis_failure_logs_exceptions(caplog):
 
     flag = False
     with SuppressRedisFailure():
-        raise RedisError('Failure to be suppressed.')
+        raise RedisError("Failure to be suppressed.")
         flag = True
 
     assert len(caplog.records) == 1
@@ -33,6 +33,6 @@ def test_suppress_redis_failure_does_not_log_on_success(caplog):
 def test_suppress_redis_failure_does_not_supress_other_exceptions(caplog):
     with pytest.raises(ValueError):
         with SuppressRedisFailure():
-            raise ValueError('This should not be suppressed.')
+            raise ValueError("This should not be suppressed.")
 
     assert not caplog.records

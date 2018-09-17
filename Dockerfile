@@ -2,15 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-FROM python:3.5-alpine
+FROM python:3.6-alpine
 
-MAINTAINER mars@mozilla.com
-# These are unlikely to change from version to version of the container
 EXPOSE 9000
-CMD ["/usr/local/bin/uwsgi"]
-
-RUN addgroup -g 10001 app && adduser -D -u 10001 -G app -h /app app
-
+ENTRYPOINT ["lando-cli"]
+CMD ["uwsgi"]
 ENV PYTHONUNBUFFERED=1
 
 # uWSGI configuration
@@ -31,27 +27,23 @@ ENV UWSGI_MODULE=landoapi.wsgi:app \
     # Die if the application threw an exception on startup
     UWSGI_NEED_APP=1
 
-COPY docker/entrypoint.sh /
-ENTRYPOINT ["/entrypoint.sh"]
-
+RUN addgroup -g 10001 app && adduser -D -u 10001 -G app -h /app app
 COPY migrations /migrations
-
-COPY requirements /python_requirements
+COPY requirements.txt /python_requirements.txt
 
 # Install pure-Python, compiled, and OS package dependencies.  Use scanelf to
 # uninstall any compile-time OS package dependencies and keep only the run-time
 # OS package dependencies.
 RUN set -ex \
     && apk add --no-cache --virtual .build-deps \
-           gcc \
-           libc-dev \
-           musl-dev \
-           linux-headers \
-           pcre-dev \
-           postgresql-dev \
-           libffi-dev \
-    && pip install --no-cache -r /python_requirements/base.txt \
-    && pip install --no-cache -r /python_requirements/production.txt \
+        gcc \
+        libc-dev \
+        musl-dev \
+        linux-headers \
+        pcre-dev \
+        postgresql-dev \
+        libffi-dev \
+    && pip install --no-cache -r /python_requirements.txt \
     && runDeps="$( \
         scanelf --needed --nobanner --recursive /usr/local \
             | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
@@ -63,7 +55,14 @@ RUN set -ex \
     && apk del .build-deps
 
 COPY . /app
+
+# We install outside of the app directory to create the .egg-info in a
+# location that will not be mounted over. This means /app needs to be
+# added to PYTHONPATH though.
+RUN cd / && pip install --no-cache /app
+ENV PYTHONPATH /app
 RUN pip install --no-cache /app
+RUN chown -R app:app /app
 
 # Run as a non-privileged user
 USER app

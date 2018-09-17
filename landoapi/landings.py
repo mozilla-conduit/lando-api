@@ -53,9 +53,9 @@ class LandingAssessment:
         warnings = [warning.serialize() for warning in self.warnings]
         blockers = [blocker.serialize() for blocker in self.blockers]
         return {
-            'confirmation_token': self.hash_warning_list(warnings),
-            'warnings': warnings,
-            'blockers': blockers,
+            "confirmation_token": self.hash_warning_list(warnings),
+            "warnings": warnings,
+            "blockers": blockers,
         }
 
     @staticmethod
@@ -68,45 +68,43 @@ class LandingAssessment:
             return None
 
         sorted_warnings = sorted(
-            warnings, key=lambda k: '{}:{}'.format(k['id'], k['message'])
+            warnings, key=lambda k: "{}:{}".format(k["id"], k["message"])
         )
         return hashlib.sha256(
-            json.dumps(sorted_warnings, sort_keys=True).encode('utf-8')
+            json.dumps(sorted_warnings, sort_keys=True).encode("utf-8")
         ).hexdigest()
 
     def raise_if_blocked_or_unacknowledged(self, confirmation_token):
         details = self.to_dict()
 
-        if details['blockers']:
+        if details["blockers"]:
             raise ProblemException(
                 400,
-                'Landing is Blocked',
-                'There are landing blockers present which prevent landing.',
+                "Landing is Blocked",
+                "There are landing blockers present which prevent landing.",
                 ext=details,
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400' # noqa
-            )  # yapf: disable
+                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+            )
 
-        if not tokens_are_equal(
-            details['confirmation_token'], confirmation_token
-        ):
+        if not tokens_are_equal(details["confirmation_token"], confirmation_token):
             if confirmation_token is None:
                 raise ProblemException(
                     400,
-                    'Unacknowledged Warnings',
-                    'There are landing warnings present which have not '
-                    'been acknowledged.',
+                    "Unacknowledged Warnings",
+                    "There are landing warnings present which have not "
+                    "been acknowledged.",
                     ext=details,
-                    type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400' # noqa
-                )  # yapf: disable
+                    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+                )
 
             raise ProblemException(
                 400,
-                'Acknowledged Warnings Have Changed',
-                'The warnings present when the request was constructed have '
-                'changed. Please acknowledge the new warnings and try again.',
+                "Acknowledged Warnings Have Changed",
+                "The warnings present when the request was constructed have "
+                "changed. Please acknowledge the new warnings and try again.",
                 ext=details,
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400' # noqa
-            )  # yapf: disable
+                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+            )
 
 
 class LandingProblem:
@@ -117,6 +115,7 @@ class LandingProblem:
         message: A user targeted message describing problem details.
             e.g. 'scm_level_3 requirement unmet'
     """
+
     id = None
 
     def __init__(self, message):
@@ -127,10 +126,22 @@ class LandingProblem:
 
     @classmethod
     def check(
-        cls, *, auth0_user, revision_id, diff_id, get_revision,
-        get_latest_diff, get_latest_landed, get_repository, get_landing_repo,
-        get_diff, get_diff_author, get_open_parents, get_reviewers,
-        get_reviewer_info, get_revision_status
+        cls,
+        *,
+        auth0_user,
+        revision_id,
+        diff_id,
+        get_revision,
+        get_latest_diff,
+        get_latest_landed,
+        get_repository,
+        get_landing_repo,
+        get_diff,
+        get_diff_author,
+        get_open_parents,
+        get_reviewers,
+        get_reviewer_info,
+        get_revision_status
     ):
         """Returns an instance of cls if the check fails.
 
@@ -142,14 +153,11 @@ class LandingProblem:
             An instance of cls if the check fails or None if it passes.
         """
         raise NotImplementedError(
-            'check(...) must be implemented on LandingProblem subclasses.'
+            "check(...) must be implemented on LandingProblem subclasses."
         )
 
     def serialize(self):
-        return {
-            'id': self.id,
-            'message': self.message,
-        }
+        return {"id": self.id, "message": self.message}
 
 
 class NoAuth0Email(LandingProblem):
@@ -157,8 +165,10 @@ class NoAuth0Email(LandingProblem):
 
     @classmethod
     def check(cls, *, auth0_user, **kwargs):
-        return None if auth0_user.email else cls(
-            'You do not have a Mozilla verified email address.'
+        return (
+            None
+            if auth0_user.email
+            else cls("You do not have a Mozilla verified email address.")
         )
 
 
@@ -175,13 +185,11 @@ class SCMLevelInsufficient(LandingProblem):
             return None
 
         if auth0_user.is_in_groups(repo.access_group.membership_group):
-            return cls(
-                'Your {} has expired.'.format(repo.access_group.display_name)
-            )
+            return cls("Your {} has expired.".format(repo.access_group.display_name))
 
         return cls(
-            'You have insufficient permissions to land. '
-            '{} is required.'.format(repo.access_group.display_name)
+            "You have insufficient permissions to land. "
+            "{} is required.".format(repo.access_group.display_name)
         )
 
 
@@ -198,13 +206,12 @@ class LandingInProgress(LandingProblem):
 
         if diff_id == submit_diff:
             return cls(
-                'This revision is already queued for landing with '
-                'the same diff.'
+                "This revision is already queued for landing with the same diff."
             )
         else:
             return cls(
-                'This revision is already queued for landing with '
-                'diff {}'.format(submit_diff)
+                "This revision is already queued for landing with "
+                "diff {}".format(submit_diff)
             )
 
 
@@ -215,19 +222,18 @@ class OpenDependencies(LandingProblem):
     def check(cls, *, get_open_parents, **kwargs):
         open_parents = get_open_parents()
         if open_parents:
-            open_text = ', '.join(
-                'D{}'.format(PhabricatorClient.expect(r, 'id'))
-                for r in open_parents
+            open_text = ", ".join(
+                "D{}".format(PhabricatorClient.expect(r, "id")) for r in open_parents
             )
             if len(open_parents) > 1:
                 return cls(
-                    'This revision depends on the following revisions '
-                    'which are still open: {}'.format(open_text)
+                    "This revision depends on the following revisions "
+                    "which are still open: {}".format(open_text)
                 )
             else:
                 return cls(
-                    'This revision depends on the following revision '
-                    'which is still open: {}'.format(open_text)
+                    "This revision depends on the following revision "
+                    "which is still open: {}".format(open_text)
                 )
 
 
@@ -236,18 +242,20 @@ class InvalidRepository(LandingProblem):
 
     @classmethod
     def check(cls, *, get_revision, get_landing_repo, **kwargs):
-        if not PhabricatorClient.expect(
-            get_revision(), 'fields', 'repositoryPHID'
-        ):
+        if not PhabricatorClient.expect(get_revision(), "fields", "repositoryPHID"):
             return cls(
-                'This revision is not associated with a repository. '
-                'In order to land, a revision must be associated with a '
-                'repository on Phabricator.'
+                "This revision is not associated with a repository. "
+                "In order to land, a revision must be associated with a "
+                "repository on Phabricator."
             )
 
-        return None if get_landing_repo() else cls(
-            'The repository this revision is associated with is not '
-            'supported by Lando at this time.'
+        return (
+            None
+            if get_landing_repo()
+            else cls(
+                "The repository this revision is associated with is not "
+                "supported by Lando at this time."
+            )
         )
 
 
@@ -258,8 +266,8 @@ class AuthorPlannedChanges(LandingProblem):
     def check(cls, *, get_revision_status, **kwargs):
         if get_revision_status() is RevisionStatus.CHANGES_PLANNED:
             return cls(
-                'The author has indicated they are planning changes '
-                'to this revision.'
+                "The author has indicated they are planning changes "
+                "to this revision."
             )
 
 
@@ -271,10 +279,10 @@ class DiffAuthorUnknown(LandingProblem):
         author_name, author_email = get_diff_author()
         if not author_name or not author_email:
             return cls(
-                'This diff does not have the proper author information '
-                'uploaded to Phabricator. This can happen if the diff '
-                'was created using the web UI, or a non standard client. '
-                'The author should re-upload the diff to Phabricator using '
+                "This diff does not have the proper author information "
+                "uploaded to Phabricator. This can happen if the diff "
+                "was created using the web UI, or a non standard client. "
+                "The author should re-upload the diff to Phabricator using "
                 'the "arc diff" command.'
             )
 
@@ -284,10 +292,14 @@ class DiffNotLatest(LandingProblem):
 
     @classmethod
     def check(cls, *, diff_id, get_latest_diff, **kwargs):
-        latest = PhabricatorClient.expect(get_latest_diff(), 'id')
-        return None if diff_id == latest else cls(
-            'Diff {} is not the latest diff for the revision. Diff {} '
-            'is now the latest, you may only land it.'.format(diff_id, latest)
+        latest = PhabricatorClient.expect(get_latest_diff(), "id")
+        return (
+            None
+            if diff_id == latest
+            else cls(
+                "Diff {} is not the latest diff for the revision. Diff {} "
+                "is now the latest, you may only land it.".format(diff_id, latest)
+            )
         )
 
 
@@ -299,18 +311,18 @@ class DoesNotExist(LandingProblem):
         if get_revision() is None:
             raise ProblemException(
                 404,
-                'Revision not found',
-                'The requested revision does not exist',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404' # noqa
-            )  # yapf: disable
+                "Revision not found",
+                "The requested revision does not exist",
+                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+            )
 
         if get_diff() is None:
             raise ProblemException(
                 404,
-                'Diff not found',
-                'The requested diff does not exist',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'  # noqa
-            )  # yapf: disable
+                "Diff not found",
+                "The requested diff does not exist",
+                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+            )
 
 
 class DiffNotPartOfRevision(LandingProblem):
@@ -320,16 +332,15 @@ class DiffNotPartOfRevision(LandingProblem):
     def check(cls, *, get_revision, get_diff, **kwargs):
         diff = get_diff()
         revision = get_revision()
-        if (
-            PhabricatorClient.expect(revision, 'phid') !=
-            PhabricatorClient.expect(diff, 'fields', 'revisionPHID')
+        if PhabricatorClient.expect(revision, "phid") != PhabricatorClient.expect(
+            diff, "fields", "revisionPHID"
         ):
             raise ProblemException(
                 400,
-                'Diff not related to the revision',
-                'The requested diff is not related to the requested revision.',
-                type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'  # noqa
-            )  # yapf: disable
+                "Diff not related to the revision",
+                "The requested diff is not related to the requested revision.",
+                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+            )
 
 
 class LegacyWarning001(LandingProblem):
@@ -349,17 +360,17 @@ class PreviouslyLanded(LandingProblem):
 
         if landed_diff_id == diff_id:
             return cls(
-                'This diff ({landed_diff_id}) has already landed as '
-                'commit {commit_sha}. Unless this change has been backed '
-                'out, new changes should use a new revision.'.format(
+                "This diff ({landed_diff_id}) has already landed as "
+                "commit {commit_sha}. Unless this change has been backed "
+                "out, new changes should use a new revision.".format(
                     landed_diff_id=landed_diff_id, commit_sha=latest.result
                 )
             )
 
         return cls(
-            'Another diff ({landed_diff_id}) of this revision has already '
-            'landed as commit {commit_sha}. Unless this change has been '
-            'backed out, new changes should use a new revision.'.format(
+            "Another diff ({landed_diff_id}) of this revision has already "
+            "landed as commit {commit_sha}. Unless this change has been "
+            "backed out, new changes should use a new revision.".format(
                 landed_diff_id=landed_diff_id, commit_sha=latest.result
             )
         )
@@ -373,31 +384,30 @@ class BlockingReviews(LandingProblem):
     @classmethod
     def check(cls, *, get_reviewers_extra_state, get_reviewer_info, **kwargs):
         blocking_phids = [
-            phid for phid, state in get_reviewers_extra_state().items()
-            if state['blocking_landing']
+            phid
+            for phid, state in get_reviewers_extra_state().items()
+            if state["blocking_landing"]
         ]
         if not blocking_phids:
             return None
 
         users, projects = get_reviewer_info()
         blocking_reviewers = [
-            '@' + reviewer_identity(phid, users, projects).identifier
+            "@" + reviewer_identity(phid, users, projects).identifier
             for phid in blocking_phids
-        ]  # yapf: disable
+        ]
         if len(blocking_reviewers) > 1:
             return cls(
-                'Reviews from {all_but_last_reviewer}, and {last_reviewer} '
-                'are in a state which is intended to prevent landings.'.format(
-                    all_but_last_reviewer=', '.join(blocking_reviewers[:-1]),
+                "Reviews from {all_but_last_reviewer}, and {last_reviewer} "
+                "are in a state which is intended to prevent landings.".format(
+                    all_but_last_reviewer=", ".join(blocking_reviewers[:-1]),
                     last_reviewer=blocking_reviewers[-1],
                 )
             )
 
         return cls(
-            'The review from {username} is in a state which is '
-            'intended to prevent landings.'.format(
-                username=blocking_reviewers[0],
-            )
+            "The review from {username} is in a state which is "
+            "intended to prevent landings.".format(username=blocking_reviewers[0])
         )
 
 
@@ -406,23 +416,20 @@ class AcceptanceNotClean(LandingProblem):
 
     @classmethod
     def check(
-        cls, *, get_revision_status, get_reviewers, get_reviewers_extra_state,
-        **kwargs
+        cls, *, get_revision_status, get_reviewers, get_reviewers_extra_state, **kwargs
     ):
         if get_revision_status() is not RevisionStatus.ACCEPTED:
-            return cls('This revision is not currently accepted.')
+            return cls("This revision is not currently accepted.")
 
         accepted_phids = [
-            phid for phid, r in get_reviewers().items()
-            if r['status'] is ReviewerStatus.ACCEPTED
+            phid
+            for phid, r in get_reviewers().items()
+            if r["status"] is ReviewerStatus.ACCEPTED
         ]
         extra_state = get_reviewers_extra_state()
-        if all(
-            [extra_state[phid]['for_other_diff'] for phid in accepted_phids]
-        ):
+        if all([extra_state[phid]["for_other_diff"] for phid in accepted_phids]):
             return cls(
-                'This version of the diff has not been accepted '
-                'by any reviewer.'
+                "This version of the diff has not been accepted by any reviewer."
             )
 
 
@@ -456,11 +463,7 @@ def check_landing_conditions(
         OpenDependencies,
         AuthorPlannedChanges,
     ],
-    warnings_to_check=[
-        PreviouslyLanded,
-        BlockingReviews,
-        AcceptanceNotClean,
-    ]
+    warnings_to_check=[PreviouslyLanded, BlockingReviews, AcceptanceNotClean]
 ):
     """Return a LandingAssessment indicating any warnings or blockers.
 
@@ -536,12 +539,11 @@ def lazy_get_latest_diff(phabricator, revision):
     """
     return phabricator.single(
         phabricator.call_conduit(
-            'differential.diff.search',
-            constraints={
-                'phids': [phabricator.expect(revision, 'fields', 'diffPHID')]
-            },
-            attachments={'commits': True},
-        ), 'data'
+            "differential.diff.search",
+            constraints={"phids": [phabricator.expect(revision, "fields", "diffPHID")]},
+            attachments={"commits": True},
+        ),
+        "data",
     )
 
 
@@ -558,14 +560,11 @@ def lazy_get_revision(phabricator, revision_id):
         `revision_id`. If the revision is not found None is returned.
     """
     revision = phabricator.call_conduit(
-        'differential.revision.search',
-        constraints={'ids': [revision_id]},
-        attachments={
-            'reviewers': True,
-            'reviewers-extra': True,
-        }
+        "differential.revision.search",
+        constraints={"ids": [revision_id]},
+        attachments={"reviewers": True, "reviewers-extra": True},
     )
-    revision = phabricator.expect(revision, 'data')
+    revision = phabricator.expect(revision, "data")
     revision = phabricator.single(revision, none_when_empty=True)
     return revision
 
@@ -579,7 +578,7 @@ def lazy_get_revision_status(revision):
             by Phabricator.
     """
     return RevisionStatus.from_status(
-        PhabricatorClient.expect(revision, 'fields', 'status', 'value')
+        PhabricatorClient.expect(revision, "fields", "status", "value")
     )
 
 
@@ -599,16 +598,16 @@ def lazy_get_diff(phabricator, diff_id, latest_diff):
         A dictionary with data from a 'differential.diff.search'.
         If the diff is not found None is returned.
     """
-    latest_diff_id = phabricator.expect(latest_diff, 'id')
+    latest_diff_id = phabricator.expect(latest_diff, "id")
     if diff_id is not None and diff_id != latest_diff_id:
         diff = phabricator.single(
             phabricator.call_conduit(
-                'differential.diff.search',
-                constraints={'ids': [diff_id]},
-                attachments={'commits': True},
+                "differential.diff.search",
+                constraints={"ids": [diff_id]},
+                attachments={"commits": True},
             ),
-            'data',
-            none_when_empty=True
+            "data",
+            none_when_empty=True,
         )
     else:
         diff = latest_diff
@@ -642,14 +641,16 @@ def lazy_get_repository(phabricator, revision):
             the PHID cannot be found when searching. This should almost
             never happen unless something has gone seriously wrong.
     """
-    repo_phid = phabricator.expect(revision, 'fields', 'repositoryPHID')
+    repo_phid = phabricator.expect(revision, "fields", "repositoryPHID")
     if not repo_phid:
         return None
 
     return phabricator.expect(
         phabricator.call_conduit(
-            'diffusion.repository.search', constraints={'phids': [repo_phid]}
-        ), 'data', 0
+            "diffusion.repository.search", constraints={"phids": [repo_phid]}
+        ),
+        "data",
+        0,
     )
 
 
@@ -676,7 +677,7 @@ def lazy_get_landing_repo(repository, env):
     if not repository:
         return None
 
-    shortname = PhabricatorClient.expect(repository, 'fields', 'shortName')
+    shortname = PhabricatorClient.expect(repository, "fields", "shortName")
     return get_repos_for_env(env).get(shortname)
 
 
@@ -690,24 +691,21 @@ def lazy_get_open_parents(phabricator, revision):
             by Phabricator.
     """
     phids = phabricator.call_conduit(
-        'edge.search',
-        sourcePHIDs=[phabricator.expect(revision, 'phid')],
-        types=['revision.parent']
+        "edge.search",
+        sourcePHIDs=[phabricator.expect(revision, "phid")],
+        types=["revision.parent"],
     )
-    phids = phabricator.expect(phids, 'data')
-    phids = [phabricator.expect(p, 'destinationPHID') for p in phids]
+    phids = phabricator.expect(phids, "data")
+    phids = [phabricator.expect(p, "destinationPHID") for p in phids]
 
     if not phids:
         return []
 
     open_parents = phabricator.call_conduit(
-        'differential.revision.search',
-        constraints={
-            'statuses': ['open()'],
-            'phids': phids,
-        }
+        "differential.revision.search",
+        constraints={"statuses": ["open()"], "phids": phids},
     )
-    open_parents = phabricator.expect(open_parents, 'data')
+    open_parents = phabricator.expect(open_parents, "data")
     return open_parents
 
 
@@ -722,10 +720,8 @@ def lazy_user_search(phabricator, user_phids):
     if not user_phids:
         return {}
 
-    users = phabricator.call_conduit(
-        'user.search', constraints={'phids': user_phids}
-    )
-    return result_list_to_phid_dict(phabricator.expect(users, 'data'))
+    users = phabricator.call_conduit("user.search", constraints={"phids": user_phids})
+    return result_list_to_phid_dict(phabricator.expect(users, "data"))
 
 
 @lazy
@@ -740,9 +736,9 @@ def lazy_project_search(phabricator, project_phids):
         return {}
 
     projects = phabricator.call_conduit(
-        'project.search', constraints={'phids': project_phids}
+        "project.search", constraints={"phids": project_phids}
     )
-    return result_list_to_phid_dict(phabricator.expect(projects, 'data'))
+    return result_list_to_phid_dict(phabricator.expect(projects, "data"))
 
 
 @lazy
@@ -759,7 +755,7 @@ def lazy_reviewers_search(phabricator, reviewers):
     # Immediately execute the lazy functions.
     return (
         lazy_user_search(phabricator, phids)(),
-        lazy_project_search(phabricator, phids)()
+        lazy_project_search(phabricator, phids)(),
     )
 
 
@@ -777,10 +773,10 @@ def lazy_get_reviewers_extra_state(reviewers, diff):
             attachment data
         diff: diff data from the Phabricator API
     """
-    diff_phid = PhabricatorClient.expect(diff, 'phid')
+    diff_phid = PhabricatorClient.expect(diff, "phid")
     return {
         phid: calculate_review_extra_state(
-            diff_phid, r['status'], r['diffPHID'], r['voidedPHID']
+            diff_phid, r["status"], r["diffPHID"], r["voidedPHID"]
         )
         for phid, r in reviewers.items()
     }

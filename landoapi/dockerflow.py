@@ -15,7 +15,7 @@ from landoapi import health
 
 logger = logging.getLogger(__name__)
 
-dockerflow = Blueprint('dockerflow', __name__)
+dockerflow = Blueprint("dockerflow", __name__)
 
 
 @dockerflow.after_request
@@ -27,7 +27,7 @@ def disable_caching(response):
     return response
 
 
-@dockerflow.route('/__heartbeat__')
+@dockerflow.route("/__heartbeat__")
 def heartbeat():
     """Perform an in-depth service health check.
 
@@ -38,25 +38,25 @@ def heartbeat():
     healthy, service_healths = health.run_checks()
 
     status = 200 if healthy else 502
-    return jsonify({'healthy': healthy, 'services': service_healths}), status
+    return jsonify({"healthy": healthy, "services": service_healths}), status
 
 
-@dockerflow.route('/__lbheartbeat__')
+@dockerflow.route("/__lbheartbeat__")
 def lbheartbeat():
     """Perform health check for load balancing.
 
     Since this is for load balancer checks it should not check
     backing services.
     """
-    return '', 200
+    return "", 200
 
 
-@dockerflow.route('/__version__')
+@dockerflow.route("/__version__")
 def version():
     """Respond with version information as defined by /app/version.json."""
     try:
-        with open(current_app.config['VERSION_PATH']) as f:
+        with open(current_app.config["VERSION_PATH"]) as f:
             return jsonify(json.load(f))
     except (IOError, ValueError):
         # TODO log error
-        return 'Unable to load version.json', 500
+        return "Unable to load version.json", 500

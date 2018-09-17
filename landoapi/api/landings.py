@@ -45,10 +45,10 @@ logger = logging.getLogger(__name__)
 
 
 def unmarshal_landing_request(data):
-    return (revision_id_to_int(data['revision_id']), data['diff_id'])
+    return (revision_id_to_int(data["revision_id"]), data["diff_id"])
 
 
-@auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
+@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def dryrun(data):
     """API endpoint at /landings/dryrun.
@@ -65,14 +65,12 @@ def dryrun(data):
     get_latest_landed = lazy(Transplant.legacy_latest_landed)(revision_id)
     get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
-        get_repository, current_app.config.get('ENVIRONMENT')
+        get_repository, current_app.config.get("ENVIRONMENT")
     )
     get_open_parents = lazy_get_open_parents(phab, get_revision)
     get_reviewers = lazy_get_reviewers(get_revision)
     get_reviewer_info = lazy_reviewers_search(phab, get_reviewers)
-    get_reviewers_extra_state = lazy_get_reviewers_extra_state(
-        get_reviewers, get_diff
-    )
+    get_reviewers_extra_state = lazy_get_reviewers_extra_state(get_reviewers, get_diff)
     get_revision_status = lazy_get_revision_status(get_revision)
     assessment = check_landing_conditions(
         g.auth0_user,
@@ -94,21 +92,17 @@ def dryrun(data):
     return jsonify(assessment.to_dict())
 
 
-@auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
+@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def post(data):
     """API endpoint at POST /landings to land revision."""
     logger.info(
-        'landing requested by user',
-        extra={
-            'path': request.path,
-            'method': request.method,
-            'data': data,
-        }
+        "landing requested by user",
+        extra={"path": request.path, "method": request.method, "data": data},
     )
 
     revision_id, diff_id = unmarshal_landing_request(data)
-    confirmation_token = data.get('confirmation_token') or None
+    confirmation_token = data.get("confirmation_token") or None
 
     phab = g.phabricator
 
@@ -119,14 +113,12 @@ def post(data):
     get_latest_landed = lazy(Transplant.legacy_latest_landed)(revision_id)
     get_repository = lazy_get_repository(phab, get_revision)
     get_landing_repo = lazy_get_landing_repo(
-        get_repository, current_app.config.get('ENVIRONMENT')
+        get_repository, current_app.config.get("ENVIRONMENT")
     )
     get_open_parents = lazy_get_open_parents(phab, get_revision)
     get_reviewers = lazy_get_reviewers(get_revision)
     get_reviewer_info = lazy_reviewers_search(phab, get_reviewers)
-    get_reviewers_extra_state = lazy_get_reviewers_extra_state(
-        get_reviewers, get_diff
-    )
+    get_reviewers_extra_state = lazy_get_reviewers_extra_state(get_reviewers, get_diff)
     get_revision_status = lazy_get_revision_status(get_revision)
     assessment = check_landing_conditions(
         g.auth0_user,
@@ -150,11 +142,11 @@ def post(data):
     if assessment.warnings:
         # Log any warnings that were acknowledged, for auditing.
         logger.info(
-            'Landing with acknowledged warnings is being requested',
+            "Landing with acknowledged warnings is being requested",
             extra={
-                'revision_id': revision_id,
-                'warnings': [w.serialize() for w in assessment.warnings],
-            }
+                "revision_id": revision_id,
+                "warnings": [w.serialize() for w in assessment.warnings],
+            },
         )
 
     # These are guaranteed to return proper data since we're
@@ -169,25 +161,25 @@ def post(data):
     accepted_reviewers = [
         reviewer_identity(phid, users, projects).identifier
         for phid, r in reviewers.items()
-        if r['status'] is ReviewerStatus.ACCEPTED
+        if r["status"] is ReviewerStatus.ACCEPTED
     ]
 
     # Seconds since Unix Epoch, UTC.
-    date_modified = phab.expect(revision, 'fields', 'dateModified')
+    date_modified = phab.expect(revision, "fields", "dateModified")
 
-    title = phab.expect(revision, 'fields', 'title')
-    summary = phab.expect(revision, 'fields', 'summary')
+    title = phab.expect(revision, "fields", "title")
+    summary = phab.expect(revision, "fields", "summary")
     bug_id = get_bugzilla_bug(revision)
-    human_revision_id = 'D{}'.format(revision_id)
+    human_revision_id = "D{}".format(revision_id)
     revision_url = urllib.parse.urljoin(
-        current_app.config['PHABRICATOR_URL'], human_revision_id
+        current_app.config["PHABRICATOR_URL"], human_revision_id
     )
     commit_message = format_commit_message(
         title, bug_id, accepted_reviewers, summary, revision_url
     )
 
     # Construct the patch that will be sent to transplant.
-    raw_diff = phab.call_conduit('differential.getrawdiff', diffID=diff_id)
+    raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff_id)
     patch = build_patch_for_revision(
         raw_diff, author_name, author_email, commit_message[1], date_modified
     )
@@ -197,22 +189,22 @@ def post(data):
         revision_id,
         diff_id,
         patch,
-        current_app.config['PATCH_BUCKET_NAME'],
-        aws_access_key=current_app.config['AWS_ACCESS_KEY'],
-        aws_secret_key=current_app.config['AWS_SECRET_KEY'],
+        current_app.config["PATCH_BUCKET_NAME"],
+        aws_access_key=current_app.config["AWS_ACCESS_KEY"],
+        aws_secret_key=current_app.config["AWS_SECRET_KEY"],
     )
 
     trans = TransplantClient(
-        current_app.config['TRANSPLANT_URL'],
-        current_app.config['TRANSPLANT_USERNAME'],
-        current_app.config['TRANSPLANT_PASSWORD'],
+        current_app.config["TRANSPLANT_URL"],
+        current_app.config["TRANSPLANT_USERNAME"],
+        current_app.config["TRANSPLANT_PASSWORD"],
     )
 
     submitted_assessment = LandingAssessment(
         blockers=[
             LandingInProgress(
-                'This revision was submitted for landing by another user at '
-                'the same time.'
+                "This revision was submitted for landing by another user at "
+                "the same time."
             )
         ]
     )
@@ -226,9 +218,7 @@ def post(data):
         # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
         # for more details on the specifics of the lock mode.
         with db.session.begin_nested():
-            db.session.execute(
-                'LOCK TABLE transplants IN SHARE ROW EXCLUSIVE MODE;'
-            )
+            db.session.execute("LOCK TABLE transplants IN SHARE ROW EXCLUSIVE MODE;")
             if Transplant.is_revision_submitted(revision_id):
                 submitted_assessment.raise_if_blocked_or_unacknowledged(None)
 
@@ -237,8 +227,8 @@ def post(data):
                 ldap_username=ldap_username,
                 patch_urls=[patch_url],
                 tree=landing_repo.tree,
-                pingback=current_app.config['PINGBACK_URL'],
-                push_bookmark=landing_repo.push_bookmark
+                pingback=current_app.config["PINGBACK_URL"],
+                push_bookmark=landing_repo.push_bookmark,
             )
             transplant = Transplant(
                 request_id=transplant_request_id,
@@ -247,34 +237,29 @@ def post(data):
                 requester_email=ldap_username,
                 tree=landing_repo.tree,
                 repository_url=landing_repo.url,
-                status=TransplantStatus.submitted
+                status=TransplantStatus.submitted,
             )
             db.session.add(transplant)
     except TransplantError as exc:
         logger.info(
-            'error creating transplant',
-            extra={'revision': revision_id},
-            exc_info=exc
+            "error creating transplant", extra={"revision": revision_id}, exc_info=exc
         )
         return problem(
             502,
-            'Landing not created',
-            'The requested revision does exist, but landing failed.'
-            'Please retry your request at a later time.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502'
+            "Landing not created",
+            "The requested revision does exist, but landing failed."
+            "Please retry your request at a later time.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502",
         )
 
     # Transaction succeeded, commit the session.
     db.session.commit()
 
     logger.info(
-        'transplant created',
-        extra={
-            'revision_id': revision_id,
-            'transplant_id': transplant.id,
-        }
+        "transplant created",
+        extra={"revision_id": revision_id, "transplant_id": transplant.id},
     )
-    return {'id': transplant.id}, 202
+    return {"id": transplant.id}, 202
 
 
 @require_phabricator_api_key(optional=True)
@@ -283,17 +268,16 @@ def get_list(revision_id):
     # Verify that the client is permitted to see the associated revision.
     revision_id = revision_id_to_int(revision_id)
     revision = g.phabricator.call_conduit(
-        'differential.revision.search',
-        constraints={'ids': [revision_id]},
+        "differential.revision.search", constraints={"ids": [revision_id]}
     )
-    revision = g.phabricator.expect(revision, 'data')
+    revision = g.phabricator.expect(revision, "data")
     revision = g.phabricator.single(revision, none_when_empty=True)
     if not revision:
         return problem(
             404,
-            'Revision not found',
-            'The revision does not exist or you lack permission to see it.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+            "Revision not found",
+            "The revision does not exist or you lack permission to see it.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
     transplants = Transplant.revisions_query([revision_id]).all()
@@ -315,19 +299,18 @@ def get(landing_id):
         # Verify that the client has permission to see the associated revision.
         revision_id = int(transplant.revision_order[0])
         revision = g.phabricator.call_conduit(
-            'differential.revision.search',
-            constraints={'ids': [revision_id]},
+            "differential.revision.search", constraints={"ids": [revision_id]}
         )
-        revision = g.phabricator.expect(revision, 'data')
+        revision = g.phabricator.expect(revision, "data")
         revision = g.phabricator.single(revision, none_when_empty=True)
         if revision:
             return transplant.legacy_serialize(), 200
 
     return problem(
         404,
-        'Landing not found',
-        'The landing does not exist or you lack permission to see it.',
-        type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+        "Landing not found",
+        "The landing does not exist or you lack permission to see it.",
+        type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
     )
 
 
@@ -356,21 +339,21 @@ def update(data):
             empty string if landed == false
     """
     try:
-        transplant = Transplant.query.filter_by(request_id=data['request_id'])
+        transplant = Transplant.query.filter_by(request_id=data["request_id"])
         transplant = transplant.one()
 
         transplant.update_from_transplant(
-            data['landed'],
-            error=data.get('error_msg', ''),
-            result=data.get('result', '')
+            data["landed"],
+            error=data.get("error_msg", ""),
+            result=data.get("result", ""),
         )
         db.session.commit()
     except NoResultFound:
         return problem(
             404,
-            'Landing not found',
-            'The requested Landing does not exist',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+            "Landing not found",
+            "The requested Landing does not exist",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
     return {}, 200
