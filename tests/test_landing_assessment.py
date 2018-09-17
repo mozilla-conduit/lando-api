@@ -288,7 +288,7 @@ def test_previously_landed_warns(
             'This diff ({landed_diff_id}) has already landed as '
             'commit {commit_sha}. Unless this change has been backed '
             'out, new changes should use a new revision.'.format(
-                landed_diff_id=diff['id'], commit_sha='X'*40
+                landed_diff_id=diff['id'], commit_sha='X' * 40
             )
         ),
     }  # yapf: disable
@@ -344,7 +344,7 @@ def test_previously_landed_but_landed_since_still_warns(
             'Another diff ({landed_diff_id}) of this revision has already '
             'landed as commit {commit_sha}. Unless this change has been '
             'backed out, new changes should use a new revision.'.format(
-                landed_diff_id=diff1['id'], commit_sha='X'*40
+                landed_diff_id=diff1['id'], commit_sha='X' * 40
             )
         ),
     }  # yapf: disable

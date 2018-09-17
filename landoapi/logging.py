@@ -7,7 +7,7 @@ import traceback
 class MozLogFormatter(logging.Formatter):
     """A mozlog logging formatter.
 
-    https://wiki.mozilla.org/Firefox/Services/Logging#MozLog_application_logging_standard
+    https://mzl.la/2NhT1E6
     """
 
     MOZLOG_ENVVERSION = '2.0'
