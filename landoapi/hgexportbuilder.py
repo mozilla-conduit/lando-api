@@ -42,17 +42,15 @@ def build_patch_for_revision(
     header = _HG_EXPORT_HEADER.format(
         author_name=_no_line_breaks(author_name),
         author_email=_no_line_breaks(author_email),
-        patchdate=_no_line_breaks('%s +0000' % date_modified),
+        patchdate=_no_line_breaks("%s +0000" % date_modified),
         diff_start_line=len(message_lines) + _HG_EXPORT_HEADER_LENGTH + 1,
     )
 
     return _HG_EXPORT_PATCH_TEMPLATE.format(
-        header=header,
-        commit_message='\n'.join(message_lines),
-        diff=diff,
+        header=header, commit_message="\n".join(message_lines), diff=diff
     )
 
 
 def _no_line_breaks(s):
     """Return s with all line breaks removed."""
-    return ''.join(s.strip().splitlines())
+    return "".join(s.strip().splitlines())

@@ -20,6 +20,7 @@ class RevisionStatus(Enum):
     Phabricator may add statuses in the future (such as the DRAFT
     status that was recently added).
     """
+
     ABANDONED = "abandoned"
     ACCEPTED = "accepted"
     CHANGES_PLANNED = "changes-planned"
@@ -32,12 +33,12 @@ class RevisionStatus(Enum):
     @classmethod
     def from_deprecated_id(cls, identifier, *, name=None):
         return {
-            '0': cls.DRAFT if name == 'Draft' else cls.NEEDS_REVIEW,
-            '1': cls.NEEDS_REVISION,
-            '2': cls.ACCEPTED,
-            '3': cls.PUBLISHED,
-            '4': cls.ABANDONED,
-            '5': cls.CHANGES_PLANNED,
+            "0": cls.DRAFT if name == "Draft" else cls.NEEDS_REVIEW,
+            "1": cls.NEEDS_REVISION,
+            "2": cls.ACCEPTED,
+            "3": cls.PUBLISHED,
+            "4": cls.ABANDONED,
+            "5": cls.CHANGES_PLANNED,
         }.get(str(identifier), cls.UNEXPECTED_STATUS)
 
     @classmethod
@@ -53,64 +54,64 @@ class RevisionStatus(Enum):
     def meta(cls):
         return {
             cls.ABANDONED: {
-                'name': 'Abandoned',
-                'closed': True,
-                'color.ansi': None,
-                'deprecated_id': '4',
+                "name": "Abandoned",
+                "closed": True,
+                "color.ansi": None,
+                "deprecated_id": "4",
             },
             cls.ACCEPTED: {
-                'name': 'Accepted',
-                'closed': False,
-                'color.ansi': 'green',
-                'deprecated_id': '2',
+                "name": "Accepted",
+                "closed": False,
+                "color.ansi": "green",
+                "deprecated_id": "2",
             },
             cls.CHANGES_PLANNED: {
-                'name': 'Changes Planned',
-                'closed': False,
-                'color.ansi': 'red',
-                'deprecated_id': '5',
+                "name": "Changes Planned",
+                "closed": False,
+                "color.ansi": "red",
+                "deprecated_id": "5",
             },
             cls.PUBLISHED: {
-                'name': 'Closed',
-                'closed': True,
-                'color.ansi': 'cyan',
-                'deprecated_id': '3',
+                "name": "Closed",
+                "closed": True,
+                "color.ansi": "cyan",
+                "deprecated_id": "3",
             },
             cls.NEEDS_REVIEW: {
-                'name': 'Needs Review',
-                'closed': False,
-                'color.ansi': 'magenta',
-                'deprecated_id': '0',
+                "name": "Needs Review",
+                "closed": False,
+                "color.ansi": "magenta",
+                "deprecated_id": "0",
             },
             cls.NEEDS_REVISION: {
-                'name': 'Needs Revision',
-                'closed': False,
-                'color.ansi': 'red',
-                'deprecated_id': '1',
+                "name": "Needs Revision",
+                "closed": False,
+                "color.ansi": "red",
+                "deprecated_id": "1",
             },
             cls.DRAFT: {
-                'name': 'Draft',
-                'closed': False,
-                'color.ansi': None,
-                'deprecated_id': '0',
+                "name": "Draft",
+                "closed": False,
+                "color.ansi": None,
+                "deprecated_id": "0",
             },
         }
 
     @property
     def deprecated_id(self):
-        return self.meta().get(self, {}).get('deprecated_id', '')
+        return self.meta().get(self, {}).get("deprecated_id", "")
 
     @property
     def output_name(self):
-        return self.meta().get(self, {}).get('name', '')
+        return self.meta().get(self, {}).get("name", "")
 
     @property
     def closed(self):
-        return self.meta().get(self, {}).get('closed', False)
+        return self.meta().get(self, {}).get("closed", False)
 
     @property
     def color(self):
-        return self.meta().get(self, {}).get('color.ansi')
+        return self.meta().get(self, {}).get("color.ansi")
 
 
 @unique
@@ -120,11 +121,12 @@ class ReviewerStatus(Enum):
     These statuses were exhaustive at the time of creation, but
     Phabricator may add statuses in the future.
     """
-    ADDED = 'added'
-    ACCEPTED = 'accepted'
-    BLOCKING = 'blocking'
-    REJECTED = 'rejected'
-    RESIGNED = 'resigned'
+
+    ADDED = "added"
+    ACCEPTED = "accepted"
+    BLOCKING = "blocking"
+    REJECTED = "rejected"
+    RESIGNED = "resigned"
     UNEXPECTED_STATUS = None
 
     @classmethod
@@ -139,39 +141,21 @@ class ReviewerStatus(Enum):
     @classmethod
     def meta(cls):
         return {
-            cls.ADDED: {
-                'voidable': False,
-                'diff_specific': False,
-            },
-            cls.ACCEPTED: {
-                'voidable': True,
-                'diff_specific': True,
-            },
-            cls.BLOCKING: {
-                'voidable': False,
-                'diff_specific': False,
-            },
-            cls.REJECTED: {
-                'voidable': False,
-                'diff_specific': True,
-            },
-            cls.RESIGNED: {
-                'voidable': False,
-                'diff_specific': False,
-            },
-            cls.UNEXPECTED_STATUS: {
-                'voidable': False,
-                'diff_specific': False,
-            },
+            cls.ADDED: {"voidable": False, "diff_specific": False},
+            cls.ACCEPTED: {"voidable": True, "diff_specific": True},
+            cls.BLOCKING: {"voidable": False, "diff_specific": False},
+            cls.REJECTED: {"voidable": False, "diff_specific": True},
+            cls.RESIGNED: {"voidable": False, "diff_specific": False},
+            cls.UNEXPECTED_STATUS: {"voidable": False, "diff_specific": False},
         }
 
     @property
     def voidable(self):
-        return self.meta().get(self, {}).get('voidable', False)
+        return self.meta().get(self, {}).get("voidable", False)
 
     @property
     def diff_specific(self):
-        return self.meta().get(self, {}).get('diff_specific', False)
+        return self.meta().get(self, {}).get("diff_specific", False)
 
 
 class PhabricatorClient:
@@ -185,7 +169,7 @@ class PhabricatorClient:
     """
 
     def __init__(self, url, api_token, *, session=None):
-        self.api_url = url + 'api/' if url[-1] == '/' else url + '/api/'
+        self.api_url = url + "api/" if url[-1] == "/" else url + "/api/"
         self.api_token = api_token
         self.session = session or self.create_session()
 
@@ -206,18 +190,13 @@ class PhabricatorClient:
                 if there is a request exception while communicating
                 with the conduit API.
         """
-        if '__conduit__' not in kwargs:
-            kwargs['__conduit__'] = {'token': self.api_token}
+        if "__conduit__" not in kwargs:
+            kwargs["__conduit__"] = {"token": self.api_token}
 
-        data = {
-            'output': 'json',
-            'params': json.dumps(kwargs),
-        }
+        data = {"output": "json", "params": json.dumps(kwargs)}
 
         try:
-            response = self.session.get(
-                self.api_url + method, data=data
-            ).json()
+            response = self.session.get(self.api_url + method, data=data).json()
         except requests.RequestException as exc:
             raise PhabricatorCommunicationException(
                 "An error occurred when communicating with Phabricator"
@@ -228,7 +207,7 @@ class PhabricatorClient:
             ) from exc
 
         PhabricatorAPIException.raise_if_error(response)
-        return response.get('result')
+        return response.get("result")
 
     @staticmethod
     def create_session():
@@ -260,7 +239,7 @@ class PhabricatorClient:
 
         if len(result) > 1 or (not result and not none_when_empty):
             raise PhabricatorCommunicationException(
-                'Phabricator responded with unexpected data'
+                "Phabricator responded with unexpected data"
             )
 
         return result[0] if result else None
@@ -287,7 +266,7 @@ class PhabricatorClient:
                 result = result[k]
         except (IndexError, KeyError, ValueError, TypeError) as exc:
             raise PhabricatorCommunicationException(
-                'Phabricator responded with unexpected data'
+                "Phabricator responded with unexpected data"
             ) from exc
 
         return result
@@ -312,7 +291,7 @@ class PhabricatorClient:
         api token. Returns True if no errors are found.
         """
         try:
-            self.call_conduit('user.whoami')
+            self.call_conduit("user.whoami")
         except PhabricatorAPIException:
             return False
         return True
@@ -329,11 +308,11 @@ class PhabricatorAPIException(Exception):
     @classmethod
     def raise_if_error(cls, response_body):
         """Raise a PhabricatorAPIException if response_body was an error."""
-        if response_body['error_code']:
+        if response_body["error_code"]:
             raise cls(
-                response_body.get('error_info'),
-                error_code=response_body.get('error_code'),
-                error_info=response_body.get('error_info')
+                response_body.get("error_info"),
+                error_code=response_body.get("error_code"),
+                error_info=response_body.get("error_info"),
             )
 
 
@@ -341,7 +320,7 @@ class PhabricatorCommunicationException(PhabricatorAPIException):
     """Exception when communicating with Phabricator fails."""
 
 
-def result_list_to_phid_dict(result_list, *, phid_key='phid'):
+def result_list_to_phid_dict(result_list, *, phid_key="phid"):
     """Return a dictionary mapping phid to items from a result list.
 
     Args:
@@ -354,7 +333,7 @@ def result_list_to_phid_dict(result_list, *, phid_key='phid'):
         phid = PhabricatorClient.expect(i, phid_key)
         if phid in result:
             raise PhabricatorCommunicationException(
-                'Phabricator responded with unexpected data'
+                "Phabricator responded with unexpected data"
             )
 
         result[phid] = i

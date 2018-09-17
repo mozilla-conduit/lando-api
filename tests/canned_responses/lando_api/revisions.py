@@ -1,13 +1,13 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-# yapf: disable
+
 
 CANNED_LANDO_REVISION_2 = {
     "date_created": "2017-05-24T15:04:40+00:00",
     "date_modified": "2017-05-31T13:59:11+00:00",
     "bug_id": 1,
-    "id": 'D2',
+    "id": "D2",
     "phid": "PHID-DREV-2",
     "diff": {
         "date_created": "2017-05-30T20:16:20+00:00",
@@ -24,19 +24,16 @@ CANNED_LANDO_REVISION_2 = {
         "phid": "PHID-USER-imaduemeadmin",
         "real_name": "Israel Madueme",
         "url": "http://phabricator.test/p/imadueme_admin/",
-        "username": "imadueme_admin"
+        "username": "imadueme_admin",
     },
-    "repo": {
-        "name": "mozilla-central",
-        "phid": "PHID-REPO-mozillacentral",
-    },
-    'reviewers': [
+    "repo": {"name": "mozilla-central", "phid": "PHID-REPO-mozillacentral"},
+    "reviewers": [
         {
-            'phid': 'PHID-USER-review_bot',
-            'is_blocking': False,
-            'real_name': 'review_bot Name',
-            'status': 'accepted',
-            'username': 'review_bot'
+            "phid": "PHID-USER-review_bot",
+            "is_blocking": False,
+            "real_name": "review_bot Name",
+            "status": "accepted",
+            "username": "review_bot",
         }
     ],
     "status": 1,
@@ -49,5 +46,5 @@ CANNED_LANDO_REVISION_2 = {
         "Bug 1 - My test diff 2 r=review_bot\n\n"
         "Summary 2\n\nDifferential Revision: http://phabricator.test/D2"
     ),
-    "url": "http://phabricator.test/D2"
+    "url": "http://phabricator.test/D2",
 }

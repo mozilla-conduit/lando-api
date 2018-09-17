@@ -10,10 +10,7 @@ from flask import current_app, g
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.landings import lazy_project_search, lazy_user_search
-from landoapi.phabricator import (
-    PhabricatorClient,
-    ReviewerStatus,
-)
+from landoapi.phabricator import PhabricatorClient, ReviewerStatus
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import (
     get_collated_reviewers,
@@ -50,33 +47,27 @@ def get(revision_id):
 
     phab = g.phabricator
     revision = phab.call_conduit(
-        'differential.revision.search',
-        constraints={'ids': [revision_id]},
+        "differential.revision.search", constraints={"ids": [revision_id]}
     )
-    revision = phab.single(revision, 'data', none_when_empty=True)
+    revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
         return problem(
             404,
-            'Revision not found',
-            'The requested revision does not exist',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+            "Revision not found",
+            "The requested revision does not exist",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
     # TODO: This assumes that all revisions and related objects in the stack
     # have uniform view permissions for the requesting user. Some revisions
     # being restricted could cause this to fail.
-    nodes, edges = build_stack_graph(phab, phab.expect(revision, 'phid'))
+    nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
 
-    supported_repos = get_repos_for_env(current_app.config.get('ENVIRONMENT'))
-    landable_repos = get_landable_repos_for_revision_data(
-        stack_data, supported_repos
-    )
+    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
     landable, blocked = calculate_landable_subgraphs(
-        stack_data,
-        edges,
-        landable_repos,
-        other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
+        stack_data, edges, landable_repos, other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
     )
 
     involved_phids = set()
@@ -90,58 +81,54 @@ def get(revision_id):
 
     revisions_response = []
     for phid, revision in stack_data.revisions.items():
-        revision_phid = PhabricatorClient.expect(revision, 'phid')
-        fields = PhabricatorClient.expect(revision, 'fields')
-        diff_phid = PhabricatorClient.expect(fields, 'diffPHID')
+        revision_phid = PhabricatorClient.expect(revision, "phid")
+        fields = PhabricatorClient.expect(revision, "fields")
+        diff_phid = PhabricatorClient.expect(fields, "diffPHID")
         diff = stack_data.diffs[diff_phid]
-        human_revision_id = 'D{}'.format(
-            PhabricatorClient.expect(revision, 'id')
-        )
+        human_revision_id = "D{}".format(PhabricatorClient.expect(revision, "id"))
         revision_url = urllib.parse.urljoin(
-            current_app.config['PHABRICATOR_URL'], human_revision_id
+            current_app.config["PHABRICATOR_URL"], human_revision_id
         )
-        title = PhabricatorClient.expect(fields, 'title')
-        summary = PhabricatorClient.expect(fields, 'summary')
+        title = PhabricatorClient.expect(fields, "title")
+        summary = PhabricatorClient.expect(fields, "summary")
         bug_id = get_bugzilla_bug(revision)
         reviewers = get_collated_reviewers(revision)
         accepted_reviewers = [
             reviewer_identity(phid, users, projects).identifier
             for phid, r in reviewers.items()
-            if r['status'] is ReviewerStatus.ACCEPTED
+            if r["status"] is ReviewerStatus.ACCEPTED
         ]
         commit_message_title, commit_message = format_commit_message(
             title, bug_id, accepted_reviewers, summary, revision_url
         )
-        author_response = serialize_author(
-            phab.expect(fields, 'authorPHID'), users
+        author_response = serialize_author(phab.expect(fields, "authorPHID"), users)
+
+        revisions_response.append(
+            {
+                "id": human_revision_id,
+                "phid": revision_phid,
+                "status": serialize_status(revision),
+                "blocked_reason": blocked.get(revision_phid, ""),
+                "bug_id": bug_id,
+                "title": title,
+                "url": revision_url,
+                "date_created": PhabricatorClient.to_datetime(
+                    PhabricatorClient.expect(revision, "fields", "dateCreated")
+                ).isoformat(),
+                "date_modified": PhabricatorClient.to_datetime(
+                    PhabricatorClient.expect(revision, "fields", "dateModified")
+                ).isoformat(),
+                "summary": summary,
+                "commit_message_title": commit_message_title,
+                "commit_message": commit_message,
+                "diff": serialize_diff(diff),
+                "author": author_response,
+                "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
+            }
         )
 
-        revisions_response.append({
-            'id': human_revision_id,
-            'phid': revision_phid,
-            'status': serialize_status(revision),
-            'blocked_reason': blocked.get(revision_phid, ''),
-            'bug_id': bug_id,
-            'title': title,
-            'url': revision_url,
-            'date_created': PhabricatorClient.to_datetime(
-                PhabricatorClient.expect(revision, 'fields', 'dateCreated')
-            ).isoformat(),
-            'date_modified': PhabricatorClient.to_datetime(
-                PhabricatorClient.expect(revision, 'fields', 'dateModified')
-            ).isoformat(),
-            'summary': summary,
-            'commit_message_title': commit_message_title,
-            'commit_message': commit_message,
-            'diff': serialize_diff(diff),
-            'author': author_response,
-            'reviewers': serialize_reviewers(
-                reviewers, users, projects, diff_phid
-            ),
-        })  # yapf: disable
-
     return {
-        'revisions': revisions_response,
-        'edges': [e for e in edges],
-        'landable_paths': landable,
+        "revisions": revisions_response,
+        "edges": [e for e in edges],
+        "landable_paths": landable,
     }

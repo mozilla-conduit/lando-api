@@ -44,35 +44,35 @@ logger = logging.getLogger(__name__)
 def _unmarshal_transplant_request(data):
     try:
         path = [
-            (revision_id_to_int(item['revision_id']), int(item['diff_id']))
-            for item in data['landing_path']
+            (revision_id_to_int(item["revision_id"]), int(item["diff_id"]))
+            for item in data["landing_path"]
         ]
     except (ValueError, TypeError):
         raise ProblemException(
             400,
-            'Landing Path Malformed',
-            'The provided landing_path was malformed.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
+            "Landing Path Malformed",
+            "The provided landing_path was malformed.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
     if not path:
         raise ProblemException(
             400,
-            'Landing Path Required',
-            'A non empty landing_path is required.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
+            "Landing Path Required",
+            "A non empty landing_path is required.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
     # Confirmation token is optional. Convert usage of an empty
     # string to None as well to make using the API easier.
-    confirmation_token = data.get('confirmation_token') or None
+    confirmation_token = data.get("confirmation_token") or None
 
     return path, confirmation_token
 
 
 def _choose_middle_revision_from_path(path):
     if not path:
-        raise ValueError('path must not be empty')
+        raise ValueError("path must not be empty")
 
     # For even length we want to choose the greater index
     # of the two middle items, so doing floor division by 2
@@ -84,27 +84,26 @@ def _choose_middle_revision_from_path(path):
 def _find_stack_from_landing_path(phab, landing_path):
     a_revision_id = _choose_middle_revision_from_path(landing_path)
     revision = phab.call_conduit(
-        'differential.revision.search',
-        constraints={'ids': [a_revision_id]},
+        "differential.revision.search", constraints={"ids": [a_revision_id]}
     )
-    revision = phab.single(revision, 'data', none_when_empty=True)
+    revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
         raise ProblemException(
             404,
-            'Stack Not Found',
-            'The stack does not exist or you lack permission to see it.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
-        )  # yapf: disable
+            "Stack Not Found",
+            "The stack does not exist or you lack permission to see it.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        )
 
     # TODO: This assumes that all revisions and related objects in the stack
     # have uniform view permissions for the requesting user. Some revisions
     # being restricted could cause this to fail.
-    return build_stack_graph(phab, phab.expect(revision, 'phid'))
+    return build_stack_graph(phab, phab.expect(revision, "phid"))
 
 
 def _convert_path_id_to_phid(path, stack_data):
     mapping = {
-        PhabricatorClient.expect(r, 'id'): PhabricatorClient.expect(r, 'phid')
+        PhabricatorClient.expect(r, "id"): PhabricatorClient.expect(r, "phid")
         for r in stack_data.revisions.values()
     }
     try:
@@ -112,9 +111,9 @@ def _convert_path_id_to_phid(path, stack_data):
     except IndexError:
         ProblemException(
             400,
-            'Landing Path Invalid',
-            'The provided landing_path is not valid.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400'
+            "Landing Path Invalid",
+            "The provided landing_path is not valid.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
 
@@ -123,23 +122,14 @@ def _assess_transplant_request(phab, landing_path):
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
     landing_path = _convert_path_id_to_phid(landing_path, stack_data)
 
-    supported_repos = get_repos_for_env(current_app.config.get('ENVIRONMENT'))
-    landable_repos = get_landable_repos_for_revision_data(
-        stack_data, supported_repos
-    )
+    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
     landable, blocked = calculate_landable_subgraphs(
-        stack_data,
-        edges,
-        landable_repos,
-        other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
+        stack_data, edges, landable_repos, other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
     )
 
     assessment = check_landing_blockers(
-        g.auth0_user,
-        landing_path,
-        stack_data,
-        landable,
-        landable_repos,
+        g.auth0_user, landing_path, stack_data, landable, landable_repos
     )
     if assessment.blocker is not None:
         return (assessment, None, None, None)
@@ -154,16 +144,14 @@ def _assess_transplant_request(phab, landing_path):
     # of (revision, diff) tuples.
     to_land = [stack_data.revisions[r_phid] for r_phid, _ in valid_path]
     to_land = [
-        (
-            r,
-            stack_data.diffs[PhabricatorClient.expect(r, 'fields', 'diffPHID')]
-        ) for r in to_land
+        (r, stack_data.diffs[PhabricatorClient.expect(r, "fields", "diffPHID")])
+        for r in to_land
     ]
 
     # To be a landable path the entire path must have the same
     # repository, so we can get away with checking only one.
-    repo = stack_data.repositories[to_land[0][0]['fields']['repositoryPHID']]
-    landing_repo = landable_repos[repo['phid']]
+    repo = stack_data.repositories[to_land[0][0]["fields"]["repositoryPHID"]]
+    landing_repo = landable_repos[repo["phid"]]
 
     involved_phids = set()
     for revision, _ in to_land:
@@ -173,8 +161,7 @@ def _assess_transplant_request(phab, landing_path):
     users = lazy_user_search(phab, involved_phids)()
     projects = lazy_project_search(phab, involved_phids)()
     reviewers = {
-        revision['phid']: get_collated_reviewers(revision)
-        for revision, _ in to_land
+        revision["phid"]: get_collated_reviewers(revision) for revision, _ in to_land
     }
 
     assessment = check_landing_warnings(
@@ -183,7 +170,7 @@ def _assess_transplant_request(phab, landing_path):
     return (assessment, to_land, landing_repo, stack_data)
 
 
-@auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
+@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def dryrun(data):
     phab = g.phabricator
@@ -192,17 +179,17 @@ def dryrun(data):
     return assessment.to_dict()
 
 
-@auth.require_auth0(scopes=('lando', 'profile', 'email'), userinfo=True)
+@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def post(data):
     phab = g.phabricator
     landing_path, confirmation_token = _unmarshal_transplant_request(data)
     logger.info(
-        'transplant requested by user',
+        "transplant requested by user",
         extra={
-            'has_confirmation_token': confirmation_token is not None,
-            'landing_path': landing_path,
-        }
+            "has_confirmation_token": confirmation_token is not None,
+            "landing_path": landing_path,
+        },
     )
     assessment, to_land, landing_repo, stack_data = _assess_transplant_request(
         phab, landing_path
@@ -215,19 +202,15 @@ def post(data):
     if assessment.warnings:
         # Log any warnings that were acknowledged, for auditing.
         logger.info(
-            'Transplant with acknowledged warnings is being requested',
+            "Transplant with acknowledged warnings is being requested",
             extra={
-                'landing_path': landing_path,
-                'warnings': [
-                    {
-                        'i': w.i,
-                        'revision_id': w.revision_id,
-                        'details': w.details,
-                    }
+                "landing_path": landing_path,
+                "warnings": [
+                    {"i": w.i, "revision_id": w.revision_id, "details": w.details}
                     for w in assessment.warnings
                 ],
-            }
-        )  # yapf: disable
+            },
+        )
 
     involved_phids = set()
     for revision, _ in to_land:
@@ -244,62 +227,59 @@ def post(data):
         accepted_reviewers = [
             reviewer_identity(phid, users, projects).identifier
             for phid, r in reviewers.items()
-            if r['status'] is ReviewerStatus.ACCEPTED
+            if r["status"] is ReviewerStatus.ACCEPTED
         ]
 
         _, commit_message = format_commit_message(
-            phab.expect(revision, 'fields', 'title'),
-            get_bugzilla_bug(revision), accepted_reviewers,
-            phab.expect(revision, 'fields', 'summary'),
+            phab.expect(revision, "fields", "title"),
+            get_bugzilla_bug(revision),
+            accepted_reviewers,
+            phab.expect(revision, "fields", "summary"),
             urllib.parse.urljoin(
-                current_app.config['PHABRICATOR_URL'],
-                'D{}'.format(revision['id'])
-            )
+                current_app.config["PHABRICATOR_URL"], "D{}".format(revision["id"])
+            ),
         )
         author_name, author_email = select_diff_author(diff)
-        date_modified = phab.expect(revision, 'fields', 'dateModified')
+        date_modified = phab.expect(revision, "fields", "dateModified")
 
         # Construct the patch that will be sent to transplant.
-        raw_diff = phab.call_conduit(
-            'differential.getrawdiff', diffID=diff['id']
-        )
+        raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
         patch = build_patch_for_revision(
             raw_diff, author_name, author_email, commit_message, date_modified
         )
 
         # Upload the patch to S3
         patch_url = upload(
-            revision['id'],
-            diff['id'],
+            revision["id"],
+            diff["id"],
             patch,
-            current_app.config['PATCH_BUCKET_NAME'],
-            aws_access_key=current_app.config['AWS_ACCESS_KEY'],
-            aws_secret_key=current_app.config['AWS_SECRET_KEY'],
+            current_app.config["PATCH_BUCKET_NAME"],
+            aws_access_key=current_app.config["AWS_ACCESS_KEY"],
+            aws_secret_key=current_app.config["AWS_SECRET_KEY"],
         )
         patch_urls.append(patch_url)
 
     trans = TransplantClient(
-        current_app.config['TRANSPLANT_URL'],
-        current_app.config['TRANSPLANT_USERNAME'],
-        current_app.config['TRANSPLANT_PASSWORD'],
+        current_app.config["TRANSPLANT_URL"],
+        current_app.config["TRANSPLANT_USERNAME"],
+        current_app.config["TRANSPLANT_PASSWORD"],
     )
     submitted_assessment = TransplantAssessment(
         blocker=(
-            'This stack was submitted for landing by another user '
-            'at the same time.'
+            "This stack was submitted for landing by another user at the same time."
         )
     )
     ldap_username = g.auth0_user.email
-    revision_to_diff_id = {str(r['id']): d['id'] for r, d in to_land}
-    revision_order = [str(r['id']) for r, _ in to_land]
-    stack_ids = [r['id'] for r in stack_data.revisions.values()]
+    revision_to_diff_id = {str(r["id"]): d["id"] for r, d in to_land}
+    revision_order = [str(r["id"]) for r, _ in to_land]
+    stack_ids = [r["id"] for r in stack_data.revisions.values()]
 
     # We pass the revision id of the base of our landing path to
     # transplant in rev as it must be unique until the request
     # has been serviced. While this doesn't use Autoland Transplant
     # to enforce not requesting from the same stack again, Lando
     # ensures this itself.
-    root_revision_id = to_land[0][0]['id']
+    root_revision_id = to_land[0][0]["id"]
 
     try:
         # WARNING: Entering critical section, do not add additional
@@ -309,12 +289,13 @@ def post(data):
         # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
         # for more details on the specifics of the lock mode.
         with db.session.begin_nested():
-            db.session.execute(
-                'LOCK TABLE transplants IN SHARE ROW EXCLUSIVE MODE;'
-            )
-            if Transplant.revisions_query(stack_ids).filter_by(
-                status=TransplantStatus.submitted
-            ).first() is not None:
+            db.session.execute("LOCK TABLE transplants IN SHARE ROW EXCLUSIVE MODE;")
+            if (
+                Transplant.revisions_query(stack_ids)
+                .filter_by(status=TransplantStatus.submitted)
+                .first()
+                is not None
+            ):
                 submitted_assessment.raise_if_blocked_or_unacknowledged(None)
 
             transplant_request_id = trans.land(
@@ -322,8 +303,8 @@ def post(data):
                 ldap_username=ldap_username,
                 patch_urls=patch_urls,
                 tree=landing_repo.tree,
-                pingback=current_app.config['PINGBACK_URL'],
-                push_bookmark=landing_repo.push_bookmark
+                pingback=current_app.config["PINGBACK_URL"],
+                push_bookmark=landing_repo.push_bookmark,
             )
             transplant = Transplant(
                 request_id=transplant_request_id,
@@ -332,33 +313,29 @@ def post(data):
                 requester_email=ldap_username,
                 tree=landing_repo.tree,
                 repository_url=landing_repo.url,
-                status=TransplantStatus.submitted
+                status=TransplantStatus.submitted,
             )
             db.session.add(transplant)
     except TransplantError as exc:
         logger.exception(
-            'error creating transplant',
-            extra={'landing_path': landing_path},
+            "error creating transplant", extra={"landing_path": landing_path}
         )
         return problem(
             502,
-            'Transplant not created',
-            'The requested landing_path is valid, but transplant failed.'
-            'Please retry your request at a later time.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502'
+            "Transplant not created",
+            "The requested landing_path is valid, but transplant failed."
+            "Please retry your request at a later time.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502",
         )
 
     # Transaction succeeded, commit the session.
     db.session.commit()
 
     logger.info(
-        'transplant created',
-        extra={
-            'landing_path': landing_path,
-            'transplant_id': transplant.id,
-        }
+        "transplant created",
+        extra={"landing_path": landing_path, "transplant_id": transplant.id},
     )
-    return {'id': transplant.id}, 202
+    return {"id": transplant.id}, 202
 
 
 @require_phabricator_api_key(optional=True)
@@ -368,30 +345,29 @@ def get_list(stack_revision_id):
 
     phab = g.phabricator
     revision = phab.call_conduit(
-        'differential.revision.search',
-        constraints={'ids': [revision_id]},
+        "differential.revision.search", constraints={"ids": [revision_id]}
     )
-    revision = phab.single(revision, 'data', none_when_empty=True)
+    revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
         return problem(
             404,
-            'Revision not found',
-            'The revision does not exist or you lack permission to see it.',
-            type='https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404'
+            "Revision not found",
+            "The revision does not exist or you lack permission to see it.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
     # TODO: This assumes that all revisions and related objects in the stack
     # have uniform view permissions for the requesting user. Some revisions
     # being restricted could cause this to fail.
-    nodes, edges = build_stack_graph(phab, phab.expect(revision, 'phid'))
+    nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
     revision_phids = list(nodes)
     revs = phab.call_conduit(
-        'differential.revision.search',
-        constraints={'phids': revision_phids},
+        "differential.revision.search",
+        constraints={"phids": revision_phids},
         limit=len(revision_phids),
     )
 
     transplants = Transplant.revisions_query(
-        [phab.expect(r, 'id') for r in phab.expect(revs, 'data')]
+        [phab.expect(r, "id") for r in phab.expect(revs, "data")]
     ).all()
     return [t.serialize() for t in transplants], 200

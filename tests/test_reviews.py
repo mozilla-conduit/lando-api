@@ -10,61 +10,53 @@ from landoapi.reviews import collate_reviewer_attachments
 
 def test_collate_reviewer_attachments_malformed_raises():
     with pytest.raises(PhabricatorCommunicationException):
-        collate_reviewer_attachments([{'bogus': 1}], [{'bogus': 2}])
+        collate_reviewer_attachments([{"bogus": 1}], [{"bogus": 2}])
 
 
 def test_collate_reviewer_attachments_mismatched_length_raises(phabdouble):
     revision = phabdouble.revision()
-    user = phabdouble.user(username='reviewer')
+    user = phabdouble.user(username="reviewer")
     phabdouble.reviewer(revision, user)
 
     attachments = phabdouble.call_conduit(
-        'differential.revision.search',
-        constraints={'ids': [revision['id']]},
-        attachments={
-            'reviewers': True,
-            'reviewers-extra': True,
-        }
-    )['data'][0]['attachments']
+        "differential.revision.search",
+        constraints={"ids": [revision["id"]]},
+        attachments={"reviewers": True, "reviewers-extra": True},
+    )["data"][0]["attachments"]
 
     with pytest.raises(PhabricatorCommunicationException):
-        collate_reviewer_attachments(attachments['reviewers']['reviewers'], [])
+        collate_reviewer_attachments(attachments["reviewers"]["reviewers"], [])
 
     with pytest.raises(PhabricatorCommunicationException):
         collate_reviewer_attachments(
-            [], attachments['reviewers-extra']['reviewers-extra']
+            [], attachments["reviewers-extra"]["reviewers-extra"]
         )
 
 
-@pytest.mark.parametrize('n_reviewers', [0, 1, 2, 10, 100])
+@pytest.mark.parametrize("n_reviewers", [0, 1, 2, 10, 100])
 def test_collate_reviewer_attachments_n_reviewers(phabdouble, n_reviewers):
     revision = phabdouble.revision()
     users = [
-        phabdouble.user(username='reviewer{}'.format(i))
-        for i in range(n_reviewers)
+        phabdouble.user(username="reviewer{}".format(i)) for i in range(n_reviewers)
     ]
     reviewers = [phabdouble.reviewer(revision, user) for user in users]
 
     attachments = phabdouble.call_conduit(
-        'differential.revision.search',
-        constraints={'ids': [revision['id']]},
-        attachments={
-            'reviewers': True,
-            'reviewers-extra': True,
-        }
-    )['data'][0]['attachments']
+        "differential.revision.search",
+        constraints={"ids": [revision["id"]]},
+        attachments={"reviewers": True, "reviewers-extra": True},
+    )["data"][0]["attachments"]
 
     collated = collate_reviewer_attachments(
-        attachments['reviewers']['reviewers'],
-        attachments['reviewers-extra']['reviewers-extra']
+        attachments["reviewers"]["reviewers"],
+        attachments["reviewers-extra"]["reviewers-extra"],
     )
     assert len(collated) == len(reviewers)
-    assert all(user['phid'] in collated for user in users)
+    assert all(user["phid"] in collated for user in users)
     if n_reviewers == 0:
         assert collated == {}
     else:
-        attachment_keys = (
-            set(attachments['reviewers-extra']['reviewers-extra'][0]) |
-            set(attachments['reviewers']['reviewers'][0])
-        )
-        assert attachment_keys == set(collated[users[0]['phid']].keys())
+        attachment_keys = set(
+            attachments["reviewers-extra"]["reviewers-extra"][0]
+        ) | set(attachments["reviewers"]["reviewers"][0])
+        assert attachment_keys == set(collated[users[0]["phid"]].keys())

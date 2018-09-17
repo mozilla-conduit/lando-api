@@ -51,9 +51,7 @@ class PhabricatorDouble:
         self._edges = []
         self._handlers = self._build_handlers()
 
-        monkeypatch.setattr(
-            PhabricatorClient, 'call_conduit', self.call_conduit
-        )
+        monkeypatch.setattr(PhabricatorClient, "call_conduit", self.call_conduit)
 
     def call_conduit(self, method, **kwargs):
         handler = self._handlers.get(method)
@@ -61,15 +59,15 @@ class PhabricatorDouble:
         if handler is None:
             raise ValueError(
                 'PhabricatorDouble does not have support for "{}". '
-                'If you have added a new call to this method please '
-                'update PhabricatorDouble to support it.'.format(method)
+                "If you have added a new call to this method please "
+                "update PhabricatorDouble to support it.".format(method)
             )
 
         return handler(**kwargs)
 
     @staticmethod
     def get_phabricator_client():
-        return PhabricatorClient('https://localhost', 'DOESNT-MATTER')
+        return PhabricatorClient("https://localhost", "DOESNT-MATTER")
 
     def revision(
         self,
@@ -82,16 +80,16 @@ class PhabricatorDouble:
         bug_id=None
     ):
         revision_id = self._new_id(self._revisions)
-        phid = self._new_phid('DREV-')
+        phid = self._new_phid("DREV-")
         uri = "http://phabricator.test/D{}".format(revision_id)
         title = "my test revision title"
 
         author = self.user() if author is None else author
 
         diff = self.diff() if diff is None else diff
-        diff['revisionID'] = revision_id
-        diff['revisionPHID'] = phid
-        diff['authorPHID'] = author['phid']
+        diff["revisionID"] = revision_id
+        diff["revisionPHID"] = phid
+        diff["authorPHID"] = author["phid"]
 
         revision = {
             "id": revision_id,
@@ -101,7 +99,7 @@ class PhabricatorDouble:
             "uri": uri,
             "dateCreated": 1495638270,
             "dateModified": 1496239141,
-            "authorPHID": author['phid'],
+            "authorPHID": author["phid"],
             "status": status,
             "properties": [],
             "branch": None,
@@ -112,23 +110,23 @@ class PhabricatorDouble:
             "ccs": [],
             "hashes": [],
             "bugzilla.bug-id": bug_id,
-            "repositoryPHID": repo['phid'] if repo is not None else None,
+            "repositoryPHID": repo["phid"] if repo is not None else None,
             "sourcePath": None,
         }
 
         for rev in depends_on:
             self._edges.append(
                 {
-                    'edgeType': 'revision.parent',
-                    'sourcePHID': phid,
-                    'destinationPHID': rev['phid'],
+                    "edgeType": "revision.parent",
+                    "sourcePHID": phid,
+                    "destinationPHID": rev["phid"],
                 }
             )
             self._edges.append(
                 {
-                    'edgeType': 'revision.child',
-                    'sourcePHID': rev['phid'],
-                    'destinationPHID': phid,
+                    "edgeType": "revision.child",
+                    "sourcePHID": rev["phid"],
+                    "destinationPHID": phid,
                 }
             )
 
@@ -147,13 +145,13 @@ class PhabricatorDouble:
 
         return revision
 
-    def user(self, *, username='imadueme_admin'):
+    def user(self, *, username="imadueme_admin"):
         """Return a Phabricator User."""
-        users = [u for u in self._users if u['userName'] == username]
+        users = [u for u in self._users if u["userName"] == username]
         if users:
             return users[0]
 
-        phid = self._new_phid('USER-{}'.format(username))
+        phid = self._new_phid("USER-{}".format(username))
         fullname = "{} Name".format(username)
         email = "{}@example.com".format(username)
         uri = "http://phabricator.test/p/{}".format(username)
@@ -164,20 +162,13 @@ class PhabricatorDouble:
             "email": email,
             "dateCreated": 1523372677,
             "dateModified": 1523372678,
-            "policy": {
-                "view": "public",
-                "edit": "no-one",
-            },
+            "policy": {"view": "public", "edit": "no-one"},
             "userName": username,
             "realName": fullname,
-            "image": "https://example.com/image.png",  # noqa
+            "image": "https://example.com/image.png",
             "uri": uri,
-            "roles": [
-                "verified",
-                "approved",
-                "activated",
-            ],
-        }  # yapf: disable
+            "roles": ["verified", "approved", "activated"],
+        }
 
         self._users.append(user)
         self._phids.append(
@@ -202,81 +193,75 @@ class PhabricatorDouble:
         repo=None,
         commits=[
             {
-                'identifier': 'b15b8fbc79c2c3977aff9e17f0dfcc34c66ec29f',
-                'tree': None,
-                'parents': [
-                    'cff9ba1622714e0dd82c39f912f405210489fce8',
-                ],
-                'author': {
-                    'name': 'Mark Cote',
-                    'email': 'mcote@mozilla.com',
-                    'raw': '"Mark Cote" <mcote@mozilla.com>',
-                    'epoch': 1524854743,
+                "identifier": "b15b8fbc79c2c3977aff9e17f0dfcc34c66ec29f",
+                "tree": None,
+                "parents": ["cff9ba1622714e0dd82c39f912f405210489fce8"],
+                "author": {
+                    "name": "Mark Cote",
+                    "email": "mcote@mozilla.com",
+                    "raw": '"Mark Cote" <mcote@mozilla.com>',
+                    "epoch": 1524854743,
                 },
-                'message': 'This is the commit message.',
-            },
+                "message": "This is the commit message.",
+            }
         ],
         refs=[
-            {
-                'type': 'base',
-                'identifier': 'cff9ba1622714e0dd82c39f912f405210489fce8',
-            },
+            {"type": "base", "identifier": "cff9ba1622714e0dd82c39f912f405210489fce8"}
         ]
     ):
         diff_id = self._new_id(self._diffs)
-        phid = self._new_phid('DIFF-')
+        phid = self._new_phid("DIFF-")
         uri = "http://phabricator.test/differential/diff/{}/".format(diff_id)
-        revision_id = revision['id'] if revision is not None else None
-        revision_phid = revision['phid'] if revision is not None else None
-        author_phid = revision['authorPHID'] if revision is not None else None
+        revision_id = revision["id"] if revision is not None else None
+        revision_phid = revision["phid"] if revision is not None else None
+        author_phid = revision["authorPHID"] if revision is not None else None
         repo_phid = (
-            repo['phid'] if repo is not None else
-            (revision['repositoryPHID'] if revision is not None else None)
+            repo["phid"]
+            if repo is not None
+            else (revision["repositoryPHID"] if revision is not None else None)
         )
 
         refs = deepcopy(refs)
         base = None
         for ref in refs:
-            ref['diff_id'] = diff_id
-            if ref['type'] == 'base':
-                base = ref['identifier']
+            ref["diff_id"] = diff_id
+            if ref["type"] == "base":
+                base = ref["identifier"]
 
         self._diff_refs += refs
 
         author_name, author_email = None, None
         if commits:
-            author_name = commits[0]['author']['name']
-            author_email = commits[0]['author']['email']
+            author_name = commits[0]["author"]["name"]
+            author_email = commits[0]["author"]["email"]
 
         diff = {
-            'id': diff_id,
-            'phid': phid,
-            'type': 'DIFF',
-            'rawdiff': rawdiff,
-            'bookmark': None,
-            'branch': None,
-            'changes': deepcopy(CANNED_DEFAULT_DIFF_CHANGES),
-            'creationMethod': 'arc',
-            'dateCreated': 1516718328,
-            'dateModified': 1516718341,
-            'description': None,
-            'lintStatus': '0',
-            'properties': [],
-            'revisionID': revision_id,
-            'revisionPHID': revision_phid,
-            'authorPHID': author_phid,
-            'repositoryPHID': repo_phid,
-            'sourceControlBaseRevision': base,
-            'sourceControlPath': '/',
-            'sourceControlSystem': 'hg',
-            'unitStatus': '0',
-            'authorName': author_name,
-            'authorEmail': author_email,
-            'policy': {
-                'view': 'public',
-            },
-            'commits': deepcopy(commits)
-        }  # yapf: disable
+            "id": diff_id,
+            "phid": phid,
+            "type": "DIFF",
+            "rawdiff": rawdiff,
+            "bookmark": None,
+            "branch": None,
+            "changes": deepcopy(CANNED_DEFAULT_DIFF_CHANGES),
+            "creationMethod": "arc",
+            "dateCreated": 1516718328,
+            "dateModified": 1516718341,
+            "description": None,
+            "lintStatus": "0",
+            "properties": [],
+            "revisionID": revision_id,
+            "revisionPHID": revision_phid,
+            "authorPHID": author_phid,
+            "repositoryPHID": repo_phid,
+            "sourceControlBaseRevision": base,
+            "sourceControlPath": "/",
+            "sourceControlSystem": "hg",
+            "unitStatus": "0",
+            "authorName": author_name,
+            "authorEmail": author_email,
+            "policy": {"view": "public"},
+            "commits": deepcopy(commits),
+        }
 
         self._diffs.append(diff)
         self._phids.append(
@@ -293,13 +278,13 @@ class PhabricatorDouble:
 
         return diff
 
-    def repo(self, *, name='mozilla-central'):
-        repos = [r for r in self._repos if r['name'] == name]
+    def repo(self, *, name="mozilla-central"):
+        repos = [r for r in self._repos if r["name"] == name]
         if repos:
             return repos[0]
 
         repo_id = self._new_id(self._repos)
-        phid = self._new_phid('REPO-')
+        phid = self._new_phid("REPO-")
         callsign = name.upper()
         uri = "http://phabricator.test/source/{}/".format(name)
         repo = {
@@ -315,11 +300,7 @@ class PhabricatorDouble:
             "spacePHID": None,
             "dateCreated": 1502986064,
             "dateModified": 1505659447,
-            "policy": {
-                "view": "public",
-                "edit": "admin",
-                "diffusion.push": "no-one",
-            }
+            "policy": {"view": "public", "edit": "admin", "diffusion.push": "no-one"},
         }
 
         self._repos.append(repo)
@@ -351,28 +332,29 @@ class PhabricatorDouble:
         if on_diff is None:
             # Default to the latest.
             diffs = sorted(
-                (d for d in self._diffs if d['revisionID'] == revision['id']),
-                key=lambda d: d['id']
+                (d for d in self._diffs if d["revisionID"] == revision["id"]),
+                key=lambda d: d["id"],
             )
             on_diff = diffs[-1]
-        actor_phid = revision['authorPHID'] if actor is None else actor['phid']
+        actor_phid = revision["authorPHID"] if actor is None else actor["phid"]
         reviewer = {
-            'revisionPHID': revision['phid'],
-            'revisionID': revision['id'],
-            'reviewerPHID': user_or_project['phid'],
-            'reviewerID': user_or_project['id'],
-            'status': status,
-            'isBlocking': isBlocking,
-            'actorPHID': actor_phid,
-            'diffPHID': on_diff['phid'],
-            'voidedPHID': voided_by_phid,
+            "revisionPHID": revision["phid"],
+            "revisionID": revision["id"],
+            "reviewerPHID": user_or_project["phid"],
+            "reviewerID": user_or_project["id"],
+            "status": status,
+            "isBlocking": isBlocking,
+            "actorPHID": actor_phid,
+            "diffPHID": on_diff["phid"],
+            "voidedPHID": voided_by_phid,
         }
 
         current_reviewers = [
-            r for r in self._reviewers
+            r
+            for r in self._reviewers
             if (
-                r['revisionID'] == revision['id'] and
-                r['reviewerPHID'] == reviewer['reviewerPHID']
+                r["revisionID"] == revision["id"]
+                and r["reviewerPHID"] == reviewer["reviewerPHID"]
             )
         ]
 
@@ -385,11 +367,11 @@ class PhabricatorDouble:
 
     def project(self, name, *, no_slug=False):
         """Return a Phabricator Project."""
-        projects = [p for p in self._projects if p['name'] == name]
+        projects = [p for p in self._projects if p["name"] == name]
         if projects:
             return projects[0]
 
-        phid = self._new_phid('PROJ-')
+        phid = self._new_phid("PROJ-")
         uri = "http://phabricator.test/tag/{}/".format(name)
 
         project = {
@@ -403,22 +385,11 @@ class PhabricatorDouble:
             # Subprojects not mocked.
             "depth": 0,
             "parent": None,
-            "icon": {
-                "key": "experimental",
-                "name": "Experimental",
-                "icon": "fa-flask",
-            },
-            "color": {
-                "key": "orange",
-                "name": "Orange",
-            },
+            "icon": {"key": "experimental", "name": "Experimental", "icon": "fa-flask"},
+            "color": {"key": "orange", "name": "Orange"},
             "dateCreated": 1524762062,
             "dateModified": 1524762062,
-            "policy": {
-                "view": "public",
-                "edit": "admin",
-                "join": "admin",
-            },
+            "policy": {"view": "public", "edit": "admin", "join": "admin"},
             "description": "Project named {}".format(name),
         }
         self._projects.append(project)
@@ -436,11 +407,11 @@ class PhabricatorDouble:
 
         return project
 
-    @conduit_method('conduit.ping')
+    @conduit_method("conduit.ping")
     def conduit_ping(self):
-        return 'ip-123-123-123-123.us-west-2.compute.internal'
+        return "ip-123-123-123-123.us-west-2.compute.internal"
 
-    @conduit_method('project.search')
+    @conduit_method("project.search")
     def project_search(
         self,
         *,
@@ -455,32 +426,29 @@ class PhabricatorDouble:
         def to_response(i):
             return deepcopy(
                 {
-                    "id": i['id'],
-                    "type": i['type'],
-                    "phid": i['phid'],
+                    "id": i["id"],
+                    "type": i["type"],
+                    "phid": i["phid"],
                     "fields": {
-                        "name": i['name'],
-                        "slug": i['slug'],
-                        "milestone": i['milestone'],
-                        "depth": i['depth'],
-                        "parent": i['parent'],
+                        "name": i["name"],
+                        "slug": i["slug"],
+                        "milestone": i["milestone"],
+                        "depth": i["depth"],
+                        "parent": i["parent"],
                         "icon": {
-                            "key": i['icon']['key'],
-                            "name": i['icon']['name'],
-                            "icon": i['icon']['icon'],
+                            "key": i["icon"]["key"],
+                            "name": i["icon"]["name"],
+                            "icon": i["icon"]["icon"],
                         },
-                        "color": {
-                            "key": i['color']['key'],
-                            "name": i['color']['name'],
-                        },
-                        "dateCreated": i['dateCreated'],
-                        "dateModified": i['dateModified'],
+                        "color": {"key": i["color"]["key"], "name": i["color"]["name"]},
+                        "dateCreated": i["dateCreated"],
+                        "dateModified": i["dateModified"],
                         "policy": {
-                            "view": i['policy']['view'],
-                            "edit": i['policy']['edit'],
-                            "join": i['policy']['join'],
+                            "view": i["policy"]["view"],
+                            "edit": i["policy"]["edit"],
+                            "join": i["policy"]["join"],
                         },
-                        "description": i['description'],
+                        "description": i["description"],
                     },
                     "attachments": {},
                 }
@@ -488,45 +456,37 @@ class PhabricatorDouble:
 
         items = [p for p in self._projects]
 
-        if 'ids' in constraints:
-            if not constraints['ids']:
+        if "ids" in constraints:
+            if not constraints["ids"]:
                 error_info = 'Error while reading "ids": Expected a nonempty list, but value is an empty list.'  # noqa
                 raise PhabricatorAPIException(
-                    error_info,
-                    error_code='ERR-CONDUIT-CORE',
-                    error_info=error_info
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
-            items = [i for i in items if i['id'] in constraints['ids']]
+            items = [i for i in items if i["id"] in constraints["ids"]]
 
-        if 'phids' in constraints:
-            if not constraints['phids']:
+        if "phids" in constraints:
+            if not constraints["phids"]:
                 error_info = 'Error while reading "phids": Expected a nonempty list, but value is an empty list.'  # noqa
                 raise PhabricatorAPIException(
-                    error_info,
-                    error_code='ERR-CONDUIT-CORE',
-                    error_info=error_info
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
-            items = [i for i in items if i['phid'] in constraints['phids']]
+            items = [i for i in items if i["phid"] in constraints["phids"]]
 
         return {
             "data": [to_response(i) for i in items],
-            "maps": {
-                "slugMap": {},
-            },
-            "query": {
-                "queryKey": queryKey,
-            },
+            "maps": {"slugMap": {}},
+            "query": {"queryKey": queryKey},
             "cursor": {
                 "limit": limit,
                 "after": after,
                 "before": before,
                 "order": order,
-            }
+            },
         }
 
-    @conduit_method('differential.diff.search')
+    @conduit_method("differential.diff.search")
     def differential_diff_search(
         self,
         *,
@@ -539,66 +499,56 @@ class PhabricatorDouble:
         limit=100
     ):
         def to_response(i):
-            refs = [r for r in self._diff_refs if r['diff_id'] == i['id']]
+            refs = [r for r in self._diff_refs if r["diff_id"] == i["id"]]
             resp = {
-                'id': i['id'],
-                'type': i['type'],
-                'phid': i['phid'],
-                'fields': {
-                    'revisionPHID': i['revisionPHID'],
-                    'authorPHID': i['authorPHID'],
-                    'repositoryPHID': i['repositoryPHID'],
-                    'refs': [
-                        {
-                            'type': r['type'],
-                            'identifier': r['identifier'],
-                        } for r in refs
+                "id": i["id"],
+                "type": i["type"],
+                "phid": i["phid"],
+                "fields": {
+                    "revisionPHID": i["revisionPHID"],
+                    "authorPHID": i["authorPHID"],
+                    "repositoryPHID": i["repositoryPHID"],
+                    "refs": [
+                        {"type": r["type"], "identifier": r["identifier"]} for r in refs
                     ],
-                    'dateCreated': i['dateCreated'],
-                    'dateModified': i['dateModified'],
-                    'policy': {
-                        'view': i['policy']['view'],
-                    },
+                    "dateCreated": i["dateCreated"],
+                    "dateModified": i["dateModified"],
+                    "policy": {"view": i["policy"]["view"]},
                 },
-                'attachments': {},
-            }  # yapf: disable
+                "attachments": {},
+            }
 
-            if attachments and attachments.get('commits'):
-                resp['attachments']['commits'] = {
-                    'commits': i['commits'],
-                }
+            if attachments and attachments.get("commits"):
+                resp["attachments"]["commits"] = {"commits": i["commits"]}
 
             return deepcopy(resp)
 
         items = [r for r in self._diffs]
 
-        if constraints and 'ids' in constraints:
-            items = [i for i in items if i['id'] in constraints['ids']]
+        if constraints and "ids" in constraints:
+            items = [i for i in items if i["id"] in constraints["ids"]]
 
-        if constraints and 'phids' in constraints:
-            items = [i for i in items if i['phid'] in constraints['phids']]
+        if constraints and "phids" in constraints:
+            items = [i for i in items if i["phid"] in constraints["phids"]]
 
-        if constraints and 'revisionPHIDs' in constraints:
+        if constraints and "revisionPHIDs" in constraints:
             items = [
-                i for i in items
-                if i['revisionPHID'] in constraints['revisionPHIDs']
+                i for i in items if i["revisionPHID"] in constraints["revisionPHIDs"]
             ]
 
         return {
             "data": [to_response(i) for i in items],
             "maps": {},
-            "query": {
-                "queryKey": queryKey,
-            },
+            "query": {"queryKey": queryKey},
             "cursor": {
                 "limit": limit,
                 "after": after,
                 "before": before,
                 "order": order,
-            }
+            },
         }
 
-    @conduit_method('edge.search')
+    @conduit_method("edge.search")
     def edge_search(
         self,
         *,
@@ -612,63 +562,62 @@ class PhabricatorDouble:
         def to_response(i):
             return deepcopy(
                 {
-                    'edgeType': i['edgeType'],
-                    'sourcePHID': i['sourcePHID'],
-                    'destinationPHID': i['destinationPHID'],
+                    "edgeType": i["edgeType"],
+                    "sourcePHID": i["sourcePHID"],
+                    "destinationPHID": i["destinationPHID"],
                 }
             )
 
         if not sourcePHIDs:
-            error_info = 'Edge object query must be executed with a nonempty list of source PHIDs.'  # noqa
+            error_info = "Edge object query must be executed with a nonempty list of source PHIDs."  # noqa
             raise PhabricatorAPIException(
-                error_info,
-                error_code='ERR-CONDUIT-CORE',
-                error_info=error_info
+                error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
 
         if not types:
-            error_info = 'Edge search must specify a nonempty list of edge types.'  # noqa
+            error_info = "Edge search must specify a nonempty list of edge types."
             raise PhabricatorAPIException(
-                error_info,
-                error_code='ERR-CONDUIT-CORE',
-                error_info=error_info
+                error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
 
         if not set(types) <= set(
             (
-                'commit.revision', 'commit.task', 'mention', 'mentioned-in',
-                'revision.child', 'revision.commit', 'revision.parent',
-                'revision.task', 'task.commit', 'task.duplicate',
-                'task.merged-in', 'task.parent', 'task.revision',
-                'task.subtask',
+                "commit.revision",
+                "commit.task",
+                "mention",
+                "mentioned-in",
+                "revision.child",
+                "revision.commit",
+                "revision.parent",
+                "revision.task",
+                "task.commit",
+                "task.duplicate",
+                "task.merged-in",
+                "task.parent",
+                "task.revision",
+                "task.subtask",
             )
         ):
-            error_info = 'Edge type "<type-is-here>" is not a recognized edge type.'  # noqa
+            error_info = (
+                'Edge type "<type-is-here>" is not a recognized edge type.'
+            )  # noqa
             raise PhabricatorAPIException(
-                error_info,
-                error_code='ERR-CONDUIT-CORE',
-                error_info=error_info
+                error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
 
         items = [e for e in self._edges]
-        items = [i for i in items if i['sourcePHID'] in sourcePHIDs]
-        items = [i for i in items if i['edgeType'] in types]
+        items = [i for i in items if i["sourcePHID"] in sourcePHIDs]
+        items = [i for i in items if i["edgeType"] in types]
 
         if destinationPHIDs:
-            items = [
-                i for i in items if i['destinationPHID'] in destinationPHIDs
-            ]
+            items = [i for i in items if i["destinationPHID"] in destinationPHIDs]
 
         return {
             "data": [to_response(i) for i in items],
-            "cursor": {
-                "limit": limit,
-                "after": after,
-                "before": before,
-            }
+            "cursor": {"limit": limit, "after": after, "before": before},
         }
 
-    @conduit_method('differential.revision.search')
+    @conduit_method("differential.revision.search")
     def differential_revision_search(
         self,
         *,
@@ -682,118 +631,110 @@ class PhabricatorDouble:
     ):
         def to_response(i):
             diffs = sorted(
-                (d for d in self._diffs if d['revisionID'] == i['id']),
-                key=lambda d: d['id']
+                (d for d in self._diffs if d["revisionID"] == i["id"]),
+                key=lambda d: d["id"],
             )
             bug_id = (
-                str(i['bugzilla.bug-id'])
-                if i['bugzilla.bug-id'] is not None else ''
+                str(i["bugzilla.bug-id"]) if i["bugzilla.bug-id"] is not None else ""
             )
 
             resp = {
-                'id': i['id'],
-                'type': i['type'],
-                'phid': i['phid'],
-                'fields': {
-                    'title': i['title'],
-                    'authorPHID': i['authorPHID'],
-                    'status': {
-                        'value': i['status'].value,
-                        'name': i['status'].output_name,
-                        'closed': i['status'].closed,
-                        'color.ansi': i['status'].color,
+                "id": i["id"],
+                "type": i["type"],
+                "phid": i["phid"],
+                "fields": {
+                    "title": i["title"],
+                    "authorPHID": i["authorPHID"],
+                    "status": {
+                        "value": i["status"].value,
+                        "name": i["status"].output_name,
+                        "closed": i["status"].closed,
+                        "color.ansi": i["status"].color,
                     },
-                    'repositoryPHID': i['repositoryPHID'],
-                    'diffPHID': diffs[-1]['phid'],
-                    'summary': i['summary'],
-                    'dateCreated': i['dateCreated'],
-                    'dateModified': i['dateModified'],
-                    'policy': {
-                        'view': 'public',
-                        'edit': 'users',
-                    },
-                    'bugzilla.bug-id': bug_id,
+                    "repositoryPHID": i["repositoryPHID"],
+                    "diffPHID": diffs[-1]["phid"],
+                    "summary": i["summary"],
+                    "dateCreated": i["dateCreated"],
+                    "dateModified": i["dateModified"],
+                    "policy": {"view": "public", "edit": "users"},
+                    "bugzilla.bug-id": bug_id,
                 },
-                'attachments': {},
+                "attachments": {},
             }
 
-            reviewers = [
-                r for r in self._reviewers if r['revisionPHID'] == i['phid']
-            ]
+            reviewers = [r for r in self._reviewers if r["revisionPHID"] == i["phid"]]
 
-            if attachments and attachments.get('reviewers'):
-                resp['attachments']['reviewers'] = {
-                    'reviewers': [
+            if attachments and attachments.get("reviewers"):
+                resp["attachments"]["reviewers"] = {
+                    "reviewers": [
                         {
-                            'reviewerPHID': r['reviewerPHID'],
-                            'status': r['status'].value,
-                            'isBlocking': r['isBlocking'],
-                            'actorPHID': r['actorPHID'],
-                        } for r in reviewers
-                    ],
+                            "reviewerPHID": r["reviewerPHID"],
+                            "status": r["status"].value,
+                            "isBlocking": r["isBlocking"],
+                            "actorPHID": r["actorPHID"],
+                        }
+                        for r in reviewers
+                    ]
                 }
 
-            if attachments and attachments.get('reviewers-extra'):
-                resp['attachments']['reviewers-extra'] = {
-                    'reviewers-extra': [
+            if attachments and attachments.get("reviewers-extra"):
+                resp["attachments"]["reviewers-extra"] = {
+                    "reviewers-extra": [
                         {
-                            'reviewerPHID': r['reviewerPHID'],
-                            'voidedPHID': r['voidedPHID'],
-                            'diffPHID': r['diffPHID'],
-                        } for r in reviewers
-                    ],
+                            "reviewerPHID": r["reviewerPHID"],
+                            "voidedPHID": r["voidedPHID"],
+                            "diffPHID": r["diffPHID"],
+                        }
+                        for r in reviewers
+                    ]
                 }
 
             return deepcopy(resp)
 
         items = [r for r in self._revisions]
 
-        if constraints and 'ids' in constraints:
-            items = [i for i in items if i['id'] in constraints['ids']]
+        if constraints and "ids" in constraints:
+            items = [i for i in items if i["id"] in constraints["ids"]]
 
-        if constraints and 'phids' in constraints:
-            items = [i for i in items if i['phid'] in constraints['phids']]
+        if constraints and "phids" in constraints:
+            items = [i for i in items if i["phid"] in constraints["phids"]]
 
-        if constraints and 'statuses' in constraints:
-            status_set = set(constraints['statuses'])
-            if 'open()' in status_set:
-                status_set.remove('open()')
+        if constraints and "statuses" in constraints:
+            status_set = set(constraints["statuses"])
+            if "open()" in status_set:
+                status_set.remove("open()")
                 status_set.update(
                     {
                         s.value
                         for s in RevisionStatus
-                        if not s.closed and
-                        s is not RevisionStatus.UNEXPECTED_STATUS
+                        if not s.closed and s is not RevisionStatus.UNEXPECTED_STATUS
                     }
                 )
-            if 'closed()' in status_set:
-                status_set.remove('closed()')
+            if "closed()" in status_set:
+                status_set.remove("closed()")
                 status_set.update(
                     {
                         s.value
                         for s in RevisionStatus
-                        if s.closed and
-                        s is not RevisionStatus.UNEXPECTED_STATUS
+                        if s.closed and s is not RevisionStatus.UNEXPECTED_STATUS
                     }
                 )
 
-            items = [i for i in items if i['status'].value in status_set]
+            items = [i for i in items if i["status"].value in status_set]
 
         return {
             "data": [to_response(i) for i in items],
             "maps": {},
-            "query": {
-                "queryKey": queryKey,
-            },
+            "query": {"queryKey": queryKey},
             "cursor": {
                 "limit": limit,
                 "after": after,
                 "before": before,
                 "order": order,
-            }
+            },
         }
 
-    @conduit_method('differential.query')
+    @conduit_method("differential.query")
     def differential_query(
         self,
         *,
@@ -814,47 +755,54 @@ class PhabricatorDouble:
     ):
         def to_response(i):
             diffs = sorted(
-                (d for d in self._diffs if d['revisionID'] == i['id']),
-                key=lambda d: d['id']
+                (d for d in self._diffs if d["revisionID"] == i["id"]),
+                key=lambda d: d["id"],
             )
 
             dependencies = [
-                e['destinationPHID'] for e in self._edges
-                if (
-                    e['edgeType'] == 'revision.parent' and
-                    e['sourcePHID'] == i['phid']
-                )
+                e["destinationPHID"]
+                for e in self._edges
+                if (e["edgeType"] == "revision.parent" and e["sourcePHID"] == i["phid"])
             ]
 
             bug_id = (
-                str(i['bugzilla.bug-id'])
-                if i['bugzilla.bug-id'] is not None else ''
+                str(i["bugzilla.bug-id"]) if i["bugzilla.bug-id"] is not None else ""
             )
             auxiliary = {
-                'phabricator:depends-on': dependencies,
-                'phabricator:projects': [],
-                'bugzilla.bug-id': bug_id,
+                "phabricator:depends-on": dependencies,
+                "phabricator:projects": [],
+                "bugzilla.bug-id": bug_id,
             }
 
             resp = {
-                'id': str(i['id']),
-                'dateCreated': str(i['dateCreated']),
-                'dateModified': str(i['dateModified']),
-                'lineCount': str(i['lineCount']),
-                'activeDiffPHID': diffs[-1]['phid'],
-                'diffs': [str(d['id']) for d in reversed(diffs)],
-                'auxiliary': auxiliary,
-                'status': i['status'].deprecated_id,
-                'statusName': i['status'].output_name,
-                'reviewers': {
-                    r['reviewerPHID']: r['reviewerPHID']
-                    for r in self._reviewers if r['revisionPHID'] == i['phid']
+                "id": str(i["id"]),
+                "dateCreated": str(i["dateCreated"]),
+                "dateModified": str(i["dateModified"]),
+                "lineCount": str(i["lineCount"]),
+                "activeDiffPHID": diffs[-1]["phid"],
+                "diffs": [str(d["id"]) for d in reversed(diffs)],
+                "auxiliary": auxiliary,
+                "status": i["status"].deprecated_id,
+                "statusName": i["status"].output_name,
+                "reviewers": {
+                    r["reviewerPHID"]: r["reviewerPHID"]
+                    for r in self._reviewers
+                    if r["revisionPHID"] == i["phid"]
                 },
             }
 
             for k in (
-                "phid", "title", "uri", "authorPHID", "properties", "branch",
-                "summary", "testPlan", "hashes", "ccs", "repositoryPHID",
+                "phid",
+                "title",
+                "uri",
+                "authorPHID",
+                "properties",
+                "branch",
+                "summary",
+                "testPlan",
+                "hashes",
+                "ccs",
+                "repositoryPHID",
                 "sourcePath",
             ):
                 resp[k] = i[k]
@@ -864,14 +812,14 @@ class PhabricatorDouble:
         items = self._revisions
 
         if ids:
-            items = [i for i in items if i['id'] in ids]
+            items = [i for i in items if i["id"] in ids]
 
         if phids:
-            items = [i for i in items if i['phid'] in phids]
+            items = [i for i in items if i["phid"] in phids]
 
         return [to_response(i) for i in items]
 
-    @conduit_method('diffusion.repository.search')
+    @conduit_method("diffusion.repository.search")
     def diffusion_repository_search(
         self,
         *,
@@ -886,73 +834,67 @@ class PhabricatorDouble:
         def to_response(i):
             return deepcopy(
                 {
-                    "id": i['id'],
-                    "type": i['type'],
-                    "phid": i['phid'],
+                    "id": i["id"],
+                    "type": i["type"],
+                    "phid": i["phid"],
                     "fields": {
-                        "name": i['name'],
-                        "vcs": i['vcs'],
-                        "callsign": i['callsign'],
-                        "shortName": i['shortName'],
-                        "status": i['status'],
-                        "isImporting": i['isImporting'],
-                        "spacePHID": i['spacePHID'],
-                        "dateCreated": i['dateCreated'],
-                        "dateModified": i['dateModified'],
-                        "policy": i['policy']
+                        "name": i["name"],
+                        "vcs": i["vcs"],
+                        "callsign": i["callsign"],
+                        "shortName": i["shortName"],
+                        "status": i["status"],
+                        "isImporting": i["isImporting"],
+                        "spacePHID": i["spacePHID"],
+                        "dateCreated": i["dateCreated"],
+                        "dateModified": i["dateModified"],
+                        "policy": i["policy"],
                     },
-                    "attachments": {}
+                    "attachments": {},
                 }
             )
 
         items = [r for r in self._repos]
 
-        if 'ids' in constraints:
-            items = [i for i in items if i['id'] in constraints['ids']]
+        if "ids" in constraints:
+            items = [i for i in items if i["id"] in constraints["ids"]]
 
-        if 'phids' in constraints:
-            items = [i for i in items if i['phid'] in constraints['phids']]
+        if "phids" in constraints:
+            items = [i for i in items if i["phid"] in constraints["phids"]]
 
-        if 'callsigns' in constraints:
-            items = [
-                i for i in items if i['callsign'] in constraints['callsigns']
-            ]
+        if "callsigns" in constraints:
+            items = [i for i in items if i["callsign"] in constraints["callsigns"]]
 
-        if 'shortNames' in constraints:
-            items = [
-                i for i in items if i['shortName'] in constraints['shortNames']
-            ]
+        if "shortNames" in constraints:
+            items = [i for i in items if i["shortName"] in constraints["shortNames"]]
 
         return {
             "data": [to_response(i) for i in items],
             "maps": {},
-            "query": {
-                "queryKey": queryKey,
-            },
+            "query": {"queryKey": queryKey},
             "cursor": {
                 "limit": limit,
                 "after": after,
                 "before": before,
                 "order": order,
-            }
+            },
         }
 
-    @conduit_method('differential.getrawdiff')
+    @conduit_method("differential.getrawdiff")
     def differential_getrawdiff(self, *, diffID=None):
         def to_response(i):
-            return i['rawdiff']
+            return i["rawdiff"]
 
-        diffs = [d for d in self._diffs if d['id'] == diffID]
+        diffs = [d for d in self._diffs if d["id"] == diffID]
         if diffID is None or not diffs:
             raise PhabricatorAPIException(
-                'Diff not found.',
-                error_code='ERR_NOT_FOUND',
-                error_info='Diff not found.'
+                "Diff not found.",
+                error_code="ERR_NOT_FOUND",
+                error_info="Diff not found.",
             )
 
         return to_response(diffs[0])
 
-    @conduit_method('user.search')
+    @conduit_method("user.search")
     def user_search(
         self,
         *,
@@ -967,16 +909,16 @@ class PhabricatorDouble:
         def to_response(u):
             return deepcopy(
                 {
-                    "id": u['id'],
-                    "type": u['type'],
-                    "phid": u['phid'],
+                    "id": u["id"],
+                    "type": u["type"],
+                    "phid": u["phid"],
                     "fields": {
-                        "username": u['userName'],
-                        "realName": u['realName'],
-                        "roles": u['roles'],
-                        "dateCreated": u['dateCreated'],
-                        "dateModified": u['dateModified'],
-                        "policy": u['policy'],
+                        "username": u["userName"],
+                        "realName": u["realName"],
+                        "roles": u["roles"],
+                        "dateCreated": u["dateCreated"],
+                        "dateModified": u["dateModified"],
+                        "policy": u["policy"],
                     },
                     "attachments": {},
                 }
@@ -984,61 +926,49 @@ class PhabricatorDouble:
 
         items = [u for u in self._users]
 
-        if 'ids' in constraints:
-            if not constraints['ids']:
+        if "ids" in constraints:
+            if not constraints["ids"]:
                 error_info = 'Error while reading "ids": Expected a nonempty list, but value is an empty list.'  # noqa
                 raise PhabricatorAPIException(
-                    error_info,
-                    error_code='ERR-CONDUIT-CORE',
-                    error_info=error_info
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
-            items = [i for i in items if i['id'] in constraints['ids']]
+            items = [i for i in items if i["id"] in constraints["ids"]]
 
-        if 'phids' in constraints:
-            if not constraints['phids']:
+        if "phids" in constraints:
+            if not constraints["phids"]:
                 error_info = 'Error while reading "phids": Expected a nonempty list, but value is an empty list.'  # noqa
                 raise PhabricatorAPIException(
-                    error_info,
-                    error_code='ERR-CONDUIT-CORE',
-                    error_info=error_info
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
-            items = [i for i in items if i['phid'] in constraints['phids']]
+            items = [i for i in items if i["phid"] in constraints["phids"]]
 
-        if 'usernames' in constraints:
-            if not constraints['usernames']:
+        if "usernames" in constraints:
+            if not constraints["usernames"]:
                 error_info = 'Error while reading "usernames": Expected a nonempty list, but value is an empty list.'  # noqa
                 raise PhabricatorAPIException(
-                    error_info,
-                    error_code='ERR-CONDUIT-CORE',
-                    error_info=error_info
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
-            items = [
-                i for i in items if i['userName'] in constraints['usernames']
-            ]
+            items = [i for i in items if i["userName"] in constraints["usernames"]]
 
-        if 'nameLike' in constraints:
-            items = [
-                i for i in items if constraints['nameLike'] in i['userName']
-            ]
+        if "nameLike" in constraints:
+            items = [i for i in items if constraints["nameLike"] in i["userName"]]
 
         return {
             "data": [to_response(i) for i in items],
             "maps": {},
-            "query": {
-                "queryKey": queryKey,
-            },
+            "query": {"queryKey": queryKey},
             "cursor": {
                 "limit": limit,
                 "after": after,
                 "before": before,
                 "order": order,
-            }
+            },
         }
 
-    @conduit_method('user.query')
+    @conduit_method("user.query")
     def user_query(
         self,
         *,
@@ -1053,61 +983,57 @@ class PhabricatorDouble:
         def to_response(i):
             return deepcopy(
                 {
-                    "phid": i['phid'],
-                    "userName": i['userName'],
-                    "realName": i['realName'],
-                    "image": i['image'],
-                    "uri": i['uri'],
-                    "roles": i['roles'],
+                    "phid": i["phid"],
+                    "userName": i["userName"],
+                    "realName": i["realName"],
+                    "image": i["image"],
+                    "uri": i["uri"],
+                    "roles": i["roles"],
                 }
             )
 
         items = [u for u in self._users]
 
         if usernames:
-            items = [i for i in items if i['userName'] in usernames]
+            items = [i for i in items if i["userName"] in usernames]
 
         if emails:
-            items = [i for i in items if i['email'] in emails]
+            items = [i for i in items if i["email"] in emails]
 
         if realnames:
-            items = [i for i in items if i['realName'] in realnames]
+            items = [i for i in items if i["realName"] in realnames]
 
         if phids:
-            items = [i for i in items if i['phid'] in phids]
+            items = [i for i in items if i["phid"] in phids]
 
         if ids:
-            items = [i for i in items if i['id'] in ids]
+            items = [i for i in items if i["id"] in ids]
 
         return [to_response(i) for i in items]
 
-    @conduit_method('phid.query')
+    @conduit_method("phid.query")
     def phid_query(self, *, phids=None):
         if phids is None:
-            error_info = 'Argument 1 passed to PhabricatorHandleQuery::withPHIDs() must be of the type array, null given, called in /app/phabricator/src/applications/phid/conduit/PHIDQueryConduitAPIMethod.php on line 28 and defined'  # noqa
+            error_info = "Argument 1 passed to PhabricatorHandleQuery::withPHIDs() must be of the type array, null given, called in /app/phabricator/src/applications/phid/conduit/PHIDQueryConduitAPIMethod.php on line 28 and defined"  # noqa
             raise PhabricatorAPIException(
-                error_info,
-                error_code='ERR-CONDUIT-CORE',
-                error_info=error_info
+                error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
 
-        return {
-            i['phid']: deepcopy(i)
-            for i in self._phids if i['phid'] in phids
-        }
+        return {i["phid"]: deepcopy(i) for i in self._phids if i["phid"] in phids}
 
     def _new_phid(self, prefix):
         suffix = self._phid_counters.get(prefix, 0)
         self._phid_counters[prefix] = self._phid_counters.get(prefix, 0) + 1
-        return 'PHID-{}{}'.format(prefix, suffix)
+        return "PHID-{}{}".format(prefix, suffix)
 
     @staticmethod
-    def _new_id(items, *, field='id'):
+    def _new_id(items, *, field="id"):
         return max([i[field] for i in items] + [0]) + 1
 
     def _build_handlers(self):
         handlers = [
             getattr(self, a)
-            for a in dir(self) if hasattr(getattr(self, a), '_conduit_method')
+            for a in dir(self)
+            if hasattr(getattr(self, a), "_conduit_method")
         ]
         return {handler._conduit_method: handler for handler in handlers}
