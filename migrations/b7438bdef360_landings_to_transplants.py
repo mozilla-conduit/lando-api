@@ -26,7 +26,7 @@ def _get_repo_url(tree):
 
     from landoapi.repos import REPO_CONFIG
     for env in REPO_CONFIG:
-        for name, repo in REPO_CONFIG[env].items():
+        for _, repo in REPO_CONFIG[env].items():
             REPO_URLS[repo.tree] = repo.url
 
 

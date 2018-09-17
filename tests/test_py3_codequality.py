@@ -17,7 +17,6 @@ def test_check_python_style():
     assert not output, 'The python code does not adhear to the project style.'
 
 
-@pytest.mark.xfail(strict=True)
 def test_check_python_flake8():
     files = ('.', )
     cmd = ('flake8', )
