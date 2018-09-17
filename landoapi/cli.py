@@ -38,11 +38,11 @@ def uwsgi():
 @click.option('--in-place', '-i', is_flag=True)
 def format_code(in_place):
     """Format python code"""
+    cmd = ('black', )
+    if not in_place:
+        cmd = cmd + ('--diff', )
     os.execvp(
-        'yapf', (
-            'yapf', '--recursive', '--in-place'
-            if in_place else '--diff', './',
-        )
+        'black', cmd + ('.', )
     )
 
 

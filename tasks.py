@@ -34,13 +34,13 @@ def lint_flake8(ctx):
     run('docker-compose run --rm lando-api lint', pty=USE_PTY, echo=True)
 
 
-@task(name='yapf')
-def lint_yapf(ctx):
-    """Run yapf."""
+@task(name='black')
+def lint_black(ctx):
+    """Run black."""
     run('docker-compose run --rm lando-api format', pty=USE_PTY, echo=True)
 
 
-@task(default=True, name='all', post=[lint_flake8, lint_yapf])
+@task(default=True, name='all', post=[lint_flake8, lint_black])
 def lint_all(ctx):
     """Lint project sourcecode."""
     pass
@@ -75,6 +75,6 @@ namespace = Collection(
         'lint',
         lint_all,
         lint_flake8,
-        lint_yapf,
+        lint_black,
     ), add_migration, format, init, test, upgrade
 )
