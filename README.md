@@ -5,6 +5,8 @@ A microservice that transforms Phabricator revisions into Autoland
 
 Part of Mozilla [Conduit][], our code-management microservice ecosystem.
 
+[![What's Deployed](https://img.shields.io/badge/whatsdeployed-prod,dev-green.svg)](https://whatsdeployed.io/s-46t)
+
 ## Building the service
 
 ### Prerequisites
