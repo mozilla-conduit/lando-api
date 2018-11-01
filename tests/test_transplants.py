@@ -147,7 +147,7 @@ def test_dryrun_reviewers_warns(client, db, phabdouble, auth0_mock):
             CANNED_USERINFO["NO_CUSTOM_CLAIMS"],
             200,
             "You have insufficient permissions to land. Level 3 "
-            "Commit Access is required.",
+            "Commit Access is required. See the FAQ for help.",
         ),
         (CANNED_USERINFO["EXPIRED_L3"], 200, "Your Level 3 Commit Access has expired."),
         (
@@ -545,7 +545,7 @@ def test_integrated_transplant_without_auth0_permissions(
     assert response.status_code == 400
     assert response.json["blocker"] == (
         "You have insufficient permissions to land. "
-        "Level 3 Commit Access is required."
+        "Level 3 Commit Access is required. See the FAQ for help."
     )
 
 

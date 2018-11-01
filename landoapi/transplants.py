@@ -252,8 +252,9 @@ def user_block_scm_level(*, auth0_user, landing_repo, **kwargs):
     if auth0_user.is_in_groups(landing_repo.access_group.membership_group):
         return "Your {} has expired.".format(landing_repo.access_group.display_name)
 
-    return "You have insufficient permissions to land. {} is required.".format(
-        landing_repo.access_group.display_name
+    return (
+        "You have insufficient permissions to land. {} is required. "
+        "See the FAQ for help.".format(landing_repo.access_group.display_name)
     )
 
 

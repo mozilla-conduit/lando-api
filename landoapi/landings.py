@@ -189,7 +189,9 @@ class SCMLevelInsufficient(LandingProblem):
 
         return cls(
             "You have insufficient permissions to land. "
-            "{} is required.".format(repo.access_group.display_name)
+            "{} is required. See the FAQ for help.".format(
+                repo.access_group.display_name
+            )
         )
 
 

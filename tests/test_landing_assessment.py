@@ -138,7 +138,7 @@ def test_hash_object_throws_error():
                 {
                     "id": "E002",
                     "message": "You have insufficient permissions to land. Level 3 "
-                    "Commit Access is required.",
+                    "Commit Access is required. See the FAQ for help.",
                 }
             ],
         ),
