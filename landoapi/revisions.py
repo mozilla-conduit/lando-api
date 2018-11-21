@@ -106,8 +106,7 @@ def check_diff_author_is_known(*, diff, **kwargs):
 
     return (
         "Diff does not have proper author information in Phabricator. "
-        "This can happen if the diff was created using the web UI, "
-        "or a non standard client."
+        "See the Lando FAQ for help with this error."
     )
 
 
