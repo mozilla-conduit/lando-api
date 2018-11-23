@@ -59,7 +59,7 @@ def create_app(version_path):
 
 
 def configure_app(flask_app, version_path):
-    flask_app.config["ENVIRONMENT"] = os.environ.get("ENV", None)
+    flask_app.config["ENVIRONMENT"] = os.getenv("ENV")
 
     # Application version metadata
     flask_app.config["VERSION_PATH"] = version_path
@@ -68,11 +68,14 @@ def configure_app(flask_app, version_path):
 
     # Phabricator.
     flask_app.config["PHABRICATOR_URL"] = os.getenv("PHABRICATOR_URL")
-    flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"] = os.environ.get(
+    flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"] = os.getenv(
         "PHABRICATOR_UNPRIVILEGED_API_KEY"
     )
     if (
-        re.match(r"^api-.{28}$", flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"])
+        flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
+        and re.match(
+            r"^api-.{28}$", flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
+        )
         is None
     ):
         logger.error(
@@ -86,7 +89,7 @@ def configure_app(flask_app, version_path):
     initialize_sentry(flask_app, this_app_version)
 
     # Database configuration
-    flask_app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+    flask_app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
     flask_app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     flask_app.config["ALEMBIC"] = {"script_location": "/migrations/"}
 
@@ -96,14 +99,14 @@ def configure_app(flask_app, version_path):
     flask_app.config["PINGBACK_URL"] = "{host_url}/landings/update".format(
         host_url=os.getenv("PINGBACK_HOST_URL")
     )
-    flask_app.config["PINGBACK_ENABLED"] = os.environ.get("PINGBACK_ENABLED", "n")
+    flask_app.config["PINGBACK_ENABLED"] = os.getenv("PINGBACK_ENABLED", "n")
     for transplant_config in [
         "TRANSPLANT_URL",
         "TRANSPLANT_USERNAME",
         "TRANSPLANT_PASSWORD",
         "TRANSPLANT_API_KEY",
     ]:
-        flask_app.config[transplant_config] = os.environ.get(transplant_config)
+        flask_app.config[transplant_config] = os.getenv(transplant_config)
 
     # Protect against enabling pingback without proper security. If
     # we're allowing pingbacks but the api key is None or empty abort:
@@ -115,15 +118,19 @@ def configure_app(flask_app, version_path):
         sys.exit(1)
 
     # AWS credentials should be only provided if needed in development
-    flask_app.config["AWS_ACCESS_KEY"] = os.getenv("AWS_ACCESS_KEY", None)
-    flask_app.config["AWS_SECRET_KEY"] = os.getenv("AWS_SECRET_KEY", None)
+    flask_app.config["AWS_ACCESS_KEY"] = os.getenv("AWS_ACCESS_KEY")
+    flask_app.config["AWS_SECRET_KEY"] = os.getenv("AWS_SECRET_KEY")
 
     flask_app.config["CSP_REPORTING_URL"] = os.getenv("CSP_REPORTING_URL")
 
     # OIDC Configuration:
     # OIDC_IDENTIFIER should be the custom api identifier defined in auth0.
+    # Leaving this unset could cause an application security problem.  We require the
+    # operating system environment to set it.
     flask_app.config["OIDC_IDENTIFIER"] = os.environ["OIDC_IDENTIFIER"]
-    # OIDC_DOMAIN should be the domain assigned to the auth0 orgnaization.
+    # OIDC_DOMAIN should be the domain assigned to the auth0 organization.
+    # Leaving this unset could cause an application security problem.  We require the
+    # operating system environment to set it.
     flask_app.config["OIDC_DOMAIN"] = os.environ["OIDC_DOMAIN"]
     # ODIC_JWKS_URL should be the url to the set of JSON Web Keys used by
     # auth0 to sign access_tokens.
