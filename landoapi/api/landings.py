@@ -17,9 +17,9 @@ from landoapi.commit_message import format_commit_message
 from landoapi.decorators import lazy, require_phabricator_api_key
 from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.landings import (
-    check_landing_conditions,
     LandingAssessment,
     LandingInProgress,
+    check_landing_conditions,
     lazy_get_diff,
     lazy_get_diff_author,
     lazy_get_landing_repo,
@@ -33,6 +33,7 @@ from landoapi.landings import (
     lazy_reviewers_search,
 )
 from landoapi.models.transplant import Transplant, TransplantStatus
+from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.patches import upload
 from landoapi.phabricator import ReviewerStatus
 from landoapi.reviews import reviewer_identity
@@ -45,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 
 def unmarshal_landing_request(data):
-    return (revision_id_to_int(data["revision_id"]), data["diff_id"])
+    return revision_id_to_int(data["revision_id"]), data["diff_id"]
 
 
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
@@ -356,4 +357,6 @@ def update(data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
+    if not data["landed"]:
+        notify_user_of_landing_failure(data["request_id"], data["error_msg"])
     return {}, 200

@@ -8,6 +8,7 @@ services:
     build:
       context: ./
       dockerfile: ./Dockerfile
+    image: lando-api
     command: ["run", "--host=0.0.0.0", "--port=8888"]
     ports:
       - "8888:8888"
@@ -34,6 +35,7 @@ services:
       # - CACHE_REDIS_PORT=
       # - CACHE_REDIS_PASSWORD=
       # - CACHE_REDIS_DB=
+      - CELERY_BROKER_URL=redis://redis.queue/0
       # Leave AWS credentials unconfigured in production
       - AWS_ACCESS_KEY=
       - AWS_SECRET_KEY=
@@ -71,6 +73,30 @@ services:
     depends_on:
       - lando-api.db
       - redis.cache
+      - redis.queue
+  lando-api.worker:
+    image: lando-api
+    command: ["worker"]
+    environment:
+      - VERSION_PATH=/version.json
+      - ENV=localdev
+      - SENTRY_DSN=
+      # See http://docs.celeryproject.org/en/stable/getting-started/brokers/redis.html#configuration
+      # for the full URL format.
+      - CELERY_BROKER_URL=redis://redis.queue/0
+      # The OIDC_* values need to be set by all application instances even if they are
+      # are empty.
+      - OIDC_IDENTIFIER=
+      - OIDC_DOMAIN=
+    user: root
+    volumes:
+      - ./:/app
+      - ./docker/dev-version.json:/version.json
+      - ./migrations/:/migrations/
+      # Prevent writing python cache to the host.
+      - caches_cache:/app/.cache/
+    depends_on:
+      - redis.queue
   lando-api.db:
     image: postgres:alpine
     environment:
@@ -83,6 +109,8 @@ services:
       - "54321:5432"
   redis.cache:
     image: redis:3.2-alpine # Elasticache version.
+  redis.queue:
+    image: redis:3.2-alpine
 volumes:
   postgres_db:
   caches_pycache:

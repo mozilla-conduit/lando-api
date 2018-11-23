@@ -12,12 +12,14 @@ import connexion
 from connexion.resolver import RestyResolver
 
 import landoapi.models  # noqa, makes sure alembic knows about the models.
+
 from landoapi.cache import cache
 from landoapi.dockerflow import dockerflow
 from landoapi.hooks import initialize_hooks
 from landoapi.logging import MozLogFormatter
 from landoapi.sentry import sentry
 from landoapi.storage import alembic, db
+from landoapi.tasks import celery
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +53,8 @@ def create_app(version_path):
 
     # Intialize the alembic extension
     alembic.init_app(flask_app)
+
+    celery.init_app(flask_app, config={"broker_url": flask_app.config["BROKER_URL"]})
 
     initialize_caching(flask_app)
     initialize_hooks(flask_app)
@@ -92,6 +96,9 @@ def configure_app(flask_app, version_path):
     flask_app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
     flask_app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     flask_app.config["ALEMBIC"] = {"script_location": "/migrations/"}
+
+    # Celery configuration
+    flask_app.config["BROKER_URL"] = os.getenv("CELERY_BROKER_URL")
 
     flask_app.config["PATCH_BUCKET_NAME"] = os.getenv("PATCH_BUCKET_NAME")
 

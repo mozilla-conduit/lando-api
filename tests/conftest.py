@@ -21,6 +21,7 @@ from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
 from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.storage import db as _db
+from landoapi.tasks import celery
 from landoapi.transplants import tokens_are_equal as t_tokens_are_equal
 
 from tests.factories import TransResponseFactory
@@ -272,3 +273,16 @@ def redis_cache(app):
         cache.init_app(
             app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True}
         )
+
+
+@pytest.fixture
+def celery_app(app):
+    """Configure our app's Celery instance for use with the celery_worker fixture."""
+    # The test suite will fail if we don't override the default worker and
+    # default task set.
+    celery.conf.update(broker_url="memory://", result_backend="rpc")
+    # Workaround for https://github.com/celery/celery/issues/4032.  If 'tasks.ping' is
+    # missing from the loaded task list then the test worker will fail with an
+    # AssertionError.
+    celery.loader.import_module("celery.contrib.testing.tasks")
+    return celery

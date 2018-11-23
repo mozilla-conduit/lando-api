@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
+import sys
 
 import click
 from flask.cli import FlaskGroup
@@ -28,6 +29,15 @@ def init():
 
     db.create_all()
     alembic.stamp("head")
+
+
+@cli.command(context_settings=dict(ignore_unknown_options=True))
+@click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
+def worker(celery_arguments):
+    """Initialize a Celery worker for this app."""
+    from landoapi.tasks import celery
+
+    celery.worker_main((sys.argv[0],) + celery_arguments)
 
 
 @cli.command(with_appcontext=False)
