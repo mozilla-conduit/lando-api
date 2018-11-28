@@ -5,6 +5,14 @@ import logging
 
 import flask
 from celery import Celery
+from celery.signals import (
+    after_task_publish,
+    heartbeat_sent,
+    task_failure,
+    task_retry,
+    task_success,
+)
+from datadog import statsd
 
 logger = logging.getLogger(__name__)
 
@@ -58,3 +66,35 @@ def log_landing_failure(request_id: int, error_msg: str):
         error_msg: The error message returned by the Transplant service.
     """
     logger.info(f"Transplant request {request_id} failed! Reason: {error_msg}")
+
+
+##
+#
+# Signal handlers
+#
+##
+
+
+@after_task_publish.connect
+def count_task_published(**kwargs):
+    statsd.increment("lando-api.celery.tasks_published")
+
+
+@heartbeat_sent.connect
+def count_heartbeat(**kwargs):
+    statsd.increment("lando-api.celery.heartbeats_from_workers")
+
+
+@task_success.connect
+def count_task_success(**kwargs):
+    statsd.increment("lando-api.celery.tasks_succeeded")
+
+
+@task_failure.connect
+def count_task_failure(**kwargs):
+    statsd.increment("lando-api.celery.tasks_failed")
+
+
+@task_retry.connect
+def count_task_retried(**kwargs):
+    statsd.increment("lando-api.celery.tasks_retried")
