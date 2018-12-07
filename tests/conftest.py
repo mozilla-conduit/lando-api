@@ -147,14 +147,9 @@ def disable_migrations(monkeypatch):
 @pytest.fixture
 def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     """Needed for pytest-flask."""
-    app = create_app(versionfile.strpath)
+    app = create_app(versionfile.strpath, testing=True)
     flask_app = app.app
-    # Turn on exception propagation.
-    # See http://flask.pocoo.org/docs/0.12/api/#flask.Flask.test_client
-    flask_app.testing = True
-
     flask_app.test_client_class = JSONClient
-
     return flask_app
 
 

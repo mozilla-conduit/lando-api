@@ -104,6 +104,15 @@ class Transplant(db.Model):
     def landing_path(self):
         return [(int(r), self.revision_to_diff_id[r]) for r in self.revision_order]
 
+    @property
+    def head_revision(self):
+        """Human-readable representation of the branch head's Phabricator revision ID.
+        """
+        assert (
+            self.revision_order
+        ), "head_revision should never be called without setting self.revision_order!"
+        return "D" + self.revision_order[-1]
+
     @classmethod
     def revisions_query(cls, revisions):
         revisions = [str(int(r)) for r in revisions]

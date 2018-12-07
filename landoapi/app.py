@@ -24,7 +24,7 @@ from landoapi.tasks import celery
 logger = logging.getLogger(__name__)
 
 
-def create_app(version_path):
+def create_app(version_path, testing=False):
     """Construct an application instance."""
     initialize_logging()
 
@@ -39,6 +39,9 @@ def create_app(version_path):
 
     # Get the Flask app being wrapped by the Connexion app.
     flask_app = app.app
+
+    # Set app.testing before we initialize any extensions so they pick up the setting.
+    flask_app.testing = testing
 
     keys_before_setup = set(flask_app.config.keys())
 
@@ -147,6 +150,12 @@ def configure_app(flask_app, version_path):
     ] = "https://{oidc_domain}/.well-known/jwks.json".format(
         oidc_domain=flask_app.config["OIDC_DOMAIN"]
     )
+
+    # Mail configuration
+    flask_app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER")
+    flask_app.config["MAIL_PORT"] = os.getenv("MAIL_PORT")
+    flask_app.config["MAIL_SUPPRESS_SEND"] = bool(os.getenv("MAIL_SUPPRESS_SEND"))
+    flask_app.config["MAIL_RECIPIENT_WHITELIST"] = os.getenv("MAIL_RECIPIENT_WHITELIST")
 
 
 def initialize_caching(flask_app):

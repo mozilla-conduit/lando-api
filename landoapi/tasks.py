@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
+import smtplib
+from email.message import EmailMessage
 
 import flask
 from celery import Celery
@@ -13,6 +15,13 @@ from celery.signals import (
     task_success,
 )
 from datadog import statsd
+from flask import current_app
+
+TRANSPLANT_FAILURE_EMAIL_TEMPLATE = """
+Your request to land {} failed.
+
+Reason: {}
+""".strip()
 
 logger = logging.getLogger(__name__)
 
@@ -95,15 +104,54 @@ class FlaskCelery(Celery):
 celery = FlaskCelery()
 
 
-@celery.task
-def log_landing_failure(request_id: int, error_msg: str):
-    """Log that the Transplant service failed to land the user's code.
+@celery.task(ignore_result=True)
+def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg: str):
+    """Tell a user that the Transplant service couldn't land their code.
 
     Args:
-        request_id: A Transplant service request identifier.
+        recipient_email: The email of the user receiving the failure notification.
+        revision_id: The Phabricator Revision ID that failed to land. e.g. D12345
         error_msg: The error message returned by the Transplant service.
     """
-    logger.info(f"Transplant request {request_id} failed! Reason: {error_msg}")
+    if current_app.config.get("MAIL_SUPPRESS_SEND"):
+        logger.warning(
+            f"Email sending suppressed: application config has disabled "
+            f"all mail sending (recipient was: {recipient_email})"
+        )
+        return
+
+    whitelist = current_app.config.get("MAIL_RECIPIENT_WHITELIST")
+    if whitelist and recipient_email not in whitelist:
+        logger.info(
+            f"Email sending suppressed: recipient {recipient_email} not found in "
+            f"MAIL_RECIPIENT_WHITELIST"
+        )
+        return
+
+    with smtplib.SMTP(
+        current_app.config.get("MAIL_SERVER"), current_app.config.get("MAIL_PORT")
+    ) as smtp:
+        smtp.send_message(make_failure_email(recipient_email, revision_id, error_msg))
+
+    logger.info(f"Notification email sent to {recipient_email}")
+
+
+def make_failure_email(
+    recipient_email: str, revision_id: str, error_msg: str
+) -> EmailMessage:
+    """Build a failure EmailMessage.
+
+    Args:
+        recipient_email: The email of the user receiving the failure notification.
+        revision_id: The Phabricator Revision ID that failed to land. e.g. D12345
+        error_msg: The error message returned by the Transplant service.
+    """
+    msg = EmailMessage()
+    msg["From"] = "mozphab-prod@mozilla.com"
+    msg["To"] = recipient_email
+    msg["Subject"] = f"Lando: Landing of {revision_id} failed!"
+    msg.set_content(TRANSPLANT_FAILURE_EMAIL_TEMPLATE.format(revision_id, error_msg))
+    return msg
 
 
 ##

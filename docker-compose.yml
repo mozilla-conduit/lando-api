@@ -93,6 +93,15 @@ services:
       # are empty.
       - OIDC_IDENTIFIER=
       - OIDC_DOMAIN=
+      - MAIL_SERVER=smtp
+      - MAIL_PORT=25
+      # Set this flag to any non-empty value to have the worker log a message instead of
+      # connecting to the SMTP server.
+      - MAIL_SUPPRESS_SEND=
+      # A space-delimited list of email addresses.  If set this will limit mail sending
+      # to the listed recipients. Mail to recipients not on the list will be logged
+      # instead.  Leave this setting empty to allow all email addresses through.
+      - MAIL_RECIPIENT_WHITELIST=
     user: root
     volumes:
       - ./:/app
@@ -102,6 +111,7 @@ services:
       - caches_cache:/app/.cache/
     depends_on:
       - redis.queue
+      - smtp
   lando-api.db:
     image: postgres:alpine
     environment:
@@ -116,6 +126,11 @@ services:
     image: redis:3.2-alpine # Elasticache version.
   redis.queue:
     image: redis:3.2-alpine
+  smtp:
+    image: python:3-alpine
+    command: python3 -u -m smtpd -c DebuggingServer -n --debug 0.0.0.0:25
+    expose:
+      - "25"
 volumes:
   postgres_db:
   caches_pycache:

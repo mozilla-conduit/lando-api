@@ -1,14 +1,89 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import inspect
+
 import pytest
 
+from landoapi.models import Transplant
 from landoapi.notifications import notify_user_of_landing_failure
-from landoapi.tasks import log_landing_failure, FlaskCelery
+from landoapi.tasks import FlaskCelery, make_failure_email, send_landing_failure_email
 
 
-def test_send_failure_notifications(celery_worker):
-    notify_user_of_landing_failure(123, "gonzo")
+dedent = inspect.cleandoc
+
+
+class FakeSMTP:
+    """A drop-in fake smtplib.SMTP object that records sent messages."""
+
+    def __init__(self):
+        self.args = None
+        self.outbox = []
+
+    def __call__(self, *args):
+        self.args = args
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    def send_message(self, msg):
+        self.outbox.append(msg)
+
+
+@pytest.fixture
+def smtp(monkeypatch):
+    client = FakeSMTP()
+    monkeypatch.setattr("landoapi.tasks.smtplib.SMTP", client)
+    return client
+
+
+def test_send_failure_notification_email_task(app, smtp):
+    send_landing_failure_email("sadpanda@failure.test", "D54321", "Rebase failed!")
+    assert len(smtp.outbox) == 1
+
+
+def test_email_content():
+    email = make_failure_email("sadpanda@failure.test", "D54321", "Rebase failed!")
+    assert email["To"] == "sadpanda@failure.test"
+    assert email["Subject"] == "Lando: Landing of D54321 failed!"
+    expected_body = dedent(
+        """
+        Your request to land D54321 failed.
+        
+        Reason: Rebase failed!
+        """  # noqa
+    )
+    assert email.get_content() == expected_body + "\n"
+
+
+def test_notify_user_of_landing_failure(app, celery_worker, smtp):
+    # Happy-path test for all objects that collaborate to send emails. We don't check
+    # for an observable effect of sending emails in this test because the
+    # celery_worker fixture causes the test to cross threads.  We only ensure the
+    # happy-path runs cleanly.
+    notify_user_of_landing_failure(Transplant(revision_order=["1"]))
+
+
+def test_mail_sender_whitelist_rejections(app, smtp):
+    app.config["MAIL_RECIPIENT_WHITELIST"] = "alice@example.test"
+    send_landing_failure_email("sadpanda@failure.test", "D1", "Rebase failed!")
+    assert len(smtp.outbox) == 0
+
+
+def test_mail_sender_whitelist_allowances(app, smtp):
+    app.config["MAIL_RECIPIENT_WHITELIST"] = "alice@example.test"
+    send_landing_failure_email("alice@example.test", "D1", "Rebase failed!")
+    assert len(smtp.outbox) == 1
+
+
+def test_mail_suppress_send(app, smtp):
+    app.config["MAIL_SUPPRESS_SEND"] = True
+    send_landing_failure_email("sadpanda@failure.test", "D1", "Rebase failed!")
+    assert len(smtp.outbox) == 0
 
 
 def test_disabling_celery_keeps_tasks_from_executing(app):
@@ -22,8 +97,3 @@ def test_disabling_celery_keeps_tasks_from_executing(app):
         pytest.fail("The test task should never be executed.")
 
     dummy_task.apply_async()
-
-
-def test_log_failure_task(caplog):
-    log_landing_failure(123, "gonzo")
-    assert "Transplant request 123 failed! Reason: gonzo" in caplog.text

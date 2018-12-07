@@ -732,6 +732,10 @@ def test_integrated_transplant_revision_with_unmapped_repo(
     )
 
 
+def test_display_branch_head():
+    assert Transplant(revision_order=["1", "2"]).head_revision == "D2"
+
+
 def _create_transplant(
     db,
     *,

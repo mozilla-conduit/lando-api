@@ -61,5 +61,5 @@ def update(data):
         )
 
     if not data["landed"]:
-        notify_user_of_landing_failure(data["request_id"], data["error_msg"])
+        notify_user_of_landing_failure(transplant)
     return {}, 200
