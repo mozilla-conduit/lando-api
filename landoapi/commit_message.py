@@ -37,25 +37,27 @@ R_SPECIFIER_RE = re.compile(R_SPECIFIER)
 LIST = r"[;,\/\\]\s*"
 
 # Note that we only allows a subset of legal IRC-nick characters.
-# Specifically we not allow [ \ ] ^ ` { | }
+# Specifically, we do not allow [ \ ] ^ ` { | }
 IRC_NICK = r"[a-zA-Z0-9\-\_]+"
 
+# fmt: off
 REVIEWERS_RE = re.compile(
-    r"([\s\(\.\[;,])"
-    + r"("  # before 'r' delimiter
-    + SPECIFIER
-    + r")"
-    + r"("  # flag
-    + IRC_NICK  # capture all reviewers
-    + r"!?"  # reviewer
-    + r"(?:"  # Optional '!' blocking indicator
-    + LIST  # additional reviewers
-    + r"(?![a-z0-9\.\-]+[=?])"  # delimiter
-    + IRC_NICK  # don't extend match into next flag
-    + r"!?"  # reviewer
-    + r")*"  # Optional '!' blocking indicator
-    + r")?"
-)
+    r"([\s\(\.\[;,])" +                 # before "r" delimiter
+    r"(" + SPECIFIER + r")" +           # flag
+    r"(" +                              # capture all reviewers
+        r"#?" +                         # Optional "#" group reviewer prefix
+        IRC_NICK +                      # reviewer
+        r"!?" +                         # Optional "!" blocking indicator
+        r"(?:" +                        # additional reviewers
+            LIST +                      # delimiter
+            r"(?![a-z0-9\.\-]+[=?])" +  # don"t extend match into next flag
+            r"#?" +                     # Optional "#" group reviewer prefix
+            IRC_NICK +                  # reviewer
+            r"!?" +                     # Optional "!" blocking indicator
+        r")*" +
+    r")?"
+)  # noqa
+# fmt: on
 
 # Strip out a white-list of metadata prefixes.
 # Currently just MozReview-Commit-ID
@@ -133,7 +135,7 @@ def replace_reviewers(commit_description, reviewers):
         commit_summary += " " + reviewers_str
     else:
         # replace the first r? with the reviewer list, and all subsequent
-        # occurences with a marker to mark the blocks we need to remove
+        # occurrences with a marker to mark the blocks we need to remove
         # later
         d = {"first": True}
 
@@ -167,7 +169,7 @@ def strip_commit_metadata(s):
     Will strip lines like "MozReview-Commit-ID: foo" from the commit
     message.
     """
-    # TODO this parsing is overly simplied. There is room to handle
+    # TODO this parsing is overly simplified. There is room to handle
     # empty lines before the metadata.
     lines = [l for l in s.splitlines() if not METADATA_RE.match(l)]
 

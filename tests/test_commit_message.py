@@ -77,3 +77,28 @@ def test_commit_message_blocking_reviewers_requested(reviewer_text):
     )
 
     assert commit_message[0] == "Bug 1 - A title! r=blocker"
+
+
+@pytest.mark.parametrize(
+    "reviewer_text",
+    [
+        "r?#group1",
+        "r?#group1, #group2",
+        "r?reviewer_one,#group1",
+        "r?#group1 r?reviewer_two",
+        "r?#group1! r?group2",
+        "r?#group1 r?group2!",
+        "r?#group1! r?group2!",
+        "r?#group1, reviewer_two!",
+    ],
+)
+def test_group_reviewers_replaced(reviewer_text):
+    reviewers = ["reviewer_one", "reviewer_two"]
+    commit_message = format_commit_message(
+        "A title. {}".format(reviewer_text),
+        1,
+        reviewers,
+        "A summary.",
+        "http://phabricator.test/D123",
+    )
+    assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
