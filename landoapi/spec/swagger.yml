@@ -574,6 +574,13 @@ definitions:
           A list of revisions which are part of the stack.
         items:
           $ref: '#/definitions/Revision'
+      repositories:
+        type: array
+        description: |
+          A list of all repositories that have revisions in the stack.
+          Lando may not support landing to all of these repositories.
+        items:
+          $ref: '#/definitions/Repository'
   LandablePath:
     type: array
     description: |
@@ -596,6 +603,26 @@ definitions:
       type: string
       description: |
         A revision PHID.
+  Repository:
+    type: object
+    properties:
+      phid:
+        type: string
+        description: |
+          The repository PHID.
+      short_name:
+        type: string
+        description: |
+          The repository short name as listed on Phabricator.
+      url:
+        type: string
+        description: |
+          The canonical repository URL if landing_supported is true. If false, then
+          this will be the url to the repository on Phabricator.
+      landing_supported:
+        type: boolean
+        description: |
+          Whether Lando is able to land to the repository or not.
   Revision:
     type: object
     properties:
@@ -666,6 +693,10 @@ definitions:
           The full commit message that will be used when landing the revision.
           It is formatted to include the revision title, bug id, reviewers,
           and revision URL.
+      repo_phid:
+        type: string
+        description: |
+          The PHID of this revision's repository.
       diff:
         $ref: '#/definitions/Diff'
       author:

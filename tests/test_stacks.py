@@ -600,3 +600,27 @@ def test_integrated_stack_endpoint_simple(client, phabdouble, mocked_repo_config
     assert revisions[r4["phid"]]["blocked_reason"] == (
         "Repository is not supported by Lando."
     )
+
+
+def test_integrated_stack_endpoint_repos(client, phabdouble, mocked_repo_config):
+    repo = phabdouble.repo()
+    unsupported_repo = phabdouble.repo(name="not-mozilla-central")
+    r1 = phabdouble.revision(repo=repo)
+    r2 = phabdouble.revision(repo=repo, depends_on=[r1])
+    r3 = phabdouble.revision(repo=repo, depends_on=[r1])
+    r4 = phabdouble.revision(repo=unsupported_repo, depends_on=[r2, r3])
+
+    response = client.get("/stacks/D{}".format(r4["id"]))
+    assert response.status_code == 200
+
+    assert len(response.json["repositories"]) == 2
+
+    repositories = {r["phid"]: r for r in response.json["repositories"]}
+    assert repo["phid"] in repositories
+    assert unsupported_repo["phid"] in repositories
+    assert repositories[repo["phid"]]["landing_supported"]
+    assert not repositories[unsupported_repo["phid"]]["landing_supported"]
+    assert repositories[repo["phid"]]["url"] == "http://hg.test"
+    assert repositories[unsupported_repo["phid"]]["url"] == (
+        "http://phabricator.test/source/not-mozilla-central"
+    )

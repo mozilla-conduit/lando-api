@@ -121,13 +121,38 @@ def get(revision_id):
                 "summary": summary,
                 "commit_message_title": commit_message_title,
                 "commit_message": commit_message,
+                "repo_phid": PhabricatorClient.expect(fields, "repositoryPHID"),
                 "diff": serialize_diff(diff),
                 "author": author_response,
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
             }
         )
 
+    repositories = []
+    for phid in stack_data.repositories.keys():
+        short_name = PhabricatorClient.expect(
+            stack_data.repositories[phid], "fields", "shortName"
+        )
+        landing_supported = short_name in supported_repos
+        url = (
+            "{phabricator_url}/source/{short_name}".format(
+                phabricator_url=current_app.config["PHABRICATOR_URL"],
+                short_name=short_name,
+            )
+            if not landing_supported
+            else supported_repos[short_name].url
+        )
+        repositories.append(
+            {
+                "phid": phid,
+                "short_name": short_name,
+                "url": url,
+                "landing_supported": landing_supported,
+            }
+        )
+
     return {
+        "repositories": repositories,
         "revisions": revisions_response,
         "edges": [e for e in edges],
         "landable_paths": landable,
