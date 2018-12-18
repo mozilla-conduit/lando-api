@@ -5,6 +5,8 @@ import json
 import os
 from types import SimpleNamespace
 
+import redis
+import sqlalchemy
 import boto3
 import flask.testing
 import pytest
@@ -52,14 +54,29 @@ class JSONClient(flask.testing.FlaskClient):
         return super(JSONClient, self).open(*args, **kwargs)
 
 
+# Are we running tests under local docker-compose or under CI?
+# Assume that if we are running in an environment with the external services we
+# need then the appropriate variables will be present in the environment.
+#
+# Set this as a module-level variable so that we can query os.environ without any
+# monkeypatch modifications.
+EXTERNAL_SERVICES_SHOULD_BE_PRESENT = (
+    "DATABASE_URL" in os.environ or os.getenv("CI") or "CACHE_REDIS_HOST" in os.environ
+)
+
+
 @pytest.fixture
 def docker_env_vars(monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
     monkeypatch.setenv("ENV", "test")
+    # Overwrite any externally set DATABASE_URL with a unittest-only database URL.
     monkeypatch.setenv(
         "DATABASE_URL", "postgresql://postgres:password@lando-api.db/lando_api_test"
     )
     monkeypatch.setenv("PHABRICATOR_URL", "http://phabricator.test")
+    monkeypatch.setenv(
+        "PHABRICATOR_UNPRIVILEGED_API_KEY", "api-thiskeymustbe32characterslen"
+    )
     monkeypatch.setenv("TRANSPLANT_URL", "http://autoland.test")
     monkeypatch.setenv("TRANSPLANT_API_KEY", "someapikey")
     monkeypatch.setenv("TRANSPLANT_USERNAME", "autoland")
@@ -71,6 +88,8 @@ def docker_env_vars(monkeypatch):
     monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
     monkeypatch.setenv("OIDC_IDENTIFIER", "lando-api")
     monkeypatch.setenv("OIDC_DOMAIN", "lando-api.auth0.test")
+    # Explicitly shut off cache use for all tests.  Tests can re-enable the cache
+    # with the redis_cache fixture.
     monkeypatch.delenv("CACHE_REDIS_HOST", raising=False)
     monkeypatch.delenv("CSP_REPORTING_URL", raising=False)
 
@@ -144,6 +163,13 @@ def db(app):
     """Reset database for each test."""
     with app.app_context():
         _db.init_app(app)
+        try:
+            _db.engine.connect()
+        except sqlalchemy.exc.OperationalError:
+            if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
+                raise
+            else:
+                pytest.skip("Could not connect to PostgreSQL")
         _db.create_all()
         yield _db
         _db.session.remove()
@@ -234,7 +260,13 @@ def redis_cache(app):
         cache.init_app(
             app, config={"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": "redis.cache"}
         )
-        cache.clear()
+        try:
+            cache.clear()
+        except redis.exceptions.ConnectionError:
+            if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
+                raise
+            else:
+                pytest.skip("Could not connect to Redis")
         yield cache
         cache.clear()
         cache.init_app(
