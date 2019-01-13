@@ -11,10 +11,10 @@ from landoapi import auth
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexportbuilder import build_patch_for_revision
-from landoapi.landings import lazy_project_search, lazy_user_search
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.patches import upload
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus
+from landoapi.projects import project_search
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import get_collated_reviewers, reviewer_identity
 from landoapi.revisions import (
@@ -36,6 +36,7 @@ from landoapi.transplants import (
     TransplantAssessment,
 )
 from landoapi.transplant_client import TransplantClient, TransplantError
+from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
@@ -158,8 +159,8 @@ def _assess_transplant_request(phab, landing_path):
         involved_phids.update(gather_involved_phids(revision))
 
     involved_phids = list(involved_phids)
-    users = lazy_user_search(phab, involved_phids)()
-    projects = lazy_project_search(phab, involved_phids)()
+    users = user_search(phab, involved_phids)
+    projects = project_search(phab, involved_phids)
     reviewers = {
         revision["phid"]: get_collated_reviewers(revision) for revision, _ in to_land
     }
@@ -217,8 +218,8 @@ def post(data):
         involved_phids.update(gather_involved_phids(revision))
 
     involved_phids = list(involved_phids)
-    users = lazy_user_search(phab, involved_phids)()
-    projects = lazy_project_search(phab, involved_phids)()
+    users = user_search(phab, involved_phids)
+    projects = project_search(phab, involved_phids)
 
     # Build the patches to land.
     patch_urls = []
@@ -316,7 +317,7 @@ def post(data):
                 status=TransplantStatus.submitted,
             )
             db.session.add(transplant)
-    except TransplantError as exc:
+    except TransplantError:
         logger.exception(
             "error creating transplant", extra={"landing_path": landing_path}
         )

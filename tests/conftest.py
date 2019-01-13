@@ -16,13 +16,12 @@ from moto import mock_s3
 
 from landoapi.app import create_app
 from landoapi.cache import cache
-from landoapi.landings import tokens_are_equal as l_tokens_are_equal
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
 from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
-from landoapi.transplants import tokens_are_equal as t_tokens_are_equal
+from landoapi.transplants import tokens_are_equal
 
 from tests.factories import TransResponseFactory
 from tests.mocks import PhabricatorDouble
@@ -236,12 +235,8 @@ def set_confirmation_token_comparison(monkeypatch):
         mem["val"] = val
 
     monkeypatch.setattr(
-        "landoapi.landings.tokens_are_equal",
-        lambda t1, t2: mem["val"] if mem["set"] else l_tokens_are_equal(t1, t2),
-    )
-    monkeypatch.setattr(
         "landoapi.transplants.tokens_are_equal",
-        lambda t1, t2: mem["val"] if mem["set"] else t_tokens_are_equal(t1, t2),
+        lambda t1, t2: mem["val"] if mem["set"] else tokens_are_equal(t1, t2),
     )
     return set_value
 

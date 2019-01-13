@@ -109,45 +109,6 @@ class Transplant(db.Model):
         revisions = [str(int(r)) for r in revisions]
         return cls.query.filter(cls.revision_to_diff_id.has_any(array(revisions)))
 
-    @classmethod
-    def is_revision_submitted(cls, revision_id):
-        """Check if revision is successfully submitted.
-
-        Args:
-            revision_id: The integer id of the revision.
-
-        Returns:
-            Transplant object or False if not submitted.
-        """
-        transplants = (
-            cls.revisions_query([revision_id])
-            .filter_by(status=TransplantStatus.submitted)
-            .all()
-        )
-
-        if not transplants:
-            return False
-
-        return transplants[0]
-
-    @classmethod
-    def legacy_latest_landed(cls, revision_id):
-        """DEPRECATED Return the latest Landing that is landed, or None.
-
-        Args:
-            revision_id: The integer id of the revision.
-
-        Returns:
-            Latest transplant object with status landed, or None if
-            none exist.
-        """
-        return (
-            cls.revisions_query([revision_id])
-            .filter_by(status=TransplantStatus.landed)
-            .order_by(cls.updated_at.desc())
-            .first()
-        )
-
     def serialize(self):
         """Return a JSON compatible dictionary."""
         return {
@@ -166,37 +127,6 @@ class Transplant(db.Model):
             "requester_email": self.requester_email,
             "tree": self.tree,
             "repository_url": self.repository_url,
-            "created_at": (
-                self.created_at.astimezone(datetime.timezone.utc).isoformat()
-            ),
-            "updated_at": (
-                self.updated_at.astimezone(datetime.timezone.utc).isoformat()
-            ),
-        }
-
-    def legacy_serialize(self):
-        """DEPRECATED Serialize to JSON compatible dictionary."""
-
-        revision_id = None
-        diff_id = None
-        if self.revision_order is not None:
-            revision_id = self.revision_order[-1]
-
-        if revision_id is not None and self.revision_to_diff_id is not None:
-            diff_id = self.revision_to_diff_id.get(revision_id)
-
-        return {
-            "id": self.id,
-            "revision_id": "D{}".format(revision_id),
-            "request_id": self.request_id,
-            "diff_id": diff_id,
-            "active_diff_id": diff_id,
-            "status": self.status.value,
-            "error_msg": self.error,
-            "result": self.result,
-            "requester_email": self.requester_email,
-            "tree": self.tree,
-            "tree_url": self.repository_url or "",
             "created_at": (
                 self.created_at.astimezone(datetime.timezone.utc).isoformat()
             ),

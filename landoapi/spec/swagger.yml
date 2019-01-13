@@ -2,7 +2,7 @@ swagger: '2.0'
 info:
   title: Lando API
   description: An API to get and land Phabricator revisions.
-  version: "1.0.0"
+  version: "2.0.0"
 securityDefinitions:
   PhabricatorAPIKeyHeader:
     type: apiKey
@@ -32,136 +32,6 @@ paths:
             Location:
               description: Where to redirect to
               type: string
-  /revisions/{revision_id}:
-    get:
-      description: |
-        Gets a revision's information as well as the information of
-        all of its parent Revisions. By default only public revisions are
-        accessible. If a Phabricator API key is set in the X-Phabricator-API-Key
-        header, then you may access private Revisions which the owner of the api
-        key has access to.
-      security:
-        - {}
-        - PhabricatorAPIKeyHeader: []
-      parameters:
-        - name: revision_id
-          in: path
-          type: string
-          description: |
-            The id of the revision in the form of 'D{number}', e.g. 'D12345'.
-          required: true
-        - name: diff_id
-          in: query
-          type: integer
-          description: |
-            The id of the optional diff. By default an active diff will
-            be returned.
-      responses:
-        200:
-          description: OK
-          schema:
-            $ref: '#/definitions/Revision'
-        404:
-          description: Revision does not exist
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-  /landings:
-    get:
-      operationId: landoapi.api.landings.get_list
-      description: |
-        Get list of jobs scheduled to land depending on the revision
-        and/or status
-      security:
-        - {}
-        - PhabricatorAPIKeyHeader: []
-      parameters:
-        - name: revision_id
-          in: query
-          type: string
-          required: true
-      responses:
-        200:
-          description: OK
-          schema:
-            type: array
-            items:
-              $ref: '#/definitions/Landing'
-        404:
-          description: Revision does not exist
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-
-    post:
-      description: |
-        Sends request to transplant service and responds just the status code.
-        By default only public revisions are accessible. If a Phabricator API
-        key is set in the X-Phabricator-API-Key header, then you may access
-        private Revisions which the owner of the api key has access to.
-      security:
-        - Auth0AccessToken: []
-        - Auth0AccessToken: []
-          PhabricatorAPIKeyHeader: []
-      parameters:
-        - name: data
-          description: The data required to request a landing.
-          required: true
-          in: body
-          schema:
-            allOf:
-              - $ref: '#/definitions/LandingRequest'
-              - type: object
-                properties:
-                  confirmation_token:
-                    type: string
-                    description: |
-                      A token representing the set of acknowledged warnings
-                      when landing. The /landings/dryrun endpoint responds
-                      with the current warnings and the matching token. If
-                      the warnings have changed between requesting a dryrun
-                      and requesting a landing, the landing will fail.
-      responses:
-        202:
-          description: OK
-          schema:
-            type: object
-            properties:
-              id:
-                type: integer
-                description: |
-                  A newly created Landing id
-        404:
-          description: Revision does not exist
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-        409:
-          description: Unsuccessful attempt to land an inactive diff.
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-        400:
-          description: Blockers or Unacknowledged Warnings
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-              - $ref: '#/definitions/LandingAssessment'
-        default:
-          description: Unexpected error
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
   /transplants/dryrun:
     post:
       operationId: landoapi.api.transplants.dryrun
@@ -266,41 +136,6 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
-  /landings/dryrun:
-    post:
-      operationId: landoapi.api.landings.dryrun
-      description: |
-        Check for any issues that may prevent the caller from landing the given
-        revision. By default only public revisions are accessible. If a
-        Phabricator API key is set in the X-Phabricator-API-Key header, then
-        you may access private Revisions which the owner of the api key has
-        access to.
-      security:
-        - Auth0AccessToken: []
-        - Auth0AccessToken: []
-          PhabricatorAPIKeyHeader: []
-      parameters:
-        - name: data
-          description: The data required to request a landing.
-          required: true
-          in: body
-          schema:
-            $ref: '#/definitions/LandingRequest'
-      responses:
-        200:
-          description: OK
-          schema:
-            $ref: '#/definitions/LandingAssessment'
-        404:
-          description: Revision does not exist
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
   /landings/update:
     post:
       operationId: landoapi.api.landings.update
@@ -357,35 +192,6 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
-  /landings/{landing_id}:
-    get:
-      description: |
-        Request the status of the landing job.
-      security:
-        - {}
-        - PhabricatorAPIKeyHeader: []
-      parameters:
-        - name: landing_id
-          in: path
-          type: integer
-          description: |
-            The id of the landing to return
-          required: true
-      responses:
-        200:
-          description: OK
-          schema:
-            $ref: '#/definitions/Landing'
-        404:
-          description: Landing does not exist
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
-        default:
-          description: Unexpected error
-          schema:
-            allOf:
-              - $ref: '#/definitions/Error'
   /stacks/{revision_id}:
     get:
       description: |
@@ -411,22 +217,6 @@ paths:
             allOf:
               - $ref: '#/definitions/Error'
 definitions:
-  LandingRequest:
-    type: object
-    required:
-      - revision_id
-      - diff_id
-    properties:
-      revision_id:
-        type: string
-        description: |
-          The ID of a revision in the form of 'D{number}', e.g.
-          'D12345'.
-      diff_id:
-        type: integer
-        description: |
-          The ID of a phabricator diff which is associated with the provided
-          revision_id.
   LandingPath:
     type: array
     description: |
@@ -499,60 +289,6 @@ definitions:
         format: date-time
         description: |
           ISO format UTC time of the last update.
-  Landing:
-    type: object
-    properties:
-      id:
-        type: integer
-        description: |
-          The id of the Landing
-      request_id:
-        type: integer
-        description: |
-          The id of the Request in Transplant service
-      status:
-        type: string
-        enum: [aborted, landed, failed, submitted]
-        description: |
-          Status of the landing job in Transplant service
-      revision_id:
-        type: string
-        description: |
-          The id of the Revision in the form of D{number}
-      diff_id:
-        type: integer
-        description: |
-          diff id used to land
-      result:
-        type: string
-        description: |
-          revision (sha) of push if landed == true
-      error_msg:
-        type: string
-        description: |
-          Error message if landing failed
-      requester_email:
-        type: string
-        description: |
-          Email of the requester
-      tree:
-        type: string
-        description: |
-          The repo the revision will land to
-      tree_url:
-        type: string
-        description: |
-          The source url of the repo the revision will land to
-      created_at:
-        type: string
-        format: date-time
-        description: |
-          UTC time of creation
-      updated_at:
-        type: string
-        format: date-time
-        description: |
-          UTC time of the last update
   Stack:
     type: object
     properties:
@@ -839,46 +575,6 @@ definitions:
                     type: string
                     description: |
                       Details of this warning specific to this instance.
-  LandingAssessment:
-    type: object
-    properties:
-      confirmation_token:
-        type: string
-        description: |
-          A token to be passed along with the landing request when the caller
-          goes to land a revision.  By receiving and passing the token along
-          the caller asserts that they have acknowledged all of the warnings.
-          For example, the caller could present a UI with the warnings to the
-          end user and have the user acknowledge the warnings with a checkbox.
-          Once acknowledged, the UI can pass the confirmation token to the
-          landings endpoint so the landing can proceed.
-      warnings:
-        type: array
-        items:
-          $ref: '#/definitions/LandingProblem'
-        description: |
-          A list of issues that the caller should acknowledge before landing
-          their revision.  The caller can signal acknowledgement by sending the
-          confirmation_token with their landing request.
-      blockers:
-        type: array
-        items:
-          $ref: '#/definitions/LandingProblem'
-        description: |
-          A list of problems that stop landing of this revision, such as
-          insufficient version control privileges.
-  LandingProblem:
-    type: object
-    properties:
-      id:
-        type: string
-        description: |
-          The id of the problem or warning as a string, such as W125 or E42
-      message:
-        type: string
-        description: |
-          A detailed human-readable description of the issue. This message
-          should be suitable for display in a user interface.
   # RFC 7807 Problem Details for HTTP APIs (https://tools.ietf.org/html/rfc7807)
   # is used for error messages. Extensions to the error can be speced using an
   # "allOf" schema keyword along with additional schema definition

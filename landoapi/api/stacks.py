@@ -9,8 +9,8 @@ from flask import current_app, g
 
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.landings import lazy_project_search, lazy_user_search
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus
+from landoapi.projects import project_search
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import (
     get_collated_reviewers,
@@ -31,6 +31,7 @@ from landoapi.stacks import (
     request_extended_revision_data,
 )
 from landoapi.transplants import DEFAULT_OTHER_BLOCKER_CHECKS
+from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
@@ -76,8 +77,8 @@ def get(revision_id):
 
     involved_phids = list(involved_phids)
 
-    users = lazy_user_search(phab, involved_phids)()
-    projects = lazy_project_search(phab, involved_phids)()
+    users = user_search(phab, involved_phids)
+    projects = project_search(phab, involved_phids)
 
     revisions_response = []
     for phid, revision in stack_data.revisions.items():
