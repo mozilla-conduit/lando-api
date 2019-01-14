@@ -33,7 +33,6 @@ from landoapi.landings import (
     lazy_reviewers_search,
 )
 from landoapi.models.transplant import Transplant, TransplantStatus
-from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.patches import upload
 from landoapi.phabricator import ReviewerStatus
 from landoapi.reviews import reviewer_identity
@@ -358,5 +357,7 @@ def update(data):
         )
 
     if not data["landed"]:
-        notify_user_of_landing_failure(data["request_id"], data["error_msg"])
+        # XXX Disable Celery communication until queue service is deployed --mars
+        # notify_user_of_landing_failure(data["request_id"], data["error_msg"])
+        pass
     return {}, 200
