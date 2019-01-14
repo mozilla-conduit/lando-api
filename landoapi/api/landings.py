@@ -12,6 +12,7 @@ from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
 from landoapi.models.transplant import Transplant
+from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,5 @@ def update(data):
         )
 
     if not data["landed"]:
-        # XXX Disable Celery communication until queue service is deployed --mars
-        # notify_user_of_landing_failure(data["request_id"], data["error_msg"])
-        pass
+        notify_user_of_landing_failure(data["request_id"], data["error_msg"])
     return {}, 200

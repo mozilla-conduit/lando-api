@@ -33,23 +33,61 @@ class FlaskCelery(Celery):
         if flask_app is not None:
             self.init_app(flask_app)
 
+    @property
+    def dispatch_disabled(self):
+        """Will the Celery job system dispatch tasks to the workers?"""
+        return bool(self.app.config.get("DISABLE_CELERY"))
+
     def init_app(self, app, config=None):
         """Initialize with a flask app."""
         self.app = app
+
+        config = config or {}
         self.conf.update(main=app.import_name, **config)
+
+        if self.dispatch_disabled:
+            logger.warning(
+                "DISABLE_CELERY application configuration variable set, the Celery job "
+                "system has been disabled! Any features that depend on the job system "
+                "will not function."
+            )
 
     def _flask_override_task_class(self):
         """Change Task class to one which executes in a flask context."""
+        # Define a Task subclass that saves a reference to self in the Task object so
+        # the task object can find self.app (the Flask application object) even if
+        # self.app hasn't been set yet.
+        #
+        # We need to delay all of the task's calls to self.app using a custom Task class
+        # because the reference to self.app may not be valid at the time the Celery
+        # application object creates it set of Task objects.  The programmer may
+        # set self.app via the self.init_app() method at any time in the future.
+        #
+        # self.app is expected to be valid and usable by Task objects after the web
+        # application is fully initialized and ready to serve requests.
         BaseTask = self.Task
         celery_self = self
 
         class FlaskTask(BaseTask):
+            """A Celery Task subclass that has a reference to a Flask app."""
+
             def __call__(self, *args, **kwargs):
+                # Override immediate calling of tasks, such as mytask().  This call
+                # method is used by the Celery worker process.
                 if flask.has_app_context():
                     return super().__call__(*args, **kwargs)
 
                 with celery_self.app.app_context():
                     return super().__call__(*args, **kwargs)
+
+            def apply_async(self, *args, **kwargs):
+                # Override delayed calling of tasks, such as mytask.apply_async().
+                # This call method is used by the Celery app when it wants to
+                # schedule a job for eventual execution on a worker.
+                if celery_self.dispatch_disabled:
+                    return None
+                else:
+                    return super().apply_async(*args, **kwargs)
 
         self.Task = FlaskTask
 

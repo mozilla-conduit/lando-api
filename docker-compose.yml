@@ -35,6 +35,11 @@ services:
       # - CACHE_REDIS_PORT=
       # - CACHE_REDIS_PASSWORD=
       # - CACHE_REDIS_DB=
+      # Setting this to any non-empty value will disable the Celery job system and all
+      # features that rely on it.
+      - DISABLE_CELERY=
+      # See http://docs.celeryproject.org/en/latest/userguide/configuration.html#broker-url
+      # for the full URL format.
       - CELERY_BROKER_URL=redis://redis.queue/0
       # Leave AWS credentials unconfigured in production
       - AWS_ACCESS_KEY=

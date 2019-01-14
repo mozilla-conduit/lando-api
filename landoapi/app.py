@@ -98,6 +98,7 @@ def configure_app(flask_app, version_path):
     flask_app.config["ALEMBIC"] = {"script_location": "/migrations/"}
 
     # Celery configuration
+    flask_app.config["DISABLE_CELERY"] = bool(os.getenv("DISABLE_CELERY"))
     flask_app.config["BROKER_URL"] = os.getenv("CELERY_BROKER_URL")
 
     flask_app.config["PATCH_BUCKET_NAME"] = os.getenv("PATCH_BUCKET_NAME")
