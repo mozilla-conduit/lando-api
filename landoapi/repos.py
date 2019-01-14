@@ -36,6 +36,9 @@ SCM_CONDUIT = AccessGroup("active_scm_conduit", "all_scm_conduit", "scm_conduit"
 SCM_L10N_INFRA = AccessGroup(
     "active_scm_l10n_infra", "all_scm_l10n_infra", "scm_l10n_infra"
 )
+SCM_NSS = AccessGroup(
+    "active_scm_nss", "all_scm_nss", "scm_nss"
+)
 
 Repo = namedtuple(
     "Repo",
@@ -98,6 +101,9 @@ REPO_CONFIG = {
         ),
         "comm-central": Repo(
             "comm-central", SCM_LEVEL_3, "", "https://hg.mozilla.org/comm-central"
+        ),
+        "nspr": Repo(
+            "nspr", SCM_NSS, "", "https://hg.mozilla.org/projects/nspr"
         ),
     },
 }
