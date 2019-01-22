@@ -21,6 +21,7 @@ services:
       - DATABASE_URL=postgresql://postgres:password@lando-api.db/lando_api_dev
       - ENV=localdev
       - SENTRY_DSN=
+      - LANDO_UI_URL=https://lando.test
       - PINGBACK_ENABLED=y
       - PINGBACK_HOST_URL=https://lando-api.test
       - TRANSPLANT_URL=https://fake-transplant.herokuapp.com/
@@ -93,6 +94,10 @@ services:
       # are empty.
       - OIDC_IDENTIFIER=
       - OIDC_DOMAIN=
+      # The base URL of the Lando website that users interact with.
+      # e.g. https://lando.test
+      - LANDO_UI_URL=https://lando.test
+      # The hostname of the SMTP server used to notify Lando users of landing failures.
       - MAIL_SERVER=smtp
       - MAIL_PORT=25
       # Set this flag to any non-empty value to have the worker log a message instead of

@@ -8,6 +8,8 @@ import os
 import re
 import sys
 
+from urllib.parse import urlparse
+
 import connexion
 from connexion.resolver import RestyResolver
 
@@ -90,6 +92,9 @@ def configure_app(flask_app, version_path):
             'it must begin with "api-" and be 32 characters long.'
         )
         sys.exit(1)
+
+    # Lando
+    flask_app.config["LANDO_UI_URL"] = url_from_environ("LANDO_UI_URL")
 
     # Sentry
     this_app_version = version_info["version"]
@@ -258,3 +263,37 @@ def log_app_config(flask_app, keys_before_setup):
     settings.update(cleaned_settings)
 
     logger.info("app configured", extra={"configuration": settings})
+
+
+def url_from_environ(varname: str, die=True) -> str:
+    """Fetch a URL from os.environ and ensure it is well-formatted.
+
+    Logs an error for ops and triggers a system shutdown if the URL is missing or
+    malformed.
+
+    Args:
+        varname: The environment variable name that holds the URL we want to load.
+        die: If validation fails raise a sys.exit() if die=True, raise a ValueError if
+            die=False. Defaults to True.
+
+    Returns:
+        The environment variable's value if it is a valid URL.
+
+    Raises:
+        SystemExit if the URL is missing or invalid.  ValueError if die=False.
+    """
+    urlstring = os.getenv(varname)
+    url = urlparse(urlstring)
+    if not url.scheme or not url.netloc:
+        logging.error(
+            "invalid configuration: URL string is missing a scheme and/or hostname",
+            extra={"varname": varname, "value": urlstring},
+        )
+
+        if die:
+            sys.exit(1)
+        else:
+            # For testing so the tests don't have to patch sys.exit().
+            raise ValueError(f"Error validating URL {varname}")
+
+    return urlstring

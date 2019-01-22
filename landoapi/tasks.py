@@ -18,9 +18,12 @@ from datadog import statsd
 from flask import current_app
 
 TRANSPLANT_FAILURE_EMAIL_TEMPLATE = """
-Your request to land {} failed.
+Your request to land {phab_revision_id} failed.
 
-Reason: {}
+See {lando_revision_url} for details.
+
+Reason:
+{reason}
 """.strip()
 
 logger = logging.getLogger(__name__)
@@ -131,13 +134,20 @@ def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg
     with smtplib.SMTP(
         current_app.config.get("MAIL_SERVER"), current_app.config.get("MAIL_PORT")
     ) as smtp:
-        smtp.send_message(make_failure_email(recipient_email, revision_id, error_msg))
+        smtp.send_message(
+            make_failure_email(
+                recipient_email,
+                revision_id,
+                error_msg,
+                current_app.config["LANDO_UI_URL"],
+            )
+        )
 
     logger.info(f"Notification email sent to {recipient_email}")
 
 
 def make_failure_email(
-    recipient_email: str, revision_id: str, error_msg: str
+    recipient_email: str, revision_id: str, error_msg: str, lando_ui_url: str
 ) -> EmailMessage:
     """Build a failure EmailMessage.
 
@@ -145,12 +155,20 @@ def make_failure_email(
         recipient_email: The email of the user receiving the failure notification.
         revision_id: The Phabricator Revision ID that failed to land. e.g. D12345
         error_msg: The error message returned by the Transplant service.
+        lando_ui_url: The base URL of the Lando website. e.g. https://lando.test
     """
     msg = EmailMessage()
     msg["From"] = "mozphab-prod@mozilla.com"
     msg["To"] = recipient_email
     msg["Subject"] = f"Lando: Landing of {revision_id} failed!"
-    msg.set_content(TRANSPLANT_FAILURE_EMAIL_TEMPLATE.format(revision_id, error_msg))
+    lando_revision_url = f"{lando_ui_url}/{revision_id}/"
+    msg.set_content(
+        TRANSPLANT_FAILURE_EMAIL_TEMPLATE.format(
+            phab_revision_id=revision_id,
+            lando_revision_url=lando_revision_url,
+            reason=error_msg,
+        )
+    )
     return msg
 
 

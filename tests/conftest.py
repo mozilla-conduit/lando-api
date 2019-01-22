@@ -74,6 +74,7 @@ def docker_env_vars(monkeypatch):
     monkeypatch.setenv(
         "DATABASE_URL", "postgresql://postgres:password@lando-api.db/lando_api_test"
     )
+    monkeypatch.setenv("LANDO_UI_URL", "http://lando-ui.test")
     monkeypatch.setenv("PHABRICATOR_URL", "http://phabricator.test")
     monkeypatch.setenv(
         "PHABRICATOR_UNPRIVILEGED_API_KEY", "api-thiskeymustbe32characterslen"

@@ -47,14 +47,19 @@ def test_send_failure_notification_email_task(app, smtp):
 
 
 def test_email_content():
-    email = make_failure_email("sadpanda@failure.test", "D54321", "Rebase failed!")
+    email = make_failure_email(
+        "sadpanda@failure.test", "D54321", "Rebase failed!", "https://lando.test"
+    )
     assert email["To"] == "sadpanda@failure.test"
     assert email["Subject"] == "Lando: Landing of D54321 failed!"
     expected_body = dedent(
         """
         Your request to land D54321 failed.
-        
-        Reason: Rebase failed!
+
+        See https://lando.test/D54321/ for details.
+
+        Reason:
+        Rebase failed!
         """  # noqa
     )
     assert email.get_content() == expected_body + "\n"
