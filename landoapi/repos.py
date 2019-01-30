@@ -101,6 +101,9 @@ REPO_CONFIG = {
             "comm-central", SCM_LEVEL_3, "", "https://hg.mozilla.org/comm-central"
         ),
         "nspr": Repo("nspr", SCM_NSS, "", "https://hg.mozilla.org/projects/nspr"),
+        "taskgraph": Repo(
+            "taskgraph", SCM_LEVEL_3, "", "https://hg.mozilla.org/ci/taskgraph"
+        ),
     },
 }
 
