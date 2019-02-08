@@ -277,6 +277,8 @@ def celery_app(app):
     """Configure our app's Celery instance for use with the celery_worker fixture."""
     # The test suite will fail if we don't override the default worker and
     # default task set.
+    # Note: the test worker will fail if we don't specify a result_backend.  The test
+    # harness uses the backend for a custom ping() task that it uses as a health check.
     celery.conf.update(broker_url="memory://", result_backend="rpc")
     # Workaround for https://github.com/celery/celery/issues/4032.  If 'tasks.ping' is
     # missing from the loaded task list then the test worker will fail with an

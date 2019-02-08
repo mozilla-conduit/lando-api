@@ -107,7 +107,24 @@ class FlaskCelery(Celery):
 celery = FlaskCelery()
 
 
-@celery.task(ignore_result=True)
+@celery.task(
+    # Auto-retry for IOErrors from the SMTP socket connection. Don't log
+    # stack traces.  All other exceptions will log a stack trace and cause an
+    # immediate job failure without retrying.
+    autoretry_for=(IOError,),
+    # Seconds to wait between retries.
+    default_retry_delay=60,
+    # Retry sending the notification for three days.  This is the same effort
+    # that SMTP servers use for their outbound mail queues.
+    max_retries=60 * 24 * 3,
+    # Don't store the success or failure results.
+    ignore_result=True,
+    # Don't ack jobs until the job is complete. This should only come up if a worker
+    # dies suddenly in the middle of an email job.  If it does die then it is possible
+    # for the user to get two emails (harmless), which is better than them receiving
+    # no emails.
+    acks_late=True,
+)
 def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg: str):
     """Tell a user that the Transplant service couldn't land their code.
 
@@ -181,6 +198,8 @@ def make_failure_email(
 
 @after_task_publish.connect
 def count_task_published(**kwargs):
+    # This is published by the app when a new task is kicked off.  It is also
+    # published by workers when they put a task back on the queue for retrying.
     statsd.increment("lando-api.celery.tasks_published")
 
 

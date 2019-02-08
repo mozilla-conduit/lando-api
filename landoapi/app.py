@@ -59,7 +59,9 @@ def create_app(version_path, testing=False):
     # Intialize the alembic extension
     alembic.init_app(flask_app)
 
-    celery.init_app(flask_app, config={"broker_url": flask_app.config["BROKER_URL"]})
+    celery.init_app(
+        flask_app, config={"broker_url": flask_app.config["CELERY_BROKER_URL"]}
+    )
 
     initialize_caching(flask_app)
     initialize_hooks(flask_app)
@@ -107,7 +109,7 @@ def configure_app(flask_app, version_path):
 
     # Celery configuration
     flask_app.config["DISABLE_CELERY"] = bool(os.getenv("DISABLE_CELERY"))
-    flask_app.config["BROKER_URL"] = os.getenv("CELERY_BROKER_URL")
+    flask_app.config["CELERY_BROKER_URL"] = os.getenv("CELERY_BROKER_URL")
 
     flask_app.config["PATCH_BUCKET_NAME"] = os.getenv("PATCH_BUCKET_NAME")
 
