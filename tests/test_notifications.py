@@ -35,6 +35,13 @@ class FakeSMTP:
 
 
 @pytest.fixture
+def check_celery(app):
+    """Skip this test if Celery is disabled."""
+    if app.config["DISABLE_CELERY"]:
+        raise pytest.skip("Celery disabled by DISABLE_CELERY envvar")
+
+
+@pytest.fixture
 def smtp(monkeypatch):
     client = FakeSMTP()
     monkeypatch.setattr("landoapi.tasks.smtplib.SMTP", client)
@@ -65,7 +72,9 @@ def test_email_content():
     assert email.get_content() == expected_body + "\n"
 
 
-def test_notify_user_of_landing_failure(app, celery_worker, smtp):
+# Use the 'check_celery' fixture before 'celery_worker'!  Otherwise an environment
+# mis-configuration could cause the test run to hang.
+def test_notify_user_of_landing_failure(check_celery, app, celery_worker, smtp):
     # Happy-path test for all objects that collaborate to send emails. We don't check
     # for an observable effect of sending emails in this test because the
     # celery_worker fixture causes the test to cross threads.  We only ensure the
