@@ -31,28 +31,18 @@ RUN addgroup -g 10001 app && adduser -D -u 10001 -G app -h /app app
 COPY migrations /migrations
 COPY requirements.txt /python_requirements.txt
 
-# Install pure-Python, compiled, and OS package dependencies.  Use scanelf to
-# uninstall any compile-time OS package dependencies and keep only the run-time
-# OS package dependencies.
+# Install pure-Python, compiled, and OS package dependencies.
 RUN set -ex \
-    && apk add --no-cache --virtual .build-deps \
+    && apk add --no-cache \
         gcc \
         libc-dev \
         musl-dev \
         linux-headers \
         pcre-dev \
         postgresql-dev \
+        libpq \
         libffi-dev \
-    && pip install --no-cache -r /python_requirements.txt \
-    && runDeps="$( \
-        scanelf --needed --nobanner --recursive /usr/local \
-            | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
-            | sort -u \
-            | xargs -r apk info --installed \
-            | sort -u \
-    )" \
-    && apk add --virtual .python-rundeps $runDeps \
-    && apk del .build-deps
+    && pip install --no-cache -r /python_requirements.txt
 
 COPY . /app
 
@@ -61,7 +51,6 @@ COPY . /app
 # added to PYTHONPATH though.
 RUN cd / && pip install --no-cache /app
 ENV PYTHONPATH /app
-RUN pip install --no-cache /app
 RUN chown -R app:app /app
 
 # Run as a non-privileged user
