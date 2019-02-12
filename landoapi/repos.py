@@ -80,13 +80,13 @@ REPO_CONFIG = {
             "build-tools", SCM_LEVEL_3, "", "https://hg.mozilla.org/build/tools"
         ),
         "ci-admin": Repo(
-            "ci-admin", SCM_LEVEL_3, "", "https://hg.mozilla.org/build/ci-admin"
+            "ci-admin", SCM_LEVEL_3, "", "https://hg.mozilla.org/ci/ci-admin"
         ),
         "ci-configuration": Repo(
             "ci-configuration",
             SCM_LEVEL_3,
             "",
-            "https://hg.mozilla.org/build/ci-configuration",
+            "https://hg.mozilla.org/ci/ci-configuration",
         ),
         "fluent-migration": Repo(
             "fluent-migration",
