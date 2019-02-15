@@ -18,6 +18,7 @@ from landoapi.app import create_app
 from landoapi.cache import cache
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
+from landoapi.projects import SEC_PROJ_SLUG
 from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
@@ -105,6 +106,11 @@ def request_mocker():
 def phabdouble(monkeypatch):
     """Mock the Phabricator service and build fake response objects."""
     yield PhabricatorDouble(monkeypatch)
+
+
+@pytest.fixture
+def secure_project(phabdouble):
+    return phabdouble.project(SEC_PROJ_SLUG)
 
 
 @pytest.fixture

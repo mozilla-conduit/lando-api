@@ -83,7 +83,7 @@ def request_extended_revision_data(phab, revision_phids):
     revs = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": revision_phids},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
         limit=len(revision_phids),
     )
     phab.expect(revs, "data", len(revision_phids) - 1)

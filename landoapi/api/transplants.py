@@ -14,7 +14,7 @@ from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.patches import upload
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus
-from landoapi.projects import project_search
+from landoapi.projects import get_secure_project_phid, project_search
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import get_collated_reviewers, reviewer_identity
 from landoapi.revisions import (
@@ -166,7 +166,14 @@ def _assess_transplant_request(phab, landing_path):
     }
 
     assessment = check_landing_warnings(
-        g.auth0_user, to_land, repo, landing_repo, reviewers, users, projects
+        g.auth0_user,
+        to_land,
+        repo,
+        landing_repo,
+        reviewers,
+        users,
+        projects,
+        get_secure_project_phid(phab),
     )
     return (assessment, to_land, landing_repo, stack_data)
 

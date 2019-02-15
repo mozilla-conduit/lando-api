@@ -77,7 +77,8 @@ class PhabricatorDouble:
         repo=None,
         status=RevisionStatus.ACCEPTED,
         depends_on=[],
-        bug_id=None
+        bug_id=None,
+        projects=[]
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -112,6 +113,7 @@ class PhabricatorDouble:
             "bugzilla.bug-id": bug_id,
             "repositoryPHID": repo["phid"] if repo is not None else None,
             "sourcePath": None,
+            "projectPHIDs": [project["phid"] for project in projects],
         }
 
         for rev in depends_on:
@@ -474,6 +476,15 @@ class PhabricatorDouble:
 
             items = [i for i in items if i["phid"] in constraints["phids"]]
 
+        if "slugs" in constraints:
+            if not constraints["slugs"]:
+                error_info = 'Error while reading "slugs": Expected a nonempty list, but value is an empty list.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+                )
+
+            items = [i for i in items if i["slug"] in constraints["slugs"]]
+
         return {
             "data": [to_response(i) for i in items],
             "maps": {"slugMap": {}},
@@ -688,6 +699,9 @@ class PhabricatorDouble:
                         for r in reviewers
                     ]
                 }
+
+            if attachments and attachments.get("projects"):
+                resp["attachments"]["projects"] = {"projectPHIDs": i["projectPHIDs"]}
 
             return deepcopy(resp)
 

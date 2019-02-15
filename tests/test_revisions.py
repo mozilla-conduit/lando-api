@@ -50,7 +50,7 @@ def test_check_author_planned_changes_changes_not_planned(phabdouble, status):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     assert check_author_planned_changes(revision=revision) is None
 
@@ -62,6 +62,6 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     assert check_author_planned_changes(revision=revision) is not None

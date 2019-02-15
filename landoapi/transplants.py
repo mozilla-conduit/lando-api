@@ -29,7 +29,7 @@ RevisionWarning = namedtuple(
 def tokens_are_equal(t1, t2):
     """Return whether t1 and t2 are equal.
 
-    This function exists to make mocking or ignorning confirmation token
+    This function exists to make mocking or ignoring confirmation token
     checks very simple.
     """
     return t1 == t2
@@ -235,6 +235,25 @@ def warning_reviews_not_current(*, diff, reviewers, **kwargs):
     return "Has no accepted review on the current diff."
 
 
+@RevisionWarningCheck(
+    4, "Is a secure revision and should follow the Security Bug Approval Process."
+)
+def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
+    if secure_project_phid is None:
+        return None
+
+    revision_project_tags = PhabricatorClient.expect(
+        revision, "attachments", "projects", "projectPHIDs"
+    )
+    if secure_project_phid not in revision_project_tags:
+        return None
+
+    return (
+        "This revision is tied to a secure bug. Ensure that you are following the "
+        "Security Bug Approval Process guidelines before landing this changeset."
+    )
+
+
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return (
@@ -266,12 +285,14 @@ def check_landing_warnings(
     reviewers,
     users,
     projects,
+    secure_project_phid,
     *,
     revision_warnings=[
         warning_blocking_reviews,
         warning_previously_landed,
         warning_not_accepted,
         warning_reviews_not_current,
+        warning_revision_secure,
     ]
 ):
     assessment = TransplantAssessment()
@@ -285,6 +306,7 @@ def check_landing_warnings(
                 reviewers=reviewers[revision["phid"]],
                 users=users,
                 projects=projects,
+                secure_project_phid=secure_project_phid,
             )
 
             if result is not None:

@@ -19,6 +19,7 @@ from landoapi.transplants import (
     warning_not_accepted,
     warning_previously_landed,
     warning_reviews_not_current,
+    warning_revision_secure,
 )
 
 
@@ -275,7 +276,7 @@ def test_warning_previously_landed_no_landings(db, phabdouble):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     diff = phab.call_conduit(
         "differential.diff.search",
@@ -300,7 +301,7 @@ def test_warning_previously_landed_failed_landing(db, phabdouble):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     diff = phab.call_conduit(
         "differential.diff.search",
@@ -325,7 +326,7 @@ def test_warning_previously_landed_landed_landing(db, phabdouble):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     diff = phab.call_conduit(
         "differential.diff.search",
@@ -333,6 +334,53 @@ def test_warning_previously_landed_landed_landing(db, phabdouble):
         attachments={"commits": True},
     )["data"][0]
     assert warning_previously_landed(revision=revision, diff=diff) is not None
+
+
+def test_warning_revision_secure_project_none(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    r = phabdouble.revision(diff=phabdouble.diff())
+
+    revision = phab.call_conduit(
+        "differential.revision.search",
+        constraints={"phids": [r["phid"]]},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )["data"][0]
+    assert warning_revision_secure(revision=revision, secure_project_phid=None) is None
+
+
+def test_warning_revision_secure_is_secure(phabdouble, secure_project):
+    phab = phabdouble.get_phabricator_client()
+    r = phabdouble.revision(diff=phabdouble.diff(), projects=[secure_project])
+
+    revision = phab.call_conduit(
+        "differential.revision.search",
+        constraints={"phids": [r["phid"]]},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )["data"][0]
+    assert (
+        warning_revision_secure(
+            revision=revision, secure_project_phid=secure_project["phid"]
+        )
+        is not None
+    )
+
+
+def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
+    phab = phabdouble.get_phabricator_client()
+    not_secure_project = phabdouble.project("not_secure_project")
+    r = phabdouble.revision(diff=phabdouble.diff(), projects=[not_secure_project])
+
+    revision = phab.call_conduit(
+        "differential.revision.search",
+        constraints={"phids": [r["phid"]]},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )["data"][0]
+    assert (
+        warning_revision_secure(
+            revision=revision, secure_project_phid=secure_project["phid"]
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize(
@@ -345,7 +393,7 @@ def test_warning_not_accepted_warns_on_other_status(phabdouble, status):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     assert warning_not_accepted(revision=revision) is not None
 
@@ -357,7 +405,7 @@ def test_warning_not_accepted_no_warning_when_accepted(phabdouble):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     assert warning_not_accepted(revision=revision) is None
 
@@ -377,7 +425,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     reviewers = get_collated_reviewers(revision)
 
@@ -402,7 +450,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(phabdouble):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     reviewers = get_collated_reviewers(revision)
 
@@ -432,7 +480,7 @@ def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     reviewers = get_collated_reviewers(revision)
 
