@@ -3,6 +3,32 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from flask_alembic import Alembic
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError
+
+from landoapi.systems import Subsystem
 
 db = SQLAlchemy()
 alembic = Alembic()
+
+
+class DBSubsystem(Subsystem):
+    name = "database"
+
+    def init_app(self, app):
+        super().init_app(app)
+        db.init_app(app)
+        alembic.init_app(app)
+
+    def healthy(self):
+        try:
+            with db.engine.connect() as conn:
+                conn.execute("SELECT 1;")
+        except DBAPIError as exc:
+            return "DBAPIError: {!s}".format(exc)
+        except SQLAlchemyError as exc:
+            return "SQLAlchemyError: {!s}".format(exc)
+
+        return True
+
+
+db_subsystem = DBSubsystem()

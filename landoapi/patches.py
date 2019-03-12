@@ -2,8 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import boto3
+import botocore
 import logging
 import tempfile
+
+from landoapi.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 
@@ -50,3 +53,29 @@ def upload(revision_id, diff_id, patch, s3_bucket, *, aws_access_key, aws_secret
 
     logger.info("patch uploaded", extra={"patch_url": patch_url})
     return patch_url
+
+
+class PatchesS3Subsystem(Subsystem):
+    name = "s3_patch_bucket"
+
+    def healthy(self):
+        bucket = self.flask_app.config.get("PATCH_BUCKET_NAME")
+        if not bucket:
+            return "PATCH_BUCKET_NAME not configured"
+
+        s3 = boto3.resource(
+            "s3",
+            aws_access_key_id=self.flask_app.config.get("AWS_ACCESS_KEY"),
+            aws_secret_access_key=self.flask_app.config.get("AWS_SECRET_KEY"),
+        )
+        try:
+            s3.meta.client.head_bucket(Bucket=bucket)
+        except botocore.exceptions.ClientError as exc:
+            return "ClientError: {!s}".format(exc)
+        except botocore.exceptions.BotoCoreError as exc:
+            return "BotoCoreError: {!s}".format(exc)
+
+        return True
+
+
+patches_s3_subsystem = PatchesS3Subsystem()

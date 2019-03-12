@@ -5,297 +5,118 @@ import json
 import logging
 import logging.config
 import os
-import re
-import sys
-
-from urllib.parse import urlparse
 
 import connexion
 from connexion.resolver import RestyResolver
 
 import landoapi.models  # noqa, makes sure alembic knows about the models.
 
-from landoapi.cache import cache
+from landoapi.auth import auth0_subsystem
+from landoapi.cache import cache_subsystem
+from landoapi.celery import celery_subsystem
 from landoapi.dockerflow import dockerflow
 from landoapi.hooks import initialize_hooks
-from landoapi.logging import MozLogFormatter
-from landoapi.sentry import sentry
-from landoapi.storage import alembic, db
-from landoapi.tasks import celery
+from landoapi.logging import logging_subsystem
+from landoapi.patches import patches_s3_subsystem
+from landoapi.phabricator import phabricator_subsystem
+from landoapi.sentry import sentry_subsystem
+from landoapi.storage import db_subsystem
+from landoapi.transplant_client import transplant_subsystem
+from landoapi.ui import lando_ui_subsystem
 
 logger = logging.getLogger(__name__)
 
+SUBSYSTEMS = [
+    # Logging & sentry first so that other systems log properly.
+    logging_subsystem,
+    sentry_subsystem,
+    auth0_subsystem,
+    cache_subsystem,
+    celery_subsystem,
+    db_subsystem,
+    lando_ui_subsystem,
+    patches_s3_subsystem,
+    phabricator_subsystem,
+    transplant_subsystem,
+]
 
-def create_app(version_path, testing=False):
-    """Construct an application instance."""
-    initialize_logging()
 
+def load_config():
+    """Return configuration pulled from the environment."""
+    config = {
+        "ALEMBIC": {"script_location": "/migrations/"},
+        "DISABLE_CELERY": bool(os.getenv("DISABLE_CELERY")),
+        "ENVIRONMENT": os.getenv("ENV"),
+        "PINGBACK_URL": "{host_url}/landings/update".format(
+            host_url=os.getenv("PINGBACK_HOST_URL")
+        ),
+        "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL"),
+        "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+        "VERSION": {
+            "source": "https://github.com/mozilla-conduit/lando-api",
+            "version": "0.0.0",
+            "commit": "",
+            "build": "dev",
+        },
+    }
+    for env_var, default in [
+        # AWS credentials should be only provided if needed in development
+        ("AWS_ACCESS_KEY", None),
+        ("AWS_SECRET_KEY", None),
+        ("CACHE_REDIS_DB", None),
+        ("CACHE_REDIS_HOST", None),
+        ("CACHE_REDIS_PASSWORD", None),
+        ("CACHE_REDIS_PORT", 6379),
+        ("CELERY_BROKER_URL", None),
+        ("CSP_REPORTING_URL", None),
+        ("LANDO_UI_URL", None),
+        ("LOG_LEVEL", "INFO"),
+        ("MAIL_PORT", None),
+        ("MAIL_RECIPIENT_WHITELIST", None),
+        ("MAIL_SERVER", None),
+        ("MAIL_SUPPRESS_SEND", None),
+        ("OIDC_DOMAIN", None),
+        ("OIDC_IDENTIFIER", None),
+        ("PATCH_BUCKET_NAME", None),
+        ("PINGBACK_ENABLED", "n"),
+        ("PHABRICATOR_UNPRIVILEGED_API_KEY", None),
+        ("PHABRICATOR_URL", None),
+        ("SENTRY_DSN", None),
+        ("TRANSPLANT_PASSWORD", None),
+        ("TRANSPLANT_API_KEY", None),
+        ("TRANSPLANT_URL", None),
+        ("TRANSPLANT_USERNAME", None),
+        ("VERSION_PATH", "/app/version.json"),
+    ]:
+        config[env_var] = os.getenv(env_var, default)
+
+    # Read the version information.
+    if config.get("VERSION_PATH") is not None:
+        try:
+            with open(config["VERSION_PATH"]) as f:
+                config["VERSION"] = json.load(f)
+        except (IOError, ValueError):
+            logger.warning(
+                "VERSION_PATH ({}) could not be loaded, assuming dev".format(
+                    config.get("VERSION_PATH")
+                )
+            )
+
+    return config
+
+
+def construct_app(config, testing=False):
     app = connexion.App(__name__, specification_dir="spec/")
 
-    swagger_ui_enabled = os.environ.get("ENV", None) == "localdev"
+    swagger_ui_enabled = config.get("ENVIRONMENT", None) == "localdev"
     app.add_api(
         "swagger.yml",
         resolver=RestyResolver("landoapi.api"),
         swagger_ui=swagger_ui_enabled,
     )
-
-    # Get the Flask app being wrapped by the Connexion app.
     flask_app = app.app
-
-    # Set app.testing before we initialize any extensions so they pick up the setting.
-    flask_app.testing = testing
-
-    keys_before_setup = set(flask_app.config.keys())
-
-    configure_app(flask_app, version_path)
-
-    log_app_config(flask_app, keys_before_setup)
-
+    flask_app.config.update(config)
     flask_app.register_blueprint(dockerflow)
-
-    # Initialize database
-    db.init_app(flask_app)
-
-    # Intialize the alembic extension
-    alembic.init_app(flask_app)
-
-    celery.init_app(
-        flask_app, config={"broker_url": flask_app.config["CELERY_BROKER_URL"]}
-    )
-
-    initialize_caching(flask_app)
     initialize_hooks(flask_app)
 
     return app
-
-
-def configure_app(flask_app, version_path):
-    flask_app.config["ENVIRONMENT"] = os.getenv("ENV")
-
-    # Application version metadata
-    flask_app.config["VERSION_PATH"] = version_path
-    version_info = json.load(open(version_path))
-    logger.info("application version", extra=version_info)
-
-    # Phabricator.
-    flask_app.config["PHABRICATOR_URL"] = os.getenv("PHABRICATOR_URL")
-    flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"] = os.getenv(
-        "PHABRICATOR_UNPRIVILEGED_API_KEY"
-    )
-    if (
-        flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
-        and re.match(
-            r"^api-.{28}$", flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
-        )
-        is None
-    ):
-        logger.error(
-            "PHABRICATOR_UNPRIVILEGED_API_KEY has the wrong format, "
-            'it must begin with "api-" and be 32 characters long.'
-        )
-        sys.exit(1)
-
-    # Lando
-    flask_app.config["LANDO_UI_URL"] = url_from_environ("LANDO_UI_URL")
-
-    # Sentry
-    this_app_version = version_info["version"]
-    initialize_sentry(flask_app, this_app_version)
-
-    # Database configuration
-    flask_app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
-    flask_app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    flask_app.config["ALEMBIC"] = {"script_location": "/migrations/"}
-
-    # Celery configuration
-    flask_app.config["DISABLE_CELERY"] = bool(os.getenv("DISABLE_CELERY"))
-    flask_app.config["CELERY_BROKER_URL"] = os.getenv("CELERY_BROKER_URL")
-
-    flask_app.config["PATCH_BUCKET_NAME"] = os.getenv("PATCH_BUCKET_NAME")
-
-    # Set the pingback url
-    flask_app.config["PINGBACK_URL"] = "{host_url}/landings/update".format(
-        host_url=os.getenv("PINGBACK_HOST_URL")
-    )
-    flask_app.config["PINGBACK_ENABLED"] = os.getenv("PINGBACK_ENABLED", "n")
-    for transplant_config in [
-        "TRANSPLANT_URL",
-        "TRANSPLANT_USERNAME",
-        "TRANSPLANT_PASSWORD",
-        "TRANSPLANT_API_KEY",
-    ]:
-        flask_app.config[transplant_config] = os.getenv(transplant_config)
-
-    # Protect against enabling pingback without proper security. If
-    # we're allowing pingbacks but the api key is None or empty abort:
-    if (
-        flask_app.config["PINGBACK_ENABLED"] == "y"
-        and not flask_app.config["TRANSPLANT_API_KEY"]
-    ):
-        logger.error('PINGBACK_ENABLED="y" but TRANSPLANT_API_KEY is unset.')
-        sys.exit(1)
-
-    # AWS credentials should be only provided if needed in development
-    flask_app.config["AWS_ACCESS_KEY"] = os.getenv("AWS_ACCESS_KEY")
-    flask_app.config["AWS_SECRET_KEY"] = os.getenv("AWS_SECRET_KEY")
-
-    flask_app.config["CSP_REPORTING_URL"] = os.getenv("CSP_REPORTING_URL")
-
-    # OIDC Configuration:
-    # OIDC_IDENTIFIER should be the custom api identifier defined in auth0.
-    # Leaving this unset could cause an application security problem.  We require the
-    # operating system environment to set it.
-    flask_app.config["OIDC_IDENTIFIER"] = os.environ["OIDC_IDENTIFIER"]
-    # OIDC_DOMAIN should be the domain assigned to the auth0 organization.
-    # Leaving this unset could cause an application security problem.  We require the
-    # operating system environment to set it.
-    flask_app.config["OIDC_DOMAIN"] = os.environ["OIDC_DOMAIN"]
-    # ODIC_JWKS_URL should be the url to the set of JSON Web Keys used by
-    # auth0 to sign access_tokens.
-    flask_app.config[
-        "OIDC_JWKS_URL"
-    ] = "https://{oidc_domain}/.well-known/jwks.json".format(
-        oidc_domain=flask_app.config["OIDC_DOMAIN"]
-    )
-
-    # Mail configuration
-    flask_app.config["MAIL_SERVER"] = os.getenv("MAIL_SERVER")
-    flask_app.config["MAIL_PORT"] = os.getenv("MAIL_PORT")
-    flask_app.config["MAIL_SUPPRESS_SEND"] = bool(os.getenv("MAIL_SUPPRESS_SEND"))
-    flask_app.config["MAIL_RECIPIENT_WHITELIST"] = os.getenv("MAIL_RECIPIENT_WHITELIST")
-
-
-def initialize_caching(flask_app):
-    """Initialize cache objects from environment.
-
-    Args:
-        flask_app: A Flask() instance.
-    """
-    host = os.environ.get("CACHE_REDIS_HOST")
-
-    if not host:
-        # Default to not caching for testing.
-        logger.warning("Cache initialized in null mode, caching disabled.")
-        cache_config = {"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True}
-    else:
-        cache_config = {"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": host}
-        env_keys = ("CACHE_REDIS_PORT", "CACHE_REDIS_PASSWORD", "CACHE_REDIS_DB")
-        for k in env_keys:
-            v = os.environ.get(k)
-            if v is not None:
-                cache_config[k] = v
-
-    cache.init_app(flask_app, config=cache_config)
-
-
-def initialize_sentry(flask_app, release):
-    """Initialize Sentry application monitoring.
-
-    See https://docs.sentry.io/clients/python/advanced/#client-arguments for
-    details about what this function's arguments mean to Sentry.
-
-    Args:
-        flask_app: A Flask() instance.
-        release: A string representing this application release number (such as
-            a git sha).  Will be used as the Sentry "release" identifier. See
-            the Sentry client configuration docs for details.
-    """
-    sentry_dsn = os.environ.get("SENTRY_DSN", None)
-    logger.info("sentry status", extra={"enabled": bool(sentry_dsn)})
-    sentry.init_app(flask_app, dsn=sentry_dsn)
-
-    # Set these attributes directly because their keyword arguments can't be
-    # passed into Sentry.__init__() or make_client().
-    sentry.client.release = release
-    sentry.client.environment = flask_app.config["ENVIRONMENT"]
-    sentry.client.processors = (
-        "raven.processors.SanitizePasswordsProcessor",
-        "raven.processors.RemoveStackLocalsProcessor",
-    )
-
-
-def initialize_logging():
-    """Initialize application-wide logging."""
-    level = os.environ.get("LOG_LEVEL", "INFO")
-    logging.config.dictConfig(
-        {
-            "version": 1,
-            "formatters": {
-                "mozlog": {"()": MozLogFormatter, "mozlog_logger": "lando-api"}
-            },
-            "handlers": {
-                "console": {"class": "logging.StreamHandler", "formatter": "mozlog"},
-                "null": {"class": "logging.NullHandler"},
-            },
-            "loggers": {
-                "landoapi": {"level": level, "handlers": ["console"]},
-                "request.summary": {"level": level, "handlers": ["console"]},
-                "flask": {"handlers": ["null"]},
-                "werkzeug": {"level": "ERROR", "handlers": ["console"]},
-            },
-            "root": {"handlers": ["null"]},
-            "disable_existing_loggers": True,
-        }
-    )
-    logger.info("logging configured", extra={"LOG_LEVEL": level})
-
-
-def log_app_config(flask_app, keys_before_setup):
-    """Logs a sanitized version of the app configuration."""
-    keys_to_sanitize = {
-        "DATABASE_URL",
-        "CACHE_REDIS_PASSWORD",
-        "SQLALCHEMY_DATABASE_URI",
-        "TRANSPLANT_USERNAME",
-        "TRANSPLANT_PASSWORD",
-        "TRANSPLANT_API_KEY",
-        "AWS_ACCESS_KEY",
-        "AWS_SECRET_KEY",
-        "PHABRICATOR_UNPRIVILEGED_API_KEY",
-    }
-
-    keys_after_setup = set(flask_app.config.keys())
-    keys_to_log = keys_after_setup.difference(keys_before_setup)
-
-    safe_keys = keys_to_log.difference(keys_to_sanitize)
-    settings = {k: flask_app.config[k] for k in safe_keys}
-
-    sensitive_keys = keys_to_log.intersection(keys_to_sanitize)
-    cleaned_settings = dict((k, "********") for k in sensitive_keys)
-    settings.update(cleaned_settings)
-
-    logger.info("app configured", extra={"configuration": settings})
-
-
-def url_from_environ(varname: str, die=True) -> str:
-    """Fetch a URL from os.environ and ensure it is well-formatted.
-
-    Logs an error for ops and triggers a system shutdown if the URL is missing or
-    malformed.
-
-    Args:
-        varname: The environment variable name that holds the URL we want to load.
-        die: If validation fails raise a sys.exit() if die=True, raise a ValueError if
-            die=False. Defaults to True.
-
-    Returns:
-        The environment variable's value if it is a valid URL.
-
-    Raises:
-        SystemExit if the URL is missing or invalid.  ValueError if die=False.
-    """
-    urlstring = os.getenv(varname)
-    url = urlparse(urlstring)
-    if not url.scheme or not url.netloc:
-        logging.error(
-            "invalid configuration: URL string is missing a scheme and/or hostname",
-            extra={"varname": varname, "value": urlstring},
-        )
-
-        if die:
-            sys.exit(1)
-        else:
-            # For testing so the tests don't have to patch sys.exit().
-            raise ValueError(f"Error validating URL {varname}")
-
-    return urlstring

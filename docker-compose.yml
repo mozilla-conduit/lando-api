@@ -13,9 +13,6 @@ services:
     ports:
       - "8888:8888"
     environment:
-      # We install a dummy version.json and tell lando-api to use it
-      # during development. The proper /app/version.json is built in CI.
-      - VERSION_PATH=/version.json
       - PHABRICATOR_URL=https://phabricator-dev.allizom.org/
       - PHABRICATOR_UNPRIVILEGED_API_KEY=api-0123456789012345678901234567
       - DATABASE_URL=postgresql://postgres:password@lando-api.db/lando_api_dev
@@ -29,8 +26,8 @@ services:
       - TRANSPLANT_PASSWORD=autoland
       - TRANSPLANT_API_KEY=set-api-key
       - PATCH_BUCKET_NAME=
-      - OIDC_IDENTIFIER=
-      - OIDC_DOMAIN=
+      - OIDC_IDENTIFIER=https://lando-api.test
+      - OIDC_DOMAIN=https://auth0.test
       # - CSP_REPORTING_URL=/__cspreport__
       - CACHE_REDIS_HOST=redis.cache
       # - CACHE_REDIS_PORT=
@@ -70,7 +67,6 @@ services:
     user: root
     volumes:
       - ./:/app
-      - ./docker/dev-version.json:/version.json
       - ./migrations/:/migrations/
       # Prevent writing python cache to the host.
       - caches_pycache:/app/tests/__pycache__/
@@ -84,16 +80,13 @@ services:
     image: lando-api
     command: ["worker"]
     environment:
-      - VERSION_PATH=/version.json
       - ENV=localdev
       - SENTRY_DSN=
       # See http://docs.celeryproject.org/en/stable/getting-started/brokers/redis.html#configuration
       # for the full URL format.
       - CELERY_BROKER_URL=redis://redis.queue/0
-      # The OIDC_* values need to be set by all application instances even if they are
-      # are empty.
-      - OIDC_IDENTIFIER=
-      - OIDC_DOMAIN=
+      - OIDC_IDENTIFIER=https://lando-api.test
+      - OIDC_DOMAIN=https://auth0.test
       # The base URL of the Lando website that users interact with.
       # e.g. https://lando.test
       - LANDO_UI_URL=https://lando.test
@@ -110,7 +103,6 @@ services:
     user: root
     volumes:
       - ./:/app
-      - ./docker/dev-version.json:/version.json
       - ./migrations/:/migrations/
       # Prevent writing python cache to the host.
       - caches_cache:/app/.cache/

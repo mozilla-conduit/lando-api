@@ -14,6 +14,8 @@ from jose import jwt
 
 from landoapi.cache import cache
 from landoapi.mocks.auth import MockAuth0
+from landoapi.systems import Subsystem
+
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +88,9 @@ def jwks_cache_key(url):
 
 def get_jwks():
     """Return the auth0 jwks."""
-    jwks_url = current_app.config["OIDC_JWKS_URL"]
+    jwks_url = "https://{oidc_domain}/.well-known/jwks.json".format(
+        oidc_domain=current_app.config["OIDC_DOMAIN"]
+    )
     cache_key = jwks_cache_key(jwks_url)
 
     jwks = None
@@ -565,3 +569,36 @@ def require_transplant_authentication(f):
         return f(*args, **kwargs)
 
     return wrapped
+
+
+class Auth0Subsystem(Subsystem):
+    name = "auth0"
+
+    def ready(self):
+        domain = self.flask_app.config.get("OIDC_DOMAIN")
+        identifier = self.flask_app.config.get("OIDC_IDENTIFIER")
+
+        # OIDC_DOMAIN should be the domain assigned to the auth0 organization.
+        # Leaving this unset could cause an application security problem.  We
+        # require it to be set.
+        #
+        # OIDC_IDENTIFIER should be the custom api identifier defined in auth0.
+        # Leaving this unset could cause an application security problem.  We
+        # require it to be set.
+        if not domain:
+            return "OIDC_DOMAIN isn't set."
+        if not identifier:
+            return "OIDC_IDENTIFIER isn't set."
+
+        return True
+
+    def healthy(self):
+        try:
+            get_jwks()
+        except ProblemException as exc:
+            return "Exception when requesting jwks: {}".format(exc.detail)
+
+        return True
+
+
+auth0_subsystem = Auth0Subsystem()

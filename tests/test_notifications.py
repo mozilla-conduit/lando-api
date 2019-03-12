@@ -5,9 +5,10 @@ import inspect
 
 import pytest
 
+from landoapi.celery import FlaskCelery
 from landoapi.models import Transplant
 from landoapi.notifications import notify_user_of_landing_failure
-from landoapi.tasks import FlaskCelery, make_failure_email, send_landing_failure_email
+from landoapi.tasks import make_failure_email, send_landing_failure_email
 
 
 dedent = inspect.cleandoc

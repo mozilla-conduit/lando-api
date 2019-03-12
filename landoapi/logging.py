@@ -3,6 +3,10 @@ import logging
 import socket
 import traceback
 
+from landoapi.systems import Subsystem
+
+logger = logging.getLogger(__name__)
+
 
 class MozLogFormatter(logging.Formatter):
     """A mozlog logging formatter.
@@ -104,3 +108,40 @@ class PrettyMozLogFormatter(MozLogFormatter):
     def serialize(self, mozlog_record):
         """Serialize a mozlog record."""
         return json.dumps(mozlog_record, sort_keys=True, indent=2)
+
+
+class LoggingSubsystem(Subsystem):
+    name = "logging"
+
+    def init_app(self, app):
+        self.flask_app = app
+        level = self.flask_app.config.get("LOG_LEVEL", "INFP")
+
+        logging.config.dictConfig(
+            {
+                "version": 1,
+                "formatters": {
+                    "mozlog": {"()": MozLogFormatter, "mozlog_logger": "lando-api"}
+                },
+                "handlers": {
+                    "console": {
+                        "class": "logging.StreamHandler",
+                        "formatter": "mozlog",
+                    },
+                    "null": {"class": "logging.NullHandler"},
+                },
+                "loggers": {
+                    "landoapi": {"level": level, "handlers": ["console"]},
+                    "request.summary": {"level": level, "handlers": ["console"]},
+                    "flask": {"handlers": ["null"]},
+                    "werkzeug": {"level": "ERROR", "handlers": ["console"]},
+                    "celery": {"level": "INFO", "handlers": ["console"]},
+                },
+                "root": {"handlers": ["null"]},
+                "disable_existing_loggers": True,
+            }
+        )
+        logger.info("logging configured", extra={"LOG_LEVEL": level})
+
+
+logging_subsystem = LoggingSubsystem()

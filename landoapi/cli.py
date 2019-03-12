@@ -1,6 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import logging
 import os
 import sys
 
@@ -9,10 +10,14 @@ from flask.cli import FlaskGroup
 
 
 def create_lando_api_app(info):
-    from landoapi.app import create_app
+    from landoapi.app import construct_app, load_config, SUBSYSTEMS
 
-    version_path = os.getenv("VERSION_PATH", "/app/version.json")
-    return create_app(version_path).app
+    config = load_config()
+    app = construct_app(config)
+    for system in SUBSYSTEMS:
+        system.init_app(app.app)
+
+    return app.app
 
 
 @click.group(cls=FlaskGroup, create_app=create_lando_api_app)
@@ -35,14 +40,39 @@ def init():
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def worker(celery_arguments):
     """Initialize a Celery worker for this app."""
-    from landoapi.tasks import celery
+    from landoapi.app import SUBSYSTEMS
+
+    for system in SUBSYSTEMS:
+        system.ensure_ready()
+
+    from landoapi.celery import celery
 
     celery.worker_main((sys.argv[0],) + celery_arguments)
 
 
-@cli.command(with_appcontext=False)
+@cli.command(context_settings=dict(ignore_unknown_options=True))
+@click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
+def celery(celery_arguments):
+    """Run the celery base command for this app."""
+    from landoapi.app import SUBSYSTEMS
+
+    for system in SUBSYSTEMS:
+        system.ensure_ready()
+
+    from landoapi.celery import celery
+
+    celery.start([sys.argv[0]] + list(celery_arguments))
+
+
+@cli.command()
 def uwsgi():
     """Run the service in production mode with uwsgi."""
+    from landoapi.app import SUBSYSTEMS
+
+    for system in SUBSYSTEMS:
+        system.ensure_ready()
+
+    logging.shutdown()
     os.execvp("uwsgi", ["uwsgi"])
 
 

@@ -14,13 +14,13 @@ import requests_mock
 from flask import current_app
 from moto import mock_s3
 
-from landoapi.app import create_app
-from landoapi.cache import cache
+from landoapi.app import construct_app, load_config, SUBSYSTEMS
+from landoapi.cache import cache, cache_subsystem
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import SEC_PROJ_SLUG
 from landoapi.repos import Repo, SCM_LEVEL_3
-from landoapi.storage import db as _db
+from landoapi.storage import db as _db, db_subsystem
 from landoapi.tasks import celery
 from landoapi.transplants import tokens_are_equal
 
@@ -67,9 +67,10 @@ EXTERNAL_SERVICES_SHOULD_BE_PRESENT = (
 
 
 @pytest.fixture
-def docker_env_vars(monkeypatch):
+def docker_env_vars(versionfile, monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
     monkeypatch.setenv("ENV", "test")
+    monkeypatch.setenv("VERSION_PATH", versionfile)
     # Overwrite any externally set DATABASE_URL with a unittest-only database URL.
     monkeypatch.setenv(
         "DATABASE_URL", "postgresql://postgres:password@lando-api.db/lando_api_test"
@@ -148,15 +149,19 @@ def disable_migrations(monkeypatch):
         def init_app(self, app):
             pass
 
-    monkeypatch.setattr("landoapi.app.alembic", StubAlembic())
+    monkeypatch.setattr("landoapi.storage.alembic", StubAlembic())
 
 
 @pytest.fixture
 def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     """Needed for pytest-flask."""
-    app = create_app(versionfile.strpath, testing=True)
+    config = load_config()
+    app = construct_app(config, testing=True)
     flask_app = app.app
     flask_app.test_client_class = JSONClient
+    for system in SUBSYSTEMS:
+        system.init_app(flask_app)
+
     return flask_app
 
 
@@ -164,7 +169,7 @@ def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
 def db(app):
     """Reset database for each test."""
     with app.app_context():
-        _db.init_app(app)
+        db_subsystem.init_app(app)
         try:
             _db.engine.connect()
         except sqlalchemy.exc.OperationalError:
@@ -255,6 +260,7 @@ def get_phab_client(app):
 @pytest.fixture
 def redis_cache(app):
     with app.app_context():
+        cache_subsystem.init_app(app)
         cache.init_app(
             app, config={"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": "redis.cache"}
         )

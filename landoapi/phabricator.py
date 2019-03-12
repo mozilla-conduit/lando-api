@@ -3,11 +3,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from json.decoder import JSONDecodeError
 
 import requests
 from enum import Enum, unique
+
+from landoapi.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 
@@ -339,3 +342,37 @@ def result_list_to_phid_dict(result_list, *, phid_key="phid"):
         result[phid] = i
 
     return result
+
+
+class PhabricatorSubsystem(Subsystem):
+    name = "phabricator"
+
+    def ready(self):
+        if (
+            self.flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
+            and re.match(
+                r"^api-.{28}$",
+                self.flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
+            )
+            is None
+        ):
+            return (
+                "PHABRICATOR_UNPRIVILEGED_API_KEY has the wrong format, "
+                'it must begin with "api-" and be 32 characters long.'
+            )
+
+        return True
+
+    def healthy(self):
+        try:
+            PhabricatorClient(
+                self.flask_app.config["PHABRICATOR_URL"],
+                self.flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
+            ).call_conduit("conduit.ping")
+        except PhabricatorAPIException as exc:
+            return "PhabricatorAPIException: {!s}".format(exc)
+
+        return True
+
+
+phabricator_subsystem = PhabricatorSubsystem()

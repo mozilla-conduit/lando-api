@@ -4,8 +4,12 @@
 """
 Construct an application instance that can be referenced by a WSGI server.
 """
-import os
+from .app import construct_app, load_config, SUBSYSTEMS
 
-from .app import create_app
+config = load_config()
+app = construct_app(config)
+for system in SUBSYSTEMS:
+    system.init_app(app.app)
 
-app = create_app(os.environ.get("VERSION_PATH", "/app/version.json"))
+# No need to ready check since that should have already been done by
+# lando-cli before execing to uwsgi.

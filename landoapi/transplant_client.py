@@ -9,6 +9,7 @@ from random import randint
 import requests
 
 from landoapi.sentry import sentry
+from landoapi.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 
@@ -157,3 +158,36 @@ class TransplantClient:
 
 class TransplantError(Exception):
     pass
+
+
+class TransplantSubsystem(Subsystem):
+    name = "transplant"
+
+    def ready(self):
+        # Protect against enabling pingback without proper security. If
+        # we're allowing pingbacks but the api key is None or empty abort:
+        if self.flask_app.config.get(
+            "PINGBACK_ENABLED"
+        ) == "y" and not self.flask_app.config.get("TRANSPLANT_API_KEY"):
+            return 'PINGBACK_ENABLED="y" but TRANSPLANT_API_KEY is unset.'
+
+        return True
+
+    def healthy(self):
+        tc = TransplantClient(
+            self.flask_app.config.get("TRANSPLANT_URL"),
+            self.flask_app.config.get("TRANSPLANT_USERNAME"),
+            self.flask_app.config.get("TRANSPLANT_PASSWORD"),
+        )
+        try:
+            resp = tc.ping()
+        except requests.RequestException as exc:
+            return "RequestException: {!s}".format(exc)
+
+        if resp.status_code != 200:
+            return "Unexpected Status Code: {}".format(resp.status_code)
+
+        return True
+
+
+transplant_subsystem = TransplantSubsystem()
