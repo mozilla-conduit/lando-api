@@ -104,6 +104,7 @@ REPO_CONFIG = {
         "taskgraph": Repo(
             "taskgraph", SCM_LEVEL_3, "", "https://hg.mozilla.org/ci/taskgraph"
         ),
+        "nss": Repo("nss", SCM_NSS, "", "https://hg.mozilla.org/projects/nss"),
     },
 }
 
