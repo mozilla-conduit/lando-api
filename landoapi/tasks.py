@@ -3,29 +3,22 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 import smtplib
-from email.message import EmailMessage
+import ssl
 
 from flask import current_app
 
 from landoapi.celery import celery
-
-TRANSPLANT_FAILURE_EMAIL_TEMPLATE = """
-Your request to land {phab_revision_id} failed.
-
-See {lando_revision_url} for details.
-
-Reason:
-{reason}
-""".strip()
+from landoapi.email import make_failure_email
+from landoapi.smtp import smtp
 
 logger = logging.getLogger(__name__)
 
 
 @celery.task(
-    # Auto-retry for IOErrors from the SMTP socket connection. Don't log
+    # Auto-retry for errors from the SMTP socket connection. Don't log
     # stack traces.  All other exceptions will log a stack trace and cause an
     # immediate job failure without retrying.
-    autoretry_for=(IOError,),
+    autoretry_for=(IOError, smtplib.SMTPException, ssl.SSLError),
     # Seconds to wait between retries.
     default_retry_delay=60,
     # Retry sending the notification for three days.  This is the same effort
@@ -47,26 +40,23 @@ def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg
         revision_id: The Phabricator Revision ID that failed to land. e.g. D12345
         error_msg: The error message returned by the Transplant service.
     """
-    if current_app.config.get("MAIL_SUPPRESS_SEND"):
+    if smtp.suppressed:
         logger.warning(
             f"Email sending suppressed: application config has disabled "
             f"all mail sending (recipient was: {recipient_email})"
         )
         return
 
-    whitelist = current_app.config.get("MAIL_RECIPIENT_WHITELIST")
-    if whitelist and recipient_email not in whitelist:
+    if not smtp.recipient_allowed(recipient_email):
         logger.info(
-            f"Email sending suppressed: recipient {recipient_email} not found in "
-            f"MAIL_RECIPIENT_WHITELIST"
+            f"Email sending suppressed: recipient {recipient_email} not whitelisted"
         )
         return
 
-    with smtplib.SMTP(
-        current_app.config.get("MAIL_SERVER"), current_app.config.get("MAIL_PORT")
-    ) as smtp:
-        smtp.send_message(
+    with smtp.connection() as c:
+        c.send_message(
             make_failure_email(
+                smtp.default_from,
                 recipient_email,
                 revision_id,
                 error_msg,
@@ -75,29 +65,3 @@ def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg
         )
 
     logger.info(f"Notification email sent to {recipient_email}")
-
-
-def make_failure_email(
-    recipient_email: str, revision_id: str, error_msg: str, lando_ui_url: str
-) -> EmailMessage:
-    """Build a failure EmailMessage.
-
-    Args:
-        recipient_email: The email of the user receiving the failure notification.
-        revision_id: The Phabricator Revision ID that failed to land. e.g. D12345
-        error_msg: The error message returned by the Transplant service.
-        lando_ui_url: The base URL of the Lando website. e.g. https://lando.test
-    """
-    msg = EmailMessage()
-    msg["From"] = "mozphab-prod@mozilla.com"
-    msg["To"] = recipient_email
-    msg["Subject"] = f"Lando: Landing of {revision_id} failed!"
-    lando_revision_url = f"{lando_ui_url}/{revision_id}/"
-    msg.set_content(
-        TRANSPLANT_FAILURE_EMAIL_TEMPLATE.format(
-            phab_revision_id=revision_id,
-            lando_revision_url=lando_revision_url,
-            reason=error_msg,
-        )
-    )
-    return msg

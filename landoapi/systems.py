@@ -12,6 +12,8 @@ class Subsystem:
     name = None
 
     def __init__(self, app=None):
+        self.flask_app = None
+
         if app is not None:
             self.init_app(app)
 
@@ -44,8 +46,11 @@ class Subsystem:
             try:
                 ready = self.ready()
             except Exception:
-                # Ignore all exceptions
-                pass
+                logger.exception(
+                    "Subsystem {} threw an exception".format(self.name),
+                    extra={"subsystem": self.name},
+                )
+                ready = False
 
             if ready is None:
                 return
@@ -53,7 +58,7 @@ class Subsystem:
                 break
 
             logger.warning(
-                "Subsystem is not ready, sleeping.".format(self.name),
+                "Subsystem {} is not ready, sleeping.".format(self.name),
                 extra={"subsystem": self.name, "reason": ready},
             )
             time.sleep(1 + attempt)

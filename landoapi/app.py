@@ -20,6 +20,7 @@ from landoapi.logging import logging_subsystem
 from landoapi.patches import patches_s3_subsystem
 from landoapi.phabricator import phabricator_subsystem
 from landoapi.sentry import sentry_subsystem
+from landoapi.smtp import smtp_subsystem
 from landoapi.storage import db_subsystem
 from landoapi.transplant_client import transplant_subsystem
 from landoapi.ui import lando_ui_subsystem
@@ -37,6 +38,7 @@ SUBSYSTEMS = [
     lando_ui_subsystem,
     patches_s3_subsystem,
     phabricator_subsystem,
+    smtp_subsystem,
     transplant_subsystem,
 ]
 
@@ -47,6 +49,9 @@ def load_config():
         "ALEMBIC": {"script_location": "/migrations/"},
         "DISABLE_CELERY": bool(os.getenv("DISABLE_CELERY")),
         "ENVIRONMENT": os.getenv("ENV"),
+        "MAIL_SUPPRESS_SEND": bool(os.getenv("MAIL_SUPPRESS_SEND")),
+        "MAIL_USE_SSL": bool(os.getenv("MAIL_USE_SSL")),
+        "MAIL_USE_TLS": bool(os.getenv("MAIL_USE_TLS")),
         "PINGBACK_URL": "{host_url}/landings/update".format(
             host_url=os.getenv("PINGBACK_HOST_URL")
         ),
@@ -71,10 +76,12 @@ def load_config():
         ("CSP_REPORTING_URL", None),
         ("LANDO_UI_URL", None),
         ("LOG_LEVEL", "INFO"),
+        ("MAIL_FROM", "mozphab-prod@mozilla.com"),
+        ("MAIL_PASSWORD", None),
         ("MAIL_PORT", None),
         ("MAIL_RECIPIENT_WHITELIST", None),
         ("MAIL_SERVER", None),
-        ("MAIL_SUPPRESS_SEND", None),
+        ("MAIL_USERNAME", None),
         ("OIDC_DOMAIN", None),
         ("OIDC_IDENTIFIER", None),
         ("PATCH_BUCKET_NAME", None),

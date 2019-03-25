@@ -6,9 +6,10 @@ import inspect
 import pytest
 
 from landoapi.celery import FlaskCelery
+from landoapi.email import make_failure_email
 from landoapi.models import Transplant
 from landoapi.notifications import notify_user_of_landing_failure
-from landoapi.tasks import make_failure_email, send_landing_failure_email
+from landoapi.tasks import send_landing_failure_email
 
 
 dedent = inspect.cleandoc
@@ -31,6 +32,15 @@ class FakeSMTP:
     def __exit__(self, *args):
         pass
 
+    def close(self):
+        pass
+
+    def starttls(self, *args, **kwargs):
+        pass
+
+    def login(self, *args, **kwargs):
+        pass
+
     def send_message(self, msg):
         self.outbox.append(msg)
 
@@ -45,7 +55,7 @@ def check_celery(app):
 @pytest.fixture
 def smtp(monkeypatch):
     client = FakeSMTP()
-    monkeypatch.setattr("landoapi.tasks.smtplib.SMTP", client)
+    monkeypatch.setattr("landoapi.smtp.smtplib.SMTP", client)
     return client
 
 
@@ -56,7 +66,11 @@ def test_send_failure_notification_email_task(app, smtp):
 
 def test_email_content():
     email = make_failure_email(
-        "sadpanda@failure.test", "D54321", "Rebase failed!", "https://lando.test"
+        "mozphab-prod@mozilla.com",
+        "sadpanda@failure.test",
+        "D54321",
+        "Rebase failed!",
+        "https://lando.test",
     )
     assert email["To"] == "sadpanda@failure.test"
     assert email["Subject"] == "Lando: Landing of D54321 failed!"

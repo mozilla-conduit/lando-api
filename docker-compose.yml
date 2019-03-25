@@ -90,9 +90,18 @@ services:
       # The base URL of the Lando website that users interact with.
       # e.g. https://lando.test
       - LANDO_UI_URL=https://lando.test
+      # The email address to send mail from.
+      - MAIL_FROM=email_testing@example.test
       # The hostname of the SMTP server used to notify Lando users of landing failures.
       - MAIL_SERVER=smtp
       - MAIL_PORT=25
+      # Whether the connection should use an SSL socket immediately, rather than
+      # starttls after connecting, if the server requires it.
+      - MAIL_USE_SSL=
+      # Should the connection use starttls to enable TLS after connecting.
+      - MAIL_USE_TLS=
+      - MAIL_USERNAME=
+      - MAIL_PASSWORD=
       # Set this flag to any non-empty value to have the worker log a message instead of
       # connecting to the SMTP server.
       - MAIL_SUPPRESS_SEND=

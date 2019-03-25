@@ -95,6 +95,10 @@ def docker_env_vars(versionfile, monkeypatch):
     # with the redis_cache fixture.
     monkeypatch.delenv("CACHE_REDIS_HOST", raising=False)
     monkeypatch.delenv("CSP_REPORTING_URL", raising=False)
+    # Don't suppress email in tests, but point at localhost so that any
+    # real attempt would fail.
+    monkeypatch.setenv("MAIL_SERVER", "localhost")
+    monkeypatch.delenv("MAIL_SUPPRESS_SEND", raising=False)
 
 
 @pytest.fixture
