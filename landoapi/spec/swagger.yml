@@ -539,6 +539,14 @@ definitions:
           warnings to the end user and have the user acknowledge the warnings
           with a checkbox. Once acknowledged, the UI can pass the confirmation
           token to the transplant endpoint so the transplant can proceed.
+      secureRevisions:
+        type: array
+        description: |
+          A list of Revisions that should follow the Security Bug Approval Process.
+        items:
+          type: string
+          description: |
+            A Phabricator Revision ID of the form "D<int>".
       blocker:
         type: string
         description: |
