@@ -37,15 +37,18 @@ def tokens_are_equal(t1, t2):
 
 class TransplantAssessment:
     """Represents an assessment of issues that may block a revision landing.
+    # FIXME reword
 
     Attributes:
         blocker: String reason landing is blocked.
         warnings: List with each item being a RevisionWarning.
+        # FIXME missing attribute
     """
 
     def __init__(self, *, blocker=None, warnings=None):
         self.blocker = blocker
         self.warnings = warnings if warnings is not None else []
+        self.secure_revision_phids = []
 
     def to_dict(self):
         bucketed_warnings = {}
@@ -65,6 +68,7 @@ class TransplantAssessment:
             "blocker": self.blocker,
             "warnings": list(bucketed_warnings.values()),
             "confirmation_token": self.confirmation_token(self.warnings),
+            "secureRevisions": self.secure_revision_phids,
         }
 
     @staticmethod
@@ -110,6 +114,14 @@ class TransplantAssessment:
                 ext=details,
                 type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
             )
+
+    def set_secure_revisions(self, revisions, secure_project_phid):
+        # FIXME docstring
+        self.secure_revision_phids = [
+            revision["phid"]
+            for revision in revisions
+            if revision_is_secure(revision, secure_project_phid)
+        ]
 
 
 class RevisionWarningCheck:
@@ -238,20 +250,14 @@ def warning_reviews_not_current(*, diff, reviewers, **kwargs):
 @RevisionWarningCheck(
     4, "Is a secure revision and should follow the Security Bug Approval Process."
 )
-def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
-    if secure_project_phid is None:
+def warning_revision_secure(*, revision, secure_revisions, **kwargs):
+    if revision["phid"] in secure_revisions:
+        return (
+            "This revision is tied to a secure bug. Ensure that you are following the "
+            "Security Bug Approval Process guidelines before landing this changeset."
+        )
+    else:
         return None
-
-    revision_project_tags = PhabricatorClient.expect(
-        revision, "attachments", "projects", "projectPHIDs"
-    )
-    if secure_project_phid not in revision_project_tags:
-        return None
-
-    return (
-        "This revision is tied to a secure bug. Ensure that you are following the "
-        "Security Bug Approval Process guidelines before landing this changeset."
-    )
 
 
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
@@ -278,6 +284,7 @@ def user_block_scm_level(*, auth0_user, landing_repo, **kwargs):
 
 
 def check_landing_warnings(
+    assessment,
     auth0_user,
     to_land,
     repo,
@@ -285,7 +292,6 @@ def check_landing_warnings(
     reviewers,
     users,
     projects,
-    secure_project_phid,
     *,
     revision_warnings=[
         warning_blocking_reviews,
@@ -295,7 +301,6 @@ def check_landing_warnings(
         warning_revision_secure,
     ]
 ):
-    assessment = TransplantAssessment()
     for revision, diff in to_land:
         for check in revision_warnings:
             result = check(
@@ -306,7 +311,7 @@ def check_landing_warnings(
                 reviewers=reviewers[revision["phid"]],
                 users=users,
                 projects=projects,
-                secure_project_phid=secure_project_phid,
+                secure_revisions=assessment.secure_revision_phids,
             )
 
             if result is not None:
@@ -379,3 +384,17 @@ def check_landing_blockers(
             return TransplantAssessment(blocker=result)
 
     return TransplantAssessment()
+
+
+def revision_is_secure(revision, secure_project_phid):
+    """Is this revision tied to a secure bug?"""
+    if secure_project_phid is None:
+        return False
+
+    revision_project_tags = PhabricatorClient.expect(
+        revision, "attachments", "projects", "projectPHIDs"
+    )
+    if secure_project_phid in revision_project_tags:
+        return True
+
+    return False

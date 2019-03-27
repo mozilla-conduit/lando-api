@@ -165,7 +165,14 @@ def _assess_transplant_request(phab, landing_path):
         revision["phid"]: get_collated_reviewers(revision) for revision, _ in to_land
     }
 
+    secure_project_phid = get_secure_project_phid(phab)
+
+    assessment = TransplantAssessment()
+    revisions = [revision for revision, _ in to_land]
+    assessment.set_secure_revisions(revisions, secure_project_phid)
+
     assessment = check_landing_warnings(
+        assessment,
         g.auth0_user,
         to_land,
         repo,
@@ -173,7 +180,6 @@ def _assess_transplant_request(phab, landing_path):
         reviewers,
         users,
         projects,
-        get_secure_project_phid(phab),
     )
     return (assessment, to_land, landing_repo, stack_data)
 
@@ -184,7 +190,7 @@ def dryrun(data):
     phab = g.phabricator
     landing_path, _ = _unmarshal_transplant_request(data)
     assessment, *_ = _assess_transplant_request(phab, landing_path)
-    return assessment.to_dict()
+    return assessment.to_dict()  # FIXME how to validate output against swagger spec?
 
 
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)

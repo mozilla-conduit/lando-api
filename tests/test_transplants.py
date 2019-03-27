@@ -20,6 +20,7 @@ from landoapi.transplants import (
     warning_previously_landed,
     warning_reviews_not_current,
     warning_revision_secure,
+    revision_is_secure,
 )
 
 
@@ -41,8 +42,35 @@ def test_dryrun_no_warnings_or_blockers(client, db, phabdouble, auth0_mock):
 
     assert 200 == response.status_code
     assert "application/json" == response.content_type
-    expected_json = {"confirmation_token": None, "warnings": [], "blocker": None}
+    expected_json = {
+        "confirmation_token": None,
+        "warnings": [],
+        "blocker": None,
+        "secureRevisions": [],
+    }
     assert response.json == expected_json
+
+
+def test_dryrun_with_secure_revision(
+    client, db, phabdouble, auth0_mock, secure_project
+):
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo(), projects=[secure_project])
+    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
+    phabdouble.reviewer(r1, phabdouble.project("reviewer2"))
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert "secureRevisions" in response.json
+    assert response.json["secureRevisions"] == [r1["phid"]]
 
 
 def test_dryrun_invalid_path_blocks(client, db, phabdouble, auth0_mock):
@@ -336,49 +364,52 @@ def test_warning_previously_landed_landed_landing(db, phabdouble):
     assert warning_previously_landed(revision=revision, diff=diff) is not None
 
 
-def test_warning_revision_secure_project_none(phabdouble):
+def test_warning_revision_secure_if_secure_revision_list_empty(phabdouble):
     phab = phabdouble.get_phabricator_client()
     r = phabdouble.revision(diff=phabdouble.diff())
 
+    # FIXME is there an easier way to construct a stub revision?
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
-    assert warning_revision_secure(revision=revision, secure_project_phid=None) is None
+    assert warning_revision_secure(revision=revision, secure_revisions=[]) is None
 
 
-def test_warning_revision_secure_is_secure(phabdouble, secure_project):
+def test_warning_revision_secure_if_rev_in_secure_revision_list(
+    phabdouble, secure_project
+):
     phab = phabdouble.get_phabricator_client()
     r = phabdouble.revision(diff=phabdouble.diff(), projects=[secure_project])
 
+    # FIXME is there an easier way to construct a stub revision?
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     assert (
-        warning_revision_secure(
-            revision=revision, secure_project_phid=secure_project["phid"]
-        )
+        warning_revision_secure(revision=revision, secure_revisions=[r["phid"]])
         is not None
     )
 
 
-def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
+def test_warning_revision_secure_if_revision_not_in_secure_revision_list(
+    phabdouble, secure_project
+):
     phab = phabdouble.get_phabricator_client()
     not_secure_project = phabdouble.project("not_secure_project")
     r = phabdouble.revision(diff=phabdouble.diff(), projects=[not_secure_project])
 
+    # FIXME is there an easier way to construct a stub revision?
     revision = phab.call_conduit(
         "differential.revision.search",
         constraints={"phids": [r["phid"]]},
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     assert (
-        warning_revision_secure(
-            revision=revision, secure_project_phid=secure_project["phid"]
-        )
+        warning_revision_secure(revision=revision, secure_revisions=["PHID-DREV-foo"])
         is None
     )
 
@@ -782,6 +813,71 @@ def test_integrated_transplant_revision_with_unmapped_repo(
 
 def test_display_branch_head():
     assert Transplant(revision_order=["1", "2"]).head_revision == "D2"
+
+
+def test_revision_is_public_if_secure_project_is_none(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    r = phabdouble.revision(diff=phabdouble.diff())
+
+    revision = phab.call_conduit(
+        "differential.revision.search",
+        constraints={"phids": [r["phid"]]},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )["data"][0]
+    assert not revision_is_secure(revision=revision, secure_project_phid=None)
+
+
+def test_revision_is_secure_if_has_secure_project_id(phabdouble, secure_project):
+    phab = phabdouble.get_phabricator_client()
+    r = phabdouble.revision(diff=phabdouble.diff(), projects=[secure_project])
+
+    revision = phab.call_conduit(
+        "differential.revision.search",
+        constraints={"phids": [r["phid"]]},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )["data"][0]
+    assert revision_is_secure(
+        revision=revision, secure_project_phid=secure_project["phid"]
+    )
+
+
+def test_revision_is_public_if_has_public_project_id(phabdouble, secure_project):
+    phab = phabdouble.get_phabricator_client()
+    not_secure_project = phabdouble.project("not_secure_project")
+    r = phabdouble.revision(diff=phabdouble.diff(), projects=[not_secure_project])
+
+    revision = phab.call_conduit(
+        "differential.revision.search",
+        constraints={"phids": [r["phid"]]},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )["data"][0]
+    assert not revision_is_secure(
+        revision=revision, secure_project_phid=secure_project["phid"]
+    )
+
+
+def test_set_secure_revisions_in_transplant_assessment(phabdouble, secure_project):
+    phab = phabdouble.get_phabricator_client()
+    not_secure_project = phabdouble.project("not_secure_project")
+
+    secure1 = phabdouble.revision(diff=phabdouble.diff(), projects=[secure_project])
+    public1 = phabdouble.revision(diff=phabdouble.diff(), projects=[not_secure_project])
+    secure2 = phabdouble.revision(diff=phabdouble.diff(), projects=[secure_project])
+
+    # FIXME is there a better way to generate stub revisions?
+    def get_rev(mock_rev):
+        return phab.call_conduit(
+            "differential.revision.search",
+            constraints={"phids": [mock_rev["phid"]]},
+            attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+        )["data"][0]
+
+    revisions = [get_rev(mock_rev) for mock_rev in [secure1, public1, secure2]]
+
+    assessment = TransplantAssessment()
+    assessment.set_secure_revisions(revisions, secure_project["phid"])
+
+    assert assessment.secure_revision_phids == [secure1["phid"], secure2["phid"]]
 
 
 def _create_transplant(
