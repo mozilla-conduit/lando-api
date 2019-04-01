@@ -11,7 +11,7 @@ from connexion import problem
 from sqlalchemy.orm.exc import NoResultFound
 
 from landoapi import auth
-from landoapi.models.transplant import Transplant
+from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.storage import db
 
@@ -60,6 +60,6 @@ def update(data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    if not data["landed"]:
+    if transplant.status == TransplantStatus.failed:
         notify_user_of_landing_failure(transplant)
     return {}, 200
