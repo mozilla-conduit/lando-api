@@ -120,7 +120,7 @@ services:
       - redis.queue
       - smtp
   lando-api.db:
-    image: postgres:alpine
+    image: postgres:9.6-alpine
     environment:
       - POSTGRES_PASSWORD=password
       - POSTGRES_USER=postgres
