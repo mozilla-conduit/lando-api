@@ -238,20 +238,14 @@ def warning_reviews_not_current(*, diff, reviewers, **kwargs):
 @RevisionWarningCheck(
     4, "Is a secure revision and should follow the Security Bug Approval Process."
 )
-def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
-    if secure_project_phid is None:
+def warning_revision_secure(*, is_secure_revision, **kwargs):
+    if is_secure_revision:
+        return (
+            "This revision is tied to a secure bug. Ensure that you are following the "
+            "Security Bug Approval Process guidelines before landing this changeset."
+        )
+    else:
         return None
-
-    revision_project_tags = PhabricatorClient.expect(
-        revision, "attachments", "projects", "projectPHIDs"
-    )
-    if secure_project_phid not in revision_project_tags:
-        return None
-
-    return (
-        "This revision is tied to a secure bug. Ensure that you are following the "
-        "Security Bug Approval Process guidelines before landing this changeset."
-    )
 
 
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
@@ -285,7 +279,7 @@ def check_landing_warnings(
     reviewers,
     users,
     projects,
-    secure_project_phid,
+    is_secure_revision,
     *,
     revision_warnings=[
         warning_blocking_reviews,
@@ -306,7 +300,7 @@ def check_landing_warnings(
                 reviewers=reviewers[revision["phid"]],
                 users=users,
                 projects=projects,
-                secure_project_phid=secure_project_phid,
+                is_secure_revision=is_secure_revision,
             )
 
             if result is not None:
