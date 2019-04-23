@@ -5,7 +5,11 @@
 import pytest
 
 from landoapi.phabricator import RevisionStatus
-from landoapi.revisions import check_author_planned_changes, check_diff_author_is_known
+from landoapi.revisions import (
+    check_author_planned_changes,
+    check_diff_author_is_known,
+    revision_is_secure,
+)
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
 
@@ -65,3 +69,46 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     assert check_author_planned_changes(revision=revision) is not None
+
+
+def test_secure_api_flag_on_public_revision_is_false(client, phabdouble):
+    public_project = phabdouble.project("public")
+    revision = phabdouble.revision(projects=[public_project])
+
+    response = client.get("/stacks/D{}".format(revision["id"]))
+
+    assert response.status_code == 200
+    response_revision = response.json["revisions"].pop()
+    assert not response_revision["is_secure"]
+
+
+def test_secure_api_flag_on_secure_revision_is_true(client, phabdouble, secure_project):
+    revision = phabdouble.revision(projects=[secure_project])
+
+    response = client.get("/stacks/D{}".format(revision["id"]))
+
+    assert response.status_code == 200
+    response_revision = response.json["revisions"].pop()
+    assert response_revision["is_secure"]
+
+
+def test_public_revision_is_not_secure(app, phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    r = phabdouble.revision(projects=[])
+    revision = phab.call_conduit(
+        "differential.revision.search",
+        constraints={"phids": [r["phid"]]},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )["data"].pop()
+    assert not revision_is_secure(revision, phab)
+
+
+def test_secure_revision_is_secure(app, phabdouble, secure_project):
+    phab = phabdouble.get_phabricator_client()
+    r = phabdouble.revision(projects=[secure_project])
+    revision = phab.call_conduit(
+        "differential.revision.search",
+        constraints={"phids": [r["phid"]]},
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )["data"].pop()
+    assert revision_is_secure(revision, phab)

@@ -346,7 +346,7 @@ def test_warning_revision_secure_project_none(phabdouble):
         constraints={"phids": [r["phid"]]},
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
-    assert warning_revision_secure(revision=revision, secure_project_phid=None) is None
+    assert warning_revision_secure(revision=revision, is_secure_revision=False) is None
 
 
 def test_warning_revision_secure_is_secure(phabdouble, secure_project):
@@ -359,14 +359,11 @@ def test_warning_revision_secure_is_secure(phabdouble, secure_project):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     assert (
-        warning_revision_secure(
-            revision=revision, secure_project_phid=secure_project["phid"]
-        )
-        is not None
+        warning_revision_secure(revision=revision, is_secure_revision=True) is not None
     )
 
 
-def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
+def test_warning_revision_secure_is_not_secure(phabdouble):
     phab = phabdouble.get_phabricator_client()
     not_secure_project = phabdouble.project("not_secure_project")
     r = phabdouble.revision(diff=phabdouble.diff(), projects=[not_secure_project])
@@ -376,12 +373,7 @@ def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
         constraints={"phids": [r["phid"]]},
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
-    assert (
-        warning_revision_secure(
-            revision=revision, secure_project_phid=secure_project["phid"]
-        )
-        is None
-    )
+    assert warning_revision_secure(revision=revision, is_secure_revision=False) is None
 
 
 @pytest.mark.parametrize(

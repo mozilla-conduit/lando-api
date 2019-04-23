@@ -23,6 +23,7 @@ from landoapi.revisions import (
     serialize_author,
     serialize_diff,
     serialize_status,
+    revision_is_secure,
 )
 from landoapi.stacks import (
     build_stack_graph,
@@ -126,6 +127,7 @@ def get(revision_id):
                 "diff": serialize_diff(diff),
                 "author": author_response,
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
+                "is_secure": revision_is_secure(revision, phab),
             }
         )
 

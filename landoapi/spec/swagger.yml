@@ -411,6 +411,11 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/Reviewer'
+      is_secure:
+        type: boolean
+        description: |
+          Indicates this revision is security-sensitive and should follow the
+          Security Bug Approval Process.  See https://wiki.mozilla.org/Security/Bug_Approval_Process.
   User:
     type: object
     properties:
