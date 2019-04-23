@@ -141,7 +141,7 @@ class TransplantClient:
                 "pingback_url": pingback_url,
             },
             auth=(self.username, self.password),
-            timeout=10,
+            timeout=(10, 30),
         )
         response.raise_for_status()
 
