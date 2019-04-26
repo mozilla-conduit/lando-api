@@ -115,7 +115,7 @@ class LoggingSubsystem(Subsystem):
 
     def init_app(self, app):
         self.flask_app = app
-        level = self.flask_app.config.get("LOG_LEVEL", "INFP")
+        level = self.flask_app.config.get("LOG_LEVEL", "INFO")
 
         logging.config.dictConfig(
             {
