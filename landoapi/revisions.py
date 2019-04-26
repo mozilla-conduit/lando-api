@@ -136,4 +136,9 @@ def revision_is_secure(revision, phabclient):
     revision_project_tags = phabclient.expect(
         revision, "attachments", "projects", "projectPHIDs"
     )
-    return secure_project_phid in revision_project_tags
+    is_secure = secure_project_phid in revision_project_tags
+    logger.debug(
+        "revision is security-sensitive?",
+        extra={"value": is_secure, "revision": revision["id"]},
+    )
+    return is_secure

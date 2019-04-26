@@ -198,6 +198,14 @@ class PhabricatorClient:
 
         data = {"output": "json", "params": json.dumps(kwargs)}
 
+        extra_data = {
+            "params": kwargs.copy(),
+            "method": method,
+            "api_url": self.api_url,
+        }
+        del extra_data["params"]["__conduit__"]  # Sanitize the api token.
+        logger.debug("call to conduit", extra=extra_data)
+
         try:
             response = self.session.get(self.api_url + method, data=data).json()
         except requests.RequestException as exc:
