@@ -85,6 +85,8 @@ def initialize_hooks(flask_app):
     flask_app.before_request(request_logging_before_request)
     flask_app.after_request(request_logging_after_request)
 
-    flask_app.register_error_handler(
-        PhabricatorAPIException, handle_phabricator_api_exception
-    )
+    # Only wrap/mask exceptions if we are in a production-like environment.
+    if not flask_app.propagate_exceptions:
+        flask_app.register_error_handler(
+            PhabricatorAPIException, handle_phabricator_api_exception
+        )
