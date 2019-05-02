@@ -4,12 +4,19 @@
 """
 Tests for the PhabricatorClient
 """
+import json
+import unittest
+from unittest import mock
 
 import pytest
 import requests
 import requests_mock
 
-from landoapi.phabricator import PhabricatorAPIException
+from landoapi.phabricator import (
+    PhabricatorAPIException,
+    EditOperation,
+    PhabricatorClient,
+)
 
 from tests.utils import phab_url
 
@@ -87,3 +94,24 @@ def test_phabricator_exception(get_phab_client):
             phab.call_conduit("differential.query", ids=["1"])[0]
         assert e_info.value.error_code == error["error_code"]
         assert e_info.value.error_info == error["error_info"]
+
+
+def test_send_edit_with_one_transaction():
+    phab = mock.create_autospec(PhabricatorClient)
+    edit = EditOperation("differential.revision.edit", "PHID-foo")
+    edit.add_transaction("comment", "blah blah")
+    edit.send_edit(phab)
+
+    assert phab.call_conduit.called
+    phab.call_conduit.assert_called_once_with(
+        "differential.revision.edit",
+        transactions=[{"type": "comment", "value": "blah blah"}],
+        objectIdentifier="PHID-foo",
+    )
+
+
+def test_serialize_PhabEdit_no_txns_raises_error(get_phab_client):
+    phab = get_phab_client(api_key="api-key")
+    edit = EditOperation("test.edit", "PHID-DREV-foo")
+    with pytest.raises(ValueError):
+        edit.send_edit(phab)

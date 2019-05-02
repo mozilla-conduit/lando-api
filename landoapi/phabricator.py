@@ -308,6 +308,66 @@ class PhabricatorClient:
         return True
 
 
+class EditOperation:
+    """Carries out an edit of Conduit API object.
+
+    See https://secure.phabricator.com/book/phabricator/article/conduit_edit/
+    """
+
+    def __init__(self, target_endpoint, object_id):
+        """
+        Args:
+            target_endpoint: The Conduit Edit endpoint we will send this
+                list of changes to.  e.g. "maniphest.edit".
+            object_id: An object identifier string. Can be a PHID or a
+                monogram like D1234. Pass the value None if you want to force
+                creation of a new object instead of editing an existing object.
+        """
+        self.target_endpoint = target_endpoint
+        self.object_id = object_id
+        self._transactions = []
+
+    def add_transaction(self, transaction_type, value):
+        """Add a transaction to the list of changes to make to this object.
+
+        Args:
+            transaction_type: The type of transaction to perform to this
+                object, like "description" or "comment".  See the Conduit API
+                docs for this endpoint for possible values.
+            value: The value this transaction will change/add. Must be JSON-
+                serializable.
+        """
+        # We get the correct object structure by making a mock call to
+        # https://phabricator.services.mozilla.com/api/differential.revision.edit
+        self._transactions.append({"type": transaction_type, "value": value})
+
+    def send_edit(self, client: PhabricatorClient):
+        """Send a list of changes to a Conduit API edit endpoint.
+
+        Args:
+            client: An PhabricatorClient instance.
+
+        Raises:
+            See PhabricatorClient.call_conduit.
+            Also raises ValueError if this object's list of transactions is empty.
+
+        Returns:
+            A list of successfully applied transaction results.  See
+            https://secure.phabricator.com/book/phabricator/article/conduit_edit/
+            for the structure.
+        """
+        if not self._transactions:
+            raise ValueError("No transactions have been added to this object!")
+
+        # We get the correct object structure by making a mock call to
+        # https://phabricator.services.mozilla.com/api/differential.revision.edit
+        return client.call_conduit(
+            self.target_endpoint,
+            transactions=self._transactions,
+            objectIdentifier=self.object_id,
+        )
+
+
 class PhabricatorAPIException(Exception):
     """Exception to be raised when Phabricator returns an error response."""
 
