@@ -78,7 +78,7 @@ class PhabricatorDouble:
         status=RevisionStatus.ACCEPTED,
         depends_on=[],
         bug_id=None,
-        projects=[]
+        projects=[],
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -209,7 +209,7 @@ class PhabricatorDouble:
         ],
         refs=[
             {"type": "base", "identifier": "cff9ba1622714e0dd82c39f912f405210489fce8"}
-        ]
+        ],
     ):
         diff_id = self._new_id(self._diffs)
         phid = self._new_phid("DIFF-")
@@ -329,7 +329,7 @@ class PhabricatorDouble:
         isBlocking=False,
         actor=None,
         on_diff=None,
-        voided_by_phid=None
+        voided_by_phid=None,
     ):
         if on_diff is None:
             # Default to the latest.
@@ -423,7 +423,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             return deepcopy(
@@ -507,7 +507,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             refs = [r for r in self._diff_refs if r["diff_id"] == i["id"]]
@@ -568,7 +568,7 @@ class PhabricatorDouble:
         destinationPHIDs=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             return deepcopy(
@@ -638,7 +638,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             diffs = sorted(
@@ -765,7 +765,7 @@ class PhabricatorDouble:
         phids=None,
         subscribers=None,
         responsibleUsers=None,
-        branches=None
+        branches=None,
     ):
         def to_response(i):
             diffs = sorted(
@@ -833,6 +833,44 @@ class PhabricatorDouble:
 
         return [to_response(i) for i in items]
 
+    @conduit_method("differential.revision.edit")
+    def differential_revision_edit(self, transactions=None, objectIdentifier=None):
+        # NOTE: The real edit endpoint will create objects if the objectIdentifier is
+        # None but we do not support this behaviour in the mock. However we still
+        # accept an empty objectIdentifier because this makes writing unit tests
+        # easier.
+
+        target = None
+        if objectIdentifier:
+            # We are editing an object.  If the object ID is invalid the real
+            # API will raise an error.  Simulate the same here to help
+            # the programmer catch errors in their tests and code.
+            if objectIdentifier.startswith("PHID-"):
+                constraint = {"phids": [objectIdentifier]}
+            else:
+                constraint = {"ids": [objectIdentifier]}
+            found_revisions = self.call_conduit(
+                "differential.revision.search", constraints=constraint
+            )["data"]
+            if not found_revisions:
+                error_info = (
+                    f"Monogram {objectIdentifier} does not identify a valid object"
+                )
+                raise PhabricatorAPIException(
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+                )
+            target = found_revisions.pop()
+
+        # According to https://secure.phabricator.com/book/phabricator/article/conduit_edit/ # noqa
+        # the return value of the edit operation transactions list is unpredictable and
+        # likely to change. We'll return an empty transaction list since according to
+        # the API docs an empty list is a possible and valid result.
+        if target:
+            edited_phid = target["phid"]
+        else:
+            edited_phid = None
+        return {"object": {"phid": edited_phid}, "transactions": []}
+
     @conduit_method("diffusion.repository.search")
     def diffusion_repository_search(
         self,
@@ -843,7 +881,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             return deepcopy(
@@ -918,7 +956,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(u):
             return deepcopy(
@@ -992,7 +1030,7 @@ class PhabricatorDouble:
         phids=None,
         ids=None,
         offset=None,
-        limit=None
+        limit=None,
     ):
         def to_response(i):
             return deepcopy(

@@ -4,8 +4,6 @@
 """
 Tests for the PhabricatorClient
 """
-import json
-import unittest
 from unittest import mock
 
 import pytest
@@ -13,11 +11,10 @@ import requests
 import requests_mock
 
 from landoapi.phabricator import (
-    PhabricatorAPIException,
     EditOperation,
+    PhabricatorAPIException,
     PhabricatorClient,
 )
-
 from tests.utils import phab_url
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
@@ -110,8 +107,31 @@ def test_send_edit_with_one_transaction():
     )
 
 
-def test_serialize_PhabEdit_no_txns_raises_error(get_phab_client):
+def test_serialize_edit_with_no_transactions_raises_error(get_phab_client):
     phab = get_phab_client(api_key="api-key")
     edit = EditOperation("test.edit", "PHID-DREV-foo")
     with pytest.raises(ValueError):
         edit.send_edit(phab)
+
+
+def test_phabdouble_edit_revision(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    r = phabdouble.revision()
+    edit = EditOperation("differential.revision.edit", r["phid"])
+    edit.add_transaction("comment", "blah")
+    edit.send_edit(phab)
+
+
+def test_phabdouble_edit_revision_with_invalid_id_raises_api_error(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    edit = EditOperation("differential.revision.edit", "PHID-DREV-kablooey!")
+    edit.add_transaction("comment", "blah")
+    with pytest.raises(PhabricatorAPIException):
+        edit.send_edit(phab)
+
+
+def test_phabdouble_create_revision_with_edit_operation(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    edit = EditOperation("differential.revision.edit", None)
+    edit.add_transaction("comment", "blah")
+    edit.send_edit(phab)
