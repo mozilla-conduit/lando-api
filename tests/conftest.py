@@ -18,7 +18,7 @@ from landoapi.app import construct_app, load_config, SUBSYSTEMS
 from landoapi.cache import cache, cache_subsystem
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
-from landoapi.projects import SEC_PROJ_SLUG
+from landoapi.projects import CHECKIN_PROJ_SLUG, SEC_PROJ_SLUG
 from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.storage import db as _db, db_subsystem
 from landoapi.tasks import celery
@@ -77,6 +77,7 @@ def docker_env_vars(versionfile, monkeypatch):
     )
     monkeypatch.setenv("LANDO_UI_URL", "http://lando-ui.test")
     monkeypatch.setenv("PHABRICATOR_URL", "http://phabricator.test")
+    monkeypatch.setenv("PHABRICATOR_ADMIN_API_KEY", "api-thiskeymustbe32characterslen")
     monkeypatch.setenv(
         "PHABRICATOR_UNPRIVILEGED_API_KEY", "api-thiskeymustbe32characterslen"
     )
@@ -117,6 +118,11 @@ def phabdouble(monkeypatch):
 @pytest.fixture
 def secure_project(phabdouble):
     return phabdouble.project(SEC_PROJ_SLUG)
+
+
+@pytest.fixture
+def checkin_project(phabdouble):
+    return phabdouble.project(CHECKIN_PROJ_SLUG)
 
 
 @pytest.fixture

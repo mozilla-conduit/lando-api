@@ -14,6 +14,8 @@ from landoapi.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 
+PHAB_API_KEY_RE = re.compile(r"^api-.{28}$")
+
 
 @unique
 class RevisionStatus(Enum):
@@ -348,16 +350,18 @@ class PhabricatorSubsystem(Subsystem):
     name = "phabricator"
 
     def ready(self):
-        if (
-            self.flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
-            and re.match(
-                r"^api-.{28}$",
-                self.flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
-            )
-            is None
-        ):
+        unpriv_key = self.flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
+        priv_key = self.flask_app.config["PHABRICATOR_ADMIN_API_KEY"]
+
+        if unpriv_key and PHAB_API_KEY_RE.search(unpriv_key) is None:
             return (
                 "PHABRICATOR_UNPRIVILEGED_API_KEY has the wrong format, "
+                'it must begin with "api-" and be 32 characters long.'
+            )
+
+        if priv_key and PHAB_API_KEY_RE.search(priv_key) is None:
+            return (
+                "PHABRICATOR_ADMIN_API_KEY has the wrong format, "
                 'it must begin with "api-" and be 32 characters long.'
             )
 

@@ -78,7 +78,7 @@ class PhabricatorDouble:
         status=RevisionStatus.ACCEPTED,
         depends_on=[],
         bug_id=None,
-        projects=[]
+        projects=[],
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -209,7 +209,7 @@ class PhabricatorDouble:
         ],
         refs=[
             {"type": "base", "identifier": "cff9ba1622714e0dd82c39f912f405210489fce8"}
-        ]
+        ],
     ):
         diff_id = self._new_id(self._diffs)
         phid = self._new_phid("DIFF-")
@@ -329,7 +329,7 @@ class PhabricatorDouble:
         isBlocking=False,
         actor=None,
         on_diff=None,
-        voided_by_phid=None
+        voided_by_phid=None,
     ):
         if on_diff is None:
             # Default to the latest.
@@ -423,7 +423,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             return deepcopy(
@@ -507,7 +507,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             refs = [r for r in self._diff_refs if r["diff_id"] == i["id"]]
@@ -568,7 +568,7 @@ class PhabricatorDouble:
         destinationPHIDs=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             return deepcopy(
@@ -609,9 +609,7 @@ class PhabricatorDouble:
                 "task.subtask",
             )
         ):
-            error_info = (
-                'Edge type "<type-is-here>" is not a recognized edge type.'
-            )  # noqa
+            error_info = 'Edge type "<type-is-here>" is not a recognized edge type.'
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
@@ -638,7 +636,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             diffs = sorted(
@@ -748,6 +746,137 @@ class PhabricatorDouble:
             },
         }
 
+    @conduit_method("differential.revision.edit")
+    def differential_revision_edit(self, *, transactions=None, objectIdentifier=None):
+        # WARNING: This mock does not apply the real result of these
+        # transactions, it only validates that the phabricator method
+        # was called (mostly) correctly and performs a NOOP. Any testing
+        # requiring something more advanced should isolate the component
+        # and take care of mocking things manually.
+        TRANSACTION_TYPES = [
+            "update",
+            "title",
+            "summary",
+            "testPlan",
+            "reviewers.add",
+            "reviewers.remove",
+            "reviewers.set",
+            "repositoryPHID",
+            "tasks.add",
+            "tasks.remove",
+            "tasks.set",
+            "parents.add",
+            "parents.remove",
+            "parents.set",
+            "children.add",
+            "children.remove",
+            "children.set",
+            "plan-changes",
+            "request-review",
+            "close",
+            "reopen",
+            "abandon",
+            "accept",
+            "reclaim",
+            "reject",
+            "commandeer",
+            "resign",
+            "draft",
+            "view",
+            "edit",
+            "projects.add",
+            "projects.remove",
+            "projects.set," "subscribers.add",
+            "subscribers.remove",
+            "subscribers.set",
+            "phabricator:auditors",
+            "bugzilla.bug-id",
+            "comment",
+        ]
+
+        if transactions is None or (
+            not isinstance(transactions, list) and not isinstance(transactions, dict)
+        ):
+            error_info = 'Parameter "transactions" is not a list of transactions.'
+            raise PhabricatorAPIException(
+                error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+            )
+
+        # Normalize transactions into a unified format (they can either be a
+        # list or a dict). Internally phabricator treats lists as ordered
+        # dictionaries (php arrays) where the keys are integers.
+        if isinstance(transactions, list):
+            transactions = list(enumerate(transactions))
+        elif isinstance(transactions, dict):
+            transactions = list((k, v) for k, v, in transactions.items())
+
+        # Validate each transaction.
+        for key, t in transactions:
+            if not isinstance(t, dict):
+                error_info = f'Parameter "transactions" must contain a list of transaction descriptions, but item with key "{key}" is not a dictionary.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+                )
+
+            if "type" not in t:
+                error_info = f'Parameter "transactions" must contain a list of transaction descriptions, but item with key "{key}" is missing a "type" field. Each transaction must have a type field.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+                )
+
+            if t["type"] not in TRANSACTION_TYPES:
+                given_type = t["type"]
+                valid_types = " ,".join(TRANSACTION_TYPES)
+                error_info = f'Transaction with key "{key}" has invalid type "{given_type}". This type is not recognized. Valid types are: {valid_types}.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+                )
+
+        if objectIdentifier is None:
+            # A revision is being created, it must have the "title" and "update"
+            # transactions present.
+            transaction_types = [t[1]["type"] for t in transactions]
+            if "title" not in transaction_types or "update" not in transaction_types:
+                error_info = "Validation errors:"
+                if "title" not in transaction_types:
+                    error_info = error_info + "\n  - Revisions must have a title."
+                if "update" not in transaction_types:
+                    error_info = (
+                        error_info
+                        + "\n  - "
+                        + "You must specify an initial diff when creating a revision."
+                    )
+                raise PhabricatorAPIException(
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+                )
+
+        def identifier_to_revision(i):
+            for r in self._revisions:
+                if r["phid"] == i or r["id"] == i or "D{}".format(r["id"]) == i:
+                    return r
+            return None
+
+        revision = identifier_to_revision(objectIdentifier)
+        if objectIdentifier is not None and revision is None:
+            error_info = (
+                f'Monogram "{objectIdentifier}" does not identify a valid object.'
+            )
+            raise PhabricatorAPIException(
+                error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+            )
+
+        # WARNING: This assumes all transactions actually applied. If a
+        # transaction is a NOOP (such as a projects.remove which attempts
+        # to remove a project that isn't there) it will not be listed
+        # in the returned transactions list. Do not trust this mock for
+        # testing details about the returned data.
+        return {
+            "object": {"id": revision["id"], "phid": revision["phid"]},
+            "transactions": [
+                {"phid": "PHID-XACT-DREV-fakeplaceholder"} for t in transactions
+            ],
+        }
+
     @conduit_method("differential.query")
     def differential_query(
         self,
@@ -765,7 +894,7 @@ class PhabricatorDouble:
         phids=None,
         subscribers=None,
         responsibleUsers=None,
-        branches=None
+        branches=None,
     ):
         def to_response(i):
             diffs = sorted(
@@ -843,7 +972,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(i):
             return deepcopy(
@@ -918,7 +1047,7 @@ class PhabricatorDouble:
         order=None,
         before=None,
         after=None,
-        limit=100
+        limit=100,
     ):
         def to_response(u):
             return deepcopy(
@@ -992,7 +1121,7 @@ class PhabricatorDouble:
         phids=None,
         ids=None,
         offset=None,
-        limit=None
+        limit=None,
     ):
         def to_response(i):
             return deepcopy(
