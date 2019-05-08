@@ -2,23 +2,7 @@ swagger: '2.0'
 info:
   title: Lando API
   description: An API to get and land Phabricator revisions.
-  version: "2.0.0"
-securityDefinitions:
-  PhabricatorAPIKeyHeader:
-    type: apiKey
-    in: header
-    name: X-Phabricator-API-Key
-  Auth0AccessToken:
-    type: apiKey
-    in: header
-    name: Authorization
-    description: An Auth0 access token with the proper lando-api audience. Note
-                 that the value of this header should be a Bearer token, but
-                 it is not possible to define that with swagger 2.0. Please
-                 pass the api key value as "Bearer access_token". The token
-                 should have the 'lando', 'openid', 'email', and 'profile'
-                 scopes.
-
+  version: "3.0.0"
 produces:
   - application/json
 paths:
@@ -41,10 +25,6 @@ paths:
         Phabricator API key is set in the X-Phabricator-API-Key header, then
         you may access private Revisions which the owner of the api key has
         access to.
-      security:
-        - Auth0AccessToken: []
-        - Auth0AccessToken: []
-          PhabricatorAPIKeyHeader: []
       parameters:
         - name: data
           description: The data required to request a landing.
@@ -68,9 +48,6 @@ paths:
       description: |
         Returns the list of transplants for any revisions in the stack
         of a given revision.
-      security:
-        - {}
-        - PhabricatorAPIKeyHeader: []
       parameters:
         - name: stack_revision_id
           in: query
@@ -93,10 +70,6 @@ paths:
         Sends request to transplant service. If a Phabricator API
         key is set in the X-Phabricator-API-Key header, then you may access
         private Revisions which the owner of the api key has access to.
-      security:
-        - Auth0AccessToken: []
-        - Auth0AccessToken: []
-          PhabricatorAPIKeyHeader: []
       parameters:
         - name: data
           description: The data required to request a landing.
@@ -196,9 +169,6 @@ paths:
     get:
       description: |
         Get the stack a revision is part of
-      security:
-        - {}
-        - PhabricatorAPIKeyHeader: []
       parameters:
         - name: revision_id
           in: path

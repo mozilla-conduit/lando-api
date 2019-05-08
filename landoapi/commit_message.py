@@ -41,22 +41,22 @@ LIST = r"[;,\/\\]\s*"
 IRC_NICK = r"[a-zA-Z0-9\-\_]+"
 
 # fmt: off
-REVIEWERS_RE = re.compile(
-    r"([\s\(\.\[;,])" +                 # before "r" delimiter
-    r"(" + SPECIFIER + r")" +           # flag
-    r"(" +                              # capture all reviewers
-        r"#?" +                         # Optional "#" group reviewer prefix
-        IRC_NICK +                      # reviewer
-        r"!?" +                         # Optional "!" blocking indicator
-        r"(?:" +                        # additional reviewers
-            LIST +                      # delimiter
-            r"(?![a-z0-9\.\-]+[=?])" +  # don"t extend match into next flag
-            r"#?" +                     # Optional "#" group reviewer prefix
-            IRC_NICK +                  # reviewer
-            r"!?" +                     # Optional "!" blocking indicator
-        r")*" +
-    r")?"
-)  # noqa
+REVIEWERS_RE = re.compile(  # noqa: E131
+    r"([\s\(\.\[;,])"                   # before "r" delimiter
+    + r"(" + SPECIFIER + r")"           # flag
+    + r"("                              # capture all reviewers
+        + r"#?"                         # Optional "#" group reviewer prefix
+        + IRC_NICK                      # reviewer
+        + r"!?"                         # Optional "!" blocking indicator
+        + r"(?:"                        # additional reviewers
+            + LIST                      # delimiter
+            + r"(?![a-z0-9\.\-]+[=?])"  # don"t extend match into next flag
+            + r"#?"                     # Optional "#" group reviewer prefix
+            + IRC_NICK                  # reviewer
+            + r"!?"                     # Optional "!" blocking indicator
+        + r")*"
+    + r")?"
+)
 # fmt: on
 
 # Strip out a white-list of metadata prefixes.

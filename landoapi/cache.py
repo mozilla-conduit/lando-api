@@ -4,8 +4,8 @@
 import logging
 
 from flask_caching import Cache
+from flask_caching.backends.rediscache import RedisCache
 from redis import RedisError
-from werkzeug.contrib.cache import RedisCache
 
 from landoapi.redis import SuppressRedisFailure
 from landoapi.systems import Subsystem
@@ -43,7 +43,7 @@ class CacheSubsystem(Subsystem):
         # Dirty, but if this breaks in the future we can instead
         # create our own redis-py client with its own connection
         # pool.
-        redis = cache.cache._client
+        redis = cache.cache._read_clients
 
         try:
             redis.ping()
