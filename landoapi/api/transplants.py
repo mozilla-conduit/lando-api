@@ -4,6 +4,7 @@
 import logging
 import urllib.parse
 
+import kombu
 from connexion import problem, ProblemException
 from flask import current_app, g
 
@@ -14,7 +15,12 @@ from landoapi.hgexportbuilder import build_patch_for_revision
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.patches import upload
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus
-from landoapi.projects import get_secure_project_phid, project_search
+from landoapi.projects import (
+    CHECKIN_PROJ_SLUG,
+    get_checkin_project_phid,
+    get_secure_project_phid,
+    project_search,
+)
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import get_collated_reviewers, reviewer_identity
 from landoapi.revisions import (
@@ -29,6 +35,7 @@ from landoapi.stacks import (
     request_extended_revision_data,
 )
 from landoapi.storage import db
+from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
     check_landing_blockers,
     check_landing_warnings,
@@ -228,6 +235,15 @@ def post(data):
     users = user_search(phab, involved_phids)
     projects = project_search(phab, involved_phids)
 
+    # Take note of any revisions that the checkin project tag must be
+    # removed from.
+    checkin_phid = get_checkin_project_phid(phab)
+    checkin_revision_phids = [
+        r["phid"]
+        for r, _ in to_land
+        if checkin_phid in phab.expect(r, "attachments", "projects", "projectPHIDs")
+    ]
+
     # Build the patches to land.
     patch_urls = []
     for revision, diff in to_land:
@@ -343,6 +359,20 @@ def post(data):
         "transplant created",
         extra={"landing_path": landing_path, "transplant_id": transplant.id},
     )
+
+    # Asynchronously remove the checkin project from any of the landing
+    # revisions that had it.
+    for r_phid in checkin_revision_phids:
+        try:
+            admin_remove_phab_project.apply_async(
+                args=(r_phid, checkin_phid),
+                kwargs=dict(comment=f"#{CHECKIN_PROJ_SLUG} handled, landing queued."),
+            )
+        except kombu.exceptions.OperationalError:
+            # Best effort is acceptable here, Transplant *is* going to land
+            # these changes so it's better to return properly from the request.
+            pass
+
     return {"id": transplant.id}, 202
 
 

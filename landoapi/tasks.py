@@ -4,11 +4,13 @@
 import logging
 import smtplib
 import ssl
+from typing import Optional
 
 from flask import current_app
 
 from landoapi.celery import celery
 from landoapi.email import make_failure_email
+from landoapi.phabricator import PhabricatorClient, PhabricatorCommunicationException
 from landoapi.smtp import smtp
 
 logger = logging.getLogger(__name__)
@@ -65,3 +67,41 @@ def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg
         )
 
     logger.info(f"Notification email sent to {recipient_email}")
+
+
+@celery.task(
+    autoretry_for=(IOError, PhabricatorCommunicationException),
+    default_retry_delay=20,
+    max_retries=3 * 20,  # 20 minutes
+    acks_late=True,
+    ignore_result=True,
+)
+def admin_remove_phab_project(
+    revision_phid: str, project_phid: str, comment: Optional[str] = None
+):
+    """Remove a project tag from the provided revision.
+
+    Note, this uses administrator privileges and should only be called
+    if permissions checking is handled elsewhere.
+
+    Args:
+        revision_phid: phid of the revision to remove the project tag from.
+        project_phid: phid of the project to remove.
+        comment: An optional comment to add when removing the project.
+    """
+    transactions = [{"type": "projects.remove", "value": [project_phid]}]
+    if comment is not None:
+        transactions.append({"type": "comment", "value": comment})
+
+    privileged_phab = PhabricatorClient(
+        current_app.config["PHABRICATOR_URL"],
+        current_app.config["PHABRICATOR_ADMIN_API_KEY"],
+    )
+    # We only retry for PhabricatorCommunicationException, rather than the
+    # base PhabricatorAPIException to treat errors in this implementation as
+    # fatal.
+    privileged_phab.call_conduit(
+        "differential.revision.edit",
+        objectIdentifier=revision_phid,
+        transactions=transactions,
+    )

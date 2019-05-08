@@ -86,6 +86,7 @@ def load_config():
         ("OIDC_IDENTIFIER", None),
         ("PATCH_BUCKET_NAME", None),
         ("PINGBACK_ENABLED", "n"),
+        ("PHABRICATOR_ADMIN_API_KEY", None),
         ("PHABRICATOR_UNPRIVILEGED_API_KEY", None),
         ("PHABRICATOR_URL", None),
         ("SENTRY_DSN", None),

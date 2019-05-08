@@ -14,6 +14,7 @@ services:
       - "8888:8888"
     environment:
       - PHABRICATOR_URL=https://phabricator-dev.allizom.org/
+      - PHABRICATOR_ADMIN_API_KEY=api-0123456789012345678901234567
       - PHABRICATOR_UNPRIVILEGED_API_KEY=api-0123456789012345678901234567
       - DATABASE_URL=postgresql://postgres:password@lando-api.db/lando_api_dev
       - ENV=localdev
