@@ -8,12 +8,17 @@ from landoapi.phabricator import result_list_to_phid_dict
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_CACHE_KEY_TIMEOUT = 86400  # 60s * 60m * 24h
+
 SEC_PROJ_SLUG = "secure-revision"
 SEC_PROJ_CACHE_KEY = "secure-project-phid"
-SEC_PROJ_CACHE_TIMEOUT = 86400  # 60s * 60m * 24h
 CHECKIN_PROJ_SLUG = "check-in_needed"
 CHECKIN_PROJ_CACHE_KEY = "checkin-project-phid"
-CHECKIN_PROJ_CACHE_TIMEOUT = 86400  # 60s * 60m * 24h
+# The name of the Phabricator project containing members of the Secure
+# Bug Approval Process.
+# See https://wiki.mozilla.org/Security/Bug_Approval_Process.
+SEC_APPROVAL_PROJECT_SLUG = "sec-approval"
+SEC_APPROVAL_CACHE_KEY = "sec-approval-project-phid"
 
 
 def project_search(phabricator, project_phids):
@@ -32,7 +37,40 @@ def project_search(phabricator, project_phids):
     return result_list_to_phid_dict(phabricator.expect(projects, "data"))
 
 
-@cache.cached(key_prefix=SEC_PROJ_CACHE_KEY, timeout=SEC_PROJ_CACHE_TIMEOUT)
+def get_project_phid(project_slug, phabricator, allow_empty_result=True):
+    """Looks up a project's PHID.
+
+    The result is cached so further lookups don't hit the network.
+
+    Args:
+        project_slug: The name of the project we want the PHID for.
+        phabricator: A PhabricatorClient instance.
+        allow_empty_result: Should a missing project return None?
+            Defaults to True.
+
+    Raises:
+        PhabricatorCommunicationException if the project could not be found and
+         `allow_empty_result` is False.
+
+    Returns:
+        A string with the project's PHID or None if the project isn't found.
+    """
+    project = phabricator.single(
+        phabricator.call_conduit(
+            "project.search", constraints={"slugs": [project_slug]}
+        ),
+        "data",
+        none_when_empty=allow_empty_result,
+    )
+
+    if project is None:
+        logger.warning(f"Could not find a project phid", extra=dict(slug=project_slug))
+        return None
+
+    return phabricator.expect(project, "phid")
+
+
+@cache.cached(key_prefix=SEC_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
 def get_secure_project_phid(phabricator):
     """Return a phid for the project indicating revision security.
 
@@ -42,25 +80,10 @@ def get_secure_project_phid(phabricator):
     Returns:
         A string phid if the project is found, otherwise None.
     """
-    project = phabricator.single(
-        phabricator.call_conduit(
-            "project.search", constraints={"slugs": [SEC_PROJ_SLUG]}
-        ),
-        "data",
-        none_when_empty=True,
-    )
-
-    if project is None:
-        logger.warning(
-            "Could not find a phid for the secure project",
-            extra=dict(slug=SEC_PROJ_SLUG),
-        )
-        return None
-
-    return phabricator.expect(project, "phid")
+    return get_project_phid(SEC_PROJ_SLUG, phabricator)
 
 
-@cache.cached(key_prefix=CHECKIN_PROJ_CACHE_KEY, timeout=CHECKIN_PROJ_CACHE_TIMEOUT)
+@cache.cached(key_prefix=CHECKIN_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
 def get_checkin_project_phid(phabricator):
     """Return a phid for the project indicating check-in is needed.
 
@@ -70,19 +93,18 @@ def get_checkin_project_phid(phabricator):
     Returns:
         A string phid if the project is found, otherwise None.
     """
-    project = phabricator.single(
-        phabricator.call_conduit(
-            "project.search", constraints={"slugs": [CHECKIN_PROJ_SLUG]}
-        ),
-        "data",
-        none_when_empty=True,
-    )
+    return get_project_phid(CHECKIN_PROJ_SLUG, phabricator)
 
-    if project is None:
-        logger.warning(
-            "Could not find a phid for the Check-in Needed project",
-            extra=dict(slug=CHECKIN_PROJ_SLUG),
-        )
-        return None
 
-    return phabricator.expect(project, "phid")
+@cache.cached(key_prefix=SEC_APPROVAL_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
+def get_sec_approval_project_phid(phabricator):
+    """Return a phid for the sec-approval group's project.
+
+    Args:
+        phabricator: A PhabricatorClient instance.
+
+    Returns:
+        A string phid if the project is found, otherwise None.
+    """
+    # FIXME what if the project can't be fetched?
+    return get_project_phid(SEC_APPROVAL_PROJECT_SLUG, phabricator)
