@@ -70,7 +70,7 @@ EXTERNAL_SERVICES_SHOULD_BE_PRESENT = (
 def docker_env_vars(versionfile, monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
     monkeypatch.setenv("ENV", "test")
-    monkeypatch.setenv("VERSION_PATH", versionfile)
+    monkeypatch.setenv("VERSION_PATH", str(versionfile))
     # Overwrite any externally set DATABASE_URL with a unittest-only database URL.
     monkeypatch.setenv(
         "DATABASE_URL", "postgresql://postgres:password@lando-api.db/lando_api_test"

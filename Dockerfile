@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-FROM python:3.6-alpine
+FROM python:3.7
 
 EXPOSE 9000
 ENTRYPOINT ["lando-cli"]
@@ -27,23 +27,19 @@ ENV UWSGI_MODULE=landoapi.wsgi:app \
     # Die if the application threw an exception on startup
     UWSGI_NEED_APP=1
 
-RUN addgroup -g 10001 app && adduser -D -u 10001 -G app -h /app app
-COPY migrations /migrations
+RUN addgroup --gid 10001 app \
+    && adduser \
+        --disabled-password \
+        --uid 10001 \
+        --gid 10001 \
+        --home /app \
+        --gecos "app,,," \
+        app
+
 COPY requirements.txt /python_requirements.txt
+RUN pip install --no-cache -r /python_requirements.txt
 
-# Install pure-Python, compiled, and OS package dependencies.
-RUN set -ex \
-    && apk add --no-cache \
-        gcc \
-        libc-dev \
-        musl-dev \
-        linux-headers \
-        pcre-dev \
-        postgresql-dev \
-        libpq \
-        libffi-dev \
-    && pip install --no-cache -r /python_requirements.txt
-
+COPY migrations /migrations
 COPY . /app
 
 # We install outside of the app directory to create the .egg-info in a

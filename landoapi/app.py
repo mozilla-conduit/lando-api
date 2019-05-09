@@ -116,11 +116,10 @@ def load_config():
 def construct_app(config, testing=False):
     app = connexion.App(__name__, specification_dir="spec/")
 
-    swagger_ui_enabled = config.get("ENVIRONMENT", None) == "localdev"
     app.add_api(
         "swagger.yml",
         resolver=RestyResolver("landoapi.api"),
-        swagger_ui=swagger_ui_enabled,
+        options=dict(swagger_ui=False),
     )
     flask_app = app.app
     flask_app.config.update(config)
