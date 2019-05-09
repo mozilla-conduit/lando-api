@@ -11,3 +11,5 @@ exclude =
     docker,
     # Ignore test data, which is annoying to properly format.
     tests/canned_responses/,
+per-file-ignores =
+    landoapi/secapproval.py:B950,W293

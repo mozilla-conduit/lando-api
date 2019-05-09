@@ -186,6 +186,41 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /submitSanitizedCommitMessage:
+    post:
+      operationId: landoapi.api.revisions.submit_sanitized_commit_message
+      description: |
+        Submit a sanitized, safe-to-land commit message for a security-sensitive
+        revision.  Part of the Security Bug Approval Process.
+      parameters:
+        - name: data
+          description: The data we want to submit
+          required: true
+          in: body
+          schema:
+            type: object
+            required:
+              - revision_phid
+              - sanitized_message
+            properties:
+              revision_phid:
+                type: string
+                description: |
+                  The PHID of the revision we want to modify.
+              sanitized_message:
+                type: string
+                description: |
+                  The santized commit message we want to use when landing this revision.
+                  See the Security Bug Approval Process for guidelines for crafting an
+                  appropriate message.
+      responses:
+        200:
+          description: OK
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
 definitions:
   LandingPath:
     type: array
