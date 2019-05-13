@@ -69,6 +69,12 @@ def handle_phabricator_api_exception(exc):
         extra={"error_code": exc.error_code, "error_info": exc.error_info},
         exc_info=exc,
     )
+
+    if current_app.propagate_exceptions:
+        # Mimic the behaviour of Flask.handle_exception() and re-raise the full
+        # traceback in test and debug environments.
+        raise exc
+
     return FlaskApi.get_response(
         problem(
             500,
@@ -85,8 +91,6 @@ def initialize_hooks(flask_app):
     flask_app.before_request(request_logging_before_request)
     flask_app.after_request(request_logging_after_request)
 
-    # Only wrap/mask exceptions if we are in a production-like environment.
-    if not flask_app.propagate_exceptions:
-        flask_app.register_error_handler(
-            PhabricatorAPIException, handle_phabricator_api_exception
-        )
+    flask_app.register_error_handler(
+        PhabricatorAPIException, handle_phabricator_api_exception
+    )
