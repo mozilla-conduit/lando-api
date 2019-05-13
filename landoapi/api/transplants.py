@@ -5,7 +5,7 @@ import logging
 import urllib.parse
 
 import kombu
-from connexion import ProblemException, problem
+from connexion import problem, ProblemException
 from flask import current_app, g
 
 from landoapi import auth
@@ -36,12 +36,8 @@ from landoapi.stacks import (
 )
 from landoapi.storage import db
 from landoapi.tasks import admin_remove_phab_project
-from landoapi.transplants import (
-    DEFAULT_OTHER_BLOCKER_CHECKS,
-    TransplantAssessment,
-    check_landing_blockers,
-    check_landing_warnings,
-)
+from landoapi.transplants import (check_landing_blockers, check_landing_warnings,
+                                  DEFAULT_OTHER_BLOCKER_CHECKS, TransplantAssessment)
 from landoapi.transplant_client import TransplantClient, TransplantError
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
