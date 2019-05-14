@@ -113,7 +113,7 @@ def load_config():
     return config
 
 
-def construct_app(config, testing=False):
+def construct_app(config):
     app = connexion.App(__name__, specification_dir="spec/")
 
     app.add_api(

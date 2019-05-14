@@ -166,7 +166,10 @@ def disable_migrations(monkeypatch):
 def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     """Needed for pytest-flask."""
     config = load_config()
-    app = construct_app(config, testing=True)
+    # We need the TESTING setting turned on to get tracebacks when testing API
+    # endpoints with the TestClient.
+    config["TESTING"] = True
+    app = construct_app(config)
     flask_app = app.app
     flask_app.test_client_class = JSONClient
     for system in SUBSYSTEMS:
