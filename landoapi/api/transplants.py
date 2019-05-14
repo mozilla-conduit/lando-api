@@ -18,6 +18,7 @@ from landoapi.phabricator import PhabricatorClient, ReviewerStatus
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
+    get_secure_project_phid,
     project_search,
 )
 from landoapi.repos import get_repos_for_env
@@ -25,7 +26,6 @@ from landoapi.reviews import get_collated_reviewers, reviewer_identity
 from landoapi.revisions import (
     gather_involved_phids,
     get_bugzilla_bug,
-    revision_is_secure,
     select_diff_author,
 )
 from landoapi.stacks import (
@@ -36,8 +36,12 @@ from landoapi.stacks import (
 )
 from landoapi.storage import db
 from landoapi.tasks import admin_remove_phab_project
-from landoapi.transplants import (check_landing_blockers, check_landing_warnings,
-                                  DEFAULT_OTHER_BLOCKER_CHECKS, TransplantAssessment)
+from landoapi.transplants import (
+    check_landing_blockers,
+    check_landing_warnings,
+    DEFAULT_OTHER_BLOCKER_CHECKS,
+    TransplantAssessment,
+)
 from landoapi.transplant_client import TransplantClient, TransplantError
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
@@ -167,9 +171,7 @@ def _assess_transplant_request(phab, landing_path):
     reviewers = {
         revision["phid"]: get_collated_reviewers(revision) for revision, _ in to_land
     }
-    is_secure = revision_is_secure(revision, phab)
 
-    # fmt: off
     assessment = check_landing_warnings(
         g.auth0_user,
         to_land,
@@ -178,10 +180,8 @@ def _assess_transplant_request(phab, landing_path):
         reviewers,
         users,
         projects,
-        is_secure,
+        get_secure_project_phid(phab),
     )
-    # fmt:on
-
     return (assessment, to_land, landing_repo, stack_data)
 
 

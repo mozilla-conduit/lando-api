@@ -142,6 +142,40 @@ def test_dryrun_reviewers_warns(client, db, phabdouble, auth0_mock):
     assert response.json["confirmation_token"] is not None
 
 
+def test_dryrun_secure_revision_in_stack_warns(
+    client, db, phabdouble, auth0_mock, secure_project
+):
+    d1 = phabdouble.diff()
+    d2 = phabdouble.diff()
+    repo = phabdouble.repo()
+    public_rev = phabdouble.revision(diff=d1, repo=repo)
+    secure_rev = phabdouble.revision(
+        diff=d2, repo=repo, depends_on=[public_rev], projects=[secure_project]
+    )
+    reviewer = phabdouble.user(username="reviewer")
+    phabdouble.reviewer(public_rev, reviewer, status=ReviewerStatus.ACCEPTED)
+    phabdouble.reviewer(secure_rev, reviewer, status=ReviewerStatus.ACCEPTED)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(public_rev["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(secure_rev["id"]), "diff_id": d2["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert 200 == response.status_code
+    assert response.json["blocker"] is None
+    assert len(response.json["warnings"]) == 1
+    warning = response.json["warnings"][0]
+    assert warning["id"] == 4
+    assert len(warning["instances"]) == 1
+    assert warning["instances"][0]["revision_id"] == "D{}".format(secure_rev["id"])
+
+
 @pytest.mark.parametrize(
     "userinfo,status,blocker",
     [
@@ -346,7 +380,7 @@ def test_warning_revision_secure_project_none(phabdouble):
         constraints={"phids": [r["phid"]]},
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
-    assert warning_revision_secure(revision=revision, is_secure_revision=False) is None
+    assert warning_revision_secure(revision=revision, secure_project_phid=None) is None
 
 
 def test_warning_revision_secure_is_secure(phabdouble, secure_project):
@@ -359,11 +393,14 @@ def test_warning_revision_secure_is_secure(phabdouble, secure_project):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
     assert (
-        warning_revision_secure(revision=revision, is_secure_revision=True) is not None
+        warning_revision_secure(
+            revision=revision, secure_project_phid=secure_project["phid"]
+        )
+        is not None
     )
 
 
-def test_warning_revision_secure_is_not_secure(phabdouble):
+def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
     phab = phabdouble.get_phabricator_client()
     not_secure_project = phabdouble.project("not_secure_project")
     r = phabdouble.revision(diff=phabdouble.diff(), projects=[not_secure_project])
@@ -373,7 +410,12 @@ def test_warning_revision_secure_is_not_secure(phabdouble):
         constraints={"phids": [r["phid"]]},
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )["data"][0]
-    assert warning_revision_secure(revision=revision, is_secure_revision=False) is None
+    assert (
+        warning_revision_secure(
+            revision=revision, secure_project_phid=secure_project["phid"]
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize(

@@ -5,7 +5,6 @@ import logging
 from collections import Counter
 
 from landoapi.phabricator import PhabricatorClient, RevisionStatus
-from landoapi.projects import get_secure_project_phid
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +120,7 @@ def check_author_planned_changes(*, revision, **kwargs):
     return "The author has indicated they are planning changes to this revision."
 
 
-def revision_is_secure(revision, phabclient):
+def revision_is_secure(revision, secure_project_phid):
     """Does the given revision contain security-sensitive data?
 
     Such revisions should be handled according to the Security Bug Approval Process.
@@ -130,10 +129,10 @@ def revision_is_secure(revision, phabclient):
     Args:
         revision: The 'data' element from a Phabricator API response containing
             revision data.
-        phabclient: A PhabricatorClient instance.
+        secure_project_phid: The PHID of the Phabricator project used to tag
+            secure revisions.
     """
-    secure_project_phid = get_secure_project_phid(phabclient)
-    revision_project_tags = phabclient.expect(
+    revision_project_tags = PhabricatorClient.expect(
         revision, "attachments", "projects", "projectPHIDs"
     )
     is_secure = secure_project_phid in revision_project_tags

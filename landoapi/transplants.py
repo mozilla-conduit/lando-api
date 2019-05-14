@@ -12,7 +12,11 @@ from connexion import ProblemException
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
-from landoapi.revisions import check_author_planned_changes, check_diff_author_is_known
+from landoapi.revisions import (
+    check_author_planned_changes,
+    check_diff_author_is_known,
+    revision_is_secure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -238,8 +242,11 @@ def warning_reviews_not_current(*, diff, reviewers, **kwargs):
 @RevisionWarningCheck(
     4, "Is a secure revision and should follow the Security Bug Approval Process."
 )
-def warning_revision_secure(*, is_secure_revision, **kwargs):
-    if is_secure_revision:
+def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
+    if secure_project_phid is None:
+        return None
+
+    if revision_is_secure(revision, secure_project_phid):
         return (
             "This revision is tied to a secure bug. Ensure that you are following the "
             "Security Bug Approval Process guidelines before landing this changeset."
@@ -279,7 +286,7 @@ def check_landing_warnings(
     reviewers,
     users,
     projects,
-    is_secure_revision,
+    secure_project_phid,
     *,
     revision_warnings=[
         warning_blocking_reviews,
@@ -300,7 +307,7 @@ def check_landing_warnings(
                 reviewers=reviewers[revision["phid"]],
                 users=users,
                 projects=projects,
-                is_secure_revision=is_secure_revision,
+                secure_project_phid=secure_project_phid,
             )
 
             if result is not None:
