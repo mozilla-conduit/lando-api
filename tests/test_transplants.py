@@ -148,20 +148,26 @@ def test_dryrun_secure_revision_in_stack_warns(
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
     repo = phabdouble.repo()
-    public_rev = phabdouble.revision(diff=d1, repo=repo)
-    secure_rev = phabdouble.revision(
-        diff=d2, repo=repo, depends_on=[public_rev], projects=[secure_project]
+    public_revision = phabdouble.revision(diff=d1, repo=repo)
+    secure_revision = phabdouble.revision(
+        diff=d2, repo=repo, depends_on=[public_revision], projects=[secure_project]
     )
     reviewer = phabdouble.user(username="reviewer")
-    phabdouble.reviewer(public_rev, reviewer, status=ReviewerStatus.ACCEPTED)
-    phabdouble.reviewer(secure_rev, reviewer, status=ReviewerStatus.ACCEPTED)
+    phabdouble.reviewer(public_revision, reviewer, status=ReviewerStatus.ACCEPTED)
+    phabdouble.reviewer(secure_revision, reviewer, status=ReviewerStatus.ACCEPTED)
 
     response = client.post(
         "/transplants/dryrun",
         json={
             "landing_path": [
-                {"revision_id": "D{}".format(public_rev["id"]), "diff_id": d1["id"]},
-                {"revision_id": "D{}".format(secure_rev["id"]), "diff_id": d2["id"]},
+                {
+                    "revision_id": "D{}".format(public_revision["id"]),
+                    "diff_id": d1["id"],
+                },
+                {
+                    "revision_id": "D{}".format(secure_revision["id"]),
+                    "diff_id": d2["id"],
+                },
             ]
         },
         headers=auth0_mock.mock_headers,
@@ -173,7 +179,7 @@ def test_dryrun_secure_revision_in_stack_warns(
     warning = response.json["warnings"][0]
     assert warning["id"] == 4
     assert len(warning["instances"]) == 1
-    assert warning["instances"][0]["revision_id"] == "D{}".format(secure_rev["id"])
+    assert warning["instances"][0]["revision_id"] == "D{}".format(secure_revision["id"])
 
 
 @pytest.mark.parametrize(

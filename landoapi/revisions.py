@@ -127,8 +127,8 @@ def revision_is_secure(revision, secure_project_phid):
     See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 
     Args:
-        revision: The 'data' element from a Phabricator API response containing
-            revision data.
+        revision: A dict of the revision data from differential.revision.search
+            with the 'projects' attachment.
         secure_project_phid: The PHID of the Phabricator project used to tag
             secure revisions.
     """
