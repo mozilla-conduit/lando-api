@@ -97,6 +97,9 @@ REPO_CONFIG = {
         "mozilla-central": Repo(
             "gecko", SCM_LEVEL_3, "", "https://hg.mozilla.org/integration/autoland"
         ),
+        "mozilla-central-unified": Repo(
+            "gecko", SCM_LEVEL_3, "", "https://hg.mozilla.org/integration/autoland"
+        ),
         "comm-central": Repo(
             "comm-central", SCM_LEVEL_3, "", "https://hg.mozilla.org/comm-central"
         ),
