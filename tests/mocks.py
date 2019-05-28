@@ -39,6 +39,7 @@ class PhabricatorDouble:
     """
 
     def __init__(self, monkeypatch):
+        self._transactions = []
         self._users = []
         self._projects = []
         self._revisions = []
@@ -79,6 +80,7 @@ class PhabricatorDouble:
         depends_on=[],
         bug_id=None,
         projects=[],
+        comments=[],
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -144,6 +146,19 @@ class PhabricatorDouble:
                 "status": "closed" if status.closed else "open",
             }
         )
+
+        next_free_txn_id = len(self._transactions)
+        for txn_id, comment in enumerate(comments, start=next_free_txn_id):
+            # See https://phabricator.services.mozilla.com/conduit/method/transaction.search/  # noqa
+            # for the Conduit API result object structure.
+            self._transactions.append(
+                {
+                    "id": txn_id,
+                    "type": "comment",
+                    "objectPHID": phid,
+                    "comments": [{"content": {"raw": comment}}],
+                }
+            )
 
         return revision
 
@@ -1036,6 +1051,47 @@ class PhabricatorDouble:
             )
 
         return to_response(diffs[0])
+
+    @conduit_method("transaction.search")
+    def transaction_search(
+        self,
+        *,
+        objectIdentifier=None,
+        constraints={},
+        order=None,
+        before=None,
+        after=None,
+        limit=100,
+    ):
+        matching_transactions = [
+            t for t in self._transactions if t["objectPHID"] == objectIdentifier
+        ]
+        # We don't want tests that work with our returned result to accidentally
+        # modify a transaction object.
+        matching_transactions = deepcopy(matching_transactions)
+
+        if after is None:
+            after = 0
+
+        next_page_end = after + limit
+        page = matching_transactions[after:next_page_end]
+        # Set the 'after' cursor.
+        if len(page) < limit:
+            # This is the last page of results.
+            after = None
+        else:
+            # Set the cursor to the next page of results.
+            after = next_page_end
+
+        return {
+            "data": page,
+            "cursor": {
+                "limit": limit,
+                "after": after,
+                "before": before,
+                "order": order,
+            },
+        }
 
     @conduit_method("user.search")
     def user_search(
