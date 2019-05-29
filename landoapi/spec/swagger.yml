@@ -434,6 +434,10 @@ definitions:
           The full commit message that will be used when landing the revision.
           It is formatted to include the revision title, bug id, reviewers,
           and revision URL.
+
+          If this revision is security sensitive and the author has specified
+          an alternative, secure commit message for landing then the secure
+          message will be shown.
       repo_phid:
         type: string
         description: |
@@ -451,6 +455,15 @@ definitions:
         description: |
           Indicates this revision is security-sensitive and should follow the
           Security Bug Approval Process.  See https://wiki.mozilla.org/Security/Bug_Approval_Process.
+      is_using_secure_commit_message:
+        type: boolean
+        description: |
+          Indicates that the patch author has given an alternative, secure commit
+          message to land this revision with, according to the Security Bug Approval
+          Process. The alternative message is available in the 'commit_message' and
+          'commit_message_title' attributes.
+
+          See https://wiki.mozilla.org/Security/Bug_Approval_Process for details.
   User:
     type: object
     properties:

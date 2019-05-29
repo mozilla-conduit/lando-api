@@ -71,7 +71,9 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
     assert check_author_planned_changes(revision=revision) is not None
 
 
-def test_secure_api_flag_on_public_revision_is_false(client, phabdouble):
+def test_secure_api_flag_on_public_revision_is_false(
+    client, phabdouble, sec_approval_project
+):
     public_project = phabdouble.project("public")
     revision = phabdouble.revision(projects=[public_project])
 
@@ -82,7 +84,9 @@ def test_secure_api_flag_on_public_revision_is_false(client, phabdouble):
     assert not response_revision["is_secure"]
 
 
-def test_secure_api_flag_on_secure_revision_is_true(client, phabdouble, secure_project):
+def test_secure_api_flag_on_secure_revision_is_true(
+    client, phabdouble, secure_project, sec_approval_project
+):
     revision = phabdouble.revision(projects=[secure_project])
 
     response = client.get("/stacks/D{}".format(revision["id"]))

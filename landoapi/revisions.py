@@ -12,12 +12,26 @@ logger = logging.getLogger(__name__)
 def gather_involved_phids(revision):
     """Return the set of Phobject phids involved in a revision.
 
+    Gathers both authors and reviewers.
+
     At the time of writing Users and Projects are the type of Phobjects
     which may author or review a revision.
     """
-    attachments = PhabricatorClient.expect(revision, "attachments")
-
     entities = {PhabricatorClient.expect(revision, "fields", "authorPHID")}
+    entities.update(gather_reviewer_phids(revision))
+    return entities
+
+
+def gather_reviewer_phids(revision):
+    """Return the set of reviewer Phobject PHIDs involved in a revision.
+
+    Gathers just reviewers.
+
+    Args:
+        revision: A dict of the revision data from differential.revision.search.
+    """
+    attachments = PhabricatorClient.expect(revision, "attachments")
+    entities = set()
     entities.update(
         {
             PhabricatorClient.expect(r, "reviewerPHID")
@@ -33,6 +47,29 @@ def gather_involved_phids(revision):
         }
     )
     return entities
+
+
+def reviewer_assigned_to_revision(reviewer_phid, revision):
+    """Is the given reviewer assigned to the given revision?
+
+    Args:
+        reviewer_phid: The PHID of the reviewer.  May be a user or a project PHID.
+        revision: A dict of the revision data from differential.revision.search.
+    """
+    return reviewer_phid in gather_reviewer_phids(revision)
+
+
+def project_assigned_to_revision(project_phid, revision):
+    """Is the given project assigned to the given revision?
+
+    Args:
+        project_phid: The PHID of the project.
+        revision: A dict of the revision data from differential.revision.search.
+    """
+    revision_project_tags = PhabricatorClient.expect(
+        revision, "attachments", "projects", "projectPHIDs"
+    )
+    return project_phid in revision_project_tags
 
 
 def serialize_author(phid, user_search_data):

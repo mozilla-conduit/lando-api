@@ -1,15 +1,24 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import pytest
 
 from landoapi.phabricator import RevisionStatus
 from landoapi.repos import get_repos_for_env
+from landoapi.secapproval import format_sanitized_message_comment_for_review
 from landoapi.stacks import (
     build_stack_graph,
     calculate_landable_subgraphs,
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
+
+
+@pytest.fixture
+def client(client, mock_repo_config, secure_project, sec_approval_project):
+    # Pull together a bunch of fixtures needed for client-based integration
+    # testing of API endpoints.
+    return client
 
 
 def test_build_stack_graph_single_node(phabdouble):
@@ -569,7 +578,7 @@ def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
     assert landable_repos[repo1["phid"]].tree == "mozilla-central"
 
 
-def test_integrated_stack_endpoint_simple(client, phabdouble, mocked_repo_config):
+def test_integrated_stack_endpoint_simple(client, phabdouble):
     repo = phabdouble.repo()
     unsupported_repo = phabdouble.repo(name="not-mozilla-central")
     r1 = phabdouble.revision(repo=repo)
@@ -602,7 +611,7 @@ def test_integrated_stack_endpoint_simple(client, phabdouble, mocked_repo_config
     )
 
 
-def test_integrated_stack_endpoint_repos(client, phabdouble, mocked_repo_config):
+def test_integrated_stack_endpoint_repos(client, phabdouble):
     repo = phabdouble.repo()
     unsupported_repo = phabdouble.repo(name="not-mozilla-central")
     r1 = phabdouble.revision(repo=repo)
@@ -627,7 +636,7 @@ def test_integrated_stack_endpoint_repos(client, phabdouble, mocked_repo_config)
 
 
 def test_integrated_stack_has_revision_security_status(
-    client, phabdouble, mock_repo_config, secure_project
+    client, phabdouble, secure_project
 ):
     repo = phabdouble.repo()
     public_revision = phabdouble.revision(repo=repo)
@@ -641,3 +650,22 @@ def test_integrated_stack_has_revision_security_status(
     revisions = {r["phid"]: r for r in response.json["revisions"]}
     assert not revisions[public_revision["phid"]]["is_secure"]
     assert revisions[secure_revision["phid"]]["is_secure"]
+
+
+def test_integrated_stack_has_revision_alt_commit_message(
+    client, phabdouble, secure_project, sec_approval_project
+):
+    repo = phabdouble.repo()
+    comments = [format_sanitized_message_comment_for_review("secure message")]
+    secure_revision = phabdouble.revision(
+        repo=repo, projects=[secure_project], comments=comments
+    )
+    phabdouble.reviewer(secure_revision, sec_approval_project)
+
+    response = client.get("/stacks/D{}".format(secure_revision["id"]))
+    assert response.status_code == 200
+
+    revision = response.json["revisions"].pop()
+    assert revision["is_secure"]
+    assert revision["is_using_secure_commit_message"]
+    assert revision["commit_message"] == "secure message"

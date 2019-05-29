@@ -10,7 +10,11 @@ from flask import current_app, g
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus
-from landoapi.projects import get_secure_project_phid, project_search
+from landoapi.projects import (
+    project_search,
+    get_secure_project_phid,
+    get_sec_approval_project_phid,
+)
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import (
     get_collated_reviewers,
@@ -25,12 +29,17 @@ from landoapi.revisions import (
     serialize_diff,
     serialize_status,
 )
+from landoapi.secapproval import (
+    find_secure_commit_message_in_transaction_list,
+    may_have_secure_commit_message,
+)
 from landoapi.stacks import (
     build_stack_graph,
     calculate_landable_subgraphs,
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
+from landoapi.transactions import transaction_search
 from landoapi.transplants import DEFAULT_OTHER_BLOCKER_CHECKS
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
@@ -82,6 +91,7 @@ def get(revision_id):
     projects = project_search(phab, involved_phids)
 
     secure_project_phid = get_secure_project_phid(phab)
+    sec_approval_group_phid = get_sec_approval_project_phid(phab)
 
     revisions_response = []
     for phid, revision in stack_data.revisions.items():
@@ -102,9 +112,23 @@ def get(revision_id):
             for phid, r in reviewers.items()
             if r["status"] is ReviewerStatus.ACCEPTED
         ]
+
         commit_message_title, commit_message = format_commit_message(
             title, bug_id, accepted_reviewers, summary, revision_url
         )
+
+        has_secure_commit_message = False
+        if may_have_secure_commit_message(
+            revision, secure_project_phid, sec_approval_group_phid
+        ):
+            transactions = transaction_search(phab, revision_phid)
+            secure_commit_message = find_secure_commit_message_in_transaction_list(
+                transactions
+            )
+            if secure_commit_message:
+                commit_message = secure_commit_message
+                has_secure_commit_message = True
+
         author_response = serialize_author(phab.expect(fields, "authorPHID"), users)
 
         revisions_response.append(
@@ -130,6 +154,7 @@ def get(revision_id):
                 "author": author_response,
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
                 "is_secure": revision_is_secure(revision, secure_project_phid),
+                "is_using_secure_commit_message": has_secure_commit_message,
             }
         )
 
