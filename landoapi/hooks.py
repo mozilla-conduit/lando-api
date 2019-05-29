@@ -69,6 +69,12 @@ def handle_phabricator_api_exception(exc):
         extra={"error_code": exc.error_code, "error_info": exc.error_info},
         exc_info=exc,
     )
+
+    if current_app.propagate_exceptions:
+        # Mimic the behaviour of Flask.handle_exception() and re-raise the full
+        # traceback in test and debug environments.
+        raise exc
+
     return FlaskApi.get_response(
         problem(
             500,

@@ -1,7 +1,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 from landoapi.phabricator import (
     PhabricatorAPIException,
     PhabricatorCommunicationException,
@@ -33,6 +32,10 @@ def test_app_wide_headers_csp_report_uri(client, config):
 
 
 def test_phabricator_api_exception_handled(app, client):
+    # We need to tell Flask to handle exceptions as if it were in a production
+    # environment.
+    app.config["PROPAGATE_EXCEPTIONS"] = False
+
     @app.route("/__testing__/phab_exception1")
     def phab_exception1():
         raise PhabricatorAPIException("OOPS!")
