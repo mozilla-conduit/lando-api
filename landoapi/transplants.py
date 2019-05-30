@@ -246,13 +246,13 @@ def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
     if secure_project_phid is None:
         return None
 
-    if revision_is_secure(revision, secure_project_phid):
-        return (
-            "This revision is tied to a secure bug. Ensure that you are following the "
-            "Security Bug Approval Process guidelines before landing this changeset."
-        )
-    else:
+    if not revision_is_secure(revision, secure_project_phid):
         return None
+
+    return (
+        "This revision is tied to a secure bug. Ensure that you are following the "
+        "Security Bug Approval Process guidelines before landing this changeset."
+    )
 
 
 def user_block_no_auth0_email(*, auth0_user, **kwargs):

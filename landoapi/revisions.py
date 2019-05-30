@@ -135,9 +135,4 @@ def revision_is_secure(revision, secure_project_phid):
     revision_project_tags = PhabricatorClient.expect(
         revision, "attachments", "projects", "projectPHIDs"
     )
-    is_secure = secure_project_phid in revision_project_tags
-    logger.debug(
-        "revision is security-sensitive?",
-        extra={"value": is_secure, "revision": revision["id"]},
-    )
-    return is_secure
+    return secure_project_phid in revision_project_tags

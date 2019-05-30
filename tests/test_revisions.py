@@ -92,7 +92,7 @@ def test_secure_api_flag_on_secure_revision_is_true(client, phabdouble, secure_p
     assert response_revision["is_secure"]
 
 
-def test_public_revision_is_not_secure(app, phabdouble, secure_project):
+def test_public_revision_is_not_secure(phabdouble, secure_project):
     phab = phabdouble.get_phabricator_client()
     public_project = phabdouble.project("public")
     r = phabdouble.revision(projects=[public_project])
@@ -104,7 +104,7 @@ def test_public_revision_is_not_secure(app, phabdouble, secure_project):
     assert not revision_is_secure(revision, secure_project["phid"])
 
 
-def test_secure_revision_is_secure(app, phabdouble, secure_project):
+def test_secure_revision_is_secure(phabdouble, secure_project):
     phab = phabdouble.get_phabricator_client()
     r = phabdouble.revision(projects=[secure_project])
     revision = phab.call_conduit(

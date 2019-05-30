@@ -142,46 +142,6 @@ def test_dryrun_reviewers_warns(client, db, phabdouble, auth0_mock):
     assert response.json["confirmation_token"] is not None
 
 
-def test_dryrun_secure_revision_in_stack_warns(
-    client, db, phabdouble, auth0_mock, secure_project
-):
-    d1 = phabdouble.diff()
-    d2 = phabdouble.diff()
-    repo = phabdouble.repo()
-    public_revision = phabdouble.revision(diff=d1, repo=repo)
-    secure_revision = phabdouble.revision(
-        diff=d2, repo=repo, depends_on=[public_revision], projects=[secure_project]
-    )
-    reviewer = phabdouble.user(username="reviewer")
-    phabdouble.reviewer(public_revision, reviewer, status=ReviewerStatus.ACCEPTED)
-    phabdouble.reviewer(secure_revision, reviewer, status=ReviewerStatus.ACCEPTED)
-
-    response = client.post(
-        "/transplants/dryrun",
-        json={
-            "landing_path": [
-                {
-                    "revision_id": "D{}".format(public_revision["id"]),
-                    "diff_id": d1["id"],
-                },
-                {
-                    "revision_id": "D{}".format(secure_revision["id"]),
-                    "diff_id": d2["id"],
-                },
-            ]
-        },
-        headers=auth0_mock.mock_headers,
-    )
-
-    assert 200 == response.status_code
-    assert response.json["blocker"] is None
-    assert len(response.json["warnings"]) == 1
-    warning = response.json["warnings"][0]
-    assert warning["id"] == 4
-    assert len(warning["instances"]) == 1
-    assert warning["instances"][0]["revision_id"] == "D{}".format(secure_revision["id"])
-
-
 @pytest.mark.parametrize(
     "userinfo,status,blocker",
     [

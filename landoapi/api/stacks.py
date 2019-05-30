@@ -81,6 +81,8 @@ def get(revision_id):
     users = user_search(phab, involved_phids)
     projects = project_search(phab, involved_phids)
 
+    secure_project_phid = get_secure_project_phid(phab)
+
     revisions_response = []
     for phid, revision in stack_data.revisions.items():
         revision_phid = PhabricatorClient.expect(revision, "phid")
@@ -104,6 +106,7 @@ def get(revision_id):
             title, bug_id, accepted_reviewers, summary, revision_url
         )
         author_response = serialize_author(phab.expect(fields, "authorPHID"), users)
+
         revisions_response.append(
             {
                 "id": human_revision_id,
@@ -126,9 +129,7 @@ def get(revision_id):
                 "diff": serialize_diff(diff),
                 "author": author_response,
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
-                "is_secure": revision_is_secure(
-                    revision, get_secure_project_phid(phab)
-                ),
+                "is_secure": revision_is_secure(revision, secure_project_phid),
             }
         )
 
