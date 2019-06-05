@@ -118,3 +118,21 @@ def check_author_planned_changes(*, revision, **kwargs):
         return None
 
     return "The author has indicated they are planning changes to this revision."
+
+
+def revision_is_secure(revision, secure_project_phid):
+    """Does the given revision contain security-sensitive data?
+
+    Such revisions should be handled according to the Security Bug Approval Process.
+    See https://wiki.mozilla.org/Security/Bug_Approval_Process.
+
+    Args:
+        revision: A dict of the revision data from differential.revision.search
+            with the 'projects' attachment.
+        secure_project_phid: The PHID of the Phabricator project used to tag
+            secure revisions.
+    """
+    revision_project_tags = PhabricatorClient.expect(
+        revision, "attachments", "projects", "projectPHIDs"
+    )
+    return secure_project_phid in revision_project_tags

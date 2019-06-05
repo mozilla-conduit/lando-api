@@ -624,3 +624,20 @@ def test_integrated_stack_endpoint_repos(client, phabdouble, mocked_repo_config)
     assert repositories[unsupported_repo["phid"]]["url"] == (
         "http://phabricator.test/source/not-mozilla-central"
     )
+
+
+def test_integrated_stack_has_revision_security_status(
+    client, phabdouble, mock_repo_config, secure_project
+):
+    repo = phabdouble.repo()
+    public_revision = phabdouble.revision(repo=repo)
+    secure_revision = phabdouble.revision(
+        repo=repo, projects=[secure_project], depends_on=[public_revision]
+    )
+
+    response = client.get("/stacks/D{}".format(secure_revision["id"]))
+    assert response.status_code == 200
+
+    revisions = {r["phid"]: r for r in response.json["revisions"]}
+    assert not revisions[public_revision["phid"]]["is_secure"]
+    assert revisions[secure_revision["phid"]]["is_secure"]

@@ -12,7 +12,11 @@ from connexion import ProblemException
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
-from landoapi.revisions import check_author_planned_changes, check_diff_author_is_known
+from landoapi.revisions import (
+    check_author_planned_changes,
+    check_diff_author_is_known,
+    revision_is_secure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -242,10 +246,7 @@ def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
     if secure_project_phid is None:
         return None
 
-    revision_project_tags = PhabricatorClient.expect(
-        revision, "attachments", "projects", "projectPHIDs"
-    )
-    if secure_project_phid not in revision_project_tags:
+    if not revision_is_secure(revision, secure_project_phid):
         return None
 
     return (

@@ -10,7 +10,7 @@ from flask import current_app, g
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus
-from landoapi.projects import project_search
+from landoapi.projects import get_secure_project_phid, project_search
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import (
     get_collated_reviewers,
@@ -20,6 +20,7 @@ from landoapi.reviews import (
 from landoapi.revisions import (
     gather_involved_phids,
     get_bugzilla_bug,
+    revision_is_secure,
     serialize_author,
     serialize_diff,
     serialize_status,
@@ -80,6 +81,8 @@ def get(revision_id):
     users = user_search(phab, involved_phids)
     projects = project_search(phab, involved_phids)
 
+    secure_project_phid = get_secure_project_phid(phab)
+
     revisions_response = []
     for phid, revision in stack_data.revisions.items():
         revision_phid = PhabricatorClient.expect(revision, "phid")
@@ -126,6 +129,7 @@ def get(revision_id):
                 "diff": serialize_diff(diff),
                 "author": author_response,
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
+                "is_secure": revision_is_secure(revision, secure_project_phid),
             }
         )
 
