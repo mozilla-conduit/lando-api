@@ -24,11 +24,11 @@ def authed_headers(auth0_mock):
 
 
 def test_submit_sanitized_commit_message(
-    client, authed_headers, phabdouble, secure_project, sec_approval_project
+    client, authed_headers, db, phabdouble, secure_project, sec_approval_project
 ):
     revision = phabdouble.revision(projects=[secure_project])
     response = client.post(
-        "/submitSanitizedCommitMessage",
+        "/requestSecApproval",
         json={"revision_phid": revision["phid"], "sanitized_message": "obscure"},
         headers=authed_headers,
     )
@@ -36,11 +36,13 @@ def test_submit_sanitized_commit_message(
     assert response.status_code == 200
 
 
-def test_public_revisions_cannot_be_sanitized(client, authed_headers, phabdouble):
+def test_public_revisions_cannot_be_submitted_for_sec_approval(
+    client, authed_headers, phabdouble
+):
     public_project = phabdouble.project("public")
     revision = phabdouble.revision(projects=[public_project])
     response = client.post(
-        "/submitSanitizedCommitMessage",
+        "/requestSecApproval",
         json={"revision_phid": revision["phid"], "sanitized_message": "oops"},
         headers=authed_headers,
     )
@@ -53,7 +55,7 @@ def test_empty_commit_message_is_an_error(
 ):
     revision = phabdouble.revision(projects=[secure_project])
     response = client.post(
-        "/submitSanitizedCommitMessage",
+        "/requestSecApproval",
         json={"revision_phid": revision["phid"], "sanitized_message": ""},
         headers=authed_headers,
     )

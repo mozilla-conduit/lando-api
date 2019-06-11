@@ -40,8 +40,6 @@ def project_search(phabricator, project_phids):
 def get_project_phid(project_slug, phabricator, allow_empty_result=True):
     """Looks up a project's PHID.
 
-    The result is cached so further lookups don't hit the network.
-
     Args:
         project_slug: The name of the project we want the PHID for.
         phabricator: A PhabricatorClient instance.
@@ -106,5 +104,4 @@ def get_sec_approval_project_phid(phabricator):
     Returns:
         A string phid if the project is found, otherwise None.
     """
-    # FIXME what if the project can't be fetched?
     return get_project_phid(SEC_APPROVAL_PROJECT_SLUG, phabricator)

@@ -11,12 +11,15 @@ from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.projects import get_secure_project_phid
 from landoapi.revisions import revision_is_secure
-from landoapi.secapproval import send_sanitized_commit_message_for_review
+from landoapi.secapproval import (
+    save_sec_approval_request_event,
+    send_sanitized_commit_message_for_review,
+)
 
 logger = logging.getLogger(__name__)
 
 
-@auth.require_auth0(())
+@auth.require_auth0(scopes=("lando",))
 @require_phabricator_api_key(optional=False)
 def submit_sanitized_commit_message(data=None):
     """Update a Revision with a sanitized commit message.
@@ -68,6 +71,16 @@ def submit_sanitized_commit_message(data=None):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    send_sanitized_commit_message_for_review(revision["phid"], alt_message, phab)
+    resulting_transactions = send_sanitized_commit_message_for_review(
+        revision["phid"], alt_message, phab
+    )
+
+    # Save the transactions that added the sec-approval comment so we can
+    # quickly fetch the comment from Phabricator later in the process.
+    #
+    # NOTE: Each call to Phabricator returns two transactions: one for adding the
+    # comment and one for adding the reviewer.  We don't know which transaction is
+    # which at this point so we record both of them.
+    save_sec_approval_request_event(revision["phid"], resulting_transactions)
 
     return "OK", 200

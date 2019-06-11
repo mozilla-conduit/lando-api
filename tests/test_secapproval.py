@@ -5,12 +5,15 @@
 
 See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 """
-from unittest.mock import patch, ANY
+from unittest.mock import ANY, patch
 
-from landoapi.secapproval import send_sanitized_commit_message_for_review
+from landoapi.secapproval import (
+    save_sec_approval_request_event,
+    send_sanitized_commit_message_for_review,
+)
 
 
-def test_send_sanitized_commit_message(app, phabdouble, sec_approval_project):
+def test_send_sanitized_commit_message(db, phabdouble, sec_approval_project):
     phab = phabdouble.get_phabricator_client()
     r = phabdouble.revision()
 
@@ -25,3 +28,25 @@ def test_send_sanitized_commit_message(app, phabdouble, sec_approval_project):
                 {"type": "reviewers.add", "value": [f"blocking({sec_approval_phid})"]},
             ],
         )
+
+
+def test_save_transactions(db, phabdouble):
+    r = phabdouble.revision()
+    # Simulate the transactions that take place when a sec-approval request
+    # is made for a revision in Phabricator.
+    transactions = [
+        {"phid": "PHID-XACT-DREV-faketxn1", "type": "comment", "value": ANY},
+        {
+            "phid": "PHID-XACT-DREV-faketxn2",
+            "type": "reviewers.add",
+            "value": [f"blocking(bar)"],
+        },
+    ]
+
+    event = save_sec_approval_request_event(r["phid"], transactions)
+
+    assert event.comment_candidates == [
+        "PHID-XACT-DREV-faketxn1",
+        "PHID-XACT-DREV-faketxn2",
+    ]
+    assert event.revision.phid == r["phid"]

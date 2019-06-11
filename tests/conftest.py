@@ -20,8 +20,8 @@ from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
-    SEC_PROJ_SLUG,
     SEC_APPROVAL_PROJECT_SLUG,
+    SEC_PROJ_SLUG,
 )
 from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.storage import db as _db, db_subsystem
