@@ -30,8 +30,9 @@ def test_send_sanitized_commit_message(db, phabdouble, sec_approval_project):
         )
 
 
-def test_save_transactions(db, phabdouble):
-    r = phabdouble.revision()
+def test_save_transactions(db):
+    rev_phid = "PHID-DREV-1"
+    rev_diff_phid = "PHID-DIFF-4rxpjx4xdzoyfv6pg4nn"
     # Simulate the transactions that take place when a sec-approval request
     # is made for a revision in Phabricator.
     transactions = [
@@ -43,10 +44,11 @@ def test_save_transactions(db, phabdouble):
         },
     ]
 
-    event = save_sec_approval_request_event(r["phid"], transactions)
+    event = save_sec_approval_request_event(rev_phid, rev_diff_phid, transactions)
 
     assert event.comment_candidates == [
         "PHID-XACT-DREV-faketxn1",
         "PHID-XACT-DREV-faketxn2",
     ]
-    assert event.revision.phid == r["phid"]
+    assert event.revision_phid == rev_phid
+    assert event.diff_phid == rev_diff_phid

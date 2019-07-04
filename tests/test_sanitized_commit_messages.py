@@ -23,7 +23,7 @@ def authed_headers(auth0_mock):
     return headers
 
 
-def test_submit_sanitized_commit_message(
+def test_request_sec_approval(
     client, authed_headers, db, phabdouble, secure_project, sec_approval_project
 ):
     revision = phabdouble.revision(projects=[secure_project])

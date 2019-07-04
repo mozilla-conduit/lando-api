@@ -21,8 +21,12 @@ logger = logging.getLogger(__name__)
 
 @auth.require_auth0(scopes=("lando",))
 @require_phabricator_api_key(optional=False)
-def submit_sanitized_commit_message(data=None):
+def request_sec_approval(data=None):
     """Update a Revision with a sanitized commit message.
+
+    Kicks off the sec-approval process.
+
+    See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 
     Args:
         revision_phid: The PHID of the revision that will have a sanitized commit
@@ -34,9 +38,9 @@ def submit_sanitized_commit_message(data=None):
     revision_phid = data["revision_phid"]
     alt_message = data["sanitized_message"]
 
-    logger.debug(
-        "Got request to update revision with a sanitized message",
-        extra=dict(revision_phid=revision_phid, sanitized_message=alt_message),
+    logger.info(
+        "Got request for sec-approval review of revision",
+        extra=dict(revision_phid=revision_phid),
     )
 
     if not alt_message:
@@ -81,6 +85,8 @@ def submit_sanitized_commit_message(data=None):
     # NOTE: Each call to Phabricator returns two transactions: one for adding the
     # comment and one for adding the reviewer.  We don't know which transaction is
     # which at this point so we record both of them.
-    save_sec_approval_request_event(revision["phid"], resulting_transactions)
+    save_sec_approval_request_event(
+        revision["phid"], revision["fields"]["diffPHID"], resulting_transactions
+    )
 
     return "OK", 200

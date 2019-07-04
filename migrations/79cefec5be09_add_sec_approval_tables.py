@@ -19,23 +19,11 @@ depends_on = None
 
 
 def upgrade():
-    phid_column_type = sa.String(length=128)
-
-    op.create_table(
-        "secapproval_revisions",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("phid", phid_column_type, nullable=False, unique=True),
-    )
-
     op.create_table(
         "secapproval_request_events",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column(
-            "revision_id",
-            sa.Integer(),
-            sa.ForeignKey("secapproval_revisions.id"),
-            nullable=False,
-        ),
+        sa.Column("revision_phid", sa.String(length=128), nullable=False),
+        sa.Column("diff_phid", sa.String(length=128), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column(
             "comment_candidates",
@@ -47,4 +35,3 @@ def upgrade():
 
 def downgrade():
     op.drop_table("secapproval_request_events")
-    op.drop_table("secapproval_revisions")

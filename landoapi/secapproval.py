@@ -5,9 +5,8 @@
 
 See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 """
-from sqlalchemy.dialects.postgresql import insert
 
-from landoapi.models.secapproval import SecApprovalRequestEvent, SecApprovalRevision
+from landoapi.models.secapproval import SecApprovalRequestEvent
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import get_sec_approval_project_phid
 from landoapi.storage import db
@@ -75,7 +74,7 @@ def send_sanitized_commit_message_for_review(revision_phid, message, phabclient)
     return PhabricatorClient.expect(response, "transactions")
 
 
-def save_sec_approval_request_event(revision_phid, transactions):
+def save_sec_approval_request_event(revision_phid, diff_phid, transactions):
     """Save information about a sec-approval review request to the database.
 
     Args:
@@ -91,19 +90,10 @@ def save_sec_approval_request_event(revision_phid, transactions):
         phid = PhabricatorClient.expect(transaction, "phid")
         possible_comment_phids.append(phid)
 
-    # Add the revision PHID to the database.  Use an upsert to avoid a race condition
-    # between two threads adding a new revision PHID to the table.  Collisions on
-    # insert due to the race should happen rarely.  Re-inserting an existing ID
-    # should happen infrequently when we add a second or third sec-approval
-    # request to a revision.
-    insert_stmt = insert(SecApprovalRevision).values(phid=revision_phid)
-    insert_stmt = insert_stmt.on_conflict_do_nothing(index_elements=["phid"])
-    db.session.execute(insert_stmt)
-
-    revision = SecApprovalRevision.query.filter_by(phid=revision_phid).one()
-
     event = SecApprovalRequestEvent(
-        revision=revision, comment_candidates=possible_comment_phids
+        revision_phid=revision_phid,
+        diff_phid=diff_phid,
+        comment_candidates=possible_comment_phids,
     )
     db.session.add(event)
     db.session.commit()
