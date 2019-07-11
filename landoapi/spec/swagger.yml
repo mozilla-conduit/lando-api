@@ -200,13 +200,13 @@ paths:
           schema:
             type: object
             required:
-              - revision_phid
+              - revision_id
               - sanitized_message
             properties:
-              revision_phid:
+              revision_id:
                 type: string
                 description: |
-                  The PHID of the revision we want to modify.
+                  The ID of a revision in the form of 'D{number}', e.g. 'D12345'.
               sanitized_message:
                 type: string
                 description: |

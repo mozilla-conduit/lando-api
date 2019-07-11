@@ -6,10 +6,8 @@
 See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 """
 
-from landoapi.models.secapproval import SecApprovalRequestEvent
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import get_sec_approval_project_phid
-from landoapi.storage import db
 
 # Template for submitting a sec-approval comment to Phabricator. The message is
 # written in first-person form because it is being authored by the user in Lando and
@@ -72,29 +70,3 @@ def send_sanitized_commit_message_for_review(revision_phid, message, phabclient)
         ],
     )
     return PhabricatorClient.expect(response, "transactions")
-
-
-def save_sec_approval_request_event(revision_phid, diff_phid, transactions):
-    """Save information about a sec-approval review request to the database.
-
-    Args:
-        revision_phid: The PHID of the revision that we requested sec-approval on.
-        transactions: A list Phabricator transaction data results related to the
-            sec-approval event that we want to save.
-
-    Returns:
-        The `SecApprovalRequestEvent` that was saved to the database.
-    """
-    possible_comment_phids = []
-    for transaction in transactions:
-        phid = PhabricatorClient.expect(transaction, "phid")
-        possible_comment_phids.append(phid)
-
-    event = SecApprovalRequestEvent(
-        revision_phid=revision_phid,
-        diff_phid=diff_phid,
-        comment_candidates=possible_comment_phids,
-    )
-    db.session.add(event)
-    db.session.commit()
-    return event

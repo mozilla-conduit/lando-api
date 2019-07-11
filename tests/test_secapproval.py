@@ -7,13 +7,11 @@ See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 """
 from unittest.mock import ANY, patch
 
-from landoapi.secapproval import (
-    save_sec_approval_request_event,
-    send_sanitized_commit_message_for_review,
-)
+from landoapi.models import SecApprovalRequest
+from landoapi.secapproval import send_sanitized_commit_message_for_review
 
 
-def test_send_sanitized_commit_message(db, phabdouble, sec_approval_project):
+def test_send_sanitized_commit_message(phabdouble, sec_approval_project):
     phab = phabdouble.get_phabricator_client()
     r = phabdouble.revision()
 
@@ -30,9 +28,13 @@ def test_send_sanitized_commit_message(db, phabdouble, sec_approval_project):
         )
 
 
-def test_save_transactions(db):
-    rev_phid = "PHID-DREV-1"
-    rev_diff_phid = "PHID-DIFF-4rxpjx4xdzoyfv6pg4nn"
+def test_build_sec_approval_request_obj(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    built_revision = phabdouble.revision()
+    response = phab.call_conduit(
+        "differential.revision.search", constraints={"phid": built_revision["phid"]}
+    )
+    api_revision = phab.single(response, "data")
     # Simulate the transactions that take place when a sec-approval request
     # is made for a revision in Phabricator.
     transactions = [
@@ -44,11 +46,11 @@ def test_save_transactions(db):
         },
     ]
 
-    event = save_sec_approval_request_event(rev_phid, rev_diff_phid, transactions)
+    sec_approval_request = SecApprovalRequest.build(api_revision, transactions)
 
-    assert event.comment_candidates == [
+    assert sec_approval_request.comment_candidates == [
         "PHID-XACT-DREV-faketxn1",
         "PHID-XACT-DREV-faketxn2",
     ]
-    assert event.revision_phid == rev_phid
-    assert event.diff_phid == rev_diff_phid
+    assert sec_approval_request.revision_id == api_revision["id"]
+    assert sec_approval_request.diff_phid == api_revision["fields"]["diffPHID"]

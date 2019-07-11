@@ -1,4 +1,4 @@
-from landoapi.models.secapproval import SecApprovalRequestEvent
+from landoapi.models.secapproval import SecApprovalRequest
 from landoapi.models.transplant import Transplant
 
-__all__ = ["SecApprovalRequestEvent", "Transplant"]
+__all__ = ["SecApprovalRequest", "Transplant"]

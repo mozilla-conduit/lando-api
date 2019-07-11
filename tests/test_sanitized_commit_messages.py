@@ -23,13 +23,21 @@ def authed_headers(auth0_mock):
     return headers
 
 
+def monogram(revision):
+    """Returns the monogram for a Phabricator API revision object.
+
+    For example, a revision with ID 567 returns "D567".
+    """
+    return f"D{revision['id']}"
+
+
 def test_request_sec_approval(
     client, authed_headers, db, phabdouble, secure_project, sec_approval_project
 ):
     revision = phabdouble.revision(projects=[secure_project])
     response = client.post(
         "/requestSecApproval",
-        json={"revision_phid": revision["phid"], "sanitized_message": "obscure"},
+        json={"revision_id": monogram(revision), "sanitized_message": "obscure"},
         headers=authed_headers,
     )
 
@@ -43,7 +51,7 @@ def test_public_revisions_cannot_be_submitted_for_sec_approval(
     revision = phabdouble.revision(projects=[public_project])
     response = client.post(
         "/requestSecApproval",
-        json={"revision_phid": revision["phid"], "sanitized_message": "oops"},
+        json={"revision_id": monogram(revision), "sanitized_message": "oops"},
         headers=authed_headers,
     )
 
@@ -56,7 +64,7 @@ def test_empty_commit_message_is_an_error(
     revision = phabdouble.revision(projects=[secure_project])
     response = client.post(
         "/requestSecApproval",
-        json={"revision_phid": revision["phid"], "sanitized_message": ""},
+        json={"revision_id": monogram(revision), "sanitized_message": ""},
         headers=authed_headers,
     )
 
