@@ -116,7 +116,6 @@ class LoggingSubsystem(Subsystem):
     def init_app(self, app):
         self.flask_app = app
         level = self.flask_app.config.get("LOG_LEVEL", "INFO")
-
         logging.config.dictConfig(
             {
                 "version": 1,
@@ -136,6 +135,9 @@ class LoggingSubsystem(Subsystem):
                     "flask": {"handlers": ["null"]},
                     "werkzeug": {"level": "ERROR", "handlers": ["console"]},
                     "celery": {"level": "INFO", "handlers": ["console"]},
+                    # NOTE: We only see database pool connection creation at the DEBUG
+                    # log level. See https://docs.sqlalchemy.org/en/13/core/engines.html#configuring-logging  # noqa
+                    "sqlalchemy.pool": {"level": "DEBUG", "handlers": ["console"]},
                 },
                 "root": {"handlers": ["null"]},
                 "disable_existing_loggers": True,
