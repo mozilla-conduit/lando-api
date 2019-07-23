@@ -22,8 +22,8 @@ def upgrade():
     op.create_table(
         "secapproval_requests",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("revision_id", sa.Integer(), nullable=False),
-        sa.Column("diff_phid", sa.String(length=128), nullable=False),
+        sa.Column("revision_id", sa.Integer(), nullable=False, index=True),
+        sa.Column("diff_phid", sa.Text(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column(
             "comment_candidates",

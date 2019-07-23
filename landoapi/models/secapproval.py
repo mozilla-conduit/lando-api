@@ -20,19 +20,20 @@ class SecApprovalRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     # The revision ID that this event applies to.
-    revision_id = db.Column(db.Integer, nullable=False)
+    revision_id = db.Column(db.Integer, nullable=False, index=True)
 
     # The active diff PHID when sec-approval was requested.
-    diff_phid = db.Column(db.String(128), nullable=False)
+    diff_phid = db.Column(db.Text, nullable=False)
 
     # Timestamp used to find the latest event in the series.
     created_at = db.Column(
         db.DateTime(timezone=True), nullable=False, default=db.func.now()
     )
 
-    # A JSON list of transaction PHIDs that may be sec-approval request comments.
-    # An extra call to Phabricator needs to be made to tell if the transaction PHID
-    # is for a Revision comment or for something else.
+    # A JSON array of string transaction PHIDs that may be sec-approval request
+    # comments. An extra call to Phabricator needs to be made to tell if the
+    # transaction PHID is for a Revision comment or for something else.
+    #
     # e.g. ["PHID-XACT-DREV-abc123", "PHID-XACT-DREV-def345"]
     comment_candidates = db.Column(JSONB, nullable=False)
 
@@ -56,6 +57,6 @@ class SecApprovalRequest(db.Model):
 
         return cls(
             revision_id=revision["id"],
-            diff_phid=revision["fields"]["diffPHID"],
+            diff_phid=PhabricatorClient.expect(revision, "fields", "diffPHID"),
             comment_candidates=possible_comment_phids,
         )
