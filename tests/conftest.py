@@ -18,7 +18,11 @@ from landoapi.app import construct_app, load_config, SUBSYSTEMS
 from landoapi.cache import cache, cache_subsystem
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
-from landoapi.projects import CHECKIN_PROJ_SLUG, SEC_PROJ_SLUG
+from landoapi.projects import (
+    CHECKIN_PROJ_SLUG,
+    SEC_APPROVAL_PROJECT_SLUG,
+    SEC_PROJ_SLUG,
+)
 from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.storage import db as _db, db_subsystem
 from landoapi.tasks import celery
@@ -123,6 +127,11 @@ def secure_project(phabdouble):
 @pytest.fixture
 def checkin_project(phabdouble):
     return phabdouble.project(CHECKIN_PROJ_SLUG)
+
+
+@pytest.fixture
+def sec_approval_project(phabdouble):
+    return phabdouble.project(SEC_APPROVAL_PROJECT_SLUG)
 
 
 @pytest.fixture

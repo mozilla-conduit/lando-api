@@ -186,6 +186,41 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /requestSecApproval:
+    post:
+      operationId: landoapi.api.revisions.request_sec_approval
+      description: |
+        Submit a sanitized, safe-to-land commit message for a security-sensitive
+        revision. This starts the Security Bug Approval Process.
+      parameters:
+        - name: data
+          description: The data we want to submit
+          required: true
+          in: body
+          schema:
+            type: object
+            required:
+              - revision_id
+              - sanitized_message
+            properties:
+              revision_id:
+                type: string
+                description: |
+                  The ID of a revision in the form of 'D{number}', e.g. 'D12345'.
+              sanitized_message:
+                type: string
+                description: |
+                  The santized commit message we want to use when landing this revision.
+                  See the Security Bug Approval Process for guidelines for crafting an
+                  appropriate message.
+      responses:
+        200:
+          description: OK
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
 definitions:
   LandingPath:
     type: array
