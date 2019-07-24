@@ -89,4 +89,4 @@ def request_sec_approval(data=None):
     db.session.add(sa_request)
     db.session.commit()
 
-    return "OK", 200
+    return {}, 200
