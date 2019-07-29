@@ -169,10 +169,16 @@ def calculate_landable_subgraphs(
     # We won't land anything that has a repository we don't support, so make
     # a pass over all the revisions and block these.
     for phid, revision in revision_data.revisions.items():
-        if (
-            PhabricatorClient.expect(revision, "fields", "repositoryPHID")
-            not in landable_repos
-        ):
+        repo = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+        if not repo:
+            block(
+                phid,
+                "Revision's repository unset. Specify a target using"
+                '"Edit revision" in Phabricator',
+            )
+            continue
+
+        if repo not in landable_repos:
             block(phid, "Repository is not supported by Lando.")
 
     # We only want to consider paths starting from the open revisions
