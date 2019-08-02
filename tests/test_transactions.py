@@ -8,30 +8,35 @@ from landoapi.transactions import transaction_search, get_raw_comments
 
 def test_transaction_search(phabdouble):
     phab = phabdouble.get_phabricator_client()
-    comments = ["yes!", "no?", "~wobble~"]
-    # Adding comments to a revision generates transactions and gives us a
-    # PHID to retrieve them.
-    revision = phabdouble.revision(comments=comments)
+    revision = phabdouble.revision()
+    new_txn1 = phabdouble.transaction("create", revision)
+    new_txn2 = phabdouble.transaction("accept", revision)
     transactions = list(transaction_search(phab, revision["phid"]))
-    assert len(transactions) == len(comments)
+    assert transactions == [new_txn1, new_txn2]
 
 
 def test_no_transaction_search_results_returns_empty_list(phabdouble):
     phab = phabdouble.get_phabricator_client()
-    # Adding comments to a revision generates transactions and gives us a
-    # PHID to retrieve them.
-    revision = phabdouble.revision(comments=[])
-    transactions = list(transaction_search(phab, revision["phid"]))
+    transactions = list(transaction_search(phab, "PHID-DREV-aaaaa"))
     assert transactions == []
 
 
 def test_paginated_transactions_are_fetched_too(phabdouble):
     phab = phabdouble.get_phabricator_client()
-    # Adding comments to a revision generates transactions and gives us a
-    # PHID to retrieve them.
-    comments = list(string.ascii_letters)
-    revision = phabdouble.revision(comments=comments)
+    revision = phabdouble.revision()
+    new_transactions = list(
+        phabdouble.transaction(c, revision) for c in string.ascii_letters
+    )
     # Limit the retrieved page size to force multiple API calls.
     transactions = list(transaction_search(phab, revision["phid"], limit=1))
+    assert transactions == new_transactions
+
+
+def test_add_comments_to_revision_generates_transactions(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    comments = ["yes!", "no?", "~wobble~"]
+    revision = phabdouble.revision(comments=comments)
+    transactions = list(transaction_search(phab, revision["phid"]))
     txn_comments = [get_raw_comments(t).pop() for t in transactions]
+    assert len(transactions) == len(comments)
     assert txn_comments == comments

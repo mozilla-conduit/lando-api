@@ -147,17 +147,9 @@ class PhabricatorDouble:
             }
         )
 
-        next_free_txn_id = len(self._transactions)
-        for txn_id, comment in enumerate(comments, start=next_free_txn_id):
-            # See https://phabricator.services.mozilla.com/conduit/method/transaction.search/  # noqa
-            # for the Conduit API result object structure.
-            self._transactions.append(
-                {
-                    "id": txn_id,
-                    "type": "comment",
-                    "objectPHID": phid,
-                    "comments": [{"content": {"raw": comment}}],
-                }
+        for comment in comments:
+            self.transaction(
+                "comment", revision, comments=[{"content": {"raw": comment}}]
             )
 
         return revision
@@ -423,6 +415,67 @@ class PhabricatorDouble:
         )
 
         return project
+
+    def transaction(
+        self, transaction_type: str, object: dict, operations=None, comments=None
+    ):
+        """Return a Phabricator Transaction object.
+
+        Args:
+            transaction_type: String describing the transaction type.
+                e.g. "subscribers", "projects", "accept".
+            object: A dict structured as a Phabricator API object being modified by the
+                transaction. e.g. a revision dict or project dict.
+            operations: Optional list of operations that the transaction is performing.
+                Note that this argument's value and structure can change depending on
+                the value of the "type" argument.
+                e.g. When adding a subscriber to a revision the transaction type would
+                be "subscriber" and the operations argument would be
+                [{ "operation": "add", "phid": "PHID-USER-abc123"}]
+            comments: Optional list of comments modified by this transaction. Only
+                applies when the transaction type is "comment" or "inline". Structure
+                varies greatly depending on the comment type.
+
+        """
+        # Pull out what type of object we are operating on: DREV? PROJ?
+        object_type = object["type"]
+        object_phid = object["phid"]
+        comments = comments or []
+        fields = {}
+
+        if operations:
+            fields["operations"] = operations
+
+        phid = self._new_phid(f"XACT-{object_type}-")
+        transaction = {
+            "id": self._new_id(self._transactions),
+            "phid": phid,
+            "type": transaction_type,
+            # Not implemented.
+            "authorPHID": None,
+            "objectPHID": object_phid,
+            "dateCreated": 1559779750,
+            "dateModified": 1559779750,
+            # No idea what this field is for.
+            "groupID": "zmgrbvzbcclaubtg4yt2ihwwotxewc4h",
+            "comments": comments,
+            "fields": fields,
+        }
+        self._transactions.append(transaction)
+        self._phids.append(
+            {
+                "phid": phid,
+                # Unlike other objects transactions don't have a URI. This field
+                # is just the hostname with no path component.
+                "uri": "https://phabricator.services.mozilla.com",
+                "typeName": "Transaction",
+                "type": "XACT",
+                "name": "Unknown Object (Transaction)",
+                "fullName": "Unknown Object (Transaction)",
+                "status": "open",
+            }
+        )
+        return transaction
 
     @conduit_method("conduit.ping")
     def conduit_ping(self):
@@ -1063,18 +1116,38 @@ class PhabricatorDouble:
         after=None,
         limit=100,
     ):
-        matching_transactions = [
-            t for t in self._transactions if t["objectPHID"] == objectIdentifier
-        ]
-        # We don't want tests that work with our returned result to accidentally
-        # modify a transaction object.
-        matching_transactions = deepcopy(matching_transactions)
+        def to_response(i):
+            return deepcopy(
+                {
+                    "id": i["id"],
+                    "phid": i["phid"],
+                    "type": i["type"],
+                    "authorPHID": i["authorPHID"],
+                    "objectPHID": i["objectPHID"],
+                    "dateCreated": i["dateCreated"],
+                    "dateModified": i["dateModified"],
+                    "groupID": i["groupID"],
+                    "comments": i["comments"],
+                    "fields": i["fields"],
+                }
+            )
+
+        items = list(self._transactions)
+
+        if objectIdentifier:
+            items = [i for i in items if i["objectPHID"] == objectIdentifier]
+
+        if constraints and "phids" in constraints:
+            items = [i for i in items if i["phid"] in constraints["phids"]]
+
+        if constraints and "authorPHIDs" in constraints:
+            items = [i for i in items if i["authorPHIDs"] in constraints["authorPHIDs"]]
 
         if after is None:
             after = 0
 
         next_page_end = after + limit
-        page = matching_transactions[after:next_page_end]
+        page = items[after:next_page_end]
         # Set the 'after' cursor.
         if len(page) < limit:
             # This is the last page of results.
@@ -1084,7 +1157,7 @@ class PhabricatorDouble:
             after = next_page_end
 
         return {
-            "data": page,
+            "data": [to_response(i) for i in page],
             "cursor": {
                 "limit": limit,
                 "after": after,
@@ -1221,6 +1294,19 @@ class PhabricatorDouble:
         return {i["phid"]: deepcopy(i) for i in self._phids if i["phid"] in phids}
 
     def _new_phid(self, prefix):
+        """Generate a unique PHID of the given type, e.g. 'PHID-DREV-123'.
+
+        For example, given the prefix 'DREV-', the function will generate a
+        PHID of 'PHID-DREV-0'. Given the prefix of 'DIFF-' it will return
+        'PHID-DIFF-abc123'.
+
+        PHIDs are number starting at zero and proceed sequentially for each type. For
+        example, Revision PHIDs will be generated as 'PHID-DREV-0', 'PHID-DREV-1', ...
+
+        Args:
+            prefix: The string to be used as the PHID identifier. Should include the
+                dash between the type and object ID, e.g. 'DREV-' or 'PROJ-'.
+            """
         suffix = self._phid_counters.get(prefix, 0)
         self._phid_counters[prefix] = self._phid_counters.get(prefix, 0) + 1
         return "PHID-{}{}".format(prefix, suffix)
