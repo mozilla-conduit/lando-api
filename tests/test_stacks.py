@@ -550,6 +550,31 @@ def test_calculate_landable_subgraphs_extra_check(phabdouble):
     assert blocked[r3["phid"]] == REASON
 
 
+def test_calculate_landable_subgraphs_missing_repo(phabdouble):
+    """Test to assert a missing repository for a revision is
+    blocked with an appropriate error
+    """
+    phab = phabdouble.get_phabricator_client()
+    repo1 = phabdouble.repo()
+    r1 = phabdouble.revision(repo=None)
+
+    nodes, edges = build_stack_graph(phab, r1["phid"])
+    revision_data = request_extended_revision_data(phab, [r1["phid"]])
+
+    landable, blocked = calculate_landable_subgraphs(
+        revision_data, edges, {repo1["phid"]}
+    )
+
+    repo_unset_warning = (
+        "Revision's repository unset. Specify a target using"
+        '"Edit revision" in Phabricator'
+    )
+
+    assert not landable
+    assert r1["phid"] in blocked
+    assert blocked[r1["phid"]] == repo_unset_warning
+
+
 def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
     phab = phabdouble.get_phabricator_client()
 
