@@ -5,7 +5,9 @@
 from landoapi.phabricator import PhabricatorClient
 
 
-def transaction_search(phabricator, object_identifier, limit=100):
+def transaction_search(
+    phabricator, object_identifier, transaction_phids=None, limit=100
+):
     """Yield the Phabricator transactions related to an object.
 
     See https://phabricator.services.mozilla.com/conduit/method/transaction.search/.
@@ -17,6 +19,8 @@ def transaction_search(phabricator, object_identifier, limit=100):
         phabricator: A PhabricatorClient instance.
         object_identifier: An object identifier (PHID or monogram) whose transactions
             we want to fetch.
+        transaction_phids: An optional list of specific transactions PHIDs we want to
+            find for the given object_identifier.
         limit: Integer keyword, limit the number of records retrieved per API call.
             Default is 100 records.
 
@@ -25,17 +29,23 @@ def transaction_search(phabricator, object_identifier, limit=100):
     """
     next_page_start = None
 
+    if transaction_phids:
+        constraints = {"phids": transaction_phids}
+    else:
+        constraints = {}
+
     while True:
         transactions = phabricator.call_conduit(
             "transaction.search",
             objectIdentifier=object_identifier,
+            constraints=constraints,
             limit=limit,
             after=next_page_start,
         )
 
         yield from PhabricatorClient.expect(transactions, "data")
 
-        next_page_start = transactions["cursor"]["after"]
+        next_page_start = PhabricatorClient.expect(transactions, "cursor", "after")
 
         if next_page_start is None:
             # This was the last page of results.
@@ -50,4 +60,7 @@ def get_raw_comments(transaction):
 
     See https://phabricator.services.mozilla.com/conduit/method/transaction.search/.
     """
-    return [comment["content"]["raw"] for comment in transaction["comments"]]
+    return [
+        PhabricatorClient.expect(comment, "content", "raw")
+        for comment in PhabricatorClient.expect(transaction, "comments")
+    ]

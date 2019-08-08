@@ -6,13 +6,26 @@ import string
 from landoapi.transactions import transaction_search, get_raw_comments
 
 
-def test_transaction_search(phabdouble):
+def test_transaction_search_for_all_transactions(phabdouble):
     phab = phabdouble.get_phabricator_client()
     revision = phabdouble.revision()
     new_txn1 = phabdouble.transaction("create", revision)
     new_txn2 = phabdouble.transaction("accept", revision)
     transactions = list(transaction_search(phab, revision["phid"]))
     assert transactions == [new_txn1, new_txn2]
+
+
+def test_transaction_search_for_specific_transaction(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    revision = phabdouble.revision()
+    phabdouble.transaction("create", revision)
+    accept_txn = phabdouble.transaction("accept", revision)
+    transactions = list(
+        transaction_search(
+            phab, revision["phid"], transaction_phids=[accept_txn["phid"]]
+        )
+    )
+    assert transactions == [accept_txn]
 
 
 def test_no_transaction_search_results_returns_empty_list(phabdouble):

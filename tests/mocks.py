@@ -467,7 +467,7 @@ class PhabricatorDouble:
                 "phid": phid,
                 # Unlike other objects transactions don't have a URI. This field
                 # is just the hostname with no path component.
-                "uri": "https://phabricator.services.mozilla.com",
+                "uri": "https://phabricator.test",
                 "typeName": "Transaction",
                 "type": "XACT",
                 "name": "Unknown Object (Transaction)",
@@ -1136,9 +1136,20 @@ class PhabricatorDouble:
 
         if objectIdentifier:
             items = [i for i in items if i["objectPHID"] == objectIdentifier]
+        else:
+            error_info = 'When calling "transaction.search", you must provide an object to retrieve transactions for.'  # noqa
+            raise PhabricatorAPIException(
+                error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+            )
 
         if constraints and "phids" in constraints:
-            items = [i for i in items if i["phid"] in constraints["phids"]]
+            phids = constraints["phids"]
+            if not phids:
+                error_info = 'Constraint "phids" to "transaction.search" requires nonempty list, empty list provided.'  # noqa
+                raise PhabricatorAPIException(
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+                )
+            items = [i for i in items if i["phid"] in phids]
 
         if constraints and "authorPHIDs" in constraints:
             items = [i for i in items if i["authorPHIDs"] in constraints["authorPHIDs"]]
@@ -1298,15 +1309,15 @@ class PhabricatorDouble:
 
         For example, given the prefix 'DREV-', the function will generate a
         PHID of 'PHID-DREV-0'. Given the prefix of 'DIFF-' it will return
-        'PHID-DIFF-abc123'.
+        'PHID-DIFF-0'.
 
-        PHIDs are number starting at zero and proceed sequentially for each type. For
+        Generated PHIDs start at zero and proceed sequentially for each type. For
         example, Revision PHIDs will be generated as 'PHID-DREV-0', 'PHID-DREV-1', ...
 
         Args:
             prefix: The string to be used as the PHID identifier. Should include the
                 dash between the type and object ID, e.g. 'DREV-' or 'PROJ-'.
-            """
+        """
         suffix = self._phid_counters.get(prefix, 0)
         self._phid_counters[prefix] = self._phid_counters.get(prefix, 0) + 1
         return "PHID-{}{}".format(prefix, suffix)
