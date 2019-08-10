@@ -1117,6 +1117,16 @@ class PhabricatorDouble:
         limit=100,
     ):
         def to_response(i):
+            # Explicitly tell the developer using the mock that they need to check the
+            # type of transaction they are using and make sure it is serialized
+            # correctly by this function.
+            if i["type"] not in ("comment", "dummy"):
+                raise ValueError(
+                    "PhabricatorDouble transactions do not have support"
+                    'for the "{}" transaction type. '
+                    "If you have added use of a new transaction type please "
+                    "update PhabricatorDouble to support it.".format(i["type"])
+                )
             return deepcopy(
                 {
                     "id": i["id"],
