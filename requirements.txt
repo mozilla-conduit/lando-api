@@ -213,6 +213,8 @@ MarkupSafe==1.1.1 \
 mccabe==0.6.1 \
     --hash=sha256:ab8a6258860da4b6677da4bd2fe5dc2c659cff31b3ee4f7f5d64e79735b80d42 \
     --hash=sha256:dd8d182285a0fe56bace7f45b5e7d1a6ebcbf524e8f3bd87eb0f125271b8831f
+mercurial==5.1 \
+    --hash=sha256:6222d92d860e411e422b7dc58062132bc512fa52ec48a71143b40cab4be7c829
 mock==3.0.5 \
     --hash=sha256:83657d894c90d5681d62155c82bda9c1187827525880eda8ff5df4ec813437c3 \
     --hash=sha256:d157e52d4e5b938c550f39eb2fd15610db062441a9c2747d3dbfa9298211d0f8
@@ -283,6 +285,8 @@ python-editor==1.0.4 \
     --hash=sha256:5f98b069316ea1c2ed3f67e7f5df6c0d8f10b689964a4a811ff64f0106819ec8 \
     --hash=sha256:c3da2053dbab6b29c94e43c486ff67206eafbe7eb52dbec7390b5e2fb05aac77 \
     --hash=sha256:ea87e17f6ec459e780e4221f295411462e0d0810858e055fc514684350a2f522
+python-hglib==2.6.1 \
+    --hash=sha256:7c1fa0cb4d332dd6ec8409b04787ceba4623e97fb378656f7cab0b996c6ca3b2
 python-jose[cryptography]==3.0.1 \
     --hash=sha256:29701d998fe560e52f17246c3213a882a4a39da7e42c7015bcc1f7823ceaff1c \
     --hash=sha256:ed7387f0f9af2ea0ddc441d83a6eb47a5909bd0c8a72ac3250e75afec2cc1371

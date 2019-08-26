@@ -6,16 +6,16 @@ Code Style Tests.
 """
 import subprocess
 
+from landoapi.cli import LINT_PATHS
+
 
 def test_check_python_style():
-    files = (".",)
     cmd = ("black", "--diff")
-    output = subprocess.check_output(cmd + files)
+    output = subprocess.check_output(cmd + LINT_PATHS)
     assert not output, "The python code does not adhear to the project style."
 
 
 def test_check_python_flake8():
-    files = (".",)
     cmd = ("flake8",)
-    passed = subprocess.call(cmd + files) == 0
+    passed = subprocess.call(cmd + LINT_PATHS) == 0
     assert passed, "Flake8 did not run cleanly."
