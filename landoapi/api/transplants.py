@@ -11,7 +11,7 @@ from flask import current_app, g
 from landoapi import auth
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.hgexportbuilder import build_patch_for_revision
+from landoapi.hgexports import build_patch_for_revision
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.patches import upload
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus
