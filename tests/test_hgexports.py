@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from landoapi.hgexportbuilder import build_patch_for_revision
+from landoapi.hgexports import build_patch_for_revision
 
 GIT_DIFF_FROM_REVISION = """diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
