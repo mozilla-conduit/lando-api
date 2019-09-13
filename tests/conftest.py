@@ -29,7 +29,7 @@ from landoapi.tasks import celery
 from landoapi.transplants import tokens_are_equal
 
 from tests.factories import TransResponseFactory
-from tests.mocks import PhabricatorDouble
+from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
 
 class JSONClient(flask.testing.FlaskClient):
@@ -117,6 +117,12 @@ def request_mocker():
 def phabdouble(monkeypatch):
     """Mock the Phabricator service and build fake response objects."""
     yield PhabricatorDouble(monkeypatch)
+
+
+@pytest.fixture
+def treestatusdouble(monkeypatch, treestatus_url):
+    """Mock the Tree Status service and build fake responses."""
+    yield TreeStatusDouble(monkeypatch, treestatus_url)
 
 
 @pytest.fixture
@@ -313,3 +319,9 @@ def celery_app(app):
     # AssertionError.
     celery.loader.import_module("celery.contrib.testing.tasks")
     return celery
+
+
+@pytest.fixture
+def treestatus_url():
+    """A string holding the Tree Status base URL."""
+    return "http://treestatus.test"

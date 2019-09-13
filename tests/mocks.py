@@ -9,6 +9,7 @@ from landoapi.phabricator import (
     RevisionStatus,
     ReviewerStatus,
 )
+from landoapi.treestatus import TreeStatus, TreeStatusError
 
 from tests.canned_responses.phabricator.diffs import (
     CANNED_DEFAULT_DIFF_CHANGES,
@@ -1343,3 +1344,86 @@ class PhabricatorDouble:
             if hasattr(getattr(self, a), "_conduit_method")
         ]
         return {handler._conduit_method: handler for handler in handlers}
+
+
+class TreeStatusDouble:
+    """TreeStatus test double.
+
+    Can generate / return data of the same form calls to Tree Status
+    through TreeStatus would. The TreeStatus class is
+    monkeypatched to allow use in integration testing as well.
+
+    Not all api endpoints are implemented, many being ignored entirely,
+    by design. As Lando API needs to make use of more endpionts / arguments
+    support should be added.
+    """
+
+    def __init__(self, monkeypatch, url):
+        self.url = url
+        self._trees = {}
+        self._ping = True
+
+        monkeypatch.setattr(TreeStatus, "request", self._unsupported)
+        monkeypatch.setattr(TreeStatus, "get_trees", self.get_trees)
+        monkeypatch.setattr(TreeStatus, "ping", self.ping)
+
+    def set_tree(self, tree, *, status="open", reason="", message_of_the_day=""):
+        assert tree
+        self._trees[tree] = {
+            "message_of_the_day": message_of_the_day,
+            "reason": reason,
+            "status": status,
+            "tree": tree,
+        }
+
+    def open_tree(self, tree):
+        self.set_tree(tree, status="open", reason="", message_of_the_day="")
+
+    def close_tree(self, tree):
+        self.set_tree(tree, status="closed", reason="testing closed")
+
+    def del_tree(self, tree):
+        assert tree
+        self._trees.pop(tree, None)
+
+    def ping(self):
+        return self._ping
+
+    def toggle_ping(self):
+        self._ping = not self._ping
+
+    def get_trees(self, tree=""):
+        def to_response(i):
+            return {
+                "message_of_the_day": i["message_of_the_day"],
+                "reason": i["reason"],
+                "status": i["status"],
+                "tree": i["tree"],
+            }
+
+        if not tree:
+            return {
+                "result": {
+                    tree: to_response(data) for tree, data in self._trees.items()
+                }
+            }
+
+        if tree not in self._trees:
+            raise TreeStatusError(
+                404,
+                {
+                    "detail": "No such tree",
+                    "instance": "about:blank",
+                    "status": 404,
+                    "title": "404 Not Found: No such tree",
+                    "type": "about:blank",
+                },
+            )
+
+        return {"result": to_response(self._trees[tree])}
+
+    def _unsupported(self, *args, **kwargs):
+        raise ValueError("TestStatusDouble does not support mocking this use.")
+
+    def get_treestatus_client(self):
+        return TreeStatus(url=self.url)
