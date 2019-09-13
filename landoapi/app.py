@@ -1,7 +1,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import json
 import logging
 import logging.config
 import os
@@ -23,7 +22,9 @@ from landoapi.sentry import sentry_subsystem
 from landoapi.smtp import smtp_subsystem
 from landoapi.storage import db_subsystem
 from landoapi.transplant_client import transplant_subsystem
+from landoapi.treestatus import treestatus_subsystem
 from landoapi.ui import lando_ui_subsystem
+from landoapi.version import version
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ SUBSYSTEMS = [
     phabricator_subsystem,
     smtp_subsystem,
     transplant_subsystem,
+    treestatus_subsystem,
 ]
 
 
@@ -57,12 +59,7 @@ def load_config():
         ),
         "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL"),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-        "VERSION": {
-            "source": "https://github.com/mozilla-conduit/lando-api",
-            "version": "0.0.0",
-            "commit": "",
-            "build": "dev",
-        },
+        "VERSION": version(),
     }
     for env_var, default in [
         # AWS credentials should be only provided if needed in development
@@ -94,21 +91,9 @@ def load_config():
         ("TRANSPLANT_API_KEY", None),
         ("TRANSPLANT_URL", None),
         ("TRANSPLANT_USERNAME", None),
-        ("VERSION_PATH", "/app/version.json"),
+        ("TREESTATUS_URL", "https://treestatus.mozilla-releng.net"),
     ]:
         config[env_var] = os.getenv(env_var, default)
-
-    # Read the version information.
-    if config.get("VERSION_PATH") is not None:
-        try:
-            with open(config["VERSION_PATH"]) as f:
-                config["VERSION"] = json.load(f)
-        except (IOError, ValueError):
-            logger.warning(
-                "VERSION_PATH ({}) could not be loaded, assuming dev".format(
-                    config.get("VERSION_PATH")
-                )
-            )
 
     return config
 
