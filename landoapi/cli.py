@@ -9,6 +9,9 @@ import click
 from flask.cli import FlaskGroup
 
 
+LINT_PATHS = ("setup.py", "tasks.py", "landoapi", "migrations", "tests")
+
+
 def create_lando_api_app(info):
     from landoapi.app import construct_app, load_config, SUBSYSTEMS
 
@@ -83,14 +86,13 @@ def format_code(in_place):
     cmd = ("black",)
     if not in_place:
         cmd = cmd + ("--diff",)
-    os.execvp("black", cmd + (".",))
+    os.execvp("black", cmd + LINT_PATHS)
 
 
 @cli.command(with_appcontext=False)
-@click.option("--in-place", "-i", is_flag=True)
-def lint(in_place):
+def lint():
     """Lint python code with flake8"""
-    os.execvp("flake8", ("flake8", "./"))
+    os.execvp("flake8", ("flake8",) + LINT_PATHS)
 
 
 @cli.command(with_appcontext=False, context_settings=dict(ignore_unknown_options=True))

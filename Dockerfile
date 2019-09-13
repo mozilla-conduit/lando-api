@@ -36,6 +36,9 @@ RUN addgroup --gid 10001 app \
         --gecos "app,,," \
         app
 
+# Allow installing mercurial under python3.
+ENV HGPYTHON3=
+
 COPY requirements.txt /python_requirements.txt
 RUN pip install --no-cache -r /python_requirements.txt
 
