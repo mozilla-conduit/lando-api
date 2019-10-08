@@ -48,6 +48,7 @@ class PhabricatorDouble:
         self._repos = []
         self._diffs = []
         self._diff_refs = []
+        self._comments = []
         self._phids = []
         self._phid_counters = {}
         self._edges = []
@@ -149,9 +150,7 @@ class PhabricatorDouble:
         )
 
         for comment in comments:
-            self.transaction(
-                "comment", revision, comments=[{"content": {"raw": comment}}]
-            )
+            self.transaction("comment", revision, comments=[comment])
 
         return revision
 
@@ -433,7 +432,7 @@ class PhabricatorDouble:
                 e.g. When adding a subscriber to a revision the transaction type would
                 be "subscriber" and the operations argument would be
                 [{ "operation": "add", "phid": "PHID-USER-abc123"}]
-            comments: Optional list of comments modified by this transaction. Only
+            comments: Optional list of comment objects this transaction created. Only
                 applies when the transaction type is "comment" or "inline". Structure
                 varies greatly depending on the comment type.
 
@@ -477,6 +476,31 @@ class PhabricatorDouble:
             }
         )
         return transaction
+
+    def comment(self, content, author=None):
+        """Return a Phabricator Comment object.
+
+        Args:
+            content: The raw (Remarkup) comment contents.
+            author: Optional Phabricator User that authored the comment. If None
+                then a new User will be generated.
+        """
+        phid = self._new_phid("XCMT-")
+        author = self.user() if author is None else author
+        comment = {
+            "id": self._new_id(self._comments),
+            "phid": phid,
+            "version": 1,
+            "authorPHID": author["phid"],
+            "dateCreated": 1570502242,
+            "dateModified": 1570502242,
+            "removed": False,
+            "content": {"raw": content},
+        }
+
+        self._comments.append(comment)
+
+        return comment
 
     @conduit_method("conduit.ping")
     def conduit_ping(self):

@@ -47,7 +47,7 @@ def test_paginated_transactions_are_fetched_too(phabdouble):
 def test_add_comments_to_revision_generates_transactions(phabdouble):
     phab = phabdouble.get_phabricator_client()
     comments = ["yes!", "no?", "~wobble~"]
-    revision = phabdouble.revision(comments=comments)
+    revision = phabdouble.revision(comments=[phabdouble.comment(c) for c in comments])
     transactions = list(transaction_search(phab, revision["phid"]))
     txn_comments = [get_raw_comments(t).pop() for t in transactions]
     assert len(transactions) == len(comments)
