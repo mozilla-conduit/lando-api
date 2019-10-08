@@ -256,7 +256,10 @@ def mocked_repo_config(mock_repo_config):
             "test": {
                 "mozilla-central": Repo(
                     "mozilla-central", SCM_LEVEL_3, "", "http://hg.test"
-                )
+                ),
+                "mozilla-uplift": Repo(
+                    "mozilla-uplift", SCM_LEVEL_3, "", "http://hg.test/uplift", True
+                ),
             }
         }
     )

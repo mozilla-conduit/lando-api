@@ -6,6 +6,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from json.decoder import JSONDecodeError
+from urllib.parse import urlparse
 
 import requests
 from enum import Enum, unique
@@ -177,6 +178,11 @@ class PhabricatorClient:
         self.api_url = url + "api/" if url[-1] == "/" else url + "/api/"
         self.api_token = api_token
         self.session = session or self.create_session()
+
+    @property
+    def url_base(self):
+        parts = urlparse(self.api_url)
+        return f"{parts.scheme}://{parts.netloc}"
 
     def call_conduit(self, method, **kwargs):
         """Return the result of an RPC call to a conduit method.

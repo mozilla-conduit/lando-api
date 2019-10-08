@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from copy import deepcopy
+import json
 
 from landoapi.phabricator import (
     PhabricatorAPIException,
@@ -250,6 +251,7 @@ class PhabricatorDouble:
         revision=None,
         rawdiff=CANNED_RAW_DEFAULT_DIFF,
         repo=None,
+        repo_phid=None,
         commits=[
             {
                 "identifier": "b15b8fbc79c2c3977aff9e17f0dfcc34c66ec29f",
@@ -274,11 +276,12 @@ class PhabricatorDouble:
         revision_id = revision["id"] if revision is not None else None
         revision_phid = revision["phid"] if revision is not None else None
         author_phid = revision["authorPHID"] if revision is not None else None
-        repo_phid = (
-            repo["phid"]
-            if repo is not None
-            else (revision["repositoryPHID"] if revision is not None else None)
-        )
+        if repo_phid is None:
+            repo_phid = (
+                repo["phid"]
+                if repo is not None
+                else (revision["repositoryPHID"] if revision is not None else None)
+            )
 
         refs = deepcopy(refs)
         base = None
@@ -993,6 +996,12 @@ class PhabricatorDouble:
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
+            # Create that new revision
+            title_index = transaction_types.index("title")
+            objectIdentifier = self.revision(
+                title=transactions[title_index][1]["value"]
+            )["id"]
+
         def identifier_to_revision(i):
             for r in self._revisions:
                 if r["phid"] == i or r["id"] == i or "D{}".format(r["id"]) == i:
@@ -1179,6 +1188,41 @@ class PhabricatorDouble:
             )
 
         return to_response(diffs[0])
+
+    @conduit_method("differential.createrawdiff")
+    def differential_createrawdiff(self, *, diff, repositoryPHID):
+        def to_response(i):
+            return {"id": i["id"], "phid": i["phid"]}
+
+        new_diff = self.diff(rawdiff=diff, repo_phid=repositoryPHID, commits=[])
+
+        return to_response(new_diff)
+
+    @conduit_method("differential.setdiffproperty")
+    def differential_setdiffproperty(self, *, diff_id=None, data=None, name="default"):
+        def to_response(i):
+            return {"id": i["id"], "phid": i["phid"]}
+
+        diffs = [(i, d) for i, d in enumerate(self._diffs) if d["id"] == diff_id]
+        if diff_id is None or not diffs:
+            raise PhabricatorAPIException(
+                "Diff not found.",
+                error_code="ERR_NOT_FOUND",
+                error_info="Diff not found.",
+            )
+
+        pos, diff = diffs[0]
+        if name == "local:commits":
+            diff["commits"] = json.loads(data)
+        else:
+            raise PhabricatorAPIException(
+                "Unsupported payload.",
+                error_code="ERR_INVALID",
+                error_info="Unsupported payload.",
+            )
+
+        self._diffs[pos] = diff
+        return to_response(diff)
 
     @conduit_method("transaction.search")
     def transaction_search(

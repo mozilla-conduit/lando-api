@@ -278,6 +278,20 @@ def user_block_scm_level(*, auth0_user, landing_repo, **kwargs):
     )
 
 
+def repo_block_approval_required(*, auth0_user, landing_repo, **kwargs):
+    """Check the repo does not need an approval
+    or user has permission to land uplifts"""
+    if landing_repo.approval_required is False:
+        return None
+
+    # Is the current user a release manager ?
+    # TODO: check the user is in release-managers group ?
+    if auth0_user.is_in_groups("all_scm_level_3"):
+        return None
+
+    return "You do not have permissions to land that uplift."
+
+
 def check_landing_warnings(
     auth0_user,
     to_land,
@@ -323,7 +337,11 @@ def check_landing_blockers(
     landable_paths,
     landable_repos,
     *,
-    user_blocks=[user_block_no_auth0_email, user_block_scm_level]
+    user_blocks=[
+        user_block_no_auth0_email,
+        user_block_scm_level,
+        repo_block_approval_required,
+    ]
 ):
     revision_path = []
     revision_to_diff_id = {}

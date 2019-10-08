@@ -221,6 +221,77 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /uplift:
+    post:
+      operationId: landoapi.api.uplift.create
+      description: |
+        Create an uplift request for a revision and target repositories
+      parameters:
+        - name: data
+          in: body
+          description: |
+            Retrieve status of the landing job
+          required: true
+          schema:
+            type: object
+            required:
+              - revision_id
+              - repositories
+              - user_impact
+              - steps_to_reproduce
+              - risky
+              - string_changes
+              - automated_tests
+              - manual_qe
+              - nightly
+              - risk
+              - bug_ids
+            properties:
+              revision_id:
+                type: integer
+              repositories:
+                type: array
+                items:
+                  type: string
+              user_impact:
+                type: string
+              steps_to_reproduce:
+                type: string
+              risky:
+                type: string
+              string_changes:
+                type: string
+              automated_tests:
+                type: boolean
+              manual_qe:
+                type: boolean
+              nightly:
+                type: boolean
+              risk:
+                type: string
+                enum: [low, medium, high]
+              bug_ids:
+                type: array
+                items:
+                  type: string
+      responses:
+        201:
+          description: OK
+        400:
+          description: Invalid payload
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        403:
+          description: Service not authorized
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
 definitions:
   LandingPath:
     type: array
@@ -364,6 +435,10 @@ definitions:
         type: boolean
         description: |
           Whether Lando is able to land to the repository or not.
+      approval_required:
+        type: boolean
+        description: |
+          Whether Lando needs an approval before landing the stack.
   Revision:
     type: object
     properties:

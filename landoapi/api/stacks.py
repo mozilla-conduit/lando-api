@@ -75,6 +75,9 @@ def get(revision_id):
     landable, blocked = calculate_landable_subgraphs(
         stack_data, edges, landable_repos, other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
     )
+    uplift_repos = [
+        key for key, repo in supported_repos.items() if repo.approval_required
+    ]
 
     involved_phids = set()
     for revision in stack_data.revisions.values():
@@ -146,7 +149,11 @@ def get(revision_id):
         short_name = PhabricatorClient.expect(
             stack_data.repositories[phid], "fields", "shortName"
         )
-        landing_supported = short_name in supported_repos
+        repo = supported_repos.get(short_name)
+        if repo is None:
+            landing_supported, approval_required = False, None
+        else:
+            landing_supported, approval_required = True, repo.approval_required
         url = (
             "{phabricator_url}/source/{short_name}".format(
                 phabricator_url=current_app.config["PHABRICATOR_URL"],
@@ -161,6 +168,7 @@ def get(revision_id):
                 "short_name": short_name,
                 "url": url,
                 "landing_supported": landing_supported,
+                "approval_required": approval_required,
             }
         )
 
@@ -169,4 +177,5 @@ def get(revision_id):
         "revisions": revisions_response,
         "edges": [e for e in edges],
         "landable_paths": landable,
+        "uplift_repositories": uplift_repos,
     }
