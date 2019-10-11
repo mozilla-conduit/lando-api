@@ -270,25 +270,16 @@ def test_get_transplant_not_authorized_to_view_revision(db, client, phabdouble):
 
 
 def test_warning_previously_landed_no_landings(db, phabdouble):
-    phab = phabdouble.get_phabricator_client()
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
-
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
-    diff = phab.call_conduit(
-        "differential.diff.search",
-        constraints={"phids": [d["phid"]]},
-        attachments={"commits": True},
-    )["data"][0]
+    revision = phabdouble.api_object_for(
+        r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
+    )
+    diff = phabdouble.api_object_for(d, attachments={"commits": True})
     assert warning_previously_landed(revision=revision, diff=diff) is None
 
 
 def test_warning_previously_landed_failed_landing(db, phabdouble):
-    phab = phabdouble.get_phabricator_client()
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
@@ -299,21 +290,15 @@ def test_warning_previously_landed_failed_landing(db, phabdouble):
         status=TransplantStatus.failed,
     )
 
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
-    diff = phab.call_conduit(
-        "differential.diff.search",
-        constraints={"phids": [d["phid"]]},
-        attachments={"commits": True},
-    )["data"][0]
+    revision = phabdouble.api_object_for(
+        r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
+    )
+    diff = phabdouble.api_object_for(d, attachments={"commits": True})
+
     assert warning_previously_landed(revision=revision, diff=diff) is None
 
 
 def test_warning_previously_landed_landed_landing(db, phabdouble):
-    phab = phabdouble.get_phabricator_client()
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
@@ -324,40 +309,29 @@ def test_warning_previously_landed_landed_landing(db, phabdouble):
         status=TransplantStatus.landed,
     )
 
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
-    diff = phab.call_conduit(
-        "differential.diff.search",
-        constraints={"phids": [d["phid"]]},
-        attachments={"commits": True},
-    )["data"][0]
+    revision = phabdouble.api_object_for(
+        r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
+    )
+    diff = phabdouble.api_object_for(d, attachments={"commits": True})
+
     assert warning_previously_landed(revision=revision, diff=diff) is not None
 
 
 def test_warning_revision_secure_project_none(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-    r = phabdouble.revision(diff=phabdouble.diff())
-
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    )
+
     assert warning_revision_secure(revision=revision, secure_project_phid=None) is None
 
 
 def test_warning_revision_secure_is_secure(phabdouble, secure_project):
-    phab = phabdouble.get_phabricator_client()
-    r = phabdouble.revision(diff=phabdouble.diff(), projects=[secure_project])
-
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(projects=[secure_project]),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    )
+
     assert (
         warning_revision_secure(
             revision=revision, secure_project_phid=secure_project["phid"]
@@ -367,15 +341,12 @@ def test_warning_revision_secure_is_secure(phabdouble, secure_project):
 
 
 def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
-    phab = phabdouble.get_phabricator_client()
     not_secure_project = phabdouble.project("not_secure_project")
-    r = phabdouble.revision(diff=phabdouble.diff(), projects=[not_secure_project])
-
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(projects=[not_secure_project]),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    )
+
     assert (
         warning_revision_secure(
             revision=revision, secure_project_phid=secure_project["phid"]
@@ -388,31 +359,24 @@ def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
     "status", [s for s in RevisionStatus if s is not RevisionStatus.ACCEPTED]
 )
 def test_warning_not_accepted_warns_on_other_status(phabdouble, status):
-    phab = phabdouble.get_phabricator_client()
-    r = phabdouble.revision(status=status)
-
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(status=status),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    )
+
     assert warning_not_accepted(revision=revision) is not None
 
 
 def test_warning_not_accepted_no_warning_when_accepted(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-    r = phabdouble.revision(status=RevisionStatus.ACCEPTED)
-
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(status=RevisionStatus.ACCEPTED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    )
+
     assert warning_not_accepted(revision=revision) is None
 
 
 def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
-    phab = phabdouble.get_phabricator_client()
     d_reviewed = phabdouble.diff()
     r = phabdouble.revision(diff=d_reviewed)
     phabdouble.reviewer(
@@ -422,19 +386,11 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
         status=ReviewerStatus.ACCEPTED,
     )
     d_new = phabdouble.diff(revision=r)
-
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    revision = phabdouble.api_object_for(
+        r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
+    )
     reviewers = get_collated_reviewers(revision)
-
-    diff = phab.call_conduit(
-        "differential.diff.search",
-        constraints={"phids": [d_new["phid"]]},
-        attachments={"commits": True},
-    )["data"][0]
+    diff = phabdouble.api_object_for(d_new, attachments={"commits": True})
 
     assert (
         warning_reviews_not_current(revision=revision, diff=diff, reviewers=reviewers)
@@ -443,23 +399,15 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
 
 
 def test_warning_reviews_not_current_warns_on_unreviewed_revision(phabdouble):
-    phab = phabdouble.get_phabricator_client()
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
     # Don't create any reviewers.
 
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    revision = phabdouble.api_object_for(
+        r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
+    )
     reviewers = get_collated_reviewers(revision)
-
-    diff = phab.call_conduit(
-        "differential.diff.search",
-        constraints={"phids": [d["phid"]]},
-        attachments={"commits": True},
-    )["data"][0]
+    diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
     assert (
         warning_reviews_not_current(revision=revision, diff=diff, reviewers=reviewers)
@@ -468,7 +416,6 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(phabdouble):
 
 
 def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
-    phab = phabdouble.get_phabricator_client()
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
     phabdouble.reviewer(
@@ -478,18 +425,11 @@ def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
         status=ReviewerStatus.ACCEPTED,
     )
 
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    revision = phabdouble.api_object_for(
+        r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
+    )
     reviewers = get_collated_reviewers(revision)
-
-    diff = phab.call_conduit(
-        "differential.diff.search",
-        constraints={"phids": [d["phid"]]},
-        attachments={"commits": True},
-    )["data"][0]
+    diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
     assert (
         warning_reviews_not_current(revision=revision, diff=diff, reviewers=reviewers)

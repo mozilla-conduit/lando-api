@@ -15,31 +15,19 @@ pytestmark = pytest.mark.usefixtures("docker_env_vars")
 
 
 def test_check_diff_author_is_known_with_author(phabdouble):
-    phab = phabdouble.get_phabricator_client()
     # Adds author information by default.
     d = phabdouble.diff()
     phabdouble.revision(diff=d, repo=phabdouble.repo())
-
-    diff = phab.call_conduit(
-        "differential.diff.search",
-        constraints={"phids": [d["phid"]]},
-        attachments={"commits": True},
-    )["data"][0]
+    diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
     assert check_diff_author_is_known(diff=diff) is None
 
 
 def test_check_diff_author_is_known_with_unknown_author(phabdouble):
-    phab = phabdouble.get_phabricator_client()
     # No commits for no author data.
     d = phabdouble.diff(commits=[])
     phabdouble.revision(diff=d, repo=phabdouble.repo())
-
-    diff = phab.call_conduit(
-        "differential.diff.search",
-        constraints={"phids": [d["phid"]]},
-        attachments={"commits": True},
-    )["data"][0]
+    diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
     assert check_diff_author_is_known(diff=diff) is not None
 
@@ -48,26 +36,18 @@ def test_check_diff_author_is_known_with_unknown_author(phabdouble):
     "status", [s for s in RevisionStatus if s is not RevisionStatus.CHANGES_PLANNED]
 )
 def test_check_author_planned_changes_changes_not_planned(phabdouble, status):
-    phab = phabdouble.get_phabricator_client()
-    r = phabdouble.revision(status=status)
-
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(status=status),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    )
     assert check_author_planned_changes(revision=revision) is None
 
 
 def test_check_author_planned_changes_changes_planned(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-    r = phabdouble.revision(status=RevisionStatus.CHANGES_PLANNED)
-
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(status=RevisionStatus.CHANGES_PLANNED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"][0]
+    )
     assert check_author_planned_changes(revision=revision) is not None
 
 
@@ -93,23 +73,17 @@ def test_secure_api_flag_on_secure_revision_is_true(client, phabdouble, secure_p
 
 
 def test_public_revision_is_not_secure(phabdouble, secure_project):
-    phab = phabdouble.get_phabricator_client()
     public_project = phabdouble.project("public")
-    r = phabdouble.revision(projects=[public_project])
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(projects=[public_project]),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"].pop()
+    )
     assert not revision_is_secure(revision, secure_project["phid"])
 
 
 def test_secure_revision_is_secure(phabdouble, secure_project):
-    phab = phabdouble.get_phabricator_client()
-    r = phabdouble.revision(projects=[secure_project])
-    revision = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [r["phid"]]},
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(projects=[secure_project]),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )["data"].pop()
+    )
     assert revision_is_secure(revision, secure_project["phid"])

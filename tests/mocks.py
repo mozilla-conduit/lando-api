@@ -67,6 +67,44 @@ class PhabricatorDouble:
 
         return handler(**kwargs)
 
+    def api_object_for(self, mock_object: dict, **kwargs) -> dict:
+        """Converts a PhabDouble object into a Phabricator search API result object.
+
+        This is useful for tests that need to generate mock API objects, convert the
+        mock to the structure as returned by the Phabricator API search methods,
+        and then pass the API search result representation to the code under test.
+
+        For example, for a `phabdouble.revision()` object, this method will return the
+        same Revision object that would be found by calling
+        `PhabricatorClient.call_conduit("differential.revision.search")` directly from
+        the test.
+
+        Args:
+            mock_object: A Phabricator mock object returned by one of the
+                PhabricatorDouble factory methods, such as revision() or diff().
+            kwargs: Optional keyword arguments to pass to call_conduit.
+
+        Returns:
+            The first object in the API search result that matches the PHID of the
+            mock_object argument.
+
+        Raises:
+            ValueError if this method fails to find exactly one object matching the
+            mock_object's PHID in the Phabricator API search results.
+        """
+        search_method_for_type = {
+            "DIFF": "differential.diff.search",
+            "DREV": "differential.revision.search",
+            "PROJ": "project.search",
+            "REPO": "diffusion.repository.search",
+            "USER": "user.search",
+        }
+        method = search_method_for_type[mock_object["type"]]
+        result = self.call_conduit(
+            method, constraints={"phids": [mock_object["phid"]]}, **kwargs
+        )
+        return PhabricatorClient.single(result, "data")
+
     @staticmethod
     def get_phabricator_client():
         return PhabricatorClient("https://localhost", "DOESNT-MATTER")
