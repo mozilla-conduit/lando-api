@@ -7,29 +7,19 @@ import json
 
 from landoapi.phabricator import PhabricatorClient
 from landoapi.repos import get_repos_for_env
-from landoapi.stacks import build_stack_graph, request_extended_revision_data
+from landoapi.stacks import request_extended_revision_data
 
-from flask import current_app, render_template
+from flask import current_app
 
 
 logger = logging.getLogger(__name__)
-
-
-def render_uplift_form(source_revision: dict, form_data: dict) -> str:
-    """
-    Render the uplift form as a Remarkup string
-    This is used to populate the new revision's summary
-    """
-    return render_template(
-        "uplift_form.html", source_revision=source_revision, uplift=form_data
-    )
 
 
 def create_uplift_revision(
     phab: PhabricatorClient,
     source_revision_id: int,
     target_repository: str,
-    form_data: dict,
+    form_content: str,
 ):
     """
     Create a new revision on a repository, cloning a diff from another repo
@@ -65,80 +55,67 @@ def create_uplift_revision(
         "differential.revision.search", constraints={"ids": [source_revision_id]}
     )
     source_revision = phab.single(source_revision, "data")
-    nodes, edges = build_stack_graph(phab, source_revision["phid"])
-    stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
+    stack = request_extended_revision_data(phab, [source_revision["phid"]])
+    diff = stack.diffs[source_revision["fields"]["diffPHID"]]
 
-    # TODO: limit to some diffs ?
-    out = []
-    for diff in stack_data.diffs.values():
+    # Get raw diff
+    raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
+    assert raw_diff, "Missing raw source diff"
 
-        # Get raw diff
-        raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
-        assert raw_diff, "Missing raw source diff"
+    # Upload it on target repo
+    new_diff = phab.call_conduit(
+        "differential.createrawdiff", diff=raw_diff, repositoryPHID=phab_repo["phid"]
+    )
+    new_diff_id = phab.expect(new_diff, "id")
+    new_diff_phid = phab.expect(new_diff, "phid")
+    logger.info(f"Created new diff {new_diff_id} - {new_diff_phid}")
 
-        # Upload it on target repo
-        new_diff = phab.call_conduit(
-            "differential.createrawdiff",
-            diff=raw_diff,
-            repositoryPHID=phab_repo["phid"],
-        )
-        new_diff_id = phab.expect(new_diff, "id")
-        new_diff_phid = phab.expect(new_diff, "phid")
-        logger.info(f"Created new diff {new_diff_id} - {new_diff_phid}")
-
-        # Attach commit information to setup the author (needed for landing)
-        commits = diff["attachments"]["commits"]["commits"]
-        phab.call_conduit(
-            "differential.setdiffproperty",
-            diff_id=new_diff_id,
-            name="local:commits",
-            data=json.dumps(
-                {
-                    commit["identifier"]: {
-                        "author": commit["author"]["name"],
-                        "authorEmail": commit["author"]["email"],
-                        "time": 0,
-                        "message": commit["message"],
-                        "commit": commit["identifier"],
-                        "tree": None,
-                        "parents": commit["parents"],
-                    }
-                    for commit in commits
-                }
-            ),
-        )
-
-        # Finally create the revision to link all the pieces
-        new_rev = phab.call_conduit(
-            "differential.revision.edit",
-            transactions=[
-                {"type": "update", "value": new_diff_phid},
-                {
-                    "type": "title",
-                    "value": f"Uplift request D{source_revision['id']}: {source_revision['fields']['title']}",  # noqa
-                },
-                # Set release managers as reviewers
-                {"type": "reviewers.add", "value": [release_managers["phid"]]},
-                # Add uplift request form as summary
-                {
-                    "type": "summary",
-                    "value": render_uplift_form(source_revision, form_data),
-                },
-            ],
-        )
-        logger.info(
-            f"Created new Phabricator revision {new_rev['object']['id']} - {new_rev['object']['phid']}"  # noqa
-        )
-
-        # Build output payload
-        out.append(
+    # Attach commit information to setup the author (needed for landing)
+    commits = diff["attachments"]["commits"]["commits"]
+    phab.call_conduit(
+        "differential.setdiffproperty",
+        diff_id=new_diff_id,
+        name="local:commits",
+        data=json.dumps(
             {
-                "url": f"{phab.url_base}/D{new_rev['object']['id']}",
-                "revision_id": new_rev["object"]["id"],
-                "revision_phid": new_rev["object"]["id"],
-                "diff_id": new_diff_id,
-                "diff_phid": new_diff_phid,
+                commit["identifier"]: {
+                    "author": commit["author"]["name"],
+                    "authorEmail": commit["author"]["email"],
+                    "time": 0,
+                    "message": commit["message"],
+                    "commit": commit["identifier"],
+                    "tree": None,
+                    "parents": commit["parents"],
+                }
+                for commit in commits
             }
-        )
+        ),
+    )
 
-    return out
+    # Finally create the revision to link all the pieces
+    new_rev = phab.call_conduit(
+        "differential.revision.edit",
+        transactions=[
+            {"type": "update", "value": new_diff_phid},
+            {
+                "type": "title",
+                "value": f"Uplift request D{source_revision['id']}: {source_revision['fields']['title']}",  # noqa
+            },
+            # Set release managers as reviewers
+            {"type": "reviewers.add", "value": [release_managers["phid"]]},
+            # Post the form as a comment on the revision
+            {"type": "comment", "value": form_content},
+        ],
+    )
+    logger.info(
+        f"Created new Phabricator revision {new_rev['object']['id']} - {new_rev['object']['phid']}"  # noqa
+    )
+
+    return {
+        "repository": target_repository,
+        "url": f"{phab.url_base}/D{new_rev['object']['id']}",
+        "revision_id": new_rev["object"]["id"],
+        "revision_phid": new_rev["object"]["id"],
+        "diff_id": new_diff_id,
+        "diff_phid": new_diff_phid,
+    }

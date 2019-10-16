@@ -1,75 +1,12 @@
-from landoapi.uplift import render_uplift_form
-
-VALID_FORM = """
-
-
-= Uplift request details =
-
-View [source revision D1234](/D1234)
-
-===== User impact if declined  =====
-
-Not a lot of impact.
-
-===== Steps to reproduce =====
-
-Crash it, that&#39;s all.
-
-===== Why is the change risky/not risky ? =====
-
-Really risky
-
-===== Is this code covered by automated tests ? =====
-
-{icon check color=green} Yes
-
-
-===== Has the fix been verified in Nightly ? =====
-
-{icon times color=red} No
-
-
-===== Risk to taking this patch =====
-
-medium
-
-===== Needs manual test from QE ? =====
-
-{icon check color=green} Yes
-
-
-===== String changes made/needed =====
-
-None.
-
-===== List of other uplifts needed =====
-
-- Bug 1233
-"""
-
-
-def test_form_rendering(app):
-    """Test rendering the uplift form"""
-    form = render_uplift_form(
-        source_revision={"id": 1234},
-        form_data={
-            "user_impact": "Not a lot of impact.",
-            "steps_to_reproduce": "Crash it, that's all.",
-            "risky": "Really risky",
-            "automated_tests": True,
-            "nightly": False,
-            "risk": "medium",
-            "manual_qe": True,
-            "string_changes": "None.",
-            "bug_ids": ["1233"],
-        },
-    )
-    assert form == VALID_FORM
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
 def test_uplift_creation(phabdouble, client, auth0_mock, mock_repo_config):
     revision = phabdouble.revision()
     repo_mc = phabdouble.repo()
+    user = phabdouble.user(username="JohnDoe")
     repo_uplift = phabdouble.repo(name="mozilla-uplift")
 
     # This group is required
@@ -77,45 +14,40 @@ def test_uplift_creation(phabdouble, client, auth0_mock, mock_repo_config):
 
     payload = {
         "revision_id": revision["id"],
-        "repositories": [repo_mc["shortName"]],
-        "user_impact": "Not a lot of impact.",
-        "steps_to_reproduce": "Crash it, that's all.",
-        "risky": "Really risky",
-        "automated_tests": True,
-        "nightly": False,
-        "risk": "medium",
-        "manual_qe": True,
-        "string_changes": "None.",
-        "bug_ids": ["1233"],
+        "repository": repo_mc["shortName"],
+        "form_content": "Here are all the details about my uplift request...",
     }
 
     # No auth
     response = client.post("/uplift", json=payload)
     assert response.status_code == 401
+    assert response.json["title"] == "X-Phabricator-API-Key Required"
+
+    # API key but no auth0
+    headers = {"X-Phabricator-API-Key": user["apiKey"]}
+    response = client.post("/uplift", json=payload, headers=headers)
+    assert response.status_code == 401
     assert response.json["title"] == "Authorization Header Required"
 
     # Invalid repository (not uplift)
-    response = client.post("/uplift", json=payload, headers=auth0_mock.mock_headers)
+    headers.update(auth0_mock.mock_headers)
+    response = client.post("/uplift", json=payload, headers=headers)
     assert response.status_code == 400
-    assert response.json["title"] == "No valid uplift repositories"
+    assert response.json["title"] == "No valid uplift repository"
 
     # Only one revision at first
     assert len(phabdouble._revisions) == 1
 
     # Valid uplift repository
-    payload["repositories"].append(repo_uplift["shortName"])
-    response = client.post("/uplift", json=payload, headers=auth0_mock.mock_headers)
+    payload["repository"] = repo_uplift["shortName"]
+    response = client.post("/uplift", json=payload, headers=headers)
     assert response.status_code == 201
     assert response.json == {
-        "mozilla-uplift": [
-            {
-                "diff_id": 2,
-                "diff_phid": "PHID-DIFF-1",
-                "revision_id": 2,
-                "revision_phid": 2,
-                "url": "http://phabricator.test/D2",
-            }
-        ]
+        "diff_id": 2,
+        "diff_phid": "PHID-DIFF-1",
+        "revision_id": 2,
+        "revision_phid": 2,
+        "url": "http://phabricator.test/D2",
     }
 
     # Now we have a new uplift revision on Phabricator

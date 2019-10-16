@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from copy import deepcopy
+import hashlib
 import json
 
 from landoapi.phabricator import (
@@ -217,6 +218,9 @@ class PhabricatorDouble:
         uri = "http://phabricator.test/p/{}".format(username)
         user = {
             "id": self._new_id(self._users),
+            "apiKey": "api-{}".format(
+                hashlib.md5(email.encode("utf-8")).hexdigest()[:12]
+            ),
             "type": "USER",
             "phid": phid,
             "email": email,
@@ -1459,6 +1463,27 @@ class PhabricatorDouble:
             items = [i for i in items if i["id"] in ids]
 
         return [to_response(i) for i in items]
+
+    @conduit_method("user.whoami")
+    def user_whoami(self):
+        def to_response(i):
+            return {
+                "phid": i["phid"],
+                "userName": i["userName"],
+                "realName": i["realName"],
+                "image": i["image"],
+                "uri": i["uri"],
+                "roles": i["roles"],
+            }
+
+        if not self._users:
+            raise PhabricatorAPIException(
+                "User not found.",
+                error_code="ERR_NOT_FOUND",
+                error_info="User not found.",
+            )
+
+        return to_response(self._users[0])
 
     @conduit_method("phid.query")
     def phid_query(self, *, phids=None):

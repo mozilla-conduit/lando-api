@@ -225,7 +225,7 @@ paths:
     post:
       operationId: landoapi.api.uplift.create
       description: |
-        Create an uplift request for a revision and target repositories
+        Create an uplift request for a revision and target repository
       parameters:
         - name: data
           in: body
@@ -236,44 +236,15 @@ paths:
             type: object
             required:
               - revision_id
-              - repositories
-              - user_impact
-              - steps_to_reproduce
-              - risky
-              - string_changes
-              - automated_tests
-              - manual_qe
-              - nightly
-              - risk
-              - bug_ids
+              - repository
+              - form_content
             properties:
               revision_id:
                 type: integer
-              repositories:
-                type: array
-                items:
-                  type: string
-              user_impact:
+              repository:
                 type: string
-              steps_to_reproduce:
+              form_content:
                 type: string
-              risky:
-                type: string
-              string_changes:
-                type: string
-              automated_tests:
-                type: boolean
-              manual_qe:
-                type: boolean
-              nightly:
-                type: boolean
-              risk:
-                type: string
-                enum: [low, medium, high]
-              bug_ids:
-                type: array
-                items:
-                  type: string
       responses:
         201:
           description: OK

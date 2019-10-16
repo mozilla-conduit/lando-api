@@ -15,41 +15,42 @@ from landoapi.decorators import require_phabricator_api_key
 logger = logging.getLogger(__name__)
 
 
-@require_phabricator_api_key(optional=True)
+@require_phabricator_api_key(optional=False)
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 def create(data):
-    """Create new uplift requests for requested repositories & revision"""
+    """Create new uplift requests for requested repository & revision"""
 
-    # Validate repositories
+    # Validate repository
     all_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
-    repositories = [
-        repo_key
-        for repo_key, repo in all_repos.items()
-        if repo_key in data["repositories"] and repo.approval_required is True
-    ]
-    if not repositories:
+    repository = next(
+        iter(
+            [
+                repo_key
+                for repo_key, repo in all_repos.items()
+                if repo_key == data["repository"] and repo.approval_required is True
+            ]
+        ),
+        None,
+    )
+    if repository is None:
         return problem(
             400,
-            "No valid uplift repositories",
+            "No valid uplift repository",
             "Please select an uplift repository to create that uplift request.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    out = {}
-    for repo in repositories:
-        # TODO: check this is not a duplicate
-
-        try:
-            out[repo] = create_uplift_revision(
-                g.phabricator, data["revision_id"], repo, data
+    try:
+        output = create_uplift_revision(
+            g.phabricator, data["revision_id"], repository, data["form_content"]
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to create an uplift request on revision {} and repository {} : {}".format(  # noqa
+                data["revision_id"], repository, str(e)
             )
-        except Exception as e:
-            logger.error(
-                "Failed to create an uplift request on revision {} and repository {} : {}".format(  # noqa
-                    data["revision_id"], repo, str(e)
-                )
-            )
+        )
 
-            raise
+        raise
 
-    return out, 201
+    return output, 201
