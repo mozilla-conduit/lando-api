@@ -1145,8 +1145,29 @@ class PhabricatorDouble:
 
         items = list(self._transactions)
 
+        def filter_by_phid(iterable, phid):
+            return [obj for obj in iterable if obj["objectPHID"] == phid]
+
         if objectIdentifier:
-            items = [i for i in items if i["objectPHID"] == objectIdentifier]
+            if objectIdentifier.startswith("PHID-"):
+                items = filter_by_phid(items, objectIdentifier)
+            elif objectIdentifier.startswith("D"):
+                # Search for the matching object by name.
+                matches = [
+                    obj for obj in self._phids if obj.get("name") == objectIdentifier
+                ]
+                if matches:
+                    obj = matches[0]
+                    items = filter_by_phid(items, obj["phid"])
+                else:
+                    items = []
+            else:
+                raise ValueError(
+                    f"PhabricatorDouble transaction search does not support the "
+                    f'objectIdentifier "{objectIdentifier}". If you require '
+                    f"transaction searches of this type please consider adding "
+                    f"support for them."
+                )
         else:
             error_info = 'When calling "transaction.search", you must provide an object to retrieve transactions for.'  # noqa
             raise PhabricatorAPIException(

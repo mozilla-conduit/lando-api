@@ -52,3 +52,19 @@ def test_add_comments_to_revision_generates_transactions(phabdouble):
     txn_comments = [get_raw_comments(t).pop() for t in transactions]
     assert len(transactions) == len(comments)
     assert txn_comments == comments
+
+
+def test_find_transaction_by_object_name(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    revision = phabdouble.revision()
+    txn = phabdouble.transaction("dummy", revision)
+    name = f"D{revision['id']}"
+    assert list(transaction_search(phab, name)) == [txn]
+
+
+def test_find_transaction_by_phid(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    revision = phabdouble.revision()
+    txn = phabdouble.transaction("dummy", revision)
+    phid = revision["phid"]
+    assert list(transaction_search(phab, phid)) == [txn]
