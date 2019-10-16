@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Add revision data to commit message."""
 import re
+from typing import Tuple
 
 REVISION_URL_TEMPLATE = "Differential Revision: {url}"
 
@@ -196,3 +197,15 @@ def parse_commit_id(s):
         return None
 
     return m.group(1)
+
+
+def split_title_and_summary(msg: str) -> Tuple[str, str]:
+    """Split a VCS commit message into its title and body.
+
+    Returns a tuple of (title, summary) strings. The summary string may be empty.
+    """
+    parts = msg.split("\n", maxsplit=1)
+    title = parts[0]
+    tail = parts[1:]
+    summary = "\n".join(tail).strip()
+    return title, summary

@@ -18,6 +18,7 @@ from landoapi.reviews import (
     serialize_reviewers,
 )
 from landoapi.revisions import (
+    find_title_and_summary_for_display,
     gather_involved_phids,
     get_bugzilla_bug,
     revision_is_secure,
@@ -93,8 +94,8 @@ def get(revision_id):
         revision_url = urllib.parse.urljoin(
             current_app.config["PHABRICATOR_URL"], human_revision_id
         )
-        title = PhabricatorClient.expect(fields, "title")
-        summary = PhabricatorClient.expect(fields, "summary")
+        secure = revision_is_secure(revision, secure_project_phid)
+        commit_description = find_title_and_summary_for_display(phab, revision, secure)
         bug_id = get_bugzilla_bug(revision)
         reviewers = get_collated_reviewers(revision)
         accepted_reviewers = [
@@ -103,7 +104,11 @@ def get(revision_id):
             if r["status"] is ReviewerStatus.ACCEPTED
         ]
         commit_message_title, commit_message = format_commit_message(
-            title, bug_id, accepted_reviewers, summary, revision_url
+            commit_description.title,
+            bug_id,
+            accepted_reviewers,
+            commit_description.summary,
+            revision_url,
         )
         author_response = serialize_author(phab.expect(fields, "authorPHID"), users)
 
@@ -114,7 +119,7 @@ def get(revision_id):
                 "status": serialize_status(revision),
                 "blocked_reason": blocked.get(revision_phid, ""),
                 "bug_id": bug_id,
-                "title": title,
+                "title": commit_description.title,
                 "url": revision_url,
                 "date_created": PhabricatorClient.to_datetime(
                     PhabricatorClient.expect(revision, "fields", "dateCreated")
@@ -122,14 +127,15 @@ def get(revision_id):
                 "date_modified": PhabricatorClient.to_datetime(
                     PhabricatorClient.expect(revision, "fields", "dateModified")
                 ).isoformat(),
-                "summary": summary,
+                "summary": commit_description.summary,
                 "commit_message_title": commit_message_title,
                 "commit_message": commit_message,
                 "repo_phid": PhabricatorClient.expect(fields, "repositoryPHID"),
                 "diff": serialize_diff(diff),
                 "author": author_response,
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
-                "is_secure": revision_is_secure(revision, secure_project_phid),
+                "is_secure": secure,
+                "is_using_secure_commit_message": commit_description.sanitized,
             }
         )
 

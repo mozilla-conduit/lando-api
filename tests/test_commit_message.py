@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import pytest
 
-from landoapi.commit_message import format_commit_message
+from landoapi.commit_message import format_commit_message, split_title_and_summary
 
 COMMIT_MESSAGE = """
 Bug 1 - A title. r=reviewer_one,reviewer_two
@@ -102,3 +102,18 @@ def test_group_reviewers_replaced(reviewer_text):
         "http://phabricator.test/D123",
     )
     assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
+
+
+@pytest.mark.parametrize(
+    "message, title, summary",
+    [
+        ("title only", "title only", ""),
+        ("title only\n\n", "title only", ""),
+        ("title\n\nand summary", "title", "and summary"),
+        ("title\n\nmultiline\n\nsummary", "title", "multiline\n\nsummary"),
+    ],
+)
+def test_split_title_and_summary(message, title, summary):
+    parsed_title, parsed_summary = split_title_and_summary(message)
+    assert parsed_title == title
+    assert parsed_summary == summary

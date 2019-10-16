@@ -451,6 +451,15 @@ definitions:
         description: |
           Indicates this revision is security-sensitive and should follow the
           Security Bug Approval Process.  See https://wiki.mozilla.org/Security/Bug_Approval_Process.
+      is_using_secure_commit_message:
+        type: boolean
+        description: |
+          Indicates that the patch author has given an alternative, secure commit
+          message to land this revision with, according to the Security Bug Approval
+          Process. The alternative message is available in the 'title' and
+          'summary' attributes.
+
+          See https://wiki.mozilla.org/Security/Bug_Approval_Process for details.
   User:
     type: object
     properties:

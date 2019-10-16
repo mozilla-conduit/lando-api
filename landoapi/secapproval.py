@@ -5,9 +5,18 @@
 
 See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 """
+import logging
+import operator
+from typing import NamedTuple
 
+from landoapi.commit_message import split_title_and_summary
+from landoapi.models import SecApprovalRequest
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import get_sec_approval_project_phid
+from landoapi.transactions import Comment, transaction_search
+
+logger = logging.getLogger(__name__)
+
 
 # Template for submitting a sec-approval comment to Phabricator. The message is
 # written in first-person form because it is being authored by the user in Lando and
@@ -28,6 +37,14 @@ this code review as `Accepted`.
 {message}
 ```
 """
+
+
+class CommitDescription(NamedTuple):
+    """Represents the value of a commit's title line and commit summary (body)."""
+
+    title: str
+    summary: str
+    sanitized: bool
 
 
 def send_sanitized_commit_message_for_review(revision_phid, message, phabclient):
@@ -70,3 +87,89 @@ def send_sanitized_commit_message_for_review(revision_phid, message, phabclient)
         ],
     )
     return PhabricatorClient.expect(response, "transactions")
+
+
+def search_sec_approval_request_for_comment(
+    phab: PhabricatorClient, sec_approval_request: SecApprovalRequest
+) -> Comment:
+    """Search Phabricator for the comment transaction from a sec-approval request."""
+    object_identifier = f"D{sec_approval_request.revision_id}"
+    for transaction in transaction_search(
+        phab, object_identifier, sec_approval_request.comment_candidates
+    ):
+        if transaction["type"] == "comment":
+            # We found the transaction that added a comment with our secure message.
+
+            # The original request was posted as one comment.  It will appear as
+            # a comment in this transaction's list of comments.  However, if the
+            # user edited the comment after it was posted then there will be
+            # additional comments in the list. Each comment holds the text after
+            # editing.
+            #
+            # We will pick the latest comment in the list. That way if the user edits
+            # their magic sec-approval request comment to revise the text of their
+            # commit message then Lando will use the revised text.  Note that editing
+            # could happen after the sec-approval team has approved the original
+            # commit message, and a new sec-approval review will not be triggered.
+            # Avoiding that is the responsibility of the revision author and the
+            # person hitting the Land button.
+            comments = PhabricatorClient.expect(transaction, "comments")
+            comments = sorted(comments, key=operator.itemgetter("version"))
+            return Comment(comments.pop())
+
+    raise TransactionSearchError(
+        f"Couldn't find a Phabricator transaction for "
+        f"revision {sec_approval_request.revision_id} that contains a sec-approval "
+        f"request comment"
+    )
+
+
+def parse_comment(comment: Comment) -> CommitDescription:
+    """Parse a sec-approval request comment for a commit title and summary.
+
+    Args:
+        comment: A sec-approval request comment that was posted to Phabricator.
+
+    Returns:
+        A CommitDescription tuple of (title, summary) strings. Summary may be the empty
+        string.
+    """
+    msg: str = PhabricatorClient.expect(comment, "content", "raw")
+
+    # Find the start of the "```" block and parse to the ending "```" block.
+    parts = msg.split("```")
+    # There should be exactly 3 parts: the comment preamble, message block,
+    # and trailing spaces.
+    if len(parts) != 3:
+        raise CommentParseError(
+            f"Phabricator comment {comment['phid']} does not have a parsable "
+            f"comment body: could not find a commit message block"
+        )
+
+    title, summary = split_title_and_summary(parts[1].strip())
+
+    if not title:
+        raise CommentParseError(
+            f"Phabricator comment {comment['phid']} does not have a parsable "
+            f"comment body: could not find a comment title"
+        )
+
+    return CommitDescription(title, summary, sanitized=True)
+
+
+class Error(Exception):
+    pass
+
+
+class CommentParseError(Error):
+    """The sec-approval request comment could not be parsed."""
+
+    pass
+
+
+class TransactionSearchError(Error):
+    """The transactions from a sec-approval request could not be retrieved from
+    Phabricator.
+    """
+
+    pass

@@ -2,12 +2,20 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Functions for working with Phabricator transactions."""
+from typing import Iterator, NewType
+
 from landoapi.phabricator import PhabricatorClient
+
+# Type for a Phabricator API Transaction returned by the transaction.search operation.
+Transaction = NewType("Transaction", dict)
+# Type for list entries in the "comments" list of a transaction returned from the
+# Phabricator API transaction.search operation.
+Comment = NewType("Comment", dict)
 
 
 def transaction_search(
     phabricator, object_identifier, transaction_phids=None, limit=100
-):
+) -> Iterator[Transaction]:
     """Yield the Phabricator transactions related to an object.
 
     See https://phabricator.services.mozilla.com/conduit/method/transaction.search/.
