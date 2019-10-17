@@ -338,7 +338,7 @@ def pytest_assertrepr_compare(op, left, right):
         #   response = client.get()
         #   assert response == 200  # Fails if response is HTTP 401, triggers this hook
         return [
-            f"Comparing API response:",
-            f"    status_code: {left.status_code}",
-            f"    problem: {left.json}",
+            f"Mismatch in status code for response: {left.status_code} != {right}",
+            f"",
+            f"    Response JSON: {left.json}",
         ]
