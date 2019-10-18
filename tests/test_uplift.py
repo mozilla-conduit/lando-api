@@ -43,6 +43,7 @@ def test_uplift_creation(phabdouble, client, auth0_mock, mock_repo_config):
     response = client.post("/uplift", json=payload, headers=headers)
     assert response.status_code == 201
     assert response.json == {
+        "repository": "mozilla-uplift",
         "diff_id": 2,
         "diff_phid": "PHID-DIFF-1",
         "revision_id": 2,

@@ -139,8 +139,28 @@ def _assess_transplant_request(phab, landing_path):
         stack_data, edges, landable_repos, other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
     )
 
+    # Load all reviewers with extended informations to check blockers and warnings
+    involved_phids = set()
+    for revision in stack_data.revisions.values():
+        involved_phids.update(gather_involved_phids(revision))
+
+    involved_phids = list(involved_phids)
+    users = user_search(phab, involved_phids)
+    projects = project_search(phab, involved_phids)
+    reviewers = {
+        revision["phid"]: get_collated_reviewers(revision)
+        for revision in stack_data.revisions.values()
+    }
+
     assessment = check_landing_blockers(
-        g.auth0_user, landing_path, stack_data, landable, landable_repos
+        g.auth0_user,
+        landing_path,
+        stack_data,
+        landable,
+        landable_repos,
+        reviewers,
+        users,
+        projects,
     )
     if assessment.blocker is not None:
         return (assessment, None, None, None)
@@ -163,17 +183,6 @@ def _assess_transplant_request(phab, landing_path):
     # repository, so we can get away with checking only one.
     repo = stack_data.repositories[to_land[0][0]["fields"]["repositoryPHID"]]
     landing_repo = landable_repos[repo["phid"]]
-
-    involved_phids = set()
-    for revision, _ in to_land:
-        involved_phids.update(gather_involved_phids(revision))
-
-    involved_phids = list(involved_phids)
-    users = user_search(phab, involved_phids)
-    projects = project_search(phab, involved_phids)
-    reviewers = {
-        revision["phid"]: get_collated_reviewers(revision) for revision, _ in to_land
-    }
 
     assessment = check_landing_warnings(
         g.auth0_user,
