@@ -29,12 +29,7 @@ def test_send_sanitized_commit_message(phabdouble, sec_approval_project):
 
 
 def test_build_sec_approval_request_obj(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-    built_revision = phabdouble.revision()
-    response = phab.call_conduit(
-        "differential.revision.search", constraints={"phid": built_revision["phid"]}
-    )
-    api_revision = phab.single(response, "data")
+    revision = phabdouble.api_object_for(phabdouble.revision())
     # Simulate the transactions that take place when a sec-approval request
     # is made for a revision in Phabricator.
     transactions = [
@@ -46,11 +41,11 @@ def test_build_sec_approval_request_obj(phabdouble):
         },
     ]
 
-    sec_approval_request = SecApprovalRequest.build(api_revision, transactions)
+    sec_approval_request = SecApprovalRequest.build(revision, transactions)
 
     assert sec_approval_request.comment_candidates == [
         "PHID-XACT-DREV-faketxn1",
         "PHID-XACT-DREV-faketxn2",
     ]
-    assert sec_approval_request.revision_id == api_revision["id"]
-    assert sec_approval_request.diff_phid == api_revision["fields"]["diffPHID"]
+    assert sec_approval_request.revision_id == revision["id"]
+    assert sec_approval_request.diff_phid == revision["fields"]["diffPHID"]
