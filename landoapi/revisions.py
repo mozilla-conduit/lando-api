@@ -229,3 +229,74 @@ def find_title_and_summary_for_display(
         summary=PhabricatorClient.expect(revision, "fields", "summary"),
         sanitized=False,
     )
+
+
+def find_title_and_summary_for_landing(
+    phab: PhabricatorClient, revision: dict, secure: bool
+) -> CommitDescription:
+    """Find a commit's title and summary for placing in a commit message.
+
+    This function returns the title and summary so that it can be placed directly
+    in a commit message and landed in-tree.  If this function fails to find a
+    suitable commit message then an error will be raised.
+
+    If a revision has an alternate commit message given to it by the sec-approval
+    process then the alternate message will be returned.
+
+    Args:
+        phab: A PhabricatorClient instance.
+        revision: A Phabricator Revision object used to generate the commit title
+            and summary.
+        secure: Bool indicating the revision is security-sensitive and subject to the
+            sec-approval process.
+
+    Returns: A CommitDescription object that holds the title and summary. The values
+        depend on the public or secure status of the revision.
+    """
+    if secure:
+        # The revision may be somewhere in the sec-approval workflow. We need to find
+        # out where in the workflow it is to determine which title and summary to use.
+
+        # Have we already placed a request?
+        sec_approval_request = SecApprovalRequest.most_recent_request_for_revision(
+            revision
+        )
+
+        if sec_approval_request:
+            # We have requested a new title and possibly a new summary, too, for the
+            # commit.
+
+            logger.info(
+                "sec-approval: using alternate title and summary for revision",
+                extra={
+                    "revision": sec_approval_request.revision_id,
+                    "sec_approval_request_database_id": sec_approval_request.id,
+                },
+            )
+
+            # NOTE: Any problem with fetching and constructing the commit message
+            # should raise an exception and fail the whole process.
+            try:
+                comment = search_sec_approval_request_for_comment(
+                    phab, sec_approval_request
+                )
+
+                return parse_comment(comment)
+
+            except Exception as e:
+                logger.error(
+                    "sec-approval: request processing failed",
+                    extra={
+                        "revision": sec_approval_request.revision_id,
+                        "sec_approval_request_database_id": sec_approval_request.id,
+                        "reason": str(e),
+                    },
+                )
+                raise
+
+    # Return the revision's original title and summary.
+    return CommitDescription(
+        title=PhabricatorClient.expect(revision, "fields", "title"),
+        summary=PhabricatorClient.expect(revision, "fields", "summary"),
+        sanitized=False,
+    )
