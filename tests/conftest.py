@@ -13,6 +13,7 @@ import pytest
 import requests_mock
 from flask import current_app
 from moto import mock_s3
+from pytest_flask.plugin import JSONResponse
 
 from landoapi.app import construct_app, load_config, SUBSYSTEMS
 from landoapi.cache import cache, cache_subsystem
@@ -325,3 +326,19 @@ def celery_app(app):
 def treestatus_url():
     """A string holding the Tree Status base URL."""
     return "http://treestatus.test"
+
+
+def pytest_assertrepr_compare(op, left, right):
+    if isinstance(left, JSONResponse) and isinstance(right, int) and op == "==":
+        # Hook failures when comparing JSONResponse objects so we get the detailed
+        # failure description from inside the response object contents.
+        #
+        # The following example code would trigger this hook:
+        #
+        #   response = client.get()
+        #   assert response == 200  # Fails if response is HTTP 401, triggers this hook
+        return [
+            f"Mismatch in status code for response: {left.status_code} != {right}",
+            f"",
+            f"    Response JSON: {left.json}",
+        ]
