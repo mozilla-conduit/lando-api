@@ -43,6 +43,7 @@ def test_uplift_creation(phabdouble, client, auth0_mock, mock_repo_config):
     response = client.post("/uplift", json=payload, headers=headers)
     assert response.status_code == 201
     assert response.json == {
+        "mode": "uplift",
         "repository": "mozilla-uplift",
         "diff_id": 2,
         "diff_phid": "PHID-DIFF-1",
@@ -55,3 +56,38 @@ def test_uplift_creation(phabdouble, client, auth0_mock, mock_repo_config):
     assert len(phabdouble._revisions) == 2
     new_rev = phabdouble._revisions[-1]
     assert new_rev["title"] == "Uplift request D1: my test revision title"
+
+
+def test_approval_creation(phabdouble, client, auth0_mock, mock_repo_config):
+    repo = phabdouble.repo(name="mozilla-uplift")
+    revision = phabdouble.revision(repo=repo)
+    user = phabdouble.user(username="JohnDoe")
+
+    # This group is required
+    phabdouble.project("release-managers")
+
+    payload = {
+        "revision_id": revision["id"],
+        "repository": repo["shortName"],
+        "form_content": "Here are all the details about my approval request...",
+    }
+    headers = {"X-Phabricator-API-Key": user["apiKey"]}
+    headers.update(auth0_mock.mock_headers)
+
+    # Only one revision at first
+    assert len(phabdouble._revisions) == 1
+
+    # Valid approval request
+    response = client.post("/uplift", json=payload, headers=headers)
+    assert response.status_code == 201
+    assert response.json == {
+        "mode": "approval",
+        "revision_id": 1,
+        "revision_phid": 1,
+        "url": "http://phabricator.test/D1",
+    }
+
+    # We still have the same revision
+    assert len(phabdouble._revisions) == 1
+    new_rev = phabdouble._revisions[0]
+    assert new_rev["title"] == "my test revision title"

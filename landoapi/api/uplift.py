@@ -9,7 +9,11 @@ from flask import current_app, g
 
 from landoapi import auth
 from landoapi.repos import get_repos_for_env
-from landoapi.uplift import create_uplift_revision
+from landoapi.uplift import (
+    create_approval_request,
+    create_uplift_revision,
+    check_approval_state,
+)
 from landoapi.decorators import require_phabricator_api_key
 
 logger = logging.getLogger(__name__)
@@ -40,10 +44,24 @@ def create(data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
+    state = check_approval_state(
+        g.phabricator,
+        revision_id=data["revision_id"],
+        target_repository_name=data["repository"],
+    )
+
     try:
-        output = create_uplift_revision(
-            g.phabricator, data["revision_id"], repository, data["form_content"]
-        )
+        if state["is_approval"]:
+            output = create_approval_request(
+                g.phabricator, state["revision"], data["form_content"]
+            )
+        else:
+            output = create_uplift_revision(
+                g.phabricator,
+                state["revision"],
+                state["target_repository"],
+                data["form_content"],
+            )
     except Exception as e:
         logger.error(
             "Failed to create an uplift request on revision {} and repository {} : {}".format(  # noqa
