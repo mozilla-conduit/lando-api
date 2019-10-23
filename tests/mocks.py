@@ -1145,34 +1145,27 @@ class PhabricatorDouble:
 
         items = list(self._transactions)
 
-        def filter_by_phid(iterable, phid):
-            return [obj for obj in iterable if obj["objectPHID"] == phid]
-
-        if objectIdentifier:
-            if objectIdentifier.startswith("PHID-"):
-                items = filter_by_phid(items, objectIdentifier)
-            elif objectIdentifier.startswith("D"):
-                # Search for the matching object by name.
-                matches = [
-                    obj for obj in self._phids if obj.get("name") == objectIdentifier
-                ]
-                if matches:
-                    obj = matches[0]
-                    items = filter_by_phid(items, obj["phid"])
-                else:
-                    items = []
-            else:
-                raise ValueError(
-                    f"PhabricatorDouble transaction search does not support the "
-                    f'objectIdentifier "{objectIdentifier}". If you require '
-                    f"transaction searches of this type please consider adding "
-                    f"support for them."
-                )
-        else:
+        if not objectIdentifier:
             error_info = 'When calling "transaction.search", you must provide an object to retrieve transactions for.'  # noqa
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
+
+        if not objectIdentifier.startswith("PHID-"):
+            # Assume the caller is searching by object name. Find the PHID of the
+            # named object the caller is searching for.
+            matches = [
+                obj for obj in self._phids if obj.get("name") == objectIdentifier
+            ]
+            if not matches:
+                error_info = f'No object "{objectIdentifier}" exists.'
+                raise PhabricatorAPIException(
+                    error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+                )
+
+            objectIdentifier = matches[0]["phid"]
+
+        items = [i for i in items if i["objectPHID"] == objectIdentifier]
 
         if constraints and "phids" in constraints:
             phids = constraints["phids"]
