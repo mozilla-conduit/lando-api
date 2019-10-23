@@ -1165,6 +1165,22 @@ class PhabricatorDouble:
 
             objectIdentifier = matches[0]["phid"]
 
+        # Transactions are special. You can't retrieve them directly using search. I
+        # don't know why. You have to retrieve the transaction's parent object instead.
+        if objectIdentifier.startswith("PHID-XACT-"):
+            error_info = '[Invalid Translation!] Object "%s" does not implement "%s", so transactions can not be loaded for it.'  # noqa
+            raise PhabricatorAPIException(
+                error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+            )
+
+        # Comments are special. You can't retrieve them directly using search. You
+        # have to retrieve the comment's parent object instead.
+        if objectIdentifier.startswith("PHID-XCMT-"):
+            error_info = f'No object "{objectIdentifier}" exists.'
+            raise PhabricatorAPIException(
+                error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
+            )
+
         items = [i for i in items if i["objectPHID"] == objectIdentifier]
 
         if constraints and "phids" in constraints:
