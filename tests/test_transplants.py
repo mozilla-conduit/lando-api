@@ -2,11 +2,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
+from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
 
 from landoapi import patches
+from landoapi.hgexports import PatchHelper
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import ReviewerStatus, RevisionStatus
@@ -749,6 +751,39 @@ def test_integrated_transplant_revision_with_unmapped_repo(
     assert response.json["blocker"] == (
         "The requested set of revisions are not landable."
     )
+
+
+def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_list(
+    app, db, client, phabdouble, auth0_mock, s3, transfactory, sec_approval_project
+):
+    repo = phabdouble.repo()
+    user = phabdouble.user(username="normal_reviewer")
+
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff, repo=repo)
+    phabdouble.reviewer(revision, user)
+    phabdouble.reviewer(revision, sec_approval_project)
+
+    transfactory.mock_successful_response()
+
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(revision["id"]), "diff_id": diff["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response == 202
+
+    # Check the transplanted patch for our alternate commit message.
+    patch = s3.Object(
+        app.config["PATCH_BUCKET_NAME"], patches.name(revision["id"], diff["id"])
+    )
+    patch = PatchHelper(BytesIO(patch.get()["Body"].read()))
+    title, summary = patch.commit_description().decode().split("\n", maxsplit=1)
+    assert sec_approval_project["name"] not in title
 
 
 def test_display_branch_head():

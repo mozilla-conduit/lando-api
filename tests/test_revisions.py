@@ -72,6 +72,23 @@ def test_secure_api_flag_on_secure_revision_is_true(client, phabdouble, secure_p
     assert response_revision["is_secure"]
 
 
+def test_sec_approval_group_is_excluded_from_reviewers_list(
+    client, phabdouble, secure_project, sec_approval_project
+):
+    revision = phabdouble.revision(projects=[secure_project])
+
+    user = phabdouble.user(username="normal_reviewer")
+    phabdouble.reviewer(revision, user)
+    phabdouble.reviewer(revision, sec_approval_project)
+
+    response = client.get("/stacks/D{}".format(revision["id"]))
+    assert response == 200
+
+    response_revision = response.json["revisions"].pop()
+    assert response_revision["is_secure"]
+    assert sec_approval_project["name"] not in response_revision["commit_message_title"]
+
+
 def test_public_revision_is_not_secure(phabdouble, secure_project):
     public_project = phabdouble.project("public")
     revision = phabdouble.api_object_for(

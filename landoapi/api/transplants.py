@@ -18,6 +18,7 @@ from landoapi.phabricator import PhabricatorClient, ReviewerStatus
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
+    get_sec_approval_project_phid,
     get_secure_project_phid,
     project_search,
 )
@@ -244,10 +245,18 @@ def post(data):
         if checkin_phid in phab.expect(r, "attachments", "projects", "projectPHIDs")
     ]
 
+    sec_approval_project_phid = get_sec_approval_project_phid(phab)
+
     # Build the patches to land.
     patch_urls = []
     for revision, diff in to_land:
         reviewers = get_collated_reviewers(revision)
+
+        # The sec-approval group must not appear in the commit message reviewers list.
+        # Bug 1590225
+        if sec_approval_project_phid in reviewers:
+            del reviewers[sec_approval_project_phid]
+
         accepted_reviewers = [
             reviewer_identity(phid, users, projects).identifier
             for phid, r in reviewers.items()

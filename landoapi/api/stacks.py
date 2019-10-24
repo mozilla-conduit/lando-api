@@ -10,7 +10,11 @@ from flask import current_app, g
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus
-from landoapi.projects import get_secure_project_phid, project_search
+from landoapi.projects import (
+    get_sec_approval_project_phid,
+    get_secure_project_phid,
+    project_search,
+)
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import (
     get_collated_reviewers,
@@ -82,6 +86,7 @@ def get(revision_id):
     projects = project_search(phab, involved_phids)
 
     secure_project_phid = get_secure_project_phid(phab)
+    sec_approval_project_phid = get_sec_approval_project_phid(phab)
 
     revisions_response = []
     for phid, revision in stack_data.revisions.items():
@@ -97,6 +102,12 @@ def get(revision_id):
         summary = PhabricatorClient.expect(fields, "summary")
         bug_id = get_bugzilla_bug(revision)
         reviewers = get_collated_reviewers(revision)
+
+        # The sec-approval group must not appear in the commit message reviewers list.
+        # Bug 1590225
+        if sec_approval_project_phid in reviewers:
+            del reviewers[sec_approval_project_phid]
+
         accepted_reviewers = [
             reviewer_identity(phid, users, projects).identifier
             for phid, r in reviewers.items()
