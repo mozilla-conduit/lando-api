@@ -14,7 +14,7 @@ from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.patches import upload
-from landoapi.phabricator import PhabricatorClient, ReviewerStatus
+from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
@@ -23,7 +23,7 @@ from landoapi.projects import (
     project_search,
 )
 from landoapi.repos import get_repos_for_env
-from landoapi.reviews import get_collated_reviewers, reviewer_identity
+from landoapi.reviews import get_collated_reviewers, reviewers_for_commit_message
 from landoapi.revisions import (
     gather_involved_phids,
     get_bugzilla_bug,
@@ -251,18 +251,9 @@ def post(data):
     patch_urls = []
     for revision, diff in to_land:
         reviewers = get_collated_reviewers(revision)
-
-        # The sec-approval group must not appear in the commit message reviewers list.
-        # Bug 1590225
-        if sec_approval_project_phid in reviewers:
-            del reviewers[sec_approval_project_phid]
-
-        accepted_reviewers = [
-            reviewer_identity(phid, users, projects).identifier
-            for phid, r in reviewers.items()
-            if r["status"] is ReviewerStatus.ACCEPTED
-        ]
-
+        accepted_reviewers = reviewers_for_commit_message(
+            reviewers, users, projects, sec_approval_project_phid
+        )
         _, commit_message = format_commit_message(
             phab.expect(revision, "fields", "title"),
             get_bugzilla_bug(revision),

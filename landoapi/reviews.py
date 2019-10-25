@@ -139,3 +139,13 @@ def serialize_reviewers(
         )
 
     return reviewers
+
+
+def reviewers_for_commit_message(reviewers, users, projects, sec_approval_phid):
+    # The sec-approval group must not appear in the commit message
+    # reviewers list (Bug 1590225), so we'll need to filter it.
+    return [
+        reviewer_identity(phid, users, projects).identifier
+        for phid, r in reviewers.items()
+        if (phid != sec_approval_phid and r["status"] is ReviewerStatus.ACCEPTED)
+    ]

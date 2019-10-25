@@ -2,13 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import os
-from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
 
 from landoapi import patches
-from landoapi.hgexports import PatchHelper
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import ReviewerStatus, RevisionStatus
@@ -781,9 +779,8 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     patch = s3.Object(
         app.config["PATCH_BUCKET_NAME"], patches.name(revision["id"], diff["id"])
     )
-    patch = PatchHelper(BytesIO(patch.get()["Body"].read()))
-    title, summary = patch.commit_description().decode().split("\n", maxsplit=1)
-    assert sec_approval_project["name"] not in title
+    patch_text = patch.get()["Body"].read().decode()
+    assert sec_approval_project["name"] not in patch_text
 
 
 def test_display_branch_head():

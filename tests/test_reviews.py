@@ -5,7 +5,13 @@
 import pytest
 
 from landoapi.phabricator import PhabricatorCommunicationException
-from landoapi.reviews import collate_reviewer_attachments
+from landoapi.projects import project_search
+from landoapi.reviews import (
+    collate_reviewer_attachments,
+    get_collated_reviewers,
+    reviewers_for_commit_message,
+)
+from landoapi.users import user_search
 
 
 def test_collate_reviewer_attachments_malformed_raises():
@@ -60,3 +66,28 @@ def test_collate_reviewer_attachments_n_reviewers(phabdouble, n_reviewers):
             attachments["reviewers-extra"]["reviewers-extra"][0]
         ) | set(attachments["reviewers"]["reviewers"][0])
         assert attachment_keys == set(collated[users[0]["phid"]].keys())
+
+
+def test_sec_approval_is_filtered_from_commit_message_reviewer_list(
+    phabdouble, secure_project, sec_approval_project
+):
+    revision = phabdouble.revision(projects=[secure_project])
+    user = phabdouble.user(username="normal_reviewer")
+    phabdouble.reviewer(revision, user)
+    phabdouble.reviewer(revision, sec_approval_project)
+
+    revision = phabdouble.api_object_for(
+        revision, attachments={"reviewers": True, "reviewers-extra": True}
+    )
+    reviewers = get_collated_reviewers(revision)
+
+    involved_phids = reviewers.keys()
+    phab = phabdouble.get_phabricator_client()
+    users = user_search(phab, involved_phids)
+    projects = project_search(phab, involved_phids)
+
+    filtered_reviewers = reviewers_for_commit_message(
+        reviewers, users, projects, sec_approval_project["phid"]
+    )
+    assert user["userName"] in filtered_reviewers
+    assert sec_approval_project["name"] not in filtered_reviewers
