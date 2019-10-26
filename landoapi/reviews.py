@@ -4,6 +4,7 @@
 
 import logging
 from collections import namedtuple
+from typing import List
 
 from landoapi.phabricator import (
     PhabricatorClient,
@@ -139,3 +140,28 @@ def serialize_reviewers(
         )
 
     return reviewers
+
+
+def reviewers_for_commit_message(
+    reviewers: dict, users: List[dict], projects: List[dict], sec_approval_phid: str
+) -> List[str]:
+    """Turn a list of reviewer objects into a list of reviewer names.
+
+    The list holds reviewers that accepted the revision.
+
+    Args:
+        reviewers: Dict of {reviewer_phid: reviewer_data}
+        users: List of Phabricator Users that were involved in the revision.
+        projects: List of Phabricator Projects that were involved in the revision.
+        sec_approval_phid: The PHID string of the sec-approval project.
+
+    Returns:
+        A list of strings.
+    """
+    # The sec-approval group must not appear in the commit message
+    # reviewers list (Bug 1590225), so we'll need to filter it.
+    return [
+        reviewer_identity(phid, users, projects).identifier
+        for phid, r in reviewers.items()
+        if (phid != sec_approval_phid and r["status"] is ReviewerStatus.ACCEPTED)
+    ]

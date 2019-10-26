@@ -751,6 +751,38 @@ def test_integrated_transplant_revision_with_unmapped_repo(
     )
 
 
+def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_list(
+    app, db, client, phabdouble, auth0_mock, s3, transfactory, sec_approval_project
+):
+    repo = phabdouble.repo()
+    user = phabdouble.user(username="normal_reviewer")
+
+    diff = phabdouble.diff()
+    revision = phabdouble.revision(diff=diff, repo=repo)
+    phabdouble.reviewer(revision, user)
+    phabdouble.reviewer(revision, sec_approval_project)
+
+    transfactory.mock_successful_response()
+
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(revision["id"]), "diff_id": diff["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response == 202
+
+    # Check the transplanted patch for our alternate commit message.
+    patch = s3.Object(
+        app.config["PATCH_BUCKET_NAME"], patches.name(revision["id"], diff["id"])
+    )
+    patch_text = patch.get()["Body"].read().decode()
+    assert sec_approval_project["name"] not in patch_text
+
+
 def test_display_branch_head():
     assert Transplant(revision_order=["1", "2"]).head_revision == "D2"
 

@@ -14,15 +14,16 @@ from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.patches import upload
-from landoapi.phabricator import PhabricatorClient, ReviewerStatus
+from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
+    get_sec_approval_project_phid,
     get_secure_project_phid,
     project_search,
 )
 from landoapi.repos import get_repos_for_env
-from landoapi.reviews import get_collated_reviewers, reviewer_identity
+from landoapi.reviews import get_collated_reviewers, reviewers_for_commit_message
 from landoapi.revisions import (
     gather_involved_phids,
     get_bugzilla_bug,
@@ -244,16 +245,15 @@ def post(data):
         if checkin_phid in phab.expect(r, "attachments", "projects", "projectPHIDs")
     ]
 
+    sec_approval_project_phid = get_sec_approval_project_phid(phab)
+
     # Build the patches to land.
     patch_urls = []
     for revision, diff in to_land:
         reviewers = get_collated_reviewers(revision)
-        accepted_reviewers = [
-            reviewer_identity(phid, users, projects).identifier
-            for phid, r in reviewers.items()
-            if r["status"] is ReviewerStatus.ACCEPTED
-        ]
-
+        accepted_reviewers = reviewers_for_commit_message(
+            reviewers, users, projects, sec_approval_project_phid
+        )
         _, commit_message = format_commit_message(
             phab.expect(revision, "fields", "title"),
             get_bugzilla_bug(revision),

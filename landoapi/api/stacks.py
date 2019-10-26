@@ -6,15 +6,18 @@ import urllib.parse
 
 from connexion import problem
 from flask import current_app, g
-
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.phabricator import PhabricatorClient, ReviewerStatus
-from landoapi.projects import get_secure_project_phid, project_search
+from landoapi.phabricator import PhabricatorClient
+from landoapi.projects import (
+    get_sec_approval_project_phid,
+    get_secure_project_phid,
+    project_search,
+)
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import (
     get_collated_reviewers,
-    reviewer_identity,
+    reviewers_for_commit_message,
     serialize_reviewers,
 )
 from landoapi.revisions import (
@@ -82,9 +85,10 @@ def get(revision_id):
     projects = project_search(phab, involved_phids)
 
     secure_project_phid = get_secure_project_phid(phab)
+    sec_approval_project_phid = get_sec_approval_project_phid(phab)
 
     revisions_response = []
-    for phid, revision in stack_data.revisions.items():
+    for _phid, revision in stack_data.revisions.items():
         revision_phid = PhabricatorClient.expect(revision, "phid")
         fields = PhabricatorClient.expect(revision, "fields")
         diff_phid = PhabricatorClient.expect(fields, "diffPHID")
@@ -97,11 +101,9 @@ def get(revision_id):
         summary = PhabricatorClient.expect(fields, "summary")
         bug_id = get_bugzilla_bug(revision)
         reviewers = get_collated_reviewers(revision)
-        accepted_reviewers = [
-            reviewer_identity(phid, users, projects).identifier
-            for phid, r in reviewers.items()
-            if r["status"] is ReviewerStatus.ACCEPTED
-        ]
+        accepted_reviewers = reviewers_for_commit_message(
+            reviewers, users, projects, sec_approval_project_phid
+        )
         commit_message_title, commit_message = format_commit_message(
             title, bug_id, accepted_reviewers, summary, revision_url
         )
