@@ -26,17 +26,8 @@ def create(data):
 
     # Validate repository
     all_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
-    repository = next(
-        iter(
-            [
-                repo_key
-                for repo_key, repo in all_repos.items()
-                if repo_key == data["repository"] and repo.approval_required is True
-            ]
-        ),
-        None,
-    )
-    if repository is None:
+    repository = all_repos.get(data["repository"])
+    if repository is None or not repository.approval_required:
         return problem(
             400,
             "No valid uplift repository",
