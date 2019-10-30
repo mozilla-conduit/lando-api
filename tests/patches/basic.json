@@ -1,0 +1,226 @@
+[
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "foo",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 2,
+                "corpus": " a\n-b\n+c\n+d\n e\n-f",
+                "delLines": 2,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 4,
+                "newOffset": 225,
+                "oldLength": 4,
+                "oldOffset": 225
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "foo",
+        "oldProperties": {},
+        "type": 2
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "bar",
+        "fileType": 1,
+        "hunks": [],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "bar",
+        "oldProperties": {},
+        "type": 2
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "oof",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 2,
+                "corpus": "+a\n+b",
+                "delLines": 0,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 2,
+                "newOffset": 1,
+                "oldLength": 0,
+                "oldOffset": 0
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": null,
+        "oldProperties": {},
+        "type": 1
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "rab",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 1,
+                "corpus": " a\n-b\n+c\n d",
+                "delLines": 1,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 3,
+                "newOffset": 225,
+                "oldLength": 3,
+                "oldOffset": 225
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "rab",
+        "oldProperties": {},
+        "type": 2
+    },
+    {
+        "awayPaths": [
+            "toto"
+        ],
+        "commitHash": "deadbeef123",
+        "currentPath": "tata",
+        "fileType": 1,
+        "hunks": [],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "toto",
+        "oldProperties": {},
+        "type": 6
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "tete",
+        "fileType": 3,
+        "hunks": [],
+        "metadata": {
+            "new:binary-phid": null,
+            "old:binary-phid": null
+        },
+        "newProperties": {},
+        "oldPath": "tete",
+        "oldProperties": {},
+        "type": 3
+    },
+    {
+        "awayPaths": [
+            "titi"
+        ],
+        "commitHash": "deadbeef123",
+        "currentPath": "tutu",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 1,
+                "corpus": " a\n-b\n+c\n d\n-e\n-f\n g",
+                "delLines": 3,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 4,
+                "newOffset": 1,
+                "oldLength": 6,
+                "oldOffset": 1
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "titi",
+        "oldProperties": {},
+        "type": 6
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "tyty",
+        "fileType": 3,
+        "hunks": [],
+        "metadata": {
+            "new:binary-phid": null,
+            "old:binary-phid": null
+        },
+        "newProperties": {},
+        "oldPath": null,
+        "oldProperties": {},
+        "type": 1
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "ofo",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 0,
+                "corpus": "-a\n-b\n-c",
+                "delLines": 3,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 0,
+                "newOffset": 0,
+                "oldLength": 3,
+                "oldOffset": 1
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "ofo",
+        "oldProperties": {},
+        "type": 3
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "arb",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 1,
+                "corpus": " a\n-b\n+c\n d\n a",
+                "delLines": 1,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 101,
+                "newOffset": 225,
+                "oldLength": 101,
+                "oldOffset": 225
+            },
+            {
+                "addLines": 2,
+                "corpus": "-b\n+c\n d\n-e\n-f\n g\n+h\n a",
+                "delLines": 3,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 134,
+                "newOffset": 326,
+                "oldLength": 100,
+                "oldOffset": 326
+            },
+            {
+                "addLines": 1,
+                "corpus": "-b\n+c\n d",
+                "delLines": 1,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 2,
+                "newOffset": 460,
+                "oldLength": 2,
+                "oldOffset": 426
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "arb",
+        "oldProperties": {},
+        "type": 2
+    }
+]

@@ -6,6 +6,7 @@ import logging
 import json
 
 from landoapi.phabricator import PhabricatorClient
+from landoapi.phabricator_patch import patch_to_changes
 from landoapi.repos import get_repos_for_env
 from landoapi.stacks import request_extended_revision_data
 
@@ -92,18 +93,32 @@ def create_uplift_revision(
     raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
     assert raw_diff, "Missing raw source diff"
 
+    # Use source commit references on uplifted diff too
+    commits = diff["attachments"]["commits"]["commits"]
+    top_commit = commits[0] if commits else None
+
     # Upload it on target repo
     new_diff = phab.call_conduit(
-        "differential.createrawdiff",
-        diff=raw_diff,
+        "differential.creatediff",
+        changes=patch_to_changes(
+            raw_diff, top_commit["identifier"] if top_commit else None
+        ),
+        sourceMachine=local_repo.url,
+        sourceControlSystem="hg",
+        sourceControlPath="/",
+        sourceControlBaseRevision=top_commit["parents"][0] if top_commit else None,
+        creationMethod="lando-uplift",
+        lintStatus="none",
+        unitStatus="none",
         repositoryPHID=target_repository["phid"],
+        sourcePath=None,  # TODO ? Local path
+        branch="HEAD",
     )
-    new_diff_id = phab.expect(new_diff, "id")
+    new_diff_id = phab.expect(new_diff, "diffid")
     new_diff_phid = phab.expect(new_diff, "phid")
     logger.info(f"Created new diff {new_diff_id} - {new_diff_phid}")
 
     # Attach commit information to setup the author (needed for landing)
-    commits = diff["attachments"]["commits"]["commits"]
     phab.call_conduit(
         "differential.setdiffproperty",
         diff_id=new_diff_id,

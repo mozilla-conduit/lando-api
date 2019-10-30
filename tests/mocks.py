@@ -254,6 +254,7 @@ class PhabricatorDouble:
         *,
         revision=None,
         rawdiff=CANNED_RAW_DEFAULT_DIFF,
+        changes=None,
         repo=None,
         repo_phid=None,
         commits=[
@@ -308,7 +309,7 @@ class PhabricatorDouble:
             "rawdiff": rawdiff,
             "bookmark": None,
             "branch": None,
-            "changes": deepcopy(CANNED_DEFAULT_DIFF_CHANGES),
+            "changes": changes or deepcopy(CANNED_DEFAULT_DIFF_CHANGES),
             "creationMethod": "arc",
             "dateCreated": 1516718328,
             "dateModified": 1516718341,
@@ -1199,6 +1200,19 @@ class PhabricatorDouble:
             return {"id": i["id"], "phid": i["phid"]}
 
         new_diff = self.diff(rawdiff=diff, repo_phid=repositoryPHID, commits=[])
+
+        return to_response(new_diff)
+
+    @conduit_method("differential.creatediff")
+    def differential_creatediff(
+        self, *, changes, creationMethod, repositoryPHID, **kwargs
+    ):
+        assert creationMethod.startswith("lando-")
+
+        def to_response(i):
+            return {"diffid": i["id"], "phid": i["phid"]}
+
+        new_diff = self.diff(changes=changes, repo_phid=repositoryPHID, commits=[])
 
         return to_response(new_diff)
 
