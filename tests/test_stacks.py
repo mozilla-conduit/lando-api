@@ -652,7 +652,7 @@ def test_integrated_stack_endpoint_repos(client, phabdouble, mocked_repo_config)
 
 
 def test_integrated_stack_has_revision_security_status(
-    client, phabdouble, mock_repo_config, secure_project
+    db, client, phabdouble, mock_repo_config, secure_project
 ):
     repo = phabdouble.repo()
     public_revision = phabdouble.revision(repo=repo)

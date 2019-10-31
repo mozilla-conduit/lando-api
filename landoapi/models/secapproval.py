@@ -60,3 +60,12 @@ class SecApprovalRequest(db.Model):
             diff_phid=PhabricatorClient.expect(revision, "fields", "diffPHID"),
             comment_candidates=possible_comment_phids,
         )
+
+    @classmethod
+    def most_recent_request_for_revision(cls, revision) -> "SecApprovalRequest":
+        """Return the most recent sec-approval request for a Phabricator Revision."""
+        return (
+            cls.query.filter_by(revision_id=revision["id"])
+            .order_by(cls.created_at.desc())
+            .first()
+        )

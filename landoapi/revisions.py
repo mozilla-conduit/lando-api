@@ -4,7 +4,19 @@
 import logging
 from collections import Counter
 
-from landoapi.phabricator import PhabricatorClient, RevisionStatus
+from landoapi.models import SecApprovalRequest
+from landoapi.phabricator import (
+    PhabricatorAPIException,
+    PhabricatorClient,
+    RevisionStatus,
+)
+from landoapi.secapproval import (
+    CommentParseError,
+    CommitDescription,
+    parse_comment,
+    search_sec_approval_request_for_comment,
+    TransactionSearchError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -136,3 +148,84 @@ def revision_is_secure(revision, secure_project_phid):
         revision, "attachments", "projects", "projectPHIDs"
     )
     return secure_project_phid in revision_project_tags
+
+
+def find_title_and_summary_for_display(
+    phab: PhabricatorClient, revision: dict, secure: bool
+) -> CommitDescription:
+    """Find a commit's title and summary for display in Lando UI.
+
+    This function is intended to get the commit title and summary for display to the
+    end user in Lando UI. This function does NOT produce a commit title and summary
+    that are suitable for landing code in a source tree because this function may
+    return placeholder text for the UI.
+
+    If a revision has an alternate commit message given to it by the sec-approval
+    process then the alternate message will be returned.
+
+    Args:
+        phab: A PhabricatorClient instance.
+        revision: A Phabricator Revision object used to generate the commit title
+            and summary.
+        secure: Bool indicating the revision is security-sensitive and subject to the
+            sec-approval process.
+
+    Returns: A CommitDescription object that holds the title and summary. The values
+        depend on the public or secure status of the revision.
+    """
+    if secure:
+        # The revision may be somewhere in the sec-approval workflow. We need to find
+        # out where in the workflow it is to determine which title and summary to use.
+
+        # Have we already placed a request?
+        sec_approval_request = SecApprovalRequest.most_recent_request_for_revision(
+            revision
+        )
+
+        if sec_approval_request:
+            # We have requested a new title and possibly a new summary, too, for the
+            # commit.
+
+            try:
+                comment = search_sec_approval_request_for_comment(
+                    phab, sec_approval_request
+                )
+            except (TransactionSearchError, PhabricatorAPIException) as e:
+                logger.error(
+                    "sec-approval: request processing failed",
+                    extra={
+                        "revision": sec_approval_request.revision_id,
+                        "sec_approval_request_database_id": sec_approval_request.id,
+                        "reason": str(e),
+                    },
+                )
+                raise
+
+            # Parse the comment for display.
+            try:
+                return parse_comment(comment)
+            except CommentParseError as e:
+                # Parsing failed, possibly due to a change in the sec-approval
+                # request message format. To future-proof the code we'll return a
+                # placeholder asking the caller to reference the original Revision if
+                # they want more info.
+                logger.info(
+                    "sec-approval: comment parsing failed, returning placeholder text",
+                    extra={
+                        "revision": sec_approval_request.revision_id,
+                        "sec_approval_request_database_id": sec_approval_request.id,
+                        "reason": str(e),
+                    },
+                )
+                return CommitDescription(
+                    title="*** please see revision for title ***",
+                    summary="",
+                    sanitized=True,
+                )
+
+    # Return the revision's original title and summary.
+    return CommitDescription(
+        title=PhabricatorClient.expect(revision, "fields", "title"),
+        summary=PhabricatorClient.expect(revision, "fields", "summary"),
+        sanitized=False,
+    )

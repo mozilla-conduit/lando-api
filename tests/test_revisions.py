@@ -62,7 +62,9 @@ def test_secure_api_flag_on_public_revision_is_false(client, phabdouble):
     assert not response_revision["is_secure"]
 
 
-def test_secure_api_flag_on_secure_revision_is_true(client, phabdouble, secure_project):
+def test_secure_api_flag_on_secure_revision_is_true(
+    db, client, phabdouble, secure_project
+):
     revision = phabdouble.revision(projects=[secure_project])
 
     response = client.get("/stacks/D{}".format(revision["id"]))

@@ -100,10 +100,21 @@ class PhabricatorDouble:
             "REPO": "diffusion.repository.search",
             "USER": "user.search",
         }
-        method = search_method_for_type[mock_object["type"]]
-        result = self.call_conduit(
-            method, constraints={"phids": [mock_object["phid"]]}, **kwargs
-        )
+
+        if mock_object["phid"].startswith("PHID-XACT-"):
+            # Transaction objects use a special search endpoint with different
+            # arguments.
+            result = self.call_conduit(
+                "transaction.search",
+                objectIdentifier=mock_object["objectPHID"],
+                constraints={"phids": [mock_object["phid"]]},
+            )
+        else:
+            method = search_method_for_type[mock_object["type"]]
+            result = self.call_conduit(
+                method, constraints={"phids": [mock_object["phid"]]}, **kwargs
+            )
+
         return PhabricatorClient.single(result, "data")
 
     @staticmethod
@@ -121,11 +132,12 @@ class PhabricatorDouble:
         bug_id=None,
         projects=[],
         comments=[],
+        title="",
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
         uri = "http://phabricator.test/D{}".format(revision_id)
-        title = "my test revision title"
+        title = "my test revision title" if not title else title
 
         author = self.user() if author is None else author
 
@@ -1183,18 +1195,25 @@ class PhabricatorDouble:
             # Explicitly tell the developer using the mock that they need to check the
             # type of transaction they are using and make sure it is serialized
             # correctly by this function.
-            if i["type"] not in ("comment", "dummy"):
+            txn_type = i["type"]
+            if txn_type not in ("comment", "dummy", "reviewers.add"):
                 raise ValueError(
-                    "PhabricatorDouble transactions do not have support"
+                    "PhabricatorDouble transactions do not have support "
                     'for the "{}" transaction type. '
                     "If you have added use of a new transaction type please "
-                    "update PhabricatorDouble to support it.".format(i["type"])
+                    "update PhabricatorDouble to support it.".format(txn_type)
                 )
+
+            if txn_type == "reviewers.add":
+                # This type of transaction shows up as "type: null" in the transaction
+                # search results list.
+                txn_type = None
+
             return deepcopy(
                 {
                     "id": i["id"],
                     "phid": i["phid"],
-                    "type": i["type"],
+                    "type": txn_type,
                     "authorPHID": i["authorPHID"],
                     "objectPHID": i["objectPHID"],
                     "dateCreated": i["dateCreated"],
