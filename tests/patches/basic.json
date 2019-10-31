@@ -54,9 +54,13 @@
             }
         ],
         "metadata": {},
-        "newProperties": {},
+        "newProperties": {
+            "unix:filemode": "100644"
+        },
         "oldPath": null,
-        "oldProperties": {},
+        "oldProperties": {
+            "unix:filemode": "000000"
+        },
         "type": 1
     },
     {
@@ -107,9 +111,13 @@
             "new:binary-phid": null,
             "old:binary-phid": null
         },
-        "newProperties": {},
+        "newProperties": {
+            "unix:filemode": "000000"
+        },
         "oldPath": "tete",
-        "oldProperties": {},
+        "oldProperties": {
+            "unix:filemode": "100644"
+        },
         "type": 3
     },
     {
@@ -148,9 +156,13 @@
             "new:binary-phid": null,
             "old:binary-phid": null
         },
-        "newProperties": {},
+        "newProperties": {
+            "unix:filemode": "100644"
+        },
         "oldPath": null,
-        "oldProperties": {},
+        "oldProperties": {
+            "unix:filemode": "000000"
+        },
         "type": 1
     },
     {
@@ -172,9 +184,13 @@
             }
         ],
         "metadata": {},
-        "newProperties": {},
+        "newProperties": {
+            "unix:filemode": "000000"
+        },
         "oldPath": "ofo",
-        "oldProperties": {},
+        "oldProperties": {
+            "unix:filemode": "100644"
+        },
         "type": 3
     },
     {
@@ -185,36 +201,36 @@
         "hunks": [
             {
                 "addLines": 1,
-                "corpus": " a\n-b\n+c\n d\n a",
+                "corpus": " a\n-b\n+c\n d",
                 "delLines": 1,
                 "isMissingNewNewline": false,
                 "isMissingOldNewline": false,
-                "newLength": 101,
+                "newLength": 3,
                 "newOffset": 225,
-                "oldLength": 101,
+                "oldLength": 3,
                 "oldOffset": 225
             },
             {
                 "addLines": 2,
-                "corpus": "-b\n+c\n d\n-e\n-f\n g\n+h\n a",
+                "corpus": " a\n-b\n+c\n d\n-e\n-f\n g\n+h",
                 "delLines": 3,
                 "isMissingNewNewline": false,
                 "isMissingOldNewline": false,
-                "newLength": 134,
-                "newOffset": 326,
-                "oldLength": 100,
-                "oldOffset": 326
+                "newLength": 5,
+                "newOffset": 325,
+                "oldLength": 6,
+                "oldOffset": 325
             },
             {
                 "addLines": 1,
-                "corpus": "-b\n+c\n d",
+                "corpus": " a\n-b\n+c\n d",
                 "delLines": 1,
                 "isMissingNewNewline": false,
                 "isMissingOldNewline": false,
-                "newLength": 2,
-                "newOffset": 460,
-                "oldLength": 2,
-                "oldOffset": 426
+                "newLength": 3,
+                "newOffset": 459,
+                "oldLength": 3,
+                "oldOffset": 425
             }
         ],
         "metadata": {},

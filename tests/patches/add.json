@@ -18,9 +18,13 @@
             }
         ],
         "metadata": {},
-        "newProperties": {},
+        "newProperties": {
+            "unix:filemode": "100644"
+        },
         "oldPath": null,
-        "oldProperties": {},
+        "oldProperties": {
+            "unix:filemode": "000000"
+        },
         "type": 1
     }
 ]

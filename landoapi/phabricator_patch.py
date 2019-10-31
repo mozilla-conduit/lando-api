@@ -26,32 +26,6 @@ class ChangeKind(enum.Enum):
     MULTICOPY = 8
 
 
-def lines_to_hunks(lines: list) -> list:
-    """Build hunks from straight list of lines"""
-
-    def is_contiguous(x, y):
-        if x is None or y is None:
-            return True
-        return abs(x - y) <= 1
-
-    last_pos = 0
-    prev_old, prev_new = None, None
-    hunks = []
-    for i, (old, new, _) in enumerate(lines):
-        if i == 0:
-            continue
-
-        prev_old = lines[i - 1][0] or prev_old
-        prev_new = lines[i - 1][1] or prev_new
-        if i + 1 == len(lines) or (
-            not is_contiguous(old, prev_old) and not is_contiguous(new, prev_new)
-        ):
-            hunks.append(lines[last_pos : i + 1])
-            last_pos = i + 1
-
-    return hunks
-
-
 def serialize_hunk(hunk: list) -> dict:
     prev_op = " "
     old_eof_newline, new_eof_newline = True, True
@@ -93,6 +67,20 @@ def serialize_hunk(hunk: list) -> dict:
     }
 
 
+def unix_file_mode(value: int) -> str:
+    """Convert a uint32_t into base 8 for unix file modes"""
+    if not value:
+        return "000000"
+    digits = "01234567"
+    result = ""
+    while value > 0:
+        q, r = divmod(value, 8)
+        result = digits[r] + result
+        value = q
+    assert len(result) == 6, "Invalid unix file mode"
+    return result
+
+
 def serialize_patched_file(f: dict, public_node: str) -> dict:
 
     # Detect binary or test (not images)
@@ -127,6 +115,18 @@ def serialize_patched_file(f: dict, public_node: str) -> dict:
         change_kind = ChangeKind.CHANGE
         old_path = f["filename"]
 
+    # File modes
+    old_props = (
+        {"unix:filemode": unix_file_mode(f["modes"]["old"])}
+        if "old" in f["modes"]
+        else {}
+    )
+    new_props = (
+        {"unix:filemode": unix_file_mode(f["modes"]["new"])}
+        if "new" in f["modes"]
+        else {}
+    )
+
     return {
         "metadata": metadata,
         "oldPath": old_path,
@@ -137,15 +137,13 @@ def serialize_patched_file(f: dict, public_node: str) -> dict:
         "commitHash": public_node,
         "type": change_kind.value,
         "fileType": file_type.value,
-        "hunks": [serialize_hunk(hunk) for hunk in lines_to_hunks(f["lines"])],
-        # TODO: support unix:filemode
-        # See https://github.com/mozilla/pyo3-parsepatch/issues/10
-        "oldProperties": {},
-        "newProperties": {},
+        "hunks": [serialize_hunk(hunk) for hunk in f["hunks"]],
+        "oldProperties": old_props,
+        "newProperties": new_props,
     }
 
 
 def patch_to_changes(patch_content: str, public_node: str) -> list:
     """Build a list of Phabricator changes from a raw diff"""
-    patch = pp.get_diffs(patch_content)
+    patch = pp.get_diffs(patch_content, hunks=True)
     return [serialize_patched_file(f, public_node) for f in patch]
