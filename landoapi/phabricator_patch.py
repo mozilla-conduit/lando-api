@@ -69,16 +69,7 @@ def serialize_hunk(hunk: list) -> dict:
 
 def unix_file_mode(value: int) -> str:
     """Convert a uint32_t into base 8 for unix file modes"""
-    if not value:
-        return "000000"
-    digits = "01234567"
-    result = ""
-    while value > 0:
-        q, r = divmod(value, 8)
-        result = digits[r] + result
-        value = q
-    assert len(result) == 6, "Invalid unix file mode"
-    return result
+    return "{:06o}".format(value)
 
 
 def serialize_patched_file(f: dict, public_node: str) -> dict:
