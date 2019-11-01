@@ -28,6 +28,8 @@ from landoapi.revisions import (
     gather_involved_phids,
     get_bugzilla_bug,
     select_diff_author,
+    find_title_and_summary_for_landing,
+    revision_is_secure,
 )
 from landoapi.stacks import (
     build_stack_graph,
@@ -236,6 +238,8 @@ def post(data):
     users = user_search(phab, involved_phids)
     projects = project_search(phab, involved_phids)
 
+    secure_project_phid = get_secure_project_phid(phab)
+
     # Take note of any revisions that the checkin project tag must be
     # removed from.
     checkin_phid = get_checkin_project_phid(phab)
@@ -254,11 +258,15 @@ def post(data):
         accepted_reviewers = reviewers_for_commit_message(
             reviewers, users, projects, sec_approval_project_phid
         )
+
+        secure = revision_is_secure(revision, secure_project_phid)
+        commit_description = find_title_and_summary_for_landing(phab, revision, secure)
+
         _, commit_message = format_commit_message(
-            phab.expect(revision, "fields", "title"),
+            commit_description.title,
             get_bugzilla_bug(revision),
             accepted_reviewers,
-            phab.expect(revision, "fields", "summary"),
+            commit_description.summary,
             urllib.parse.urljoin(
                 current_app.config["PHABRICATOR_URL"], "D{}".format(revision["id"])
             ),

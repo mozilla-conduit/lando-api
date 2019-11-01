@@ -1,10 +1,12 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import pytest
 
+import pytest
+from landoapi import patches
 from landoapi.phabricator import PhabricatorClient
-from landoapi.secapproval import SECURE_COMMENT_TEMPLATE
+from landoapi.revisions import find_title_and_summary_for_landing
+from landoapi.secapproval import SECURE_COMMENT_TEMPLATE, CommentParseError
 
 
 @pytest.fixture(autouse=True)
@@ -83,16 +85,263 @@ def test_integrated_secure_stack_has_alternate_commit_message(
     authed_headers,
     monkeypatch,
 ):
-    # Build a specially formatted sec-approval request comment.
     sanitized_title = "my secure commit title"
-    sec_approval_comment = SECURE_COMMENT_TEMPLATE.format(message=sanitized_title)
-    mock_comment = phabdouble.comment(sec_approval_comment)
+    revision_title = "my insecure revision title"
+
+    # Build a revision with an active sec-approval request.
+    diff, secure_revision = _make_sec_approval_request(
+        sanitized_title,
+        revision_title,
+        authed_headers,
+        client,
+        monkeypatch,
+        phabdouble,
+        secure_project,
+    )
+
+    # Request the revision from Lando. It should have our new title and summary.
+    response = client.get("/stacks/D{}".format(secure_revision["id"]))
+    assert response == 200
+
+    revision = PhabricatorClient.single(response.json, "revisions")
+    assert revision["is_secure"]
+    assert revision["is_using_secure_commit_message"]
+    assert revision["title"] == sanitized_title
+    assert revision["summary"] == ""
+
+
+def test_integrated_secure_stack_without_sec_approval_does_not_use_secure_message(
+    db, client, phabdouble, mock_repo_config, secure_project
+):
+    # Build a plain old secure revision, no sec-approval requests made.
+    secure_revision = phabdouble.revision(
+        repo=phabdouble.repo(), projects=[secure_project]
+    )
+
+    response = client.get("/stacks/D{}".format(secure_revision["id"]))
+    assert response == 200
+
+    revision = PhabricatorClient.single(response.json, "revisions")
+    assert revision["is_secure"]
+    assert not revision["is_using_secure_commit_message"]
+
+
+def test_integrated_sec_approval_transplant_uses_alternate_message(
+    app,
+    db,
+    client,
+    phabdouble,
+    transfactory,
+    s3,
+    auth0_mock,
+    secure_project,
+    monkeypatch,
+    authed_headers,
+):
+    sanitized_title = "my secure commit title"
+    revision_title = "my insecure revision title"
+
+    # Build a revision with an active sec-approval request.
+    diff, secure_revision = _make_sec_approval_request(
+        sanitized_title,
+        revision_title,
+        authed_headers,
+        client,
+        monkeypatch,
+        phabdouble,
+        secure_project,
+    )
+
+    # Get our list of warnings so we can get the confirmation token, acknowledge them,
+    # and land the request.
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": monogram(secure_revision), "diff_id": diff["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response == 200
+    confirmation_token = response.json["confirmation_token"]
+
+    transfactory.mock_successful_response()
+
+    # Request landing of the patch using our alternate commit message.
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": monogram(secure_revision), "diff_id": diff["id"]}
+            ],
+            "confirmation_token": confirmation_token,
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response == 202
+
+    # Check the transplanted patch for our alternate commit message.
+    patch = s3.Object(
+        app.config["PATCH_BUCKET_NAME"], patches.name(secure_revision["id"], diff["id"])
+    )
+
+    for line in patch.get()["Body"].read().decode().splitlines():
+        if not line.startswith("#"):
+            title = line
+            break
+    else:
+        pytest.fail("Could not find commit message title in patch body")
+
+    assert title == sanitized_title
+
+
+def test_integrated_sec_approval_problem_halts_landing(
+    app,
+    db,
+    client,
+    phabdouble,
+    transfactory,
+    s3,
+    auth0_mock,
+    secure_project,
+    monkeypatch,
+    authed_headers,
+):
+    sanitized_title = "my secure commit title"
+    revision_title = "my insecure revision title"
+    mangled_request_comment = "boom!"
+
+    # Build a revision with an active sec-approval request.
+    diff, secure_revision = _make_sec_approval_request(
+        sanitized_title,
+        revision_title,
+        authed_headers,
+        client,
+        monkeypatch,
+        phabdouble,
+        secure_project,
+        sec_approval_comment_body=mangled_request_comment,
+    )
+
+    # Get our list of warnings so we can get the confirmation token, acknowledge them,
+    # and land the request.
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": monogram(secure_revision), "diff_id": diff["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response == 200
+    confirmation_token = response.json["confirmation_token"]
+
+    transfactory.mock_successful_response()
+
+    # Request landing of the patch using our alternate commit message.
+    with pytest.raises(CommentParseError):
+        client.post(
+            "/transplants",
+            json={
+                "landing_path": [
+                    {"revision_id": monogram(secure_revision), "diff_id": diff["id"]}
+                ],
+                "confirmation_token": confirmation_token,
+            },
+            headers=auth0_mock.mock_headers,
+        )
+
+
+def test_find_title_and_summary_for_landing_of_public_revision(phabdouble):
+    revision_title = "original insecure title"
+
+    revision = phabdouble.revision(
+        repo=phabdouble.repo(), projects=[], title=revision_title
+    )
+    revision = phabdouble.api_object_for(revision)
+
+    commit_description = find_title_and_summary_for_landing(
+        phabdouble.get_phabricator_client(), revision, False
+    )
+
+    assert commit_description.title == revision_title
+    assert not commit_description.sanitized
+
+
+def test_find_title_and_summary_for_landing_of_secure_revision_without_sec_approval(
+    db, phabdouble, secure_project
+):
+    revision_title = "original insecure title"
+
+    # Build a plain old secure revision, no sec-approval requests made.
+    revision = phabdouble.revision(
+        repo=phabdouble.repo(), projects=[secure_project], title=revision_title
+    )
+    revision = phabdouble.api_object_for(revision)
+
+    commit_description = find_title_and_summary_for_landing(
+        phabdouble.get_phabricator_client(), revision, True
+    )
+
+    assert commit_description.title == revision_title
+    assert not commit_description.sanitized
+
+
+def test_find_title_and_summary_for_landing_of_secure_rev_with_sec_approval(
+    db, client, monkeypatch, authed_headers, phabdouble, secure_project
+):
+    sanitized_title = "my secure commit title"
+    revision_title = "original insecure title"
+
+    # Build a revision with an active sec-approval request.
+    _, revision = _make_sec_approval_request(
+        sanitized_title,
+        revision_title,
+        authed_headers,
+        client,
+        monkeypatch,
+        phabdouble,
+        secure_project,
+    )
+    revision = phabdouble.api_object_for(revision)
+
+    commit_description = find_title_and_summary_for_landing(
+        phabdouble.get_phabricator_client(), revision, True
+    )
+
+    assert commit_description.title == sanitized_title
+    assert commit_description.sanitized
+
+
+def _make_sec_approval_request(
+    sanitized_commit_message,
+    revision_title,
+    authed_headers,
+    client,
+    monkeypatch,
+    phabdouble,
+    secure_project,
+    sec_approval_comment_body=None,
+):
+    diff = phabdouble.diff()
+
+    # Build a specially formatted sec-approval request comment.
+    if sec_approval_comment_body is None:
+        sec_approval_comment_body = SECURE_COMMENT_TEMPLATE.format(
+            message=sanitized_commit_message
+        )
+    mock_comment = phabdouble.comment(sec_approval_comment_body)
 
     # Build a secure revision.
     secure_revision = phabdouble.revision(
+        diff=diff,
         repo=phabdouble.repo(),
         projects=[secure_project],
-        title="my insecure revision title",
+        title=revision_title,
     )
 
     # Add the two sec-approval request transactions to Phabricator. This also links
@@ -122,35 +371,11 @@ def test_integrated_secure_stack_has_alternate_commit_message(
     response = client.post(
         "/requestSecApproval",
         json={
-            "revision_id": f"D{secure_revision['id']}",
-            "sanitized_message": sanitized_title,
+            "revision_id": monogram(secure_revision),
+            "sanitized_message": sanitized_commit_message,
         },
         headers=authed_headers,
     )
     assert response == 200
 
-    # Request the revision from Lando. It should have our new title and summary.
-    response = client.get("/stacks/D{}".format(secure_revision["id"]))
-    assert response == 200
-
-    revision = PhabricatorClient.single(response.json, "revisions")
-    assert revision["is_secure"]
-    assert revision["is_using_secure_commit_message"]
-    assert revision["title"] == sanitized_title
-    assert revision["summary"] == ""
-
-
-def test_integrated_secure_stack_without_sec_approval_does_not_use_secure_message(
-    db, client, phabdouble, mock_repo_config, secure_project
-):
-    # Build a plain old secure message, no sec-approval requests made.
-    secure_revision = phabdouble.revision(
-        repo=phabdouble.repo(), projects=[secure_project]
-    )
-
-    response = client.get("/stacks/D{}".format(secure_revision["id"]))
-    assert response == 200
-
-    revision = PhabricatorClient.single(response.json, "revisions")
-    assert revision["is_secure"]
-    assert not revision["is_using_secure_commit_message"]
+    return diff, secure_revision
