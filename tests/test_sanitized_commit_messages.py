@@ -1,15 +1,12 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from io import BytesIO
 
 import pytest
-
 from landoapi import patches
-from landoapi.hgexports import PatchHelper
 from landoapi.phabricator import PhabricatorClient
 from landoapi.revisions import find_title_and_summary_for_landing
-from landoapi.secapproval import CommentParseError, SECURE_COMMENT_TEMPLATE
+from landoapi.secapproval import SECURE_COMMENT_TEMPLATE, CommentParseError
 
 
 @pytest.fixture(autouse=True)
@@ -189,8 +186,14 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
     patch = s3.Object(
         app.config["PATCH_BUCKET_NAME"], patches.name(secure_revision["id"], diff["id"])
     )
-    patch = PatchHelper(BytesIO(patch.get()["Body"].read()))
-    title, summary = patch.commit_description().decode().split("\n", maxsplit=1)
+
+    for line in patch.get()["Body"].read().decode().splitlines():
+        if not line.startswith("#"):
+            title = line
+            break
+    else:
+        pytest.fail("Could not find commit message title in patch body")
+
     assert title == sanitized_title
 
 
