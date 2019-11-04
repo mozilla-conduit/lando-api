@@ -19,6 +19,10 @@ CHECKIN_PROJ_CACHE_KEY = "checkin-project-phid"
 # See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 SEC_APPROVAL_PROJECT_SLUG = "sec-approval"
 SEC_APPROVAL_CACHE_KEY = "sec-approval-project-phid"
+# The name of the Phabricator project containing members of the Release
+# Management team, to approve uplift requests
+RELMAN_PROJECT_SLUG = "release-managers"
+RELMAN_CACHE_KEY = "release-managers-project-phid"
 
 
 def project_search(phabricator, project_phids):
@@ -105,3 +109,16 @@ def get_sec_approval_project_phid(phabricator):
         A string phid if the project is found, otherwise None.
     """
     return get_project_phid(SEC_APPROVAL_PROJECT_SLUG, phabricator)
+
+
+@cache.cached(key_prefix=RELMAN_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
+def get_relman_group_phid(phabricator):
+    """Return a phid for the relman group's project.
+
+    Args:
+        phabricator: A PhabricatorClient instance.
+
+    Returns:
+        A string phid if the project is found, otherwise None.
+    """
+    return get_project_phid(RELMAN_PROJECT_SLUG, phabricator)

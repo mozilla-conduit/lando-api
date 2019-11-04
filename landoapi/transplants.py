@@ -278,25 +278,6 @@ def user_block_scm_level(*, auth0_user, landing_repo, **kwargs):
     )
 
 
-def repo_block_approval_required(*, landing_repo, reviewers, users, projects, **kwargs):
-    """Check that release-managers group approved all revision on a repo
-    with approval required"""
-    if landing_repo.approval_required is False:
-        return None
-
-    relman_full_approval = [
-        reviewer["status"] == ReviewerStatus.ACCEPTED
-        for revision_reviewers in reviewers.values()
-        for reviewer_phid, reviewer in revision_reviewers.items()
-        if reviewer_identity(reviewer_phid, users, projects).identifier
-        == "release-managers"
-    ]
-    if relman_full_approval and all(relman_full_approval):
-        return None
-
-    return "The release-managers group did not approve that stack."
-
-
 def check_landing_warnings(
     auth0_user,
     to_land,
@@ -341,15 +322,8 @@ def check_landing_blockers(
     stack_data,
     landable_paths,
     landable_repos,
-    reviewers,
-    users,
-    projects,
     *,
-    user_blocks=[
-        user_block_no_auth0_email,
-        user_block_scm_level,
-        repo_block_approval_required,
-    ]
+    user_blocks=[user_block_no_auth0_email, user_block_scm_level]
 ):
     revision_path = []
     revision_to_diff_id = {}
@@ -401,13 +375,7 @@ def check_landing_blockers(
     # Check anything that would block the current user from
     # landing this.
     for block in user_blocks:
-        result = block(
-            auth0_user=auth0_user,
-            landing_repo=repo,
-            reviewers=reviewers,
-            users=users,
-            projects=projects,
-        )
+        result = block(auth0_user=auth0_user, landing_repo=repo)
         if result is not None:
             return TransplantAssessment(blocker=result)
 

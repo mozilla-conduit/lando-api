@@ -20,6 +20,7 @@ from landoapi.projects import (
     get_checkin_project_phid,
     get_sec_approval_project_phid,
     get_secure_project_phid,
+    get_relman_group_phid,
     project_search,
 )
 from landoapi.repos import get_repos_for_env
@@ -30,6 +31,7 @@ from landoapi.revisions import (
     select_diff_author,
     find_title_and_summary_for_landing,
     revision_is_secure,
+    check_relman_approval,
 )
 from landoapi.stacks import (
     build_stack_graph,
@@ -135,32 +137,18 @@ def _assess_transplant_request(phab, landing_path):
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
+
+    other_checks = DEFAULT_OTHER_BLOCKER_CHECKS + [
+        # Configure relman check with extra data
+        check_relman_approval(get_relman_group_phid(phab), supported_repos)
+    ]
+
     landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos, other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
+        stack_data, edges, landable_repos, other_checks=other_checks
     )
 
-    # Load all reviewers with extended informations to check blockers and warnings
-    involved_phids = set()
-    for revision in stack_data.revisions.values():
-        involved_phids.update(gather_involved_phids(revision))
-
-    involved_phids = list(involved_phids)
-    users = user_search(phab, involved_phids)
-    projects = project_search(phab, involved_phids)
-    reviewers = {
-        revision["phid"]: get_collated_reviewers(revision)
-        for revision in stack_data.revisions.values()
-    }
-
     assessment = check_landing_blockers(
-        g.auth0_user,
-        landing_path,
-        stack_data,
-        landable,
-        landable_repos,
-        reviewers,
-        users,
-        projects,
+        g.auth0_user, landing_path, stack_data, landable, landable_repos
     )
     if assessment.blocker is not None:
         return (assessment, None, None, None)
@@ -183,6 +171,17 @@ def _assess_transplant_request(phab, landing_path):
     # repository, so we can get away with checking only one.
     repo = stack_data.repositories[to_land[0][0]["fields"]["repositoryPHID"]]
     landing_repo = landable_repos[repo["phid"]]
+
+    involved_phids = set()
+    for revision, _ in to_land:
+        involved_phids.update(gather_involved_phids(revision))
+
+    involved_phids = list(involved_phids)
+    users = user_search(phab, involved_phids)
+    projects = project_search(phab, involved_phids)
+    reviewers = {
+        revision["phid"]: get_collated_reviewers(revision) for revision, _ in to_land
+    }
 
     assessment = check_landing_warnings(
         g.auth0_user,
