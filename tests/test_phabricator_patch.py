@@ -9,15 +9,13 @@ import json
 
 from landoapi.phabricator_patch import patch_to_changes
 
-PATCHES_DIR = os.path.join(os.path.dirname(__file__), "patches")
-
 
 @pytest.mark.parametrize("patch_name", ["basic", "random", "add"])
-def test_patch_to_changes(patch_name):
+def test_patch_to_changes(patch_directory, patch_name):
     """Test the method to convert a raw patch into a list of Phabricator changes"""
 
-    patch_path = os.path.join(PATCHES_DIR, f"{patch_name}.diff")
-    result_path = os.path.join(PATCHES_DIR, f"{patch_name}.json")
+    patch_path = os.path.join(patch_directory, f"{patch_name}.diff")
+    result_path = os.path.join(patch_directory, f"{patch_name}.json")
     with open(patch_path) as p:
         output = patch_to_changes(p.read(), "deadbeef123")
 

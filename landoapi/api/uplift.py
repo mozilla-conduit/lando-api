@@ -35,31 +35,41 @@ def create(data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    state = check_approval_state(
+    logger.info(
+        "Checking approval state",
+        extra={
+            "revision": data["revision_id"],
+            "target_repository": data["repository"],
+        },
+    )
+    is_approval, revision, target_repository = check_approval_state(
         g.phabricator,
         revision_id=data["revision_id"],
         target_repository_name=data["repository"],
     )
+    logger.info(
+        "Approval state is valid",
+        extra={"style": "approval" if is_approval else "uplift"},
+    )
 
     try:
-        if state["is_approval"]:
+        if is_approval:
             output = create_approval_request(
-                g.phabricator, state["revision"], data["form_content"]
+                g.phabricator, revision, data["form_content"]
             )
         else:
             output = create_uplift_revision(
-                g.phabricator,
-                state["revision"],
-                state["target_repository"],
-                data["form_content"],
+                g.phabricator, revision, target_repository, data["form_content"]
             )
     except Exception as e:
         logger.error(
-            "Failed to create an uplift request on revision {} and repository {} : {}".format(  # noqa
-                data["revision_id"], repository, str(e)
-            )
+            "Failed to create an uplift request",
+            extra={
+                "revision": data["revision_id"],
+                "repository": repository,
+                "error": str(e),
+            },
         )
-
         raise
 
     return output, 201

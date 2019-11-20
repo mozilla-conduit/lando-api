@@ -1,8 +1,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+# Largely inspired by moz-phab:
+# https://github.com/mozilla-conduit/review/blob/1.40/moz-phab#L1187
 import enum
-import rs_parsepatch as pp
+import rs_parsepatch
 
 
 class FileType(enum.Enum):
@@ -10,7 +12,7 @@ class FileType(enum.Enum):
     IMAGE = 2
     BINARY = 3
     DIRECTORY = 4  # Should never show up...
-    SYMLINK = 5  # Support symlinks (do we care?)
+    SYMLINK = 5  # Su
     DELETED = 6
     NORMAL = 7
 
@@ -136,5 +138,5 @@ def serialize_patched_file(f: dict, public_node: str) -> dict:
 
 def patch_to_changes(patch_content: str, public_node: str) -> list:
     """Build a list of Phabricator changes from a raw diff"""
-    patch = pp.get_diffs(patch_content, hunks=True)
+    patch = rs_parsepatch.get_diffs(patch_content, hunks=True)
     return [serialize_patched_file(f, public_node) for f in patch]

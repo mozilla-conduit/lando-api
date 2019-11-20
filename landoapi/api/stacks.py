@@ -76,7 +76,7 @@ def get(revision_id):
         stack_data, edges, landable_repos, other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
     )
     uplift_repos = [
-        key for key, repo in supported_repos.items() if repo.approval_required
+        name for name, repo in supported_repos.items() if repo.approval_required
     ]
 
     involved_phids = set()

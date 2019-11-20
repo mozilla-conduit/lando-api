@@ -1,9 +1,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from copy import deepcopy
 import hashlib
 import json
+from copy import deepcopy
 
 from landoapi.phabricator import (
     PhabricatorAPIException,
@@ -27,6 +27,73 @@ def conduit_method(method):
         return f
 
     return decorate
+
+
+def validate_hunk(hunk):
+    """Validate a Phabricator Diff change hunk payload
+
+    Inspired by https://github.com/phacility/arcanist/blob/conduit-6/src/parser/diff/ArcanistDiffHunk.php#L34  # noqa
+    """
+    assert isinstance(hunk, dict)
+
+    # Fixed structure
+    assert sorted(hunk.keys()) == [
+        "addLines",
+        "corpus",
+        "delLines",
+        "isMissingNewNewline",
+        "isMissingOldNewline",
+        "newLength",
+        "newOffset",
+        "oldLength",
+        "oldOffset",
+    ]
+
+    # Check positions
+    assert int(hunk["newLength"]) >= 0
+    assert int(hunk["oldLength"]) >= 0
+    assert int(hunk["newOffset"]) >= 0
+    assert int(hunk["oldOffset"]) >= 0
+
+    # Check corpus
+    assert isinstance(hunk["corpus"], str)
+    lines = hunk["corpus"].splitlines()
+    assert len(lines) > 0
+    assert all([l[0] in (" ", "-", "+") for l in lines])
+
+    return True
+
+
+def validate_change(change):
+    """Validate a Phabricator Diff change payload
+
+    Inspired by https://github.com/phacility/arcanist/blob/conduit-6/src/parser/diff/ArcanistDiffChange.php#L68  # noqa
+    """
+    assert isinstance(change, dict)
+
+    # Check required fields
+    for key in (
+        "metadata",
+        "hunks",
+        "oldPath",
+        "currentPath",
+        "type",
+        "fileType",
+        "commitHash",
+    ):
+        assert key in change, f"Missing key {key}"
+
+    assert isinstance(change["metadata"], dict)
+    assert isinstance(change["oldPath"], str) and change["oldPath"] != ""
+    assert isinstance(change["currentPath"], str) and change["currentPath"] != ""
+    assert isinstance(change["hunks"], list) and len(change["hunks"]) > 0
+    assert 1 <= int(change["type"]) <= 8
+    assert 1 <= int(change["fileType"]) <= 7
+
+    # Check hunks
+    assert all(map(validate_hunk, change["hunks"]))
+
+    return True
 
 
 class PhabricatorDouble:
@@ -135,6 +202,7 @@ class PhabricatorDouble:
         projects=[],
         comments=[],
         title="",
+        summary="",
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -160,7 +228,7 @@ class PhabricatorDouble:
             "status": status,
             "properties": [],
             "branch": None,
-            "summary": "my test revision summary",
+            "summary": summary or "my test revision summary",
             "testPlan": "my revision test plan",
             "lineCount": "2",
             "commits": [],
@@ -256,7 +324,6 @@ class PhabricatorDouble:
         rawdiff=CANNED_RAW_DEFAULT_DIFF,
         changes=None,
         repo=None,
-        repo_phid=None,
         commits=[
             {
                 "identifier": "b15b8fbc79c2c3977aff9e17f0dfcc34c66ec29f",
@@ -281,12 +348,11 @@ class PhabricatorDouble:
         revision_id = revision["id"] if revision is not None else None
         revision_phid = revision["phid"] if revision is not None else None
         author_phid = revision["authorPHID"] if revision is not None else None
-        if repo_phid is None:
-            repo_phid = (
-                repo["phid"]
-                if repo is not None
-                else (revision["repositoryPHID"] if revision is not None else None)
-            )
+        repo_phid = (
+            repo["phid"]
+            if repo is not None
+            else (revision["repositoryPHID"] if revision is not None else None)
+        )
 
         refs = deepcopy(refs)
         base = None
@@ -302,6 +368,12 @@ class PhabricatorDouble:
             author_name = commits[0]["author"]["name"]
             author_email = commits[0]["author"]["email"]
 
+        # Validate changes
+        changes = changes or deepcopy(CANNED_DEFAULT_DIFF_CHANGES)
+        assert isinstance(changes, list)
+        assert len(changes) > 0, "No changes"
+        assert all(map(validate_change, changes)), "Invalid changes"
+
         diff = {
             "id": diff_id,
             "phid": phid,
@@ -309,7 +381,7 @@ class PhabricatorDouble:
             "rawdiff": rawdiff,
             "bookmark": None,
             "branch": None,
-            "changes": changes or deepcopy(CANNED_DEFAULT_DIFF_CHANGES),
+            "changes": changes,
             "creationMethod": "arc",
             "dateCreated": 1516718328,
             "dateModified": 1516718341,
@@ -1001,12 +1073,6 @@ class PhabricatorDouble:
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
-            # Create that new revision
-            title_index = transaction_types.index("title")
-            objectIdentifier = self.revision(
-                title=transactions[title_index][1]["value"]
-            )["id"]
-
         def identifier_to_revision(i):
             for r in self._revisions:
                 if r["phid"] == i or r["id"] == i or "D{}".format(r["id"]) == i:
@@ -1194,25 +1260,27 @@ class PhabricatorDouble:
 
         return to_response(diffs[0])
 
-    @conduit_method("differential.createrawdiff")
-    def differential_createrawdiff(self, *, diff, repositoryPHID):
-        def to_response(i):
-            return {"id": i["id"], "phid": i["phid"]}
-
-        new_diff = self.diff(rawdiff=diff, repo_phid=repositoryPHID, commits=[])
-
-        return to_response(new_diff)
-
     @conduit_method("differential.creatediff")
     def differential_creatediff(
         self, *, changes, creationMethod, repositoryPHID, **kwargs
     ):
         assert creationMethod.startswith("lando-")
 
+        assert isinstance(changes, list)
+        assert all(map(validate_change, changes))
+        assert isinstance(repositoryPHID, str)
+
+        # Lookup the repo
+        repository = PhabricatorClient.single(
+            [r for r in self._repos if r["phid"] == repositoryPHID],
+            none_when_empty=True,
+        )
+        assert repository is not None, "Unknown repository"
+
         def to_response(i):
             return {"diffid": i["id"], "phid": i["phid"]}
 
-        new_diff = self.diff(changes=changes, repo_phid=repositoryPHID, commits=[])
+        new_diff = self.diff(changes=changes, repo=repository, commits=[])
 
         return to_response(new_diff)
 

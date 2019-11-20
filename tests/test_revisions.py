@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import pytest
-import random
 
 from landoapi.phabricator import RevisionStatus, ReviewerStatus
 from landoapi.repos import get_repos_for_env
@@ -126,8 +125,8 @@ def test_relman_approval_status(status, phabdouble):
     revision = phabdouble.revision(repo=repo)
     phabdouble.reviewer(revision, relman_group, status=status)
 
-    # Add a random number of reviewers
-    for i in range(random.randint(0, 3)):
+    # Add a some extra reviewers
+    for i in range(3):
         phabdouble.reviewer(revision, phabdouble.user(username=f"reviewer-{i}"))
 
     phab_revision = phabdouble.api_object_for(
@@ -140,4 +139,7 @@ def test_relman_approval_status(status, phabdouble):
     if status == ReviewerStatus.ACCEPTED:
         assert output is None
     else:
-        assert output == "The release-managers group did not accept that stack."
+        assert (
+            output
+            == "The release-managers group did not accept that stack: you need to wait for a group approval from release-managers, or request a new review."  # noqa
+        )

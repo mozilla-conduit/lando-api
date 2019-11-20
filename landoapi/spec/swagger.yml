@@ -364,6 +364,12 @@ definitions:
           Lando may not support landing to all of these repositories.
         items:
           $ref: '#/definitions/Repository'
+      uplift_repositories:
+        type: array
+        description: |
+          A list of repositories needing an approval before landing.
+        items:
+          type: string
   LandablePath:
     type: array
     description: |

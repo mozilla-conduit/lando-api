@@ -6,6 +6,7 @@ import os
 from types import SimpleNamespace
 
 import redis
+from pathlib import Path
 import sqlalchemy
 import boto3
 import flask.testing
@@ -345,3 +346,8 @@ def pytest_assertrepr_compare(op, left, right):
             f"",
             f"    Response JSON: {left.json}",
         ]
+
+
+@pytest.fixture
+def patch_directory(request):
+    return Path(request.fspath.dirname).joinpath("patches")
