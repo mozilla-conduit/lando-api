@@ -12,6 +12,7 @@ from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     get_sec_approval_project_phid,
     get_secure_project_phid,
+    get_relman_group_phid,
     project_search,
 )
 from landoapi.repos import get_repos_for_env
@@ -35,7 +36,7 @@ from landoapi.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.transplants import DEFAULT_OTHER_BLOCKER_CHECKS
+from landoapi.transplants import get_blocker_checks
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
@@ -72,8 +73,13 @@ def get(revision_id):
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
+
+    other_checks = get_blocker_checks(
+        repositories=supported_repos, relman_group_phid=get_relman_group_phid(phab)
+    )
+
     landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos, other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
+        stack_data, edges, landable_repos, other_checks=other_checks
     )
     uplift_repos = [
         name for name, repo in supported_repos.items() if repo.approval_required
