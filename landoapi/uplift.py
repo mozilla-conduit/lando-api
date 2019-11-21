@@ -81,20 +81,23 @@ def create_uplift_revision(
     if not raw_diff:
         raise Exception("Missing raw source diff, cannot uplift revision.")
 
-    # Use source commit references on uplifted diff too
+    # Base revision hash is available on the diff fields
+    refs = {ref["type"]: ref for ref in phab.expect(diff, "fields", "refs")}
+    base_revision = refs["base"]["identifier"] if "base" in refs else None
+
+    # The first commit in the attachment list is the current HEAD of stack
+    # we can use the HEAD to mark the changes being created
     commits = phab.expect(diff, "attachments", "commits", "commits")
-    top_commit = phab.single(commits, none_when_empty=True)
+    head = commits[0] if commits else None
 
     # Upload it on target repo
     new_diff = phab.call_conduit(
         "differential.creatediff",
-        changes=patch_to_changes(
-            raw_diff, top_commit["identifier"] if top_commit else None
-        ),
+        changes=patch_to_changes(raw_diff, head["identifier"] if head else None),
         sourceMachine=local_repo.url,
         sourceControlSystem="hg",
         sourceControlPath="/",
-        sourceControlBaseRevision=top_commit["parents"][0] if top_commit else None,
+        sourceControlBaseRevision=base_revision,
         creationMethod="lando-uplift",
         lintStatus="none",
         unitStatus="none",
