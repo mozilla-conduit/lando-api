@@ -287,7 +287,7 @@ class PhabricatorDouble:
         user = {
             "id": self._new_id(self._users),
             "apiKey": "api-{}".format(
-                hashlib.md5(email.encode("utf-8")).hexdigest()[:12]
+                hashlib.sha256(email.encode("utf-8")).hexdigest()[:12]
             ),
             "type": "USER",
             "phid": phid,

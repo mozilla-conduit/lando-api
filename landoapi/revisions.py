@@ -135,8 +135,7 @@ def check_author_planned_changes(*, revision, **kwargs):
 
 
 def check_relman_approval(relman_phid, supported_repos):
-    """Check that Release Managers group approved a revision on a repo
-    with approval required"""
+    """Check that Release Managers group approved a revision"""
 
     def _check(*, revision, repo, **kwargs):
 
@@ -155,7 +154,11 @@ def check_relman_approval(relman_phid, supported_repos):
         if relman_review["status"] == ReviewerStatus.ACCEPTED:
             return None
 
-        return "The release-managers group did not accept that stack: you need to wait for a group approval from release-managers, or request a new review."  # noqa
+        return (
+            "The release-managers group did not accept that stack: "
+            "you need to wait for a group approval from release-managers, "
+            "or request a new review."
+        )
 
     return _check
 
