@@ -12,6 +12,7 @@ from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     get_sec_approval_project_phid,
     get_secure_project_phid,
+    get_relman_group_phid,
     project_search,
 )
 from landoapi.repos import get_repos_for_env
@@ -35,7 +36,7 @@ from landoapi.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.transplants import DEFAULT_OTHER_BLOCKER_CHECKS
+from landoapi.transplants import get_blocker_checks
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
@@ -72,9 +73,17 @@ def get(revision_id):
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
-    landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos, other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
+
+    other_checks = get_blocker_checks(
+        repositories=supported_repos, relman_group_phid=get_relman_group_phid(phab)
     )
+
+    landable, blocked = calculate_landable_subgraphs(
+        stack_data, edges, landable_repos, other_checks=other_checks
+    )
+    uplift_repos = [
+        name for name, repo in supported_repos.items() if repo.approval_required
+    ]
 
     involved_phids = set()
     for revision in stack_data.revisions.values():
@@ -146,7 +155,11 @@ def get(revision_id):
         short_name = PhabricatorClient.expect(
             stack_data.repositories[phid], "fields", "shortName"
         )
-        landing_supported = short_name in supported_repos
+        repo = supported_repos.get(short_name)
+        if repo is None:
+            landing_supported, approval_required = False, None
+        else:
+            landing_supported, approval_required = True, repo.approval_required
         url = (
             "{phabricator_url}/source/{short_name}".format(
                 phabricator_url=current_app.config["PHABRICATOR_URL"],
@@ -161,6 +174,7 @@ def get(revision_id):
                 "short_name": short_name,
                 "url": url,
                 "landing_supported": landing_supported,
+                "approval_required": approval_required,
             }
         )
 
@@ -169,4 +183,5 @@ def get(revision_id):
         "revisions": revisions_response,
         "edges": [e for e in edges],
         "landable_paths": landable,
+        "uplift_repositories": uplift_repos,
     }

@@ -221,6 +221,48 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /uplift:
+    post:
+      operationId: landoapi.api.uplift.create
+      description: |
+        Create an uplift request for a revision and target repository
+      parameters:
+        - name: data
+          in: body
+          description: |
+            Retrieve status of the landing job
+          required: true
+          schema:
+            type: object
+            required:
+              - revision_id
+              - repository
+              - form_content
+            properties:
+              revision_id:
+                type: integer
+              repository:
+                type: string
+              form_content:
+                type: string
+      responses:
+        201:
+          description: OK
+        400:
+          description: Invalid payload
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        403:
+          description: Service not authorized
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
 definitions:
   LandingPath:
     type: array
@@ -322,6 +364,12 @@ definitions:
           Lando may not support landing to all of these repositories.
         items:
           $ref: '#/definitions/Repository'
+      uplift_repositories:
+        type: array
+        description: |
+          A list of repositories needing an approval before landing.
+        items:
+          type: string
   LandablePath:
     type: array
     description: |
@@ -364,6 +412,10 @@ definitions:
         type: boolean
         description: |
           Whether Lando is able to land to the repository or not.
+      approval_required:
+        type: boolean
+        description: |
+          Whether Lando needs an approval before landing the stack.
   Revision:
     type: object
     properties:

@@ -174,6 +174,7 @@ class PhabricatorClient:
     """
 
     def __init__(self, url, api_token, *, session=None):
+        self.url_base = url
         self.api_url = url + "api/" if url[-1] == "/" else url + "/api/"
         self.api_token = api_token
         self.session = session or self.create_session()

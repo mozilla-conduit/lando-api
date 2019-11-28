@@ -1,0 +1,242 @@
+[
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "foo",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 2,
+                "corpus": " a\n-b\n+c\n+d\n e\n-f",
+                "delLines": 2,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 4,
+                "newOffset": 225,
+                "oldLength": 4,
+                "oldOffset": 225
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "foo",
+        "oldProperties": {},
+        "type": 2
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "bar",
+        "fileType": 1,
+        "hunks": [],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "bar",
+        "oldProperties": {},
+        "type": 2
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "oof",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 2,
+                "corpus": "+a\n+b",
+                "delLines": 0,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 2,
+                "newOffset": 1,
+                "oldLength": 0,
+                "oldOffset": 0
+            }
+        ],
+        "metadata": {},
+        "newProperties": {
+            "unix:filemode": "100644"
+        },
+        "oldPath": null,
+        "oldProperties": {
+            "unix:filemode": "000000"
+        },
+        "type": 1
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "rab",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 1,
+                "corpus": " a\n-b\n+c\n d",
+                "delLines": 1,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 3,
+                "newOffset": 225,
+                "oldLength": 3,
+                "oldOffset": 225
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "rab",
+        "oldProperties": {},
+        "type": 2
+    },
+    {
+        "awayPaths": [
+            "toto"
+        ],
+        "commitHash": "deadbeef123",
+        "currentPath": "tata",
+        "fileType": 1,
+        "hunks": [],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "toto",
+        "oldProperties": {},
+        "type": 6
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "tete",
+        "fileType": 3,
+        "hunks": [],
+        "metadata": {
+            "new:binary-phid": null,
+            "old:binary-phid": null
+        },
+        "newProperties": {
+            "unix:filemode": "000000"
+        },
+        "oldPath": "tete",
+        "oldProperties": {
+            "unix:filemode": "100644"
+        },
+        "type": 3
+    },
+    {
+        "awayPaths": [
+            "titi"
+        ],
+        "commitHash": "deadbeef123",
+        "currentPath": "tutu",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 1,
+                "corpus": " a\n-b\n+c\n d\n-e\n-f\n g",
+                "delLines": 3,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 4,
+                "newOffset": 1,
+                "oldLength": 6,
+                "oldOffset": 1
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "titi",
+        "oldProperties": {},
+        "type": 6
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "tyty",
+        "fileType": 3,
+        "hunks": [],
+        "metadata": {
+            "new:binary-phid": null,
+            "old:binary-phid": null
+        },
+        "newProperties": {
+            "unix:filemode": "100644"
+        },
+        "oldPath": null,
+        "oldProperties": {
+            "unix:filemode": "000000"
+        },
+        "type": 1
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "ofo",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 0,
+                "corpus": "-a\n-b\n-c",
+                "delLines": 3,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 0,
+                "newOffset": 0,
+                "oldLength": 3,
+                "oldOffset": 1
+            }
+        ],
+        "metadata": {},
+        "newProperties": {
+            "unix:filemode": "000000"
+        },
+        "oldPath": "ofo",
+        "oldProperties": {
+            "unix:filemode": "100644"
+        },
+        "type": 3
+    },
+    {
+        "awayPaths": [],
+        "commitHash": "deadbeef123",
+        "currentPath": "arb",
+        "fileType": 1,
+        "hunks": [
+            {
+                "addLines": 1,
+                "corpus": " a\n-b\n+c\n d",
+                "delLines": 1,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 3,
+                "newOffset": 225,
+                "oldLength": 3,
+                "oldOffset": 225
+            },
+            {
+                "addLines": 2,
+                "corpus": " a\n-b\n+c\n d\n-e\n-f\n g\n+h",
+                "delLines": 3,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 5,
+                "newOffset": 325,
+                "oldLength": 6,
+                "oldOffset": 325
+            },
+            {
+                "addLines": 1,
+                "corpus": " a\n-b\n+c\n d",
+                "delLines": 1,
+                "isMissingNewNewline": false,
+                "isMissingOldNewline": false,
+                "newLength": 3,
+                "newOffset": 459,
+                "oldLength": 3,
+                "oldOffset": 425
+            }
+        ],
+        "metadata": {},
+        "newProperties": {},
+        "oldPath": "arb",
+        "oldProperties": {},
+        "type": 2
+    }
+]

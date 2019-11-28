@@ -5,7 +5,9 @@ import logging
 from collections import Counter
 
 from landoapi.models import SecApprovalRequest
+from landoapi.reviews import get_collated_reviewers
 from landoapi.phabricator import (
+    ReviewerStatus,
     PhabricatorAPIException,
     PhabricatorClient,
     RevisionStatus,
@@ -130,6 +132,35 @@ def check_author_planned_changes(*, revision, **kwargs):
         return None
 
     return "The author has indicated they are planning changes to this revision."
+
+
+def check_relman_approval(relman_phid, supported_repos):
+    """Check that Release Managers group approved a revision"""
+
+    def _check(*, revision, repo, **kwargs):
+
+        # Check if this repository needs an approval from relman
+        local_repo = supported_repos.get(repo["fields"]["shortName"])
+        assert local_repo is not None, "Unsupported repository"
+        if local_repo.approval_required is False:
+            return None
+
+        # Check that relman approval was requested and that the
+        # approval was granted
+        reviewers = get_collated_reviewers(revision)
+        relman_review = reviewers.get(relman_phid)
+        if relman_review is None:
+            return "The release-managers group was not requested for review"
+        if relman_review["status"] == ReviewerStatus.ACCEPTED:
+            return None
+
+        return (
+            "The release-managers group did not accept that stack: "
+            "you need to wait for a group approval from release-managers, "
+            "or request a new review."
+        )
+
+    return _check
 
 
 def revision_is_secure(revision, secure_project_phid):

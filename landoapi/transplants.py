@@ -9,12 +9,14 @@ from collections import namedtuple
 
 from connexion import ProblemException
 
+from landoapi.repos import Repo
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
+    check_relman_approval,
     revision_is_secure,
 )
 
@@ -380,3 +382,13 @@ def check_landing_blockers(
             return TransplantAssessment(blocker=result)
 
     return TransplantAssessment()
+
+
+def get_blocker_checks(repositories: dict, relman_group_phid: str):
+    """Build all transplant blocker checks that need extra Phabricator data"""
+    assert all(map(lambda r: isinstance(r, Repo), repositories.values()))
+
+    return DEFAULT_OTHER_BLOCKER_CHECKS + [
+        # Configure relman check with extra data
+        check_relman_approval(relman_group_phid, repositories)
+    ]

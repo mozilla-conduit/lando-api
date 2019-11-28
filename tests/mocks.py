@@ -1,6 +1,8 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import hashlib
+import json
 from copy import deepcopy
 
 from landoapi.phabricator import (
@@ -25,6 +27,73 @@ def conduit_method(method):
         return f
 
     return decorate
+
+
+def validate_hunk(hunk):
+    """Validate a Phabricator Diff change hunk payload
+
+    Inspired by https://github.com/phacility/arcanist/blob/conduit-6/src/parser/diff/ArcanistDiffHunk.php#L34  # noqa
+    """
+    assert isinstance(hunk, dict)
+
+    # Fixed structure
+    assert sorted(hunk.keys()) == [
+        "addLines",
+        "corpus",
+        "delLines",
+        "isMissingNewNewline",
+        "isMissingOldNewline",
+        "newLength",
+        "newOffset",
+        "oldLength",
+        "oldOffset",
+    ]
+
+    # Check positions
+    assert int(hunk["newLength"]) >= 0
+    assert int(hunk["oldLength"]) >= 0
+    assert int(hunk["newOffset"]) >= 0
+    assert int(hunk["oldOffset"]) >= 0
+
+    # Check corpus
+    assert isinstance(hunk["corpus"], str)
+    lines = hunk["corpus"].splitlines()
+    assert len(lines) > 0
+    assert all([l[0] in (" ", "-", "+") for l in lines])
+
+    return True
+
+
+def validate_change(change):
+    """Validate a Phabricator Diff change payload
+
+    Inspired by https://github.com/phacility/arcanist/blob/conduit-6/src/parser/diff/ArcanistDiffChange.php#L68  # noqa
+    """
+    assert isinstance(change, dict)
+
+    # Check required fields
+    for key in (
+        "metadata",
+        "hunks",
+        "oldPath",
+        "currentPath",
+        "type",
+        "fileType",
+        "commitHash",
+    ):
+        assert key in change, f"Missing key {key}"
+
+    assert isinstance(change["metadata"], dict)
+    assert isinstance(change["oldPath"], str) and change["oldPath"] != ""
+    assert isinstance(change["currentPath"], str) and change["currentPath"] != ""
+    assert isinstance(change["hunks"], list) and len(change["hunks"]) > 0
+    assert 1 <= int(change["type"]) <= 8
+    assert 1 <= int(change["fileType"]) <= 7
+
+    # Check hunks
+    assert all(map(validate_hunk, change["hunks"]))
+
+    return True
 
 
 class PhabricatorDouble:
@@ -133,6 +202,7 @@ class PhabricatorDouble:
         projects=[],
         comments=[],
         title="",
+        summary="",
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -158,7 +228,7 @@ class PhabricatorDouble:
             "status": status,
             "properties": [],
             "branch": None,
-            "summary": "my test revision summary",
+            "summary": summary or "my test revision summary",
             "testPlan": "my revision test plan",
             "lineCount": "2",
             "commits": [],
@@ -216,6 +286,9 @@ class PhabricatorDouble:
         uri = "http://phabricator.test/p/{}".format(username)
         user = {
             "id": self._new_id(self._users),
+            "apiKey": "api-{}".format(
+                hashlib.sha256(email.encode("utf-8")).hexdigest()[:12]
+            ),
             "type": "USER",
             "phid": phid,
             "email": email,
@@ -249,6 +322,7 @@ class PhabricatorDouble:
         *,
         revision=None,
         rawdiff=CANNED_RAW_DEFAULT_DIFF,
+        changes=None,
         repo=None,
         commits=[
             {
@@ -294,6 +368,12 @@ class PhabricatorDouble:
             author_name = commits[0]["author"]["name"]
             author_email = commits[0]["author"]["email"]
 
+        # Validate changes
+        changes = changes or deepcopy(CANNED_DEFAULT_DIFF_CHANGES)
+        assert isinstance(changes, list)
+        assert len(changes) > 0, "No changes"
+        assert all(map(validate_change, changes)), "Invalid changes"
+
         diff = {
             "id": diff_id,
             "phid": phid,
@@ -301,7 +381,7 @@ class PhabricatorDouble:
             "rawdiff": rawdiff,
             "bookmark": None,
             "branch": None,
-            "changes": deepcopy(CANNED_DEFAULT_DIFF_CHANGES),
+            "changes": changes,
             "creationMethod": "arc",
             "dateCreated": 1516718328,
             "dateModified": 1516718341,
@@ -1180,6 +1260,56 @@ class PhabricatorDouble:
 
         return to_response(diffs[0])
 
+    @conduit_method("differential.creatediff")
+    def differential_creatediff(
+        self, *, changes, creationMethod, repositoryPHID, **kwargs
+    ):
+        assert creationMethod.startswith("lando-")
+
+        assert isinstance(changes, list)
+        assert all(map(validate_change, changes))
+        assert isinstance(repositoryPHID, str)
+
+        # Lookup the repo
+        repository = PhabricatorClient.single(
+            [r for r in self._repos if r["phid"] == repositoryPHID],
+            none_when_empty=True,
+        )
+        assert repository is not None, "Unknown repository"
+
+        def to_response(i):
+            return {"diffid": i["id"], "phid": i["phid"]}
+
+        new_diff = self.diff(changes=changes, repo=repository, commits=[])
+
+        return to_response(new_diff)
+
+    @conduit_method("differential.setdiffproperty")
+    def differential_setdiffproperty(self, *, diff_id=None, data=None, name="default"):
+        def to_response(i):
+            return {"id": i["id"], "phid": i["phid"]}
+
+        diffs = [(i, d) for i, d in enumerate(self._diffs) if d["id"] == diff_id]
+        if diff_id is None or not diffs:
+            raise PhabricatorAPIException(
+                "Diff not found.",
+                error_code="ERR_NOT_FOUND",
+                error_info="Diff not found.",
+            )
+
+        pos, diff = diffs[0]
+        if name == "local:commits":
+            diff["commits"] = json.loads(data)
+        else:
+            raise PhabricatorAPIException(
+                "Unsupported payload.",
+                error_code="ERR_INVALID",
+                error_info="Unsupported payload.",
+            )
+
+        self._diffs[pos] = diff
+        return to_response(diff)
+
     @conduit_method("transaction.search")
     def transaction_search(
         self,
@@ -1415,6 +1545,27 @@ class PhabricatorDouble:
             items = [i for i in items if i["id"] in ids]
 
         return [to_response(i) for i in items]
+
+    @conduit_method("user.whoami")
+    def user_whoami(self):
+        def to_response(i):
+            return {
+                "phid": i["phid"],
+                "userName": i["userName"],
+                "realName": i["realName"],
+                "image": i["image"],
+                "uri": i["uri"],
+                "roles": i["roles"],
+            }
+
+        if not self._users:
+            raise PhabricatorAPIException(
+                "User not found.",
+                error_code="ERR_NOT_FOUND",
+                error_info="User not found.",
+            )
+
+        return to_response(self._users[0])
 
     @conduit_method("phid.query")
     def phid_query(self, *, phids=None):

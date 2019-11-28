@@ -20,6 +20,7 @@ from landoapi.projects import (
     get_checkin_project_phid,
     get_sec_approval_project_phid,
     get_secure_project_phid,
+    get_relman_group_phid,
     project_search,
 )
 from landoapi.repos import get_repos_for_env
@@ -42,7 +43,7 @@ from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
     check_landing_blockers,
     check_landing_warnings,
-    DEFAULT_OTHER_BLOCKER_CHECKS,
+    get_blocker_checks,
     TransplantAssessment,
 )
 from landoapi.transplant_client import TransplantClient, TransplantError
@@ -135,8 +136,13 @@ def _assess_transplant_request(phab, landing_path):
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
+
+    other_checks = get_blocker_checks(
+        repositories=supported_repos, relman_group_phid=get_relman_group_phid(phab)
+    )
+
     landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos, other_checks=DEFAULT_OTHER_BLOCKER_CHECKS
+        stack_data, edges, landable_repos, other_checks=other_checks
     )
 
     assessment = check_landing_blockers(

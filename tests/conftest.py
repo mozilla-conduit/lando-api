@@ -6,6 +6,7 @@ import os
 from types import SimpleNamespace
 
 import redis
+from pathlib import Path
 import sqlalchemy
 import boto3
 import flask.testing
@@ -256,7 +257,10 @@ def mocked_repo_config(mock_repo_config):
             "test": {
                 "mozilla-central": Repo(
                     "mozilla-central", SCM_LEVEL_3, "", "http://hg.test"
-                )
+                ),
+                "mozilla-uplift": Repo(
+                    "mozilla-uplift", SCM_LEVEL_3, "", "http://hg.test/uplift", True
+                ),
             }
         }
     )
@@ -342,3 +346,8 @@ def pytest_assertrepr_compare(op, left, right):
             f"",
             f"    Response JSON: {left.json}",
         ]
+
+
+@pytest.fixture
+def patch_directory(request):
+    return Path(request.fspath.dirname).joinpath("patches")

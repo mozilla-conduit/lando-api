@@ -50,14 +50,22 @@ Repo = namedtuple(
         "push_bookmark",
         # Repository url, e.g. as found on https://hg.mozilla.org.
         "url",
+        # Approval required to land on that repo (for uplifts)
+        "approval_required",
     ),
+    # Set approval as not required by default
+    defaults=(None, None, None, None, False),
 )
 REPO_CONFIG = {
     # '<ENV>': {
     #     '<phabricator-short-name>': Repo(...)
     # }
     "default": {},
-    "localdev": {"test-repo": Repo("test-repo", SCM_LEVEL_1, "", "http://hg.test")},
+    "localdev": {
+        "localdev": Repo("localdev", SCM_LEVEL_1, "", "http://hg.test"),
+        # Approval is required for the uplift dev repo
+        "uplift-target": Repo("uplift-target", SCM_LEVEL_1, "", "http://hg.test", True),
+    },
     "devsvcdev": {
         "test-repo": Repo(
             "test-repo", SCM_LEVEL_1, "", "https://autolandhg.devsvcdev.mozaws.net"

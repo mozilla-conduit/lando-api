@@ -4,10 +4,12 @@
 
 import pytest
 
-from landoapi.phabricator import RevisionStatus
+from landoapi.phabricator import RevisionStatus, ReviewerStatus
+from landoapi.repos import get_repos_for_env
 from landoapi.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
+    check_relman_approval,
     revision_is_secure,
 )
 
@@ -89,3 +91,55 @@ def test_secure_revision_is_secure(phabdouble, secure_project):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
     assert revision_is_secure(revision, secure_project["phid"])
+
+
+def test_relman_approval_missing(phabdouble):
+    """A repo with an approval required needs relman as reviewer"""
+    relman_group = phabdouble.project("release-managers")
+    repo = phabdouble.repo(name="uplift-target")
+    repos = get_repos_for_env("localdev")
+    assert repos["uplift-target"].approval_required is True
+
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+
+    check = check_relman_approval(relman_group["phid"], repos)
+    assert (
+        check(revision=phab_revision, repo=phabdouble.api_object_for(repo))
+        == "The release-managers group was not requested for review"
+    )
+
+
+@pytest.mark.parametrize("status", list(ReviewerStatus))
+def test_relman_approval_status(status, phabdouble):
+    """Check only an approval from relman allows landing"""
+    relman_group = phabdouble.project("release-managers")
+    repo = phabdouble.repo(name="uplift-target")
+    repos = get_repos_for_env("localdev")
+    assert repos["uplift-target"].approval_required is True
+
+    # Add relman as reviewer with specified status
+    revision = phabdouble.revision(repo=repo)
+    phabdouble.reviewer(revision, relman_group, status=status)
+
+    # Add a some extra reviewers
+    for i in range(3):
+        phabdouble.reviewer(revision, phabdouble.user(username=f"reviewer-{i}"))
+
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+
+    check = check_relman_approval(relman_group["phid"], repos)
+    output = check(revision=phab_revision, repo=phabdouble.api_object_for(repo))
+    if status == ReviewerStatus.ACCEPTED:
+        assert output is None
+    else:
+        assert (
+            output
+            == "The release-managers group did not accept that stack: you need to wait for a group approval from release-managers, or request a new review."  # noqa
+        )
