@@ -367,7 +367,7 @@ definitions:
   Revision:
     type: object
     properties:
-      revision_id:
+      id:
         type: string
         description: |
           The id of the revision in the form of D{number}
