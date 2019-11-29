@@ -363,7 +363,7 @@ def _make_sec_approval_request(
         return [comment_txn, review_txn]
 
     monkeypatch.setattr(
-        "landoapi.api.revisions.send_sanitized_commit_message_for_review",
+        "landoapi.api.secapproval.send_sanitized_commit_message_for_review",
         fake_send_message_for_review,
     )
 

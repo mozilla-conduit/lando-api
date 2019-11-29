@@ -6,7 +6,6 @@ import logging
 
 from connexion import problem
 from flask import g
-
 from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.models import SecApprovalRequest
