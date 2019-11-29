@@ -36,12 +36,12 @@ def monogram(revision):
     return f"D{revision['id']}"
 
 
-def test_integrated_request_sec_approval(
+def test_integrated_request_sec_approval_for_commit_message(
     client, authed_headers, db, phabdouble, secure_project, sec_approval_project
 ):
     revision = phabdouble.revision(projects=[secure_project])
     response = client.post(
-        "/requestSecApproval",
+        "/requestSecApprovalForCommitMessage",
         json={"revision_id": monogram(revision), "sanitized_message": "obscure"},
         headers=authed_headers,
     )
@@ -55,7 +55,7 @@ def test_integrated_public_revisions_cannot_be_submitted_for_sec_approval(
     public_project = phabdouble.project("public")
     revision = phabdouble.revision(projects=[public_project])
     response = client.post(
-        "/requestSecApproval",
+        "/requestSecApprovalForCommitMessage",
         json={"revision_id": monogram(revision), "sanitized_message": "oops"},
         headers=authed_headers,
     )
@@ -68,7 +68,7 @@ def test_integrated_empty_commit_message_is_an_error(
 ):
     revision = phabdouble.revision(projects=[secure_project])
     response = client.post(
-        "/requestSecApproval",
+        "/requestSecApprovalForCommitMessage",
         json={"revision_id": monogram(revision), "sanitized_message": ""},
         headers=authed_headers,
     )
@@ -369,7 +369,7 @@ def _make_sec_approval_request(
 
     # Post the sec-approval request so that it gets saved into the database.
     response = client.post(
-        "/requestSecApproval",
+        "/requestSecApprovalForCommitMessage",
         json={
             "revision_id": monogram(secure_revision),
             "sanitized_message": sanitized_commit_message,

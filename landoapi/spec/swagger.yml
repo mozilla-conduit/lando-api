@@ -186,9 +186,9 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
-  /requestSecApproval:
+  /requestSecApprovalForCommitMessage:
     post:
-      operationId: landoapi.api.secapproval.request_sec_approval
+      operationId: landoapi.api.secapproval.request_sec_approval_for_commit_message
       description: |
         Submit a sanitized, safe-to-land commit message for a security-sensitive
         revision. This starts the Security Bug Approval Process.

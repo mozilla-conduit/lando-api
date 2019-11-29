@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 @auth.require_auth0(scopes=("lando",))
 @require_phabricator_api_key(optional=False)
-def request_sec_approval(data=None):
+def request_sec_approval_for_commit_message(data=None):
     """Update a Revision with a sanitized commit message.
 
     Kicks off the sec-approval process.
@@ -38,7 +38,7 @@ def request_sec_approval(data=None):
     alt_message = data["sanitized_message"]
 
     logger.info(
-        "Got request for sec-approval review of revision",
+        "Got request for sec-approval review of commit message",
         extra=dict(revision_phid=revision_id),
     )
 
