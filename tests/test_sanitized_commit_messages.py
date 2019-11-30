@@ -4,13 +4,18 @@
 
 import pytest
 from landoapi import patches
+from landoapi.models import SecApprovalRequest
 from landoapi.phabricator import PhabricatorClient
 from landoapi.revisions import find_title_and_summary_for_landing
-from landoapi.secapproval import SECURE_COMMENT_TEMPLATE, CommentParseError
+from landoapi.secapproval import (
+    CommentParseError,
+    make_secure_commit_message_review_comment,
+)
+from landoapi.storage import db
 
 
 @pytest.fixture(autouse=True)
-def preamble(app, monkeypatch):
+def preamble(app, db, monkeypatch):
     # All API acceptance tests need the 'app' fixture to function.
 
     # Mock a valid API token.
@@ -36,31 +41,20 @@ def monogram(revision):
     return f"D{revision['id']}"
 
 
-def test_integrated_request_sec_approval(
-    client, authed_headers, db, phabdouble, secure_project, sec_approval_project
+def test_integrated_update_sec_approval_commit_message(
+    client, authed_headers, phabdouble, secure_project, sec_approval_project
 ):
-    revision = phabdouble.revision(projects=[secure_project])
+    _, revision = _setup_inprogress_sec_approval_request(
+        "", "original insecure title", phabdouble, secure_project
+    )
+
     response = client.post(
         "/requestSecApproval",
         json={"revision_id": monogram(revision), "sanitized_message": "obscure"},
         headers=authed_headers,
     )
 
-    assert response.status_code == 200
-
-
-def test_integrated_public_revisions_cannot_be_submitted_for_sec_approval(
-    client, authed_headers, phabdouble
-):
-    public_project = phabdouble.project("public")
-    revision = phabdouble.revision(projects=[public_project])
-    response = client.post(
-        "/requestSecApproval",
-        json={"revision_id": monogram(revision), "sanitized_message": "oops"},
-        headers=authed_headers,
-    )
-
-    assert response.status_code == 400
+    assert response == 200
 
 
 def test_integrated_empty_commit_message_is_an_error(
@@ -77,26 +71,14 @@ def test_integrated_empty_commit_message_is_an_error(
 
 
 def test_integrated_secure_stack_has_alternate_commit_message(
-    db,
-    client,
-    phabdouble,
-    mock_repo_config,
-    secure_project,
-    authed_headers,
-    monkeypatch,
+    client, phabdouble, mock_repo_config, secure_project, authed_headers, monkeypatch
 ):
     sanitized_title = "my secure commit title"
     revision_title = "my insecure revision title"
 
     # Build a revision with an active sec-approval request.
-    diff, secure_revision = _make_sec_approval_request(
-        sanitized_title,
-        revision_title,
-        authed_headers,
-        client,
-        monkeypatch,
-        phabdouble,
-        secure_project,
+    diff, secure_revision = _setup_inprogress_sec_approval_request(
+        sanitized_title, revision_title, phabdouble, secure_project
     )
 
     # Request the revision from Lando. It should have our new title and summary.
@@ -111,7 +93,7 @@ def test_integrated_secure_stack_has_alternate_commit_message(
 
 
 def test_integrated_secure_stack_without_sec_approval_does_not_use_secure_message(
-    db, client, phabdouble, mock_repo_config, secure_project
+    client, phabdouble, mock_repo_config, secure_project
 ):
     # Build a plain old secure revision, no sec-approval requests made.
     secure_revision = phabdouble.revision(
@@ -128,7 +110,6 @@ def test_integrated_secure_stack_without_sec_approval_does_not_use_secure_messag
 
 def test_integrated_sec_approval_transplant_uses_alternate_message(
     app,
-    db,
     client,
     phabdouble,
     transfactory,
@@ -142,14 +123,8 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
     revision_title = "my insecure revision title"
 
     # Build a revision with an active sec-approval request.
-    diff, secure_revision = _make_sec_approval_request(
-        sanitized_title,
-        revision_title,
-        authed_headers,
-        client,
-        monkeypatch,
-        phabdouble,
-        secure_project,
+    diff, secure_revision = _setup_inprogress_sec_approval_request(
+        sanitized_title, revision_title, phabdouble, secure_project
     )
 
     # Get our list of warnings so we can get the confirmation token, acknowledge them,
@@ -199,7 +174,6 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
 
 def test_integrated_sec_approval_problem_halts_landing(
     app,
-    db,
     client,
     phabdouble,
     transfactory,
@@ -214,12 +188,9 @@ def test_integrated_sec_approval_problem_halts_landing(
     mangled_request_comment = "boom!"
 
     # Build a revision with an active sec-approval request.
-    diff, secure_revision = _make_sec_approval_request(
+    diff, secure_revision = _setup_inprogress_sec_approval_request(
         sanitized_title,
         revision_title,
-        authed_headers,
-        client,
-        monkeypatch,
         phabdouble,
         secure_project,
         sec_approval_comment_body=mangled_request_comment,
@@ -273,7 +244,7 @@ def test_find_title_and_summary_for_landing_of_public_revision(phabdouble):
 
 
 def test_find_title_and_summary_for_landing_of_secure_revision_without_sec_approval(
-    db, phabdouble, secure_project
+    phabdouble, secure_project
 ):
     revision_title = "original insecure title"
 
@@ -292,20 +263,14 @@ def test_find_title_and_summary_for_landing_of_secure_revision_without_sec_appro
 
 
 def test_find_title_and_summary_for_landing_of_secure_rev_with_sec_approval(
-    db, client, monkeypatch, authed_headers, phabdouble, secure_project
+    monkeypatch, authed_headers, phabdouble, secure_project
 ):
     sanitized_title = "my secure commit title"
     revision_title = "original insecure title"
 
     # Build a revision with an active sec-approval request.
-    _, revision = _make_sec_approval_request(
-        sanitized_title,
-        revision_title,
-        authed_headers,
-        client,
-        monkeypatch,
-        phabdouble,
-        secure_project,
+    _, revision = _setup_inprogress_sec_approval_request(
+        sanitized_title, revision_title, phabdouble, secure_project
     )
     revision = phabdouble.api_object_for(revision)
 
@@ -317,12 +282,9 @@ def test_find_title_and_summary_for_landing_of_secure_rev_with_sec_approval(
     assert commit_description.sanitized
 
 
-def _make_sec_approval_request(
+def _setup_inprogress_sec_approval_request(
     sanitized_commit_message,
     revision_title,
-    authed_headers,
-    client,
-    monkeypatch,
     phabdouble,
     secure_project,
     sec_approval_comment_body=None,
@@ -331,8 +293,8 @@ def _make_sec_approval_request(
 
     # Build a specially formatted sec-approval request comment.
     if sec_approval_comment_body is None:
-        sec_approval_comment_body = SECURE_COMMENT_TEMPLATE.format(
-            message=sanitized_commit_message
+        sec_approval_comment_body = make_secure_commit_message_review_comment(
+            sanitized_commit_message
         )
     mock_comment = phabdouble.comment(sec_approval_comment_body)
 
@@ -353,29 +315,12 @@ def _make_sec_approval_request(
         phabdouble.transaction("reviewers.add", secure_revision)
     )
 
-    # PhabricatorDouble does not return valid transaction data after editing a
-    # revision to ask for sec-approval. Instead of using the PhabricatorDouble fake
-    # API call to get the transactions we want we'll use a traditional mock to get
-    # them.
-    def fake_send_message_for_review(revision_phid, message, phabclient):
-        # Respond with the two transactions that should be generated by a successful
-        # sec-approval request.
-        return [comment_txn, review_txn]
-
-    monkeypatch.setattr(
-        "landoapi.api.secapproval.send_sanitized_commit_message_for_review",
-        fake_send_message_for_review,
+    # Prime the database with our sec-approval request, as if we had made an earlier
+    # request via the API.
+    new_request = SecApprovalRequest.build(
+        phabdouble.api_object_for(secure_revision), [comment_txn, review_txn]
     )
-
-    # Post the sec-approval request so that it gets saved into the database.
-    response = client.post(
-        "/requestSecApproval",
-        json={
-            "revision_id": monogram(secure_revision),
-            "sanitized_message": sanitized_commit_message,
-        },
-        headers=authed_headers,
-    )
-    assert response == 200
+    db.session.add(new_request)
+    db.session.commit()
 
     return diff, secure_revision

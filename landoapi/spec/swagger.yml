@@ -190,7 +190,7 @@ paths:
     post:
       operationId: landoapi.api.secapproval.request_sec_approval
       description: |
-        Submit a sanitized, safe-to-land commit message for a security-sensitive
+        Submit a sec-approval request for a security-sensitive
         revision. This starts the Security Bug Approval Process.
       parameters:
         - name: data
@@ -201,12 +201,17 @@ paths:
             type: object
             required:
               - revision_id
-              - sanitized_message
             properties:
               revision_id:
                 type: string
                 description: |
                   The ID of a revision in the form of 'D{number}', e.g. 'D12345'.
+              form_content:
+                type: string
+                description: |
+                  The revison author's answers to the sec-approval team's pre-review
+                  questions. Expected to be a Phabricator ReMarkup string we can
+                  post to Phabricator as a comment.
               sanitized_message:
                 type: string
                 description: |

@@ -7,7 +7,7 @@ See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 """
 import logging
 import operator
-from typing import NamedTuple
+from typing import Dict, List, NamedTuple
 
 from landoapi.commit_message import split_title_and_summary
 from landoapi.models import SecApprovalRequest
@@ -33,10 +33,12 @@ Could a member of the `sec-approval` team please review this message?
 If the message is suitable for landing in mozilla-central please mark
 this code review as `Accepted`.
 
-```
+{message_start_marker}
 {message}
 ```
 """
+
+MESSAGE_START_MARKER = "(message follows, do no remove this line)\n```"
 
 
 class CommitDescription(NamedTuple):
@@ -45,6 +47,49 @@ class CommitDescription(NamedTuple):
     title: str
     summary: str
     sanitized: bool
+
+
+def build_transactions_for_request(
+    form_content: str, updated_commit_message: str, sec_approval_project_phid: str
+) -> List[Dict]:
+    transactions = [
+        # We must get one of the sec-approval project members to approve the
+        # request and commit message for the review to proceed.
+        #
+        # Adding the sec-approval team to the review will clear any
+        # previous reviews the team did and change their state to "blocking,
+        # needs review".  Other reviewers' reviews will be left untouched. The
+        # overall state of the revision will become "Needs Review".
+        #
+        # We need to handle the case where the sec-approval team has approved a
+        # previous alternate commit message and the author has sent a new
+        # message. In this case we want the review to block on the sec-approval
+        # team again and for the sec-approval team to review the new message.
+        # Explicitly re-adding the sec-approval team to the review will clear any
+        # previous reviews the team did and change their state to "blocking,
+        # needs review".
+        #
+        # NOTE: the 'blocking(PHID)' syntax is undocumented at the time of
+        # writing.
+        {"type": "reviewers.add", "value": [f"blocking({sec_approval_project_phid})"]}
+    ]
+
+    if form_content:
+        transactions.append({"type": "comment", "value": form_content})
+
+    if updated_commit_message:
+        commit_review_request = make_secure_commit_message_review_comment(
+            updated_commit_message
+        )
+        transactions.append({"type": "comment", "value": commit_review_request})
+
+    return transactions
+
+
+def make_secure_commit_message_review_comment(updated_commit_message):
+    return SECURE_COMMENT_TEMPLATE.format(
+        message=updated_commit_message, message_start_marker=MESSAGE_START_MARKER
+    )
 
 
 def send_sanitized_commit_message_for_review(revision_phid, message, phabclient):
@@ -135,6 +180,12 @@ def parse_comment(comment: Comment) -> CommitDescription:
         string.
     """
     msg: str = PhabricatorClient.expect(comment, "content", "raw")
+
+    if MESSAGE_START_MARKER not in msg:
+        raise CommentParseError(
+            f"Phabricator comment {comment['phid']} does not have a parsable "
+            f"comment body: could not find message marker"
+        )
 
     # Find the start of the "```" block and parse to the ending "```" block.
     parts = msg.split("```")

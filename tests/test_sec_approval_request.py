@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import pytest
 from landoapi.models import SecApprovalRequest
-from landoapi.secapproval import SECURE_COMMENT_TEMPLATE
+from landoapi.secapproval import make_secure_commit_message_review_comment
 from landoapi.storage import db
 
 
@@ -48,6 +48,86 @@ def test_integrated_stack_reports_sec_approval_in_progress(
     assert response.json["revisions"][0]["security"]["has_security_review"]
 
 
+def test_integrated_request_sec_approval_for_revision(
+    client, authed_headers, phabdouble, secure_project, sec_approval_project
+):
+    revision = phabdouble.revision(projects=[secure_project])
+    response = client.post(
+        "/requestSecApproval",
+        json={"revision_id": monogram(revision), "form_content": "My form answers"},
+        headers=authed_headers,
+    )
+
+    assert response == 200
+
+
+def test_integrated_request_sec_approval_with_commit_message(
+    client, authed_headers, phabdouble, secure_project, sec_approval_project
+):
+    revision = phabdouble.revision(projects=[secure_project])
+    response = client.post(
+        "/requestSecApproval",
+        json={
+            "revision_id": monogram(revision),
+            "form_content": "my answers",
+            "sanitized_message": "obscure",
+        },
+        headers=authed_headers,
+    )
+
+    assert response == 200
+
+
+def test_integrated_public_revisions_cannot_be_submitted_for_sec_approval(
+    client, authed_headers, phabdouble
+):
+    public_project = phabdouble.project("public")
+    revision = phabdouble.revision(projects=[public_project])
+    response = client.post(
+        "/requestSecApproval",
+        json={"revision_id": monogram(revision), "form_content": "oops"},
+        headers=authed_headers,
+    )
+
+    assert response == 400
+    assert response.json["title"] == "Operation only allowed for secure revisions"
+
+
+def test_integrated_request_with_empty_fields_is_an_error(
+    client, authed_headers, phabdouble, secure_project, sec_approval_project
+):
+    revision = phabdouble.revision(projects=[secure_project])
+    response = client.post(
+        "/requestSecApproval",
+        json={
+            "revision_id": monogram(revision),
+            "form_content": "",
+            "sanitized_message": "",
+        },
+        headers=authed_headers,
+    )
+
+    assert response == 400
+    assert response.json["title"] == "Empty sec-approval request form"
+
+
+def test_integrated_resending_sec_approval_form_is_not_allowed(
+    client, authed_headers, phabdouble, secure_project, sec_approval_project
+):
+    revision = _setup_inprogress_sec_approval_request(
+        "", "original insecure title", phabdouble, secure_project
+    )
+
+    response = client.post(
+        "/requestSecApproval",
+        json={"revision_id": monogram(revision), "form_content": "my answers"},
+        headers=authed_headers,
+    )
+
+    assert response == 400
+    assert response.json["title"] == "Sec-approval request already in progress"
+
+
 def _setup_inprogress_sec_approval_request(
     sanitized_commit_message,
     revision_title,
@@ -59,8 +139,8 @@ def _setup_inprogress_sec_approval_request(
 
     # Build a specially formatted sec-approval request comment.
     if sec_approval_comment_body is None:
-        sec_approval_comment_body = SECURE_COMMENT_TEMPLATE.format(
-            message=sanitized_commit_message
+        sec_approval_comment_body = make_secure_commit_message_review_comment(
+            sanitized_commit_message
         )
     mock_comment = phabdouble.comment(sec_approval_comment_body)
 

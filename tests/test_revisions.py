@@ -3,8 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import pytest
-
-from landoapi.phabricator import RevisionStatus, ReviewerStatus
+from landoapi.phabricator import ReviewerStatus, RevisionStatus
 from landoapi.repos import get_repos_for_env
 from landoapi.revisions import (
     check_author_planned_changes,

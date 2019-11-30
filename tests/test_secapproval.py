@@ -6,34 +6,70 @@
 See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 """
 import inspect
-from unittest.mock import ANY, patch
+from unittest.mock import ANY
 
 from landoapi.models import SecApprovalRequest
 from landoapi.phabricator import PhabricatorClient
 from landoapi.secapproval import (
+    MESSAGE_START_MARKER,
+    build_transactions_for_request,
+    make_secure_commit_message_review_comment,
     parse_comment,
     search_sec_approval_request_for_comment,
-    send_sanitized_commit_message_for_review,
 )
 
 dedent = inspect.cleandoc
 
 
-def test_send_sanitized_commit_message(app, phabdouble, sec_approval_project):
-    phab = phabdouble.get_phabricator_client()
-    r = phabdouble.revision()
+def test_build_transactions_from_request_form(sec_approval_project):
+    sec_approval_phid = sec_approval_project["phid"]
+    expected_transactions = [
+        {"type": "reviewers.add", "value": [f"blocking({sec_approval_phid})"]},
+        {"type": "comment", "value": "my form answers"},
+    ]
 
-    with patch.object(phab, "call_conduit", wraps=phab.call_conduit) as spy:
-        send_sanitized_commit_message_for_review(r["phid"], "my message", phab)
-        sec_approval_phid = sec_approval_project["phid"]
-        spy.assert_called_with(
-            "differential.revision.edit",
-            objectIdentifier=r["phid"],
-            transactions=[
-                {"type": "comment", "value": ANY},
-                {"type": "reviewers.add", "value": [f"blocking({sec_approval_phid})"]},
-            ],
-        )
+    transactions = build_transactions_for_request(
+        "my form answers", "", sec_approval_phid
+    )
+
+    assert transactions == expected_transactions
+
+
+def test_build_transactions_with_request_form_and_updated_message(sec_approval_project):
+    sec_approval_phid = sec_approval_project["phid"]
+    phabricator_comment = make_secure_commit_message_review_comment(
+        "my updated commit summary"
+    )
+
+    expected_transactions = [
+        {"type": "reviewers.add", "value": [f"blocking({sec_approval_phid})"]},
+        {"type": "comment", "value": "my form answers"},
+        {"type": "comment", "value": phabricator_comment},
+    ]
+
+    transactions = build_transactions_for_request(
+        "my form answers", "my updated commit summary", sec_approval_phid
+    )
+
+    assert transactions == expected_transactions
+
+
+def test_build_transactions_for_updated_message(sec_approval_project):
+    sec_approval_phid = sec_approval_project["phid"]
+    phabricator_comment = make_secure_commit_message_review_comment(
+        "my updated commit summary"
+    )
+
+    expected_transactions = [
+        {"type": "reviewers.add", "value": [f"blocking({sec_approval_phid})"]},
+        {"type": "comment", "value": phabricator_comment},
+    ]
+
+    transactions = build_transactions_for_request(
+        "", "my updated commit summary", sec_approval_phid
+    )
+
+    assert transactions == expected_transactions
 
 
 def test_build_sec_approval_request_obj(phabdouble):
@@ -94,10 +130,12 @@ def test_parse_well_formed_comment(phabdouble):
         """
         please approve my new commit message preamble
         
-        ```
+        {}
         my new commit title
         ```
-        """  # noqa
+        """.format(  # noqa
+            MESSAGE_START_MARKER
+        )
     )
     comment = _get_comment(phabdouble, msg)
     comment_description = parse_comment(comment)
