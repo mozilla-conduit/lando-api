@@ -134,25 +134,25 @@ def create_uplift_revision(
     summary = phab.expect(source_revision, "fields", "summary")
     summary += f"\nNOTE: Uplifted from D{source_revision['id']}"
 
+    # Setup revision transactions
+    transactions = [
+        {"type": "update", "value": new_diff_phid},
+        # Copy title & summary from source revision
+        {"type": "title", "value": phab.expect(source_revision, "fields", "title")},
+        {"type": "summary", "value": summary},
+        # Set release managers as reviewers
+        {"type": "reviewers.add", "value": [release_managers["phid"]]},
+        # Post the form as a comment on the revision
+        {"type": "comment", "value": form_content},
+    ]
+
+    # Copy Bugzilla id when available
+    bugzilla_id = phab.expect(source_revision, "fields", "bugzilla.bug-id")
+    if bugzilla_id:
+        transactions.append({"type": "bugzilla.bug-id", "value": bugzilla_id})
+
     # Finally create the revision to link all the pieces
-    new_rev = phab.call_conduit(
-        "differential.revision.edit",
-        transactions=[
-            {"type": "update", "value": new_diff_phid},
-            # Copy title & summary from source revision
-            {"type": "title", "value": phab.expect(source_revision, "fields", "title")},
-            {"type": "summary", "value": summary},
-            # Set release managers as reviewers
-            {"type": "reviewers.add", "value": [release_managers["phid"]]},
-            # Post the form as a comment on the revision
-            {"type": "comment", "value": form_content},
-            # Copy Bugzilla id
-            {
-                "type": "bugzilla.bug-id",
-                "value": phab.expect(source_revision, "fields", "bugzilla.bug-id"),
-            },
-        ],
-    )
+    new_rev = phab.call_conduit("differential.revision.edit", transactions=transactions)
     new_rev_id = phab.expect(new_rev, "object", "id")
     new_rev_phid = phab.expect(new_rev, "object", "phid")
     logger.info(
