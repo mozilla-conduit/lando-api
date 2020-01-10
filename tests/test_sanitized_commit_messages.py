@@ -104,8 +104,8 @@ def test_integrated_secure_stack_has_alternate_commit_message(
     assert response == 200
 
     revision = PhabricatorClient.single(response.json, "revisions")
-    assert revision["is_secure"]
-    assert revision["is_using_secure_commit_message"]
+    assert revision["security"]["is_secure"]
+    assert revision["security"]["has_secure_commit_message"]
     assert revision["title"] == sanitized_title
     assert revision["summary"] == ""
 
@@ -122,8 +122,8 @@ def test_integrated_secure_stack_without_sec_approval_does_not_use_secure_messag
     assert response == 200
 
     revision = PhabricatorClient.single(response.json, "revisions")
-    assert revision["is_secure"]
-    assert not revision["is_using_secure_commit_message"]
+    assert revision["security"]["is_secure"]
+    assert not revision["security"]["has_secure_commit_message"]
 
 
 def test_integrated_sec_approval_transplant_uses_alternate_message(

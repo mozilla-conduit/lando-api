@@ -8,11 +8,12 @@ from connexion import problem
 from flask import current_app, g
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
+from landoapi.models import SecApprovalRequest
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
+    get_relman_group_phid,
     get_sec_approval_project_phid,
     get_secure_project_phid,
-    get_relman_group_phid,
     project_search,
 )
 from landoapi.repos import get_repos_for_env
@@ -107,7 +108,13 @@ def get(revision_id):
         revision_url = urllib.parse.urljoin(
             current_app.config["PHABRICATOR_URL"], human_revision_id
         )
+
         secure = revision_is_secure(revision, secure_project_phid)
+        if secure:
+            has_security_review = SecApprovalRequest.exists_for_revision(revision)
+        else:
+            has_security_review = False
+
         commit_description = find_title_and_summary_for_display(phab, revision, secure)
         bug_id = get_bugzilla_bug(revision)
         reviewers = get_collated_reviewers(revision)
@@ -145,8 +152,11 @@ def get(revision_id):
                 "diff": serialize_diff(diff),
                 "author": author_response,
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
-                "is_secure": secure,
-                "is_using_secure_commit_message": commit_description.sanitized,
+                "security": {
+                    "is_secure": secure,
+                    "has_security_review": has_security_review,
+                    "has_secure_commit_message": commit_description.sanitized,
+                },
             }
         )
 

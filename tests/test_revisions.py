@@ -61,7 +61,7 @@ def test_secure_api_flag_on_public_revision_is_false(client, phabdouble):
 
     assert response.status_code == 200
     response_revision = response.json["revisions"].pop()
-    assert not response_revision["is_secure"]
+    assert not response_revision["security"]["is_secure"]
 
 
 def test_secure_api_flag_on_secure_revision_is_true(
@@ -73,7 +73,7 @@ def test_secure_api_flag_on_secure_revision_is_true(
 
     assert response.status_code == 200
     response_revision = response.json["revisions"].pop()
-    assert response_revision["is_secure"]
+    assert response_revision["security"]["is_secure"]
 
 
 def test_public_revision_is_not_secure(phabdouble, secure_project):

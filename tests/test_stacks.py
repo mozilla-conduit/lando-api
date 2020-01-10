@@ -664,5 +664,5 @@ def test_integrated_stack_has_revision_security_status(
     assert response.status_code == 200
 
     revisions = {r["phid"]: r for r in response.json["revisions"]}
-    assert not revisions[public_revision["phid"]]["is_secure"]
-    assert revisions[secure_revision["phid"]]["is_secure"]
+    assert not revisions[public_revision["phid"]]["security"]["is_secure"]
+    assert revisions[secure_revision["phid"]]["security"]["is_secure"]

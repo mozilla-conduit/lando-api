@@ -5,11 +5,9 @@
 
 See See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 """
-
-from sqlalchemy.dialects.postgresql.json import JSONB
-
 from landoapi.phabricator import PhabricatorClient
 from landoapi.storage import db
+from sqlalchemy.dialects.postgresql.json import JSONB
 
 
 class SecApprovalRequest(db.Model):
@@ -60,6 +58,13 @@ class SecApprovalRequest(db.Model):
             diff_phid=PhabricatorClient.expect(revision, "fields", "diffPHID"),
             comment_candidates=possible_comment_phids,
         )
+
+    @classmethod
+    def exists_for_revision(cls, revision) -> bool:
+        """Does a sec-approval request exist for the given revision?"""
+        return db.session.query(
+            cls.query.filter_by(revision_id=revision["id"]).exists()
+        ).scalar()
 
     @classmethod
     def most_recent_request_for_revision(cls, revision) -> "SecApprovalRequest":

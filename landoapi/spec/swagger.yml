@@ -498,20 +498,33 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/Reviewer'
-      is_secure:
-        type: boolean
+      security:
+        type: object
         description: |
-          Indicates this revision is security-sensitive and should follow the
-          Security Bug Approval Process.  See https://wiki.mozilla.org/Security/Bug_Approval_Process.
-      is_using_secure_commit_message:
-        type: boolean
-        description: |
-          Indicates that the patch author has given an alternative, secure commit
-          message to land this revision with, according to the Security Bug Approval
-          Process. The alternative message is available in the 'title' and
-          'summary' attributes.
+          Properties related to the secure handling of this object.
+        properties:
+          is_secure:
+            type: boolean
+            description: |
+              This revision is security-sensitive and should follow the Security Bug
+              Approval Process.
 
-          See https://wiki.mozilla.org/Security/Bug_Approval_Process for details.
+              See https://wiki.mozilla.org/Security/Bug_Approval_Process for details.
+          has_security_review:
+            type: boolean
+            description: |
+              The patch author has requested a security review for this revision.
+
+              See https://wiki.mozilla.org/Security/Bug_Approval_Process for details.
+          has_secure_commit_message:
+            type: boolean
+            description: |
+              The patch author has given an alternative secure commit message to land
+              this revision with.  The message should follow the guidelines in the
+              Security Bug Approval Process. The alternative message is available in the
+              'title' and 'summary' attributes of this object.
+
+              See https://wiki.mozilla.org/Security/Bug_Approval_Process for details.
   User:
     type: object
     properties:
