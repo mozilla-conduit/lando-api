@@ -10,7 +10,7 @@ from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.models import SecApprovalRequest
 from landoapi.phabricator import PhabricatorClient
-from landoapi.projects import get_secure_project_phid
+from landoapi.projects import get_sec_approval_project_phid, get_secure_project_phid
 from landoapi.revisions import revision_is_secure
 from landoapi.secapproval import build_transactions_for_request
 from landoapi.storage import db
@@ -86,7 +86,7 @@ def request_sec_approval(data=None):
         )
 
     logger.info(
-        "Got request for sec-approval review of revision",
+        "sec-approval: got request for security review of revision",
         extra=dict(
             revision_phid=revision_id,
             update_existing_request=update_existing_request,
@@ -119,7 +119,7 @@ def request_sec_approval(data=None):
 
 def _submit_form_and_request_approval(form_content, phab, revision):
     desired_edits = build_transactions_for_request(
-        form_content, "", get_secure_project_phid(phab)
+        form_content, "", get_sec_approval_project_phid(phab)
     )
     phab.call_conduit(
         "differential.revision.edit",
@@ -130,7 +130,7 @@ def _submit_form_and_request_approval(form_content, phab, revision):
 
 def _submit_alt_message_and_request_approval(alt_message, phab, revision):
     desired_edits = build_transactions_for_request(
-        "", alt_message, get_secure_project_phid(phab)
+        "", alt_message, get_sec_approval_project_phid(phab)
     )
     response = phab.call_conduit(
         "differential.revision.edit",
