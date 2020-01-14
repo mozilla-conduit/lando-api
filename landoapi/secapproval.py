@@ -138,6 +138,10 @@ def search_sec_approval_request_for_comment(
     phab: PhabricatorClient, sec_approval_request: SecApprovalRequest
 ) -> Comment:
     """Search Phabricator for the comment transaction from a sec-approval request."""
+    assert (
+        sec_approval_request.comment_candidates
+    ), "attempted to search all revision comments without providing a PHID constraint"
+
     object_identifier = f"D{sec_approval_request.revision_id}"
     for transaction in transaction_search(
         phab, object_identifier, sec_approval_request.comment_candidates

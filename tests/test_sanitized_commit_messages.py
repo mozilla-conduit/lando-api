@@ -262,6 +262,29 @@ def test_find_title_and_summary_for_landing_of_secure_revision_without_sec_appro
     assert not commit_description.sanitized
 
 
+def test_find_title_and_summary_for_landing_of_request_without_a_santized_message(
+    monkeypatch, authed_headers, phabdouble, secure_project
+):
+    revision_title = "original insecure title"
+
+    # Build a revision with an active sec-approval request.
+    _, revision = _setup_inprogress_sec_approval_request(
+        "",
+        revision_title,
+        phabdouble,
+        secure_project,
+        include_secure_commit_message=False,
+    )
+    revision = phabdouble.api_object_for(revision)
+
+    commit_description = find_title_and_summary_for_landing(
+        phabdouble.get_phabricator_client(), revision, True
+    )
+
+    assert commit_description.title == revision_title
+    assert not commit_description.sanitized
+
+
 def test_find_title_and_summary_for_landing_of_secure_rev_with_sec_approval(
     monkeypatch, authed_headers, phabdouble, secure_project
 ):
@@ -287,6 +310,7 @@ def _setup_inprogress_sec_approval_request(
     revision_title,
     phabdouble,
     secure_project,
+    include_secure_commit_message=True,
     sec_approval_comment_body=None,
 ):
     diff = phabdouble.diff()
@@ -306,19 +330,25 @@ def _setup_inprogress_sec_approval_request(
         title=revision_title,
     )
 
-    # Add the two sec-approval request transactions to Phabricator. This also links
-    # the sec-approval request comment to the secure revision.
-    comment_txn = phabdouble.api_object_for(
-        phabdouble.transaction("comment", secure_revision, comments=[mock_comment])
-    )
-    review_txn = phabdouble.api_object_for(
-        phabdouble.transaction("reviewers.add", secure_revision)
-    )
+    if include_secure_commit_message:
+        # Add the two sec-approval request transactions to Phabricator. This also links
+        # the sec-approval request comment to the secure revision.
+        comment_txn = phabdouble.api_object_for(
+            phabdouble.transaction("comment", secure_revision, comments=[mock_comment])
+        )
+        review_txn = phabdouble.api_object_for(
+            phabdouble.transaction("reviewers.add", secure_revision)
+        )
+        alt_message_candidate_transactions = [comment_txn, review_txn]
+    else:
+        # Behave as if the user submitted only the security review request form
+        # answers without a sanitized commit message.
+        alt_message_candidate_transactions = []
 
     # Prime the database with our sec-approval request, as if we had made an earlier
     # request via the API.
     new_request = SecApprovalRequest.build(
-        phabdouble.api_object_for(secure_revision), [comment_txn, review_txn]
+        phabdouble.api_object_for(secure_revision), alt_message_candidate_transactions
     )
     db.session.add(new_request)
     db.session.commit()

@@ -213,7 +213,7 @@ def find_title_and_summary_for_display(
             revision
         )
 
-        if sec_approval_request:
+        if sec_approval_request and sec_approval_request.comment_candidates:
             # We have requested a new title and possibly a new summary, too, for the
             # commit.
 
@@ -293,7 +293,7 @@ def find_title_and_summary_for_landing(
             revision
         )
 
-        if sec_approval_request:
+        if sec_approval_request and sec_approval_request.comment_candidates:
             # We have requested a new title and possibly a new summary, too, for the
             # commit.
 
