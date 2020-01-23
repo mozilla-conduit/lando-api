@@ -28,7 +28,7 @@ class TreeStatus:
         try:
             resp = self.get_trees(tree=tree)
         except TreeStatusError as exc:
-            if exc.status_code != 404:
+            if exc.status_code != 404 and exc.status_code != 400:
                 raise
 
             # We assume missing trees are open.

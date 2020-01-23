@@ -53,6 +53,18 @@ def worker(celery_arguments):
     celery.worker_main((sys.argv[0],) + celery_arguments)
 
 
+@cli.command(name="landing-worker")
+def landing_worker():
+    from landoapi.app import SUBSYSTEMS
+
+    for system in SUBSYSTEMS:
+        system.ensure_ready()
+
+    from landoapi.landings import worker
+
+    worker()
+
+
 @cli.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def celery(celery_arguments):

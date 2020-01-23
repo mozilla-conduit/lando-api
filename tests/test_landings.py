@@ -2,7 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from landoapi import patches
+from landoapi.hg import HgRepo
+from landoapi.landings import execute_job
+from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.transplant import Transplant, TransplantStatus
+from landoapi.repos import Repo, SCM_LEVEL_3
 
 
 def test_update_landing(db, client):
@@ -107,3 +112,83 @@ def _create_transplant(
     db.session.add(transplant)
     db.session.commit()
     return transplant
+
+
+PATCH_NORMAL_1 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip()
+
+PATCH_NORMAL_2 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,2 +1,3 @@
+ TEST
+ adding another line
++adding one more line
+""".strip()
+
+
+def test_integrated_execute_job(
+    app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble
+):
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo(
+        "mozilla-central", SCM_LEVEL_3, "", hg_server, hg_server, True, hg_server, False
+    )
+    hgrepo = HgRepo(hg_clone.strpath)
+    patches.upload(
+        1,
+        1,
+        PATCH_NORMAL_1,
+        "landoapi.test.bucket",
+        aws_access_key=None,
+        aws_secret_key=None,
+    )
+    patches.upload(
+        2,
+        2,
+        PATCH_NORMAL_2,
+        "landoapi.test.bucket",
+        aws_access_key=None,
+        aws_secret_key=None,
+    )
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1, "2": 2},
+        revision_order=["1", "2"],
+        bug_ids={"1": 12345, "2": 12345},
+        attempts=1,
+    )
+
+    assert execute_job(
+        job,
+        repo,
+        hgrepo,
+        treestatus,
+        "landoapi.test.bucket",
+        aws_access_key=None,
+        aws_secret_key=None,
+    )
+    assert job.status is LandingJobStatus.LANDED
+    assert len(job.landed_commit_id) == 40
