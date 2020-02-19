@@ -8,6 +8,7 @@ import logging
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
 
+from landoapi.models.base import Base
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
@@ -26,28 +27,16 @@ class TransplantStatus(enum.Enum):
     failed = "failed"
 
 
-class Transplant(db.Model):
+class Transplant(Base):
     """Represents a request to Autoland Transplant."""
 
     __tablename__ = "transplants"
-
-    # Internal request ID.
-    id = db.Column(db.Integer, primary_key=True)
 
     # Autoland Transplant request ID.
     request_id = db.Column(db.Integer, unique=True)
 
     status = db.Column(
         db.Enum(TransplantStatus), nullable=False, default=TransplantStatus.aborted
-    )
-    created_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=db.func.now()
-    )
-    updated_at = db.Column(
-        db.DateTime(timezone=True),
-        nullable=False,
-        default=db.func.now(),
-        onupdate=db.func.now(),
     )
 
     # JSON object mapping string revision id of the form "<int>" (used because
@@ -85,9 +74,6 @@ class Transplant(db.Model):
 
     # Treestatus tree name the revisions are to land to.
     tree = db.Column(db.String(128))
-
-    def __repr__(self):
-        return "<Transplant: %s>" % self.id
 
     def update_from_transplant(self, landed, error="", result=""):
         """Set the status from pingback request."""

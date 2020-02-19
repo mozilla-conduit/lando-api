@@ -8,27 +8,21 @@ See See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 
 from sqlalchemy.dialects.postgresql.json import JSONB
 
+from landoapi.models.base import Base
 from landoapi.phabricator import PhabricatorClient
 from landoapi.storage import db
 
 
-class SecApprovalRequest(db.Model):
+class SecApprovalRequest(Base):
     """Represents an event that added a sec-approval comment to a revision."""
 
     __tablename__ = "secapproval_requests"
-
-    id = db.Column(db.Integer, primary_key=True)
 
     # The revision ID that this event applies to.
     revision_id = db.Column(db.Integer, nullable=False, index=True)
 
     # The active diff PHID when sec-approval was requested.
     diff_phid = db.Column(db.Text, nullable=False)
-
-    # Timestamp used to find the latest event in the series.
-    created_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=db.func.now()
-    )
 
     # A JSON array of string transaction PHIDs that may be sec-approval request
     # comments. An extra call to Phabricator needs to be made to tell if the
