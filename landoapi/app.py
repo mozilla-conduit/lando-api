@@ -63,41 +63,52 @@ def load_config():
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
         "VERSION": version(),
     }
-    for env_var, default in [
-        # AWS credentials should be only provided if needed in development
-        ("AWS_ACCESS_KEY", None),
-        ("AWS_SECRET_KEY", None),
-        ("CACHE_REDIS_DB", None),
-        ("CACHE_REDIS_HOST", None),
-        ("CACHE_REDIS_PASSWORD", None),
-        ("CACHE_REDIS_PORT", 6379),
-        ("CELERY_BROKER_URL", None),
-        ("CSP_REPORTING_URL", None),
-        ("LANDO_UI_URL", None),
-        ("LOG_LEVEL", "INFO"),
-        ("MAIL_FROM", "mozphab-prod@mozilla.com"),
-        ("MAIL_PASSWORD", None),
-        ("MAIL_PORT", None),
-        ("MAIL_RECIPIENT_WHITELIST", None),
-        ("MAIL_SERVER", None),
-        ("MAIL_USERNAME", None),
-        ("OIDC_DOMAIN", None),
-        ("OIDC_IDENTIFIER", None),
-        ("PATCH_BUCKET_NAME", None),
-        ("PINGBACK_ENABLED", "n"),
-        ("PHABRICATOR_ADMIN_API_KEY", None),
-        ("PHABRICATOR_UNPRIVILEGED_API_KEY", None),
-        ("PHABRICATOR_URL", None),
-        ("REPO_CLONES_PATH", "/repos"),
-        ("REPOS_TO_LAND", None),
-        ("SENTRY_DSN", None),
-        ("TRANSPLANT_PASSWORD", None),
-        ("TRANSPLANT_API_KEY", None),
-        ("TRANSPLANT_URL", None),
-        ("TRANSPLANT_USERNAME", None),
-        ("TREESTATUS_URL", "https://treestatus.mozilla-releng.net"),
-    ]:
-        config[env_var] = os.getenv(env_var, default)
+
+    config_keys = (
+        "AWS_ACCESS_KEY",
+        "AWS_SECRET_KEY",
+        "CACHE_REDIS_DB",
+        "CACHE_REDIS_HOST",
+        "CACHE_REDIS_PASSWORD",
+        "CACHE_REDIS_PORT",
+        "CELERY_BROKER_URL",
+        "CSP_REPORTING_URL",
+        "LANDO_UI_URL",
+        "LOG_LEVEL",
+        "MAIL_FROM",
+        "MAIL_PASSWORD",
+        "MAIL_PORT",
+        "MAIL_RECIPIENT_WHITELIST",
+        "MAIL_SERVER",
+        "MAIL_USERNAME",
+        "OIDC_DOMAIN",
+        "OIDC_IDENTIFIER",
+        "PATCH_BUCKET_NAME",
+        "PINGBACK_ENABLED",
+        "PHABRICATOR_ADMIN_API_KEY",
+        "PHABRICATOR_UNPRIVILEGED_API_KEY",
+        "PHABRICATOR_URL",
+        "REPO_CLONES_PATH",
+        "REPOS_TO_LAND",
+        "SENTRY_DSN",
+        "TRANSPLANT_PASSWORD",
+        "TRANSPLANT_API_KEY",
+        "TRANSPLANT_URL",
+        "TRANSPLANT_USERNAME",
+        "TREESTATUS_URL",
+    )
+
+    defaults = {
+        "CACHE_REDIS_PORT": 6379,
+        "LOG_LEVEL": "INFO",
+        "MAIL_FROM": "mozphab-prod@mozilla.com",
+        "PINGBACK_ENABLED": "n",
+        "REPO_CLONES_PATH": "/repos",
+        "TREESTATUS_URL": "https://treestatus.mozilla-releng.net",
+    }
+
+    for key in config_keys:
+        config[key] = os.getenv(key, defaults.get(key))
 
     return config
 

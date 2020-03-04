@@ -23,23 +23,6 @@ AccessGroup = namedtuple(
         "display_name",
     ),
 )
-SCM_LEVEL_3 = AccessGroup(
-    "active_scm_level_3", "all_scm_level_3", "Level 3 Commit Access"
-)
-SCM_LEVEL_2 = AccessGroup(
-    "active_scm_level_2", "all_scm_level_2", "Level 2 Commit Access"
-)
-SCM_LEVEL_1 = AccessGroup(
-    "active_scm_level_1", "all_scm_level_1", "Level 1 Commit Access"
-)
-SCM_VERSIONCONTROL = AccessGroup(
-    "active_scm_versioncontrol", "all_scm_versioncontrol", "scm_versioncontrol"
-)
-SCM_CONDUIT = AccessGroup("active_scm_conduit", "all_scm_conduit", "scm_conduit")
-SCM_L10N_INFRA = AccessGroup(
-    "active_scm_l10n_infra", "all_scm_l10n_infra", "scm_l10n_infra"
-)
-SCM_NSS = AccessGroup("active_scm_nss", "all_scm_nss", "scm_nss")
 
 Repo = namedtuple(
     "Repo",
@@ -62,7 +45,45 @@ Repo = namedtuple(
         # Approval required to land on that repo (for uplifts)
         "approval_required",
     ),
+    defaults=(None, None, "", "", "", False, None, False),
 )
+
+SCM_LEVEL_3 = AccessGroup(
+    active_group="active_scm_level_3",
+    membership_group="all_scm_level_3",
+    display_name="Level 3 Commit Access",
+)
+SCM_LEVEL_2 = AccessGroup(
+    active_group="active_scm_level_2",
+    membership_group="all_scm_level_2",
+    display_name="Level 2 Commit Access",
+)
+SCM_LEVEL_1 = AccessGroup(
+    active_group="active_scm_level_1",
+    membership_group="all_scm_level_1",
+    display_name="Level 1 Commit Access",
+)
+SCM_VERSIONCONTROL = AccessGroup(
+    active_group="active_scm_versioncontrol",
+    membership_group="all_scm_versioncontrol",
+    display_name="scm_versioncontrol",
+)
+SCM_CONDUIT = AccessGroup(
+    active_group="active_scm_conduit",
+    membership_group="all_scm_conduit",
+    display_name="scm_conduit",
+)
+SCM_L10N_INFRA = AccessGroup(
+    active_group="active_scm_l10n_infra",
+    membership_group="all_scm_l10n_infra",
+    display_name="scm_l10n_infra",
+)
+SCM_NSS = AccessGroup(
+    active_group="active_scm_nss",
+    membership_group="all_scm_nss",
+    display_name="scm_nss",
+)
+
 REPO_CONFIG = {
     # '<ENV>': {
     #     '<phabricator-short-name>': Repo(...)
@@ -72,143 +93,90 @@ REPO_CONFIG = {
         "test-repo": Repo(
             "test-repo", SCM_LEVEL_1, "", "", "", False, "http://hg.test", False
         ),
-        "localdev": Repo(
-            "localdev",
-            SCM_LEVEL_1,
-            "",
-            "https://autolandhg.devsvcdev.mozaws.net",
-            "https://autolandhg.devsvcdev.mozaws.net",
-            True,
-            "https://autolandhg.devsvcdev.mozaws.net",
-            False,
+        "first-repo": Repo(
+            tree="first-repo",
+            access_group=SCM_LEVEL_1,
+            push_path="http://hg.test/first-repo",
+            pull_path="http://hg.test/first-repo",
+            transplant_locally=True,
+            url="http://hg.test/first-repo",
+        ),
+        "second-repo": Repo(
+            tree="second-repo",
+            access_group=SCM_LEVEL_1,
+            push_path="http://hg.test/second-repo",
+            pull_path="http://hg.test/second-repo",
+            url="http://hg.test/second-repo",
         ),
         # Approval is required for the uplift dev repo
         "uplift-target": Repo(
-            "uplift-target", SCM_LEVEL_1, "", "", "", False, "http://hg.test", True
+            tree="uplift-target",
+            access_group=SCM_LEVEL_1,
+            url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
+            approval_required=True,
         ),
     },
     "devsvcdev": {
         "test-repo": Repo(
-            "test-repo",
-            SCM_LEVEL_1,
-            "",
-            "",
-            "",
-            False,
-            "https://autolandhg.devsvcdev.mozaws.net",
-            False,
+            tree="test-repo",
+            access_group=SCM_LEVEL_1,
+            url="https://autolandhg.devsvcdev.mozaws.net",
         )
     },
     "devsvcprod": {
         "phabricator-qa-stage": Repo(
-            "phabricator-qa-stage",
-            SCM_LEVEL_3,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/automation/phabricator-qa-stage",
-            False,
+            tree="phabricator-qa-stage",
+            access_group=SCM_LEVEL_3,
+            url="https://hg.mozilla.org/automation/phabricator-qa-stage",
         ),
         "version-control-tools": Repo(
-            "version-control-tools",
-            SCM_VERSIONCONTROL,
-            "@",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/hgcustom/version-control-tools",
-            False,
+            tree="version-control-tools",
+            access_group=SCM_VERSIONCONTROL,
+            push_bookmark="@",
+            url="https://hg.mozilla.org/hgcustom/version-control-tools",
         ),
         "build-tools": Repo(
-            "build-tools",
-            SCM_LEVEL_3,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/build/tools",
-            False,
+            tree="build-tools",
+            access_group=SCM_LEVEL_3,
+            url="https://hg.mozilla.org/build/tools",
         ),
         "ci-admin": Repo(
-            "ci-admin",
-            SCM_LEVEL_3,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/ci/ci-admin",
-            False,
+            tree="ci-admin",
+            access_group=SCM_LEVEL_3,
+            url="https://hg.mozilla.org/ci/ci-admin",
         ),
         "ci-configuration": Repo(
-            "ci-configuration",
-            SCM_LEVEL_3,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/ci/ci-configuration",
-            False,
+            tree="ci-configuration",
+            access_group=SCM_LEVEL_3,
+            url="https://hg.mozilla.org/ci/ci-configuration",
         ),
         "fluent-migration": Repo(
-            "fluent-migration",
-            SCM_L10N_INFRA,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/l10n/fluent-migration",
-            False,
+            tree="fluent-migration",
+            access_group=SCM_L10N_INFRA,
+            url="https://hg.mozilla.org/l10n/fluent-migration",
         ),
         "mozilla-central": Repo(
-            "gecko",
-            SCM_LEVEL_3,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/integration/autoland",
-            False,
+            tree="gecko",
+            access_group=SCM_LEVEL_3,
+            url="https://hg.mozilla.org/integration/autoland",
         ),
         "comm-central": Repo(
-            "comm-central",
-            SCM_LEVEL_3,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/comm-central",
-            False,
+            tree="comm-central",
+            access_group=SCM_LEVEL_3,
+            url="https://hg.mozilla.org/comm-central",
         ),
         "nspr": Repo(
-            "nspr",
-            SCM_NSS,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/projects/nspr",
-            False,
+            tree="nspr",
+            access_group=SCM_NSS,
+            url="https://hg.mozilla.org/projects/nspr",
         ),
         "taskgraph": Repo(
-            "taskgraph",
-            SCM_LEVEL_3,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/ci/taskgraph",
-            False,
+            tree="taskgraph",
+            access_group=SCM_LEVEL_3,
+            url="https://hg.mozilla.org/ci/taskgraph",
         ),
         "nss": Repo(
-            "nss",
-            SCM_NSS,
-            "",
-            "",
-            "",
-            False,
-            "https://hg.mozilla.org/projects/nss",
-            False,
+            tree="nss", access_group=SCM_NSS, url="https://hg.mozilla.org/projects/nss"
         ),
     },
 }

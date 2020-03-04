@@ -96,22 +96,22 @@ diff --git a/not-real.txt b/not-real.txt
 """.strip()
 
 
-PATCH_ADD_NO_NEWLINE_FILE = rb"""
+PATCH_DELETE_NO_NEWLINE_FILE = b"""
 # HG changeset patch
 # User Test User <test@example.com>
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-file added
-diff --git a/test-newline-file b/test-newline-file
-new file mode 100644
---- /dev/null
-+++ b/test-newline-file
-@@ -0,0 +1,1 @@
-+hello
-\ No newline at end of file
-""".strip()
+file removed
 
+diff --git a/test-file b/test-file
+deleted file mode 100644
+--- a/test-file
++++ /dev/null
+@@ -1,1 +0,0 @@
+-hello\r
+\\ No newline at end of file
+""".strip()
 
 PATCH_NORMAL = rb"""
 # HG changeset patch
@@ -119,6 +119,39 @@ PATCH_NORMAL = rb"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip()
+
+PATCH_UNICODE = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Bug 1 - こんにちは; r?cthulhu
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip().encode(
+    "utf-8"
+)
+
+PATCH_FAIL_HEADER = b"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Fail HG Import FAIL
+# Diff Start Line 8
 add another file.
 diff --git a/test.txt b/test.txt
 --- a/test.txt
@@ -141,14 +174,48 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
     with pytest.raises(PatchConflict), repo:
         repo.apply_patch(io.BytesIO(PATCH_WITH_CONFLICT))
 
-    # Patches that fail to be applied by the default import should
-    # also be tried using import with the patch command.
-    with repo:
-        repo.apply_patch(io.BytesIO(PATCH_ADD_NO_NEWLINE_FILE))
-        # Commit created.
-        assert repo.run_hg_cmds([["outgoing"]])
-
     with repo:
         repo.apply_patch(io.BytesIO(PATCH_NORMAL))
         # Commit created.
-        assert repo.run_hg_cmds([["outgoing"]])
+        assert repo.run_hg(["outgoing"])
+
+    with repo:
+        repo.apply_patch(io.BytesIO(PATCH_UNICODE))
+        # Commit created.
+
+        log_output = repo.run_hg(["log"])
+        assert "こんにちは" in log_output.decode("utf-8")
+        assert repo.run_hg(["outgoing"])
+
+    with repo:
+        repo.apply_patch(io.BytesIO(PATCH_FAIL_HEADER))
+        # Commit created.
+        assert repo.run_hg(["outgoing"])
+
+
+def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
+    """Test newline bug in Mercurial
+
+    See https://bugzilla.mozilla.org/show_bug.cgi?id=1541181 for context. This test
+    will be skipped if not using version 5.1 of Mercurial.
+    """
+    # TODO: update test if version of Mercurial is changed.
+    repo = HgRepo(hg_clone.strpath)
+
+    with repo, hg_clone.as_cwd():
+        if (
+            repo.run_hg(["version"]).split(b"\n")[0]
+            != b"Mercurial Distributed SCM (version 5.1)"
+        ):
+            pytest.skip("Test not relevant for this version of mercurial")
+        # Create a file without a new line and with a trailing `\r`
+        # Note that to reproduce this bug, this file needs to already exist
+        # in the repo and not be imported in a patch.
+        new_file = hg_clone.join("test-file")
+        new_file.write(b"hello\r", mode="wb")
+        repo.run_hg_cmds(
+            [["add", new_file.strpath], ["commit", "-m", "adding file"], ["push"]]
+        )
+        repo.apply_patch(io.BytesIO(PATCH_DELETE_NO_NEWLINE_FILE))
+        # Commit created.
+        assert "file removed" in str(repo.run_hg(["outgoing"]))

@@ -60,9 +60,10 @@ def landing_worker():
     for system in SUBSYSTEMS:
         system.ensure_ready()
 
-    from landoapi.landings import worker
+    from landoapi.landing_worker import LandingWorker
 
-    worker()
+    worker = LandingWorker()
+    worker.start()
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True))

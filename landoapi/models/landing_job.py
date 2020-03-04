@@ -8,6 +8,7 @@ import logging
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
 
+from landoapi.models.base import Base
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
@@ -25,26 +26,41 @@ class LandingJobStatus(enum.Enum):
     """
 
     # Initial creation state.
-    SUBMITTED = "submitted"
+    SUBMITTED = "SUBMITTED"
 
     # Actively being processed.
-    IN_PROGRESS = "in_progress"
+    IN_PROGRESS = "IN_PROGRESS"
+
+    # Temporarily failed after processing
+    DEFERRED = "DEFERRED"
 
     # Automatic finished states.
-    FAILED = "failed"
-    LANDED = "landed"
+    FAILED = "FAILED"
+    LANDED = "LANDED"
 
     # Manually cancelled state.
-    CANCELLED = "cancelled"
+    CANCELLED = "CANCELLED"
 
 
-class LandingJob(db.Model):
+@enum.unique
+class LandingJobAction(enum.Enum):
+    """Various actions that can be applied to a LandingJob.
+
+    Actions affect the status and other fields on the LandingJob object.
+    """
+
+    # Land a job (i.e. success!)
+    LAND = enum.auto()
+
+    # Defer landing to a later time (i.e. temporarily failed)
+    DEFER = enum.auto()
+
+    # A permanent issue occurred and this requires user intervention
+    FAIL = enum.auto()
+
+
+class LandingJob(Base):
     """State for a landing job."""
-
-    __tablename__ = "landing_jobs"
-
-    # Internal request ID.
-    id = db.Column(db.Integer, primary_key=True)
 
     # The postgres enum column which this definition results in
     # uses an enum type where the order matches the order of
@@ -54,15 +70,6 @@ class LandingJob(db.Model):
     # on for comparisons or things like queries with ORDER BY.
     status = db.Column(
         db.Enum(LandingJobStatus), nullable=False, default=LandingJobStatus.SUBMITTED
-    )
-    created_at = db.Column(
-        db.DateTime(timezone=True), nullable=False, default=db.func.now()
-    )
-    updated_at = db.Column(
-        db.DateTime(timezone=True),
-        nullable=False,
-        default=db.func.now(),
-        onupdate=db.func.now(),
     )
 
     # JSON object mapping string revision id of the form "<int>" (used because
@@ -101,17 +108,11 @@ class LandingJob(db.Model):
     # Identifier for the most descendent commit created by this landing.
     landed_commit_id = db.Column(db.Text(), default="")
 
-    # JSON list of bug ids tied to the revisions at creation time.
-    bug_ids = db.Column(JSONB, nullable=False)
-
     # Number of attempts made to complete the job.
     attempts = db.Column(db.Integer, nullable=False, default=0)
 
     # Priority of the job. Higher values are processed first.
     priority = db.Column(db.Integer, nullable=False, default=0)
-
-    def __repr__(self):
-        return "<LandingJob: %s>" % self.id
 
     @property
     def landing_path(self):
@@ -134,9 +135,12 @@ class LandingJob(db.Model):
     @classmethod
     def job_queue_query(cls, repositories=None):
         """Return a query which selects the queued jobs."""
-        q = cls.query.filter(
-            cls.status.in_([LandingJobStatus.IN_PROGRESS, LandingJobStatus.SUBMITTED])
+        applicable_statuses = (
+            LandingJobStatus.SUBMITTED,
+            LandingJobStatus.IN_PROGRESS,
+            LandingJobStatus.DEFERRED,
         )
+        q = cls.query.filter(cls.status.in_(applicable_statuses))
 
         if repositories:
             q = q.filter(cls.repository_name.in_(repositories))
@@ -160,20 +164,53 @@ class LandingJob(db.Model):
 
         return q
 
-    def landed(self, commit_id):
-        """Mark the job as landed."""
-        self.status = LandingJobStatus.LANDED
-        self.landed_commit_id = commit_id
+    def transition_status(self, action, commit=False, db=None, **kwargs):
+        """Change the status and other applicable fields according to actions.
 
-    def failed_transient(self, msg):
-        """Mark the job as transiently failed."""
-        self.status = LandingJobStatus.IN_PROGRESS
-        self.error = msg
+        Args:
+            action (str): the action to take, e.g. "land" or "fail"
+            commit (bool): whether to commit the changes to the database or not
+            db (SQLAlchemy.db): the database to commit to
+            **kwargs:
+                Additional arguments required by each action, e.g. `message` or
+                `commit_id`.
+        """
+        actions = {
+            LandingJobAction.LAND: {
+                "required_params": ["commit_id"],
+                "status": LandingJobStatus.LANDED,
+            },
+            LandingJobAction.FAIL: {
+                "required_params": ["message"],
+                "status": LandingJobStatus.FAILED,
+            },
+            LandingJobAction.DEFER: {
+                "required_params": ["message"],
+                "status": LandingJobStatus.DEFERRED,
+            },
+        }
 
-    def failed_permanent(self, msg):
-        """Mark the job as permanently failed."""
-        self.status = LandingJobStatus.FAILED
-        self.error = msg
+        if action not in actions:
+            raise ValueError(f"{action} is not a valid action")
+
+        required_params = actions[action]["required_params"]
+        if sorted(required_params) != sorted(kwargs.keys()):
+            missing_params = required_params - kwargs.keys()
+            raise ValueError(f"Missing {missing_params} params")
+
+        if commit and db is None:
+            raise ValueError("db is required when commit is set to True")
+
+        self.status = actions[action]["status"]
+
+        if action in (LandingJobAction.FAIL, LandingJobAction.DEFER):
+            self.error = kwargs["message"]
+
+        if action == LandingJobAction.LAND:
+            self.landed_commit_id = kwargs["commit_id"]
+
+        if commit:
+            db.session.commit()
 
     def serialize(self):
         """Return a JSON compatible dictionary."""
@@ -185,9 +222,9 @@ class LandingJob(db.Model):
                 for r in self.revision_order
             ],
             "details": (
-                self.error or self.result
+                self.error or self.landed_commit_id
                 if self.status in (LandingJobStatus.FAILED, LandingJobStatus.CANCELLED)
-                else self.result or self.error
+                else self.landed_commit_id or self.error
             ),
             "requester_email": self.requester_email,
             "tree": self.repository_name,
