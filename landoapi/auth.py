@@ -451,7 +451,7 @@ class require_auth0:
                 raise ProblemException(
                     401,
                     "Token Expired",
-                    "Appropriate token is expired",
+                    "Appropriate token is expired. Please log out and back in.",
                     type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
                 )
             except jwt.JWTClaimsError:
