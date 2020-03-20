@@ -3,10 +3,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import json
 import os
+import subprocess
+import time
+from pathlib import Path
 from types import SimpleNamespace
 
 import redis
-from pathlib import Path
+import requests
 import sqlalchemy
 import boto3
 import flask.testing
@@ -256,10 +259,24 @@ def mocked_repo_config(mock_repo_config):
         {
             "test": {
                 "mozilla-central": Repo(
-                    "mozilla-central", SCM_LEVEL_3, "", "http://hg.test"
+                    "mozilla-central",
+                    SCM_LEVEL_3,
+                    "",
+                    "",
+                    "",
+                    False,
+                    "http://hg.test",
+                    False,
                 ),
                 "mozilla-uplift": Repo(
-                    "mozilla-uplift", SCM_LEVEL_3, "", "http://hg.test/uplift", True
+                    "mozilla-uplift",
+                    SCM_LEVEL_3,
+                    "",
+                    "",
+                    "",
+                    False,
+                    "http://hg.test/uplift",
+                    True,
                 ),
             }
         }
@@ -351,3 +368,52 @@ def pytest_assertrepr_compare(op, left, right):
 @pytest.fixture
 def patch_directory(request):
     return Path(request.fspath.dirname).joinpath("patches")
+
+
+@pytest.fixture
+def hg_test_bundle(request):
+    return Path(request.fspath.dirname).joinpath("data", "test-repo.bundle")
+
+
+@pytest.fixture
+def hg_server(hg_test_bundle, tmpdir):
+    # TODO: Select open port.
+    port = "8000"
+    hg_url = "http://localhost:" + port
+
+    repo_dir = tmpdir.mkdir("hg_server")
+    subprocess.run(["hg", "clone", hg_test_bundle, repo_dir], check=True)
+
+    serve = subprocess.Popen(
+        [
+            "hg",
+            "serve",
+            "--config",
+            "web.push_ssl=False",
+            "--config",
+            "web.allow_push=*",
+            "-p",
+            port,
+            "-R",
+            repo_dir,
+        ]
+    )
+    if serve.poll() is not None:
+        raise Exception("Failed to start the mercurial server.")
+    # Wait until the server is running.
+    for _i in range(10):
+        try:
+            requests.get(hg_url)
+        except Exception:
+            time.sleep(1)
+        break
+
+    yield hg_url
+    serve.kill()
+
+
+@pytest.fixture
+def hg_clone(hg_server, tmpdir):
+    clone_dir = tmpdir.join("hg_clone")
+    subprocess.run(["hg", "clone", hg_server, clone_dir.strpath], check=True)
+    return clone_dir

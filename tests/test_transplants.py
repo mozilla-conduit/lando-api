@@ -583,7 +583,14 @@ def test_integrated_push_bookmark_sent_when_supported_repo(
         {
             "test": {
                 "mozilla-central": Repo(
-                    "mozilla-central", SCM_LEVEL_3, "@", "http://hg.test"
+                    "mozilla-central",
+                    SCM_LEVEL_3,
+                    "@",
+                    "",
+                    "",
+                    False,
+                    "http://hg.test",
+                    False,
                 )
             }
         }

@@ -1,6 +1,8 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import io
+
 import boto3
 import botocore
 import logging
@@ -31,7 +33,7 @@ def upload(revision_id, diff_id, patch, s3_bucket, *, aws_access_key, aws_secret
         revision_id: Integer ID of the Phabricator revision for
             the provided patch.
         diff_id: Integer ID of the Phabricator diff for
-            the provided patch
+            the provided patch.
         patch: Raw patch string to be uploaded.
         s3_bucket: Name of the S3 bucket.
         aws_access_key: AWS access key.
@@ -53,6 +55,32 @@ def upload(revision_id, diff_id, patch, s3_bucket, *, aws_access_key, aws_secret
 
     logger.info("patch uploaded", extra={"patch_url": patch_url})
     return patch_url
+
+
+def download(revision_id, diff_id, s3_bucket, *, aws_access_key, aws_secret_key):
+    """Download a patch from S3 Bucket.
+
+    Args:
+        revision_id: Integer ID of the Phabricator revision for
+            the patch.
+        diff_id: Integer ID of the Phabricator diff for
+            the patch.
+        s3_bucket: Name of the S3 bucket.
+        aws_access_key: AWS access key.
+        aws_secret_key: AWS secret key.
+
+    Returns:
+        An io.BytesIO with the patch contents.
+    """
+    s3 = boto3.resource(
+        "s3", aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key
+    )
+    patch_name = name(revision_id, diff_id)
+
+    buf = io.BytesIO()
+    s3.meta.client.download_fileobj(s3_bucket, patch_name, buf)
+    buf.seek(0)  # Seek to the start for consumers.
+    return buf
 
 
 class PatchesS3Subsystem(Subsystem):

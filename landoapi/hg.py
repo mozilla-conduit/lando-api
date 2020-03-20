@@ -4,27 +4,101 @@
 import copy
 import logging
 import shlex
+import tempfile
 import uuid
 
 import hglib
 
+from landoapi.hgexports import PatchHelper
+
 logger = logging.getLogger(__name__)
 
 
-class HgCommandError(Exception):
-    def __init__(self, hg_args, out):
-        # we want to strip out any sensitive --config options
-        hg_args = map(lambda x: x if not x.startswith("bugzilla") else "xxx", hg_args)
-        message = "hg error in cmd: hg %s: %s" % (" ".join(hg_args), out)
-        super().__init__(message)
+class HgException(Exception):
+    @staticmethod
+    def from_hglib_error(exc):
+        out = exc.out
+        err = exc.err
+        args = exc.args
+        msg = "hg error in cmd: hg {}: {}\n{}".format(
+            " ".join(str(arg) for arg in args),
+            out.decode(errors="replace"),
+            err.decode(errors="replace"),
+        ).rstrip()
+
+        for cls in (LostPushRace, PatchConflict, TreeClosed, TreeApprovalRequired):
+            for s in cls.SNIPPETS:
+                if s in err or s in out:
+                    return cls(msg)
+
+        return HgCommandError(args, out, err, msg)
+
+
+class HgCommandError(HgException):
+    def __init__(self, hg_args, out, err, msg):
+        self.hg_args = hg_args
+        self.out = out
+        self.err = err
+        super().__init__(msg)
+
+
+class TreeClosed(HgException):
+    """Exception when pushing failed due to a closed tree."""
+
+    SNIPPETS = (b"is CLOSED!",)
+
+
+class TreeApprovalRequired(HgException):
+    """Exception when pushing failed due to approval being required."""
+
+    SNIPPETS = (b"APPROVAL REQUIRED!",)
+
+
+class LostPushRace(HgException):
+    """Exception when pushing failed due to another push happening."""
+
+    SNIPPETS = (
+        b"abort: push creates new remote head",
+        b"repository changed while pushing",
+    )
+
+
+class PatchApplicationFailure(HgException):
+    """Exception when there is a failure applying a patch."""
+
+    pass
+
+
+class NoDiffStartLine(PatchApplicationFailure):
+    """Exception when patch is missing a Diff Start Line header."""
+
+    pass
+
+
+class PatchConflict(PatchApplicationFailure):
+    """Exception when patch fails to apply due to a conflict."""
+
+    # TODO: Parse affected files from hg output and present
+    # them in a structured way.
+
+    SNIPPETS = (
+        b"unresolved conflicts (see hg resolve",
+        b"hunk FAILED -- saving rejects to file",
+        b"hunks FAILED -- saving rejects to file",
+    )
 
 
 class HgRepo:
     ENCODING = "utf-8"
     DEFAULT_CONFIGS = {
+        "ui.username": "Otto Länd <bind-autoland@mozilla.com>",
         "ui.interactive": "False",
+        "ui.merge": "internal:merge",
+        "ui.ssh": 'ssh -o "SendEnv AUTOLAND_REQUEST_USER"',
         "extensions.purge": "",
         "extensions.strip": "",
+        "extensions.rebase": "",
+        "extensions.set_landing_system": "/app/hgext/set_landing_system.py",
     }
 
     def __init__(self, path, config=None):
@@ -33,9 +107,13 @@ class HgRepo:
         if config is not None:
             self.config.update(config)
 
+    def _config_to_list(self):
+        return ["{}={}".format(k, v) for k, v in self.config.items() if v is not None]
+
     def __enter__(self):
-        configs = ["ui.interactive=False", "extensions.purge=", "extensions.strip="]
-        self.hg_repo = hglib.open(self.path, encoding=self.ENCODING, configs=configs)
+        self.hg_repo = hglib.open(
+            self.path, encoding=self.ENCODING, configs=self._config_to_list()
+        )
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -45,48 +123,24 @@ class HgRepo:
             logger.exception(e)
         self.hg_repo.close()
 
-    def push_bookmark(self, destination, bookmark):
-        # Don't let unicode leak into command arguments.
-        assert isinstance(bookmark, str), "bookmark arg is not str"
-
-        target_cset = self.update_repo()
-
-        rev = self.apply_changes(target_cset)
-        self.run_hg_cmds(
-            [["bookmark", bookmark], ["push", "-B", bookmark, destination]]
+    def clone(self, source):
+        # Use of robustcheckout here would work, but is probably not worth
+        # the hassle as most of the benefits come from repeated working
+        # directory creation. Since this is a one-time clone and is unlikely
+        # to happen very often, we can get away with a standard clone.
+        hglib.clone(
+            source=source,
+            dest=self.path,
+            encoding=self.ENCODING,
+            configs=self._config_to_list(),
         )
 
-        return rev
-
-    def push(self, destination):
-        target_cset = self.update_repo()
-
-        rev = self.apply_changes(target_cset)
-        self.run_hg_cmds([["push", "-r", "tip", destination]])
-
-        return rev
-
-    def update_repo(self):
-        # Obtain remote tip. We assume there is only a single head.
-        target_cset = self.get_remote_head()
-
-        # Strip any lingering changes.
-        self.clean_repo()
-
-        # Pull from "upstream".
-        self.update_from_upstream(target_cset)
-
-        return target_cset
-
-    def apply_changes(self, target_cset):
-        raise NotImplementedError("abstract method call: apply_changes")
-
     def run_hg(self, args):
-        correlation_id = uuid.uuid4()
+        correlation_id = str(uuid.uuid4())
         logger.info(
             "running hg command",
             extra={
-                "command": ["hg"] + [shlex.quote(arg) for arg in args],
+                "command": ["hg"] + [shlex.quote(str(arg)) for arg in args],
                 "command_id": correlation_id,
                 "path": self.path,
                 "hg_pid": self.hg_repo.server.pid,
@@ -114,7 +168,7 @@ class HgRepo:
                     "command_id": correlation_id,
                     "path": self.path,
                     "hg_pid": self.hg_repo.server.pid,
-                    "output": out.rstrip(),
+                    "output": out.rstrip().decode(self.ENCODING, errors="replace"),
                 },
             )
 
@@ -129,10 +183,10 @@ class HgRepo:
             try:
                 last_result = self.run_hg(cmd)
             except hglib.error.CommandError as e:
-                raise HgCommandError(cmd, e.out)
+                raise HgException.from_hglib_error(e)
         return last_result
 
-    def clean_repo(self, strip_non_public_commits=True):
+    def clean_repo(self, *, strip_non_public_commits=True):
         # Clean working directory.
         try:
             self.run_hg(["--quiet", "revert", "--no-backup", "--all"])
@@ -150,6 +204,79 @@ class HgRepo:
             except hglib.error.CommandError:
                 pass
 
+    def apply_patch(self, patch_io_buf):
+        helper = PatchHelper(patch_io_buf)
+        if not helper.diff_start_line:
+            raise NoDiffStartLine()
+
+        # Import the diff to apply the changes then commit separately to
+        # ensure correct parsing of the commit message.
+        f_msg = tempfile.NamedTemporaryFile()
+        f_diff = tempfile.NamedTemporaryFile()
+        with f_msg, f_diff:
+            helper.write_commit_description(f_msg)
+            f_msg.flush()
+            helper.write_diff(f_diff)
+            f_diff.flush()
+
+            # TODO: Using `hg import` here is less than ideal because
+            # it does not use a 3-way merge. It would be better
+            # to use `hg import --exact` then `hg rebase`, however we
+            # aren't guaranteed to have the patche's parent changeset
+            # in the local repo.
+            import_cmd = ["import", "--no-commit"]
+            # Apply the patch, with file rename detection (similarity).
+            # Using 95 as the similarity to match automv's default.
+            import_cmd += ["-s", "95"]
+
+            try:
+                self.run_hg(import_cmd + [f_diff.name])
+            except hglib.error.CommandError as exc:
+                # Try again using 'patch' instead of hg's internal patch utility.
+                # But first reset to a clean working directory as hg's attempt
+                # might have partially applied the patch.
+                logger.info("import failed, retrying with 'patch'", exc_info=exc)
+                import_cmd += ["--config", "ui.patch=patch"]
+                self.clean_repo(strip_non_public_commits=False)
+
+                try:
+                    self.run_hg(import_cmd + [f_diff.name])
+                    # When using an external patch util mercurial won't
+                    # automatically handle add/remove/renames.
+                    self.run_hg(["addremove", "-s", "95"])
+                except hglib.error.CommandError:
+                    # Use the original exception from import with the built-in
+                    # patcher since both attempts failed.
+                    raise HgException.from_hglib_error(exc) from exc
+
+            # Commit using the extracted date, user, and commit desc.
+            # --landing_system is provided by the set_landing_system hgext.
+            self.run_hg(
+                ["commit"]
+                + ["--date", helper.header("Date")]
+                + ["--user", helper.header("User")]
+                + ["--landing_system", "lando"]
+                + ["--logfile", f_msg.name]
+            )
+
+    def push(self, target, bookmark=None):
+        if bookmark is None:
+            self.run_hg_cmds([["push", "-r", "tip", target]])
+        else:
+            self.run_hg_cmds([["bookmark", bookmark], ["push", "-B", bookmark, target]])
+
+    def update_repo(self, source):
+        # Obtain remote tip. We assume there is only a single head.
+        target_cset = self.get_remote_head(source)
+
+        # Strip any lingering changes.
+        self.clean_repo()
+
+        # Pull from "upstream".
+        self.update_from_upstream(source, target_cset)
+
+        return target_cset
+
     def dirty_files(self):
         return self.run_hg(
             [
@@ -163,10 +290,10 @@ class HgRepo:
             ]
         )
 
-    def get_remote_head(self):
+    def get_remote_head(self, source):
         # Obtain remote head. We assume there is only a single head.
         # TODO: use a template here
-        cset = self.run_hg_cmds([["identify", "upstream", "-r", "default"]])
+        cset = self.run_hg_cmds([["identify", source, "-r", "default"]])
 
         # Output can contain bookmark or branch name after a space. Only take
         # first component.
@@ -175,10 +302,10 @@ class HgRepo:
         assert len(cset) == 12, cset
         return cset
 
-    def update_from_upstream(self, remote_rev):
-        # Pull "upstream" and update to remote tip.
+    def update_from_upstream(self, source, remote_rev):
+        # Pull and update to remote tip.
         cmds = [
-            ["pull", "upstream"],
+            ["pull", source],
             # TODO: why there is a -r?
             ["rebase", "--abort", "-r", remote_rev],
             ["update", "--clean", "-r", remote_rev],
@@ -188,12 +315,11 @@ class HgRepo:
             try:
                 self.run_hg(cmd)
             except hglib.error.CommandError as e:
-                output = e.out
-                if "abort: no rebase in progress" in output:
+                if b"abort: no rebase in progress" in e.err:
                     # there was no rebase in progress, nothing to see here
                     continue
                 else:
-                    raise HgCommandError(cmd, e.out)
+                    raise HgException.from_hglib_error(e)
 
     def rebase(self, base_revision, target_cset):
         # Perform rebase if necessary. Returns tip revision.
@@ -210,7 +336,7 @@ class HgRepo:
         try:
             self.run_hg(cmd)
         except hglib.error.CommandError as e:
-            if "nothing to rebase" not in e.out:
-                raise HgCommandError(cmd, e.out)
+            if b"nothing to rebase" not in e.out:
+                raise HgException.from_hglib_error(e)
 
         return self.run_hg_cmds([["log", "-r", "tip", "-T", "{node}"]])
