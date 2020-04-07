@@ -37,7 +37,7 @@ LONG_LINE = "LOOOOOOONG" * 20000
 @pytest.mark.parametrize(
     "contents", (SIMPLE_PATCH, UNICODE_CHARACTERS, EMPTY, LONG_LINE)
 )
-def test_upload(s3, contents):
+def test_upload_download(s3, contents):
     url = patches.upload(
         1, 1, contents, "landoapi.test.bucket", aws_access_key=None, aws_secret_key=None
     )
@@ -46,3 +46,9 @@ def test_upload(s3, contents):
 
     assert patch == contents
     assert url == patches.url("landoapi.test.bucket", patches.name(1, 1))
+
+    # Now use download to fetch the buffer.
+    buf = patches.download(
+        1, 1, "landoapi.test.bucket", aws_access_key=None, aws_secret_key=None
+    )
+    assert buf.getvalue().decode("utf-8") == contents

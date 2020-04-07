@@ -3,7 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import logging
+import pathlib
 from collections import namedtuple
+
+from landoapi.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +51,17 @@ Repo = namedtuple(
         # Bookmark to be landed to and updated as part of push. Should be
         # an empty string to not use bookmarks.
         "push_bookmark",
+        # Mercurial path to push landed changesets.
+        "push_path",
+        # Mercurial path to pull new changesets from.
+        "pull_path",
+        # Uses built-in landing jobs to transplant.
+        "transplant_locally",
         # Repository url, e.g. as found on https://hg.mozilla.org.
         "url",
         # Approval required to land on that repo (for uplifts)
         "approval_required",
     ),
-    # Set approval as not required by default
-    defaults=(None, None, None, None, False),
 )
 REPO_CONFIG = {
     # '<ENV>': {
@@ -62,13 +69,34 @@ REPO_CONFIG = {
     # }
     "default": {},
     "localdev": {
-        "test-repo": Repo("test-repo", SCM_LEVEL_1, "", "http://hg.test"),
+        "test-repo": Repo(
+            "test-repo", SCM_LEVEL_1, "", "", "", False, "http://hg.test", False
+        ),
+        "localdev": Repo(
+            "localdev",
+            SCM_LEVEL_1,
+            "",
+            "https://autolandhg.devsvcdev.mozaws.net",
+            "https://autolandhg.devsvcdev.mozaws.net",
+            True,
+            "https://autolandhg.devsvcdev.mozaws.net",
+            False,
+        ),
         # Approval is required for the uplift dev repo
-        "uplift-target": Repo("uplift-target", SCM_LEVEL_1, "", "http://hg.test", True),
+        "uplift-target": Repo(
+            "uplift-target", SCM_LEVEL_1, "", "", "", False, "http://hg.test", True
+        ),
     },
     "devsvcdev": {
         "test-repo": Repo(
-            "test-repo", SCM_LEVEL_1, "", "https://autolandhg.devsvcdev.mozaws.net"
+            "test-repo",
+            SCM_LEVEL_1,
+            "",
+            "",
+            "",
+            False,
+            "https://autolandhg.devsvcdev.mozaws.net",
+            False,
         )
     },
     "devsvcprod": {
@@ -76,43 +104,112 @@ REPO_CONFIG = {
             "phabricator-qa-stage",
             SCM_LEVEL_3,
             "",
+            "",
+            "",
+            False,
             "https://hg.mozilla.org/automation/phabricator-qa-stage",
+            False,
         ),
         "version-control-tools": Repo(
             "version-control-tools",
             SCM_VERSIONCONTROL,
             "@",
+            "",
+            "",
+            False,
             "https://hg.mozilla.org/hgcustom/version-control-tools",
+            False,
         ),
         "build-tools": Repo(
-            "build-tools", SCM_LEVEL_3, "", "https://hg.mozilla.org/build/tools"
+            "build-tools",
+            SCM_LEVEL_3,
+            "",
+            "",
+            "",
+            False,
+            "https://hg.mozilla.org/build/tools",
+            False,
         ),
         "ci-admin": Repo(
-            "ci-admin", SCM_LEVEL_3, "", "https://hg.mozilla.org/ci/ci-admin"
+            "ci-admin",
+            SCM_LEVEL_3,
+            "",
+            "",
+            "",
+            False,
+            "https://hg.mozilla.org/ci/ci-admin",
+            False,
         ),
         "ci-configuration": Repo(
             "ci-configuration",
             SCM_LEVEL_3,
             "",
+            "",
+            "",
+            False,
             "https://hg.mozilla.org/ci/ci-configuration",
+            False,
         ),
         "fluent-migration": Repo(
             "fluent-migration",
             SCM_L10N_INFRA,
             "",
+            "",
+            "",
+            False,
             "https://hg.mozilla.org/l10n/fluent-migration",
+            False,
         ),
         "mozilla-central": Repo(
-            "gecko", SCM_LEVEL_3, "", "https://hg.mozilla.org/integration/autoland"
+            "gecko",
+            SCM_LEVEL_3,
+            "",
+            "",
+            "",
+            False,
+            "https://hg.mozilla.org/integration/autoland",
+            False,
         ),
         "comm-central": Repo(
-            "comm-central", SCM_LEVEL_3, "", "https://hg.mozilla.org/comm-central"
+            "comm-central",
+            SCM_LEVEL_3,
+            "",
+            "",
+            "",
+            False,
+            "https://hg.mozilla.org/comm-central",
+            False,
         ),
-        "nspr": Repo("nspr", SCM_NSS, "", "https://hg.mozilla.org/projects/nspr"),
+        "nspr": Repo(
+            "nspr",
+            SCM_NSS,
+            "",
+            "",
+            "",
+            False,
+            "https://hg.mozilla.org/projects/nspr",
+            False,
+        ),
         "taskgraph": Repo(
-            "taskgraph", SCM_LEVEL_3, "", "https://hg.mozilla.org/ci/taskgraph"
+            "taskgraph",
+            SCM_LEVEL_3,
+            "",
+            "",
+            "",
+            False,
+            "https://hg.mozilla.org/ci/taskgraph",
+            False,
         ),
-        "nss": Repo("nss", SCM_NSS, "", "https://hg.mozilla.org/projects/nss"),
+        "nss": Repo(
+            "nss",
+            SCM_NSS,
+            "",
+            "",
+            "",
+            False,
+            "https://hg.mozilla.org/projects/nss",
+            False,
+        ),
     },
 }
 
@@ -123,3 +220,57 @@ def get_repos_for_env(env):
         env = "default"
 
     return REPO_CONFIG.get(env, {})
+
+
+class RepoCloneSubsystem(Subsystem):
+    name = "repo_clone"
+
+    def ready(self):
+        clones_path = self.flask_app.config["REPO_CLONES_PATH"]
+        repo_names = self.flask_app.config["REPOS_TO_LAND"]
+
+        if not clones_path and not repo_names:
+            return None
+
+        clones_path = pathlib.Path(self.flask_app.config["REPO_CLONES_PATH"])
+        if not clones_path.exists() or not clones_path.is_dir():
+            return (
+                "REPO_CLONES_PATH ({}) is not a valid path to an existing "
+                "directory for holding repository clones.".format(clones_path)
+            )
+
+        repo_names = set(filter(None, (r.strip() for r in repo_names.split(","))))
+        if not repo_names:
+            return (
+                "REPOS_TO_LAND does not contain a valid comma seperated list "
+                "of repository names."
+            )
+
+        repos = get_repos_for_env(self.flask_app.config.get("ENVIRONMENT"))
+        if not all(r in repos for r in repo_names):
+            return "REPOS_TO_LAND contains unsupported repository names."
+
+        self.repos = {name: repos[name] for name in repo_names}
+        self.repo_paths = {}
+
+        from landoapi.hg import HgRepo
+
+        for name, repo in ((name, repos[name]) for name in repo_names):
+            path = clones_path.joinpath(name)
+            r = HgRepo(str(path))
+
+            if path.exists():
+                logger.info("Repo exists, pulling.", extra={"repo": name})
+                with r:
+                    r.update_repo(repo.pull_path)
+            else:
+                logger.info("Cloning repo.", extra={"repo": name})
+                r.clone(repo.pull_path)
+
+            logger.info("Repo ready.", extra={"repo": name})
+            self.repo_paths[name] = path
+
+        return True
+
+
+repo_clone_subsystem = RepoCloneSubsystem()

@@ -18,6 +18,7 @@ from landoapi.hooks import initialize_hooks
 from landoapi.logging import logging_subsystem
 from landoapi.patches import patches_s3_subsystem
 from landoapi.phabricator import phabricator_subsystem
+from landoapi.repos import repo_clone_subsystem
 from landoapi.sentry import sentry_subsystem
 from landoapi.smtp import smtp_subsystem
 from landoapi.storage import db_subsystem
@@ -42,6 +43,7 @@ SUBSYSTEMS = [
     smtp_subsystem,
     transplant_subsystem,
     treestatus_subsystem,
+    repo_clone_subsystem,
 ]
 
 
@@ -86,6 +88,8 @@ def load_config():
         ("PHABRICATOR_ADMIN_API_KEY", None),
         ("PHABRICATOR_UNPRIVILEGED_API_KEY", None),
         ("PHABRICATOR_URL", None),
+        ("REPO_CLONES_PATH", "/repos"),
+        ("REPOS_TO_LAND", None),
         ("SENTRY_DSN", None),
         ("TRANSPLANT_PASSWORD", None),
         ("TRANSPLANT_API_KEY", None),
