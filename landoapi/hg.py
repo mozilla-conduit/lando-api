@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 class HgException(Exception):
     @staticmethod
     def from_hglib_error(exc):
-        out = exc.out
-        err = exc.err
-        args = exc.args
+        out, err, args = exc.out, exc.err, exc.args
         msg = "hg error in cmd: hg {}: {}\n{}".format(
             " ".join(str(arg) for arg in args),
             out.decode(errors="replace"),
@@ -205,8 +203,8 @@ class HgRepo:
                 pass
 
     def apply_patch(self, patch_io_buf):
-        helper = PatchHelper(patch_io_buf)
-        if not helper.diff_start_line:
+        patch_helper = PatchHelper(patch_io_buf)
+        if not patch_helper.diff_start_line:
             raise NoDiffStartLine()
 
         # Import the diff to apply the changes then commit separately to
@@ -214,54 +212,65 @@ class HgRepo:
         f_msg = tempfile.NamedTemporaryFile()
         f_diff = tempfile.NamedTemporaryFile()
         with f_msg, f_diff:
-            helper.write_commit_description(f_msg)
+            patch_helper.write_commit_description(f_msg)
             f_msg.flush()
-            helper.write_diff(f_diff)
+            patch_helper.write_diff(f_diff)
             f_diff.flush()
+
+            similarity_args = ["-s", "95"]
 
             # TODO: Using `hg import` here is less than ideal because
             # it does not use a 3-way merge. It would be better
             # to use `hg import --exact` then `hg rebase`, however we
             # aren't guaranteed to have the patche's parent changeset
             # in the local repo.
-            import_cmd = ["import", "--no-commit"]
-            # Apply the patch, with file rename detection (similarity).
+            # Also, Apply the patch, with file rename detection (similarity).
             # Using 95 as the similarity to match automv's default.
-            import_cmd += ["-s", "95"]
+            import_cmd = ["import", "--no-commit"] + similarity_args
 
             try:
+                if patch_helper.header("Fail HG Import") == b"FAIL":
+                    # For testing, force a PatchConflict exception if this header is
+                    # defined.
+                    raise hglib.error.CommandError(
+                        (),
+                        1,
+                        b"",
+                        b"forced fail: hunk FAILED -- saving rejects to file",
+                    )
                 self.run_hg(import_cmd + [f_diff.name])
             except hglib.error.CommandError as exc:
-                # Try again using 'patch' instead of hg's internal patch utility.
-                # But first reset to a clean working directory as hg's attempt
-                # might have partially applied the patch.
-                logger.info("import failed, retrying with 'patch'", exc_info=exc)
-                import_cmd += ["--config", "ui.patch=patch"]
-                self.clean_repo(strip_non_public_commits=False)
+                if isinstance(HgException.from_hglib_error(exc), PatchConflict):
+                    # Try again using 'patch' instead of hg's internal patch utility.
+                    # But first reset to a clean working directory as hg's attempt
+                    # might have partially applied the patch.
+                    logger.info("import failed, retrying with 'patch'", exc_info=exc)
+                    import_cmd += ["--config", "ui.patch=patch"]
+                    self.clean_repo(strip_non_public_commits=False)
 
-                try:
-                    self.run_hg(import_cmd + [f_diff.name])
-                    # When using an external patch util mercurial won't
-                    # automatically handle add/remove/renames.
-                    self.run_hg(["addremove", "-s", "95"])
-                except hglib.error.CommandError:
-                    # Use the original exception from import with the built-in
-                    # patcher since both attempts failed.
-                    raise HgException.from_hglib_error(exc) from exc
+                    try:
+                        # When using an external patch util mercurial won't
+                        # automatically handle add/remove/renames.
+                        self.run_hg(import_cmd + [f_diff.name])
+                        self.run_hg(["addremove"] + similarity_args)
+                    except hglib.error.CommandError:
+                        # Use the original exception from import with the built-in
+                        # patcher since both attempts failed.
+                        raise HgException.from_hglib_error(exc) from exc
 
             # Commit using the extracted date, user, and commit desc.
             # --landing_system is provided by the set_landing_system hgext.
             self.run_hg(
                 ["commit"]
-                + ["--date", helper.header("Date")]
-                + ["--user", helper.header("User")]
+                + ["--date", patch_helper.header("Date")]
+                + ["--user", patch_helper.header("User")]
                 + ["--landing_system", "lando"]
                 + ["--logfile", f_msg.name]
             )
 
     def push(self, target, bookmark=None):
         if bookmark is None:
-            self.run_hg_cmds([["push", "-r", "tip", target]])
+            self.run_hg(["push", "-r", "tip", target])
         else:
             self.run_hg_cmds([["bookmark", bookmark], ["push", "-B", bookmark, target]])
 
@@ -306,7 +315,6 @@ class HgRepo:
         # Pull and update to remote tip.
         cmds = [
             ["pull", source],
-            # TODO: why there is a -r?
             ["rebase", "--abort", "-r", remote_rev],
             ["update", "--clean", "-r", remote_rev],
         ]

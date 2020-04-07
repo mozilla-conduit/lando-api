@@ -13,6 +13,7 @@ from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
 from landoapi.models.transplant import Transplant, TransplantStatus
+from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.patches import upload
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
@@ -194,6 +195,29 @@ def _assess_transplant_request(phab, landing_path):
     return (assessment, to_land, landing_repo, stack_data)
 
 
+def _lock_table_for(
+    db_session, mode="SHARE ROW EXCLUSIVE MODE", table=None, model=None
+):
+    """Locks a given table in the given database with the given mode.
+
+    Args:
+        db_session (SQLAlchemy.db.session): the database session to use
+        mode (str): the lock mode to apply to the table when locking
+        model (SQLAlchemy.db.model): a model to fetch the table name from
+        table (str): a string representing the table name in the database
+
+    Raises:
+        TypeError: if either both model and table arguments are missing or provided
+    """
+    if table is not None and model is not None:
+        raise TypeError("Only one of table or model should be provided")
+    if table is None and model is None:
+        raise TypeError("Missing table or model argument")
+
+    query = f"LOCK TABLE {model.__table__.name} IN {mode};"
+    db.session.execute(query)
+
+
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def dryrun(data):
@@ -219,9 +243,12 @@ def post(data):
         phab, landing_path
     )
     assessment.raise_if_blocked_or_unacknowledged(confirmation_token)
-    assert to_land is not None
-    assert landing_repo is not None
-    assert stack_data is not None
+
+    if not all((to_land, landing_repo, stack_data)):
+        raise ValueError(
+            "One or more values missing in access transplant request: "
+            f"{to_land}, {landing_repo}, {stack_data}"
+        )
 
     if assessment.warnings:
         # Log any warnings that were acknowledged, for auditing.
@@ -237,7 +264,10 @@ def post(data):
         )
 
     involved_phids = set()
-    for revision, _ in to_land:
+
+    revisions = [r[0] for r in to_land]
+
+    for revision in revisions:
         involved_phids.update(gather_involved_phids(revision))
 
     involved_phids = list(involved_phids)
@@ -251,7 +281,7 @@ def post(data):
     checkin_phid = get_checkin_project_phid(phab)
     checkin_revision_phids = [
         r["phid"]
-        for r, _ in to_land
+        for r in revisions
         if checkin_phid in phab.expect(r, "attachments", "projects", "projectPHIDs")
     ]
 
@@ -268,7 +298,7 @@ def post(data):
         secure = revision_is_secure(revision, secure_project_phid)
         commit_description = find_title_and_summary_for_landing(phab, revision, secure)
 
-        _, commit_message = format_commit_message(
+        commit_message = format_commit_message(
             commit_description.title,
             get_bugzilla_bug(revision),
             accepted_reviewers,
@@ -276,7 +306,7 @@ def post(data):
             urllib.parse.urljoin(
                 current_app.config["PHABRICATOR_URL"], "D{}".format(revision["id"])
             ),
-        )
+        )[1]
         author_name, author_email = select_diff_author(diff)
         date_modified = phab.expect(revision, "fields", "dateModified")
 
@@ -297,20 +327,55 @@ def post(data):
         )
         patch_urls.append(patch_url)
 
-    trans = TransplantClient(
-        current_app.config["TRANSPLANT_URL"],
-        current_app.config["TRANSPLANT_USERNAME"],
-        current_app.config["TRANSPLANT_PASSWORD"],
-    )
+    ldap_username = g.auth0_user.email
+    revision_to_diff_id = {str(r["id"]): d["id"] for r, d in to_land}
+    revision_order = [str(r["id"]) for r in revisions]
+    stack_ids = [r["id"] for r in stack_data.revisions.values()]
+
     submitted_assessment = TransplantAssessment(
         blocker=(
             "This stack was submitted for landing by another user at the same time."
         )
     )
-    ldap_username = g.auth0_user.email
-    revision_to_diff_id = {str(r["id"]): d["id"] for r, d in to_land}
-    revision_order = [str(r["id"]) for r, _ in to_land]
-    stack_ids = [r["id"] for r in stack_data.revisions.values()]
+
+    if landing_repo.transplant_locally:
+        with db.session.begin_nested():
+            _lock_table_for(db.session, model=LandingJob)
+            if (
+                LandingJob.revisions_query(stack_ids)
+                .filter(
+                    LandingJob.status.in_(
+                        [LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS]
+                    )
+                )
+                .count()
+                != 0
+            ):
+                submitted_assessment.raise_if_blocked_or_unacknowledged(None)
+
+            # Trigger a local transplant
+            job = LandingJob(
+                status=LandingJobStatus.SUBMITTED,
+                requester_email=ldap_username,
+                repository_name=landing_repo.tree,
+                repository_url=landing_repo.url,
+                revision_to_diff_id=revision_to_diff_id,
+                revision_order=revision_order,
+            )
+
+            db.session.add(job)
+
+        db.session.commit()
+        logger.info("New landing job {job.id} created for {landing_repo.tree} repo")
+
+        # NOTE: the response body is not being used anywhere.
+        return {"id": job.id}, 202
+
+    trans = TransplantClient(
+        current_app.config["TRANSPLANT_URL"],
+        current_app.config["TRANSPLANT_USERNAME"],
+        current_app.config["TRANSPLANT_PASSWORD"],
+    )
 
     # We pass the revision id of the base of our landing path to
     # transplant in rev as it must be unique until the request
@@ -327,7 +392,7 @@ def post(data):
         # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
         # for more details on the specifics of the lock mode.
         with db.session.begin_nested():
-            db.session.execute("LOCK TABLE transplants IN SHARE ROW EXCLUSIVE MODE;")
+            _lock_table_for(db.session, model=Transplant)
             if (
                 Transplant.revisions_query(stack_ids)
                 .filter_by(status=TransplantStatus.submitted)
@@ -419,7 +484,22 @@ def get_list(stack_revision_id):
         limit=len(revision_phids),
     )
 
-    transplants = Transplant.revisions_query(
-        [phab.expect(r, "id") for r in phab.expect(revs, "data")]
-    ).all()
-    return [t.serialize() for t in transplants], 200
+    # Return both transplants and landing jobs, since for repos that were switched
+    # both or either of these could be populated.
+
+    rev_ids = [phab.expect(r, "id") for r in phab.expect(revs, "data")]
+
+    transplants = Transplant.revisions_query(rev_ids).all()
+    landing_jobs = LandingJob.revisions_query(rev_ids).all()
+
+    if transplants and landing_jobs:
+        logger.warning(
+            "Both {} transplants and {} landing jobs found for this revision".format(
+                str(len(transplants)), str(len(landing_jobs))
+            )
+        )
+
+    return (
+        [t.serialize() for t in transplants] + [j.serialize() for j in landing_jobs],
+        200,
+    )

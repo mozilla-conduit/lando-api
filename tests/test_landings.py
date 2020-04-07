@@ -4,7 +4,7 @@
 
 from landoapi import patches
 from landoapi.hg import HgRepo
-from landoapi.landings import execute_job
+from landoapi.landing_worker import LandingWorker
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.repos import Repo, SCM_LEVEL_3
@@ -177,18 +177,11 @@ def test_integrated_execute_job(
         repository_name="mozilla-central",
         revision_to_diff_id={"1": 1, "2": 2},
         revision_order=["1", "2"],
-        bug_ids={"1": 12345, "2": 12345},
         attempts=1,
     )
 
-    assert execute_job(
-        job,
-        repo,
-        hgrepo,
-        treestatus,
-        "landoapi.test.bucket",
-        aws_access_key=None,
-        aws_secret_key=None,
-    )
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
     assert job.status is LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40

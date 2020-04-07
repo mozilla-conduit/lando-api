@@ -14,7 +14,6 @@ def test_landing_job_acquire_job_job_queue_query(db):
             repository_name=REPO_NAME,
             revision_to_diff_id={"1": 1},
             revision_order=["1"],
-            bug_ids={"1": 12345},
         ),
         LandingJob(
             status=LandingJobStatus.SUBMITTED,
@@ -22,7 +21,6 @@ def test_landing_job_acquire_job_job_queue_query(db):
             repository_name=REPO_NAME,
             revision_to_diff_id={"2": 2},
             revision_order=["2"],
-            bug_ids={"2": 12345},
         ),
         LandingJob(
             status=LandingJobStatus.SUBMITTED,
@@ -30,7 +28,6 @@ def test_landing_job_acquire_job_job_queue_query(db):
             repository_name=REPO_NAME,
             revision_to_diff_id={"3": 3},
             revision_order=["3"],
-            bug_ids={"3": 12345},
         ),
     ]
     for job in jobs:
