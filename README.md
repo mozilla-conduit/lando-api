@@ -123,3 +123,7 @@ Password for user postgres:
 [Homebrew formula]: http://brewformulas.org/pyinvoke
 [docker-compose.override.yml]: https://docs.docker.com/compose/extends/
 [httpie]: http://httpie.org/
+
+## Support
+
+To chat with Lando users and developers, join them on [Matrix](https://chat.mozilla.org/#/room/#conduit:mozilla.org).
