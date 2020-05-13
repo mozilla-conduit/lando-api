@@ -29,6 +29,7 @@ from landoapi.version import version
 
 logger = logging.getLogger(__name__)
 
+# Subsystems shared across different services
 SUBSYSTEMS = [
     # Logging & sentry first so that other systems log properly.
     logging_subsystem,

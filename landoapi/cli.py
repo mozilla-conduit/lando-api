@@ -12,12 +12,26 @@ from flask.cli import FlaskGroup
 LINT_PATHS = ("setup.py", "tasks.py", "landoapi", "migrations", "tests")
 
 
+def get_subsystems(exclude=None):
+    """Get subsystems from the app, excluding those specified in the given parameter.
+
+    Args:
+        exclude (list of str): names of subsystems to exclude
+
+    Returns: list of Subsystem
+    """
+    from landoapi.app import SUBSYSTEMS
+
+    exclusions = exclude or []
+    return [s for s in SUBSYSTEMS if s.__name__ not in exclusions]
+
+
 def create_lando_api_app(info):
-    from landoapi.app import construct_app, load_config, SUBSYSTEMS
+    from landoapi.app import construct_app, load_config
 
     config = load_config()
     app = construct_app(config)
-    for system in SUBSYSTEMS:
+    for system in get_subsystems():
         system.init_app(app.app)
 
     return app.app
@@ -43,9 +57,7 @@ def init():
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def worker(celery_arguments):
     """Initialize a Celery worker for this app."""
-    from landoapi.app import SUBSYSTEMS
-
-    for system in SUBSYSTEMS:
+    for system in get_subsystems(exclude=["repo_clone_subsystem"]):
         system.ensure_ready()
 
     from landoapi.celery import celery
@@ -55,9 +67,8 @@ def worker(celery_arguments):
 
 @cli.command(name="landing-worker")
 def landing_worker():
-    from landoapi.app import SUBSYSTEMS
-
-    for system in SUBSYSTEMS:
+    exclusions = ["auth0_subsystem", "lando_ui_subsystem"]
+    for system in get_subsystems(exclude=exclusions):
         system.ensure_ready()
 
     from landoapi.landing_worker import LandingWorker
@@ -70,9 +81,7 @@ def landing_worker():
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def celery(celery_arguments):
     """Run the celery base command for this app."""
-    from landoapi.app import SUBSYSTEMS
-
-    for system in SUBSYSTEMS:
+    for system in get_subsystems(exclude=["repo_clone_subsystem"]):
         system.ensure_ready()
 
     from landoapi.celery import celery
@@ -83,9 +92,7 @@ def celery(celery_arguments):
 @cli.command()
 def uwsgi():
     """Run the service in production mode with uwsgi."""
-    from landoapi.app import SUBSYSTEMS
-
-    for system in SUBSYSTEMS:
+    for system in get_subsystems(exclude=["repo_clone_subsystem"]):
         system.ensure_ready()
 
     logging.shutdown()
