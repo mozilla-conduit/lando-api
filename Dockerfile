@@ -52,6 +52,9 @@ RUN cd / && pip install --no-cache /app
 ENV PYTHONPATH /app
 RUN chown -R app:app /app
 
+# Create repos directory for transplanting in landing-worker
+RUN mkdir /repos
+
 # Run as a non-privileged user
 USER app
 

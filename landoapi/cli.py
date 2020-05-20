@@ -16,14 +16,14 @@ def get_subsystems(exclude=None):
     """Get subsystems from the app, excluding those specified in the given parameter.
 
     Args:
-        exclude (list of str): names of subsystems to exclude
+        exclude (list of Subsystem): Subsystems to exclude.
 
     Returns: list of Subsystem
     """
     from landoapi.app import SUBSYSTEMS
 
     exclusions = exclude or []
-    return [s for s in SUBSYSTEMS if s.__name__ not in exclusions]
+    return [s for s in SUBSYSTEMS if s not in exclusions]
 
 
 def create_lando_api_app(info):
@@ -57,7 +57,9 @@ def init():
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def worker(celery_arguments):
     """Initialize a Celery worker for this app."""
-    for system in get_subsystems(exclude=["repo_clone_subsystem"]):
+    from landoapi.app import repo_clone_subsystem
+
+    for system in get_subsystems(exclude=[repo_clone_subsystem]):
         system.ensure_ready()
 
     from landoapi.celery import celery
@@ -67,7 +69,9 @@ def worker(celery_arguments):
 
 @cli.command(name="landing-worker")
 def landing_worker():
-    exclusions = ["auth0_subsystem", "lando_ui_subsystem"]
+    from landoapi.app import auth0_subsystem, lando_ui_subsystem
+
+    exclusions = [auth0_subsystem, lando_ui_subsystem]
     for system in get_subsystems(exclude=exclusions):
         system.ensure_ready()
 
@@ -81,7 +85,9 @@ def landing_worker():
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def celery(celery_arguments):
     """Run the celery base command for this app."""
-    for system in get_subsystems(exclude=["repo_clone_subsystem"]):
+    from landoapi.app import repo_clone_subsystem
+
+    for system in get_subsystems(exclude=[repo_clone_subsystem]):
         system.ensure_ready()
 
     from landoapi.celery import celery
@@ -92,7 +98,9 @@ def celery(celery_arguments):
 @cli.command()
 def uwsgi():
     """Run the service in production mode with uwsgi."""
-    for system in get_subsystems(exclude=["repo_clone_subsystem"]):
+    from landoapi.app import repo_clone_subsystem
+
+    for system in get_subsystems(exclude=[repo_clone_subsystem]):
         system.ensure_ready()
 
     logging.shutdown()
