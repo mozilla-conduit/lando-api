@@ -162,7 +162,7 @@ REPO_CONFIG = {
             tree="version-control-tools",
             access_group=SCM_VERSIONCONTROL,
             push_bookmark="@",
-            push_path="https://hg.mozilla.org/hgcustom/version-control-tools",
+            push_path="ssh://hg.mozilla.org/hgcustom/version-control-tools",
             pull_path="https://hg.mozilla.org/hgcustom/version-control-tools",
             url="https://hg.mozilla.org/hgcustom/version-control-tools",
         ),
