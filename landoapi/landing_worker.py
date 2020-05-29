@@ -204,11 +204,11 @@ class LandingWorker:
                 db=db,
             )
             return False
-        except Exception:
+        except Exception as e:
             logger.exception("Unexpected landing error.")
             job.transition_status(
                 LandingJobAction.FAIL,
-                message=f"An unexpected error occured while landing.",
+                message=f"An unexpected error occured while landing:\n{e}",
                 commit=True,
                 db=db,
             )

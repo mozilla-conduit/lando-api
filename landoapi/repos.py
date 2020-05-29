@@ -117,11 +117,40 @@ REPO_CONFIG = {
         ),
     },
     "devsvcdev": {
+        # A general test repo.
         "test-repo": Repo(
             tree="test-repo",
-            access_group=SCM_LEVEL_1,
-            url="https://autolandhg.devsvcdev.mozaws.net",
-        )
+            access_group=SCM_VERSIONCONTROL,
+            push_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+            pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+            transplant_locally=True,
+            url="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+        ),
+        # A repo to test local transplants.
+        "first-repo": Repo(
+            tree="first-repo",
+            access_group=SCM_VERSIONCONTROL,
+            push_path="https://autolandhg.devsvcdev.mozaws.net/first-repo",
+            pull_path="https://autolandhg.devsvcdev.mozaws.net/first-repo",
+            transplant_locally=True,
+            url="https://autolandhg.devsvcdev.mozaws.net/first-repo",
+        ),
+        # A repo to test autoland transplants.
+        "second-repo": Repo(
+            tree="second-repo",
+            access_group=SCM_VERSIONCONTROL,
+            push_path="https://autolandhg.devsvcdev.mozaws.net/second-repo",
+            pull_path="https://autolandhg.devsvcdev.mozaws.net/second-repo",
+            url="https://autolandhg.devsvcdev.mozaws.net/second-repo",
+        ),
+        # A repo to test different push/pull paths.
+        "third-repo": Repo(
+            tree="third-repo",
+            access_group=SCM_VERSIONCONTROL,
+            push_path="https://autolandhg.devsvcdev.mozaws.net/third-repo",
+            pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+            url="https://autolandhg.devsvcdev.mozaws.net/third-repo",
+        ),
     },
     "devsvcprod": {
         "phabricator-qa-stage": Repo(
@@ -133,6 +162,9 @@ REPO_CONFIG = {
             tree="version-control-tools",
             access_group=SCM_VERSIONCONTROL,
             push_bookmark="@",
+            push_path="ssh://hg.mozilla.org/hgcustom/version-control-tools",
+            pull_path="https://hg.mozilla.org/hgcustom/version-control-tools",
+            transplant_locally=True,
             url="https://hg.mozilla.org/hgcustom/version-control-tools",
         ),
         "build-tools": Repo(
