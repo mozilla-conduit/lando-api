@@ -46,7 +46,9 @@ def test_landing_job_acquire_job_job_queue_query(db):
 
     # The now IN_PROGRESS job should be first, and the cancelled job should
     # not appear in the queue.
-    queue_items = LandingJob.job_queue_query(repositories=[REPO_NAME]).all()
+    queue_items = LandingJob.job_queue_query(
+        repositories=[REPO_NAME], grace_seconds=0
+    ).all()
     assert len(queue_items) == 2
     assert queue_items[0] is jobs[2]
     assert queue_items[1] is jobs[0]
