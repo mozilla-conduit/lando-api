@@ -89,6 +89,13 @@ class LandingWorker:
         agent_process = subprocess.run(
             ["ssh-agent", "-s"], capture_output=True, universal_newlines=True
         )
+
+        # This pattern will match keys and values, and ignore everything after the
+        # semicolon. For example, the output of `agent_process` is of the form:
+        #     SSH_AUTH_SOCK=/tmp/ssh-c850kLXXOS5e/agent.120801; export SSH_AUTH_SOCK;
+        #     SSH_AGENT_PID=120802; export SSH_AGENT_PID;
+        #     echo Agent pid 120802;
+
         pattern = re.compile("(.+)=([^;]*)")
         for key, value in pattern.findall(agent_process.stdout):
             self.config["SSH_ENV_KEYS"].append(key)
