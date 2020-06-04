@@ -5,9 +5,9 @@ from contextlib import contextmanager
 
 import logging
 import os
-import subprocess
 import re
 import signal
+import subprocess
 import time
 
 from flask import current_app
@@ -74,6 +74,10 @@ class LandingWorker:
 
     def _setup_ssh(self):
         """Fetch a private SSH key from the environment and add it to ssh-agent.
+
+        SSH keys are needed in order to push to repositories that have an ssh
+        push path. This setup will abort gracefully if no ssh key was found in the
+        environment.
         """
         SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
@@ -95,7 +99,6 @@ class LandingWorker:
         #     SSH_AUTH_SOCK=/tmp/ssh-c850kLXXOS5e/agent.120801; export SSH_AUTH_SOCK;
         #     SSH_AGENT_PID=120802; export SSH_AGENT_PID;
         #     echo Agent pid 120802;
-
         pattern = re.compile("(.+)=([^;]*)")
         for key, value in pattern.findall(agent_process.stdout):
             self.config["SSH_ENV_KEYS"].append(key)
@@ -112,12 +115,6 @@ class LandingWorker:
         if add_process.returncode != 0:
             raise Exception(add_process.stderr)
         logger.info("Added private SSH key from environment.")
-
-    def _teardown_ssh(self):
-        """Clean up relevant environment variables we've set up for ssh-agent.
-        """
-        for key in self.config["SSH_ENV_KEYS"]:
-            del os.environ[key]
 
     def refresh_enabled_repos(self):
         self.enabled_repos = [
@@ -181,7 +178,6 @@ class LandingWorker:
                 # Finalize job
                 db.session.commit()
                 logger.info("Finished processing landing job", extra={"id": job.id})
-        self._teardown_ssh()
         logger.info("Landing worker exited")
 
     def exit_gracefully(self, *args):
