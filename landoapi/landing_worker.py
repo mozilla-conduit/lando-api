@@ -5,6 +5,8 @@ from contextlib import contextmanager
 
 import logging
 import os
+import subprocess
+import re
 import signal
 import time
 
@@ -43,10 +45,11 @@ def job_processing(worker):
 class LandingWorker:
     def __init__(self, sleep_seconds=5):
         self.sleep_seconds = sleep_seconds
-        self.config = {}
-        self.config["AWS_SECRET_KEY"] = current_app.config["AWS_SECRET_KEY"]
-        self.config["AWS_ACCESS_KEY"] = current_app.config["AWS_ACCESS_KEY"]
-        self.config["PATCH_BUCKET_NAME"] = current_app.config["PATCH_BUCKET_NAME"]
+        config_keys = ["AWS_SECRET_KEY", "AWS_ACCESS_KEY", "PATCH_BUCKET_NAME"]
+        self.config = {k: current_app.config[k] for k in config_keys}
+
+        # Create a list to keep track of any environment variables being manipulated.
+        self.config["SSH_ENV_KEYS"] = []
 
         # The list of all repos that are enabled for this worker
         self.applicable_repos = (
@@ -69,6 +72,46 @@ class LandingWorker:
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
 
+    def _setup_ssh(self):
+        """Fetch a private SSH key from the environment and add it to ssh-agent.
+        """
+        SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+
+        # Fetch ssh private key from the environment. Note that this key should be
+        # stored in standard format including all new lines and new line at the end
+        # of the file.
+        ssh_private_key = os.environ.get(SSH_PRIVATE_KEY_ENV_KEY)
+        if not ssh_private_key:
+            logger.warning(f"No {SSH_PRIVATE_KEY_ENV_KEY} present in environment.")
+            return
+
+        # Set all the correct environment variables
+        agent_process = subprocess.run(
+            ["ssh-agent", "-s"], capture_output=True, universal_newlines=True
+        )
+        pattern = re.compile("(.+)=([^;]*)")
+        for key, value in pattern.findall(agent_process.stdout):
+            self.config["SSH_ENV_KEYS"].append(key)
+            os.environ[key] = value
+
+        # Add private SSH key to agent
+        # NOTE: ssh-add seems to output everything to stderr, including upon exit 0.
+        add_process = subprocess.run(
+            ["ssh-add", "-"],
+            input=ssh_private_key,
+            capture_output=True,
+            universal_newlines=True,
+        )
+        if add_process.returncode != 0:
+            raise Exception(add_process.stderr)
+        logger.info("Added private SSH key from environment.")
+
+    def _teardown_ssh(self):
+        """Clean up relevant environment variables we've set up for ssh-agent.
+        """
+        for key in self.config["SSH_ENV_KEYS"]:
+            del os.environ[key]
+
     def refresh_enabled_repos(self):
         self.enabled_repos = [
             r for r in self.applicable_repos if treestatus_subsystem.client.is_open(r)
@@ -77,9 +120,14 @@ class LandingWorker:
 
     def start(self):
         logger.info("Landing worker starting")
+
+        self._setup_ssh()
+
         self.running = True
-        last_job_finished = True
+
+        # Initialize state
         self.refresh_enabled_repos()
+        last_job_finished = True
 
         while self.running:
             if not last_job_finished:
@@ -126,6 +174,7 @@ class LandingWorker:
                 # Finalize job
                 db.session.commit()
                 logger.info("Finished processing landing job", extra={"id": job.id})
+        self._teardown_ssh()
         logger.info("Landing worker exited")
 
     def exit_gracefully(self, *args):
