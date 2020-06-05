@@ -5,7 +5,9 @@ from contextlib import contextmanager
 
 import logging
 import os
+import re
 import signal
+import subprocess
 import time
 
 from flask import current_app
@@ -42,11 +44,11 @@ def job_processing(worker):
 
 class LandingWorker:
     def __init__(self, sleep_seconds=5):
+        SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+
         self.sleep_seconds = sleep_seconds
-        self.config = {}
-        self.config["AWS_SECRET_KEY"] = current_app.config["AWS_SECRET_KEY"]
-        self.config["AWS_ACCESS_KEY"] = current_app.config["AWS_ACCESS_KEY"]
-        self.config["PATCH_BUCKET_NAME"] = current_app.config["PATCH_BUCKET_NAME"]
+        config_keys = ["AWS_SECRET_KEY", "AWS_ACCESS_KEY", "PATCH_BUCKET_NAME"]
+        self.config = {k: current_app.config[k] for k in config_keys}
 
         # The list of all repos that are enabled for this worker
         self.applicable_repos = (
@@ -65,21 +67,77 @@ class LandingWorker:
         # This is True when the worker is busy processing a job
         self.job_processing = False
 
+        # Fetch ssh private key from the environment. Note that this key should be
+        # stored in standard format including all new lines and new line at the end
+        # of the file.
+        self.ssh_private_key = os.environ.get(SSH_PRIVATE_KEY_ENV_KEY)
+        if not self.ssh_private_key:
+            logger.warning(f"No {SSH_PRIVATE_KEY_ENV_KEY} present in environment.")
+
         # Catch kill signals so that the worker can initiate shutdown procedure
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+    @staticmethod
+    def _setup_ssh(ssh_private_key):
+        """Add a given private ssh key to ssh agent.
+
+        SSH keys are needed in order to push to repositories that have an ssh
+        push path.
+
+        The private key should be passed as it is in the key file, including all
+        new line characters and the new line character at the end.
+
+        Args:
+            ssh_private_key (str): A string representing the private SSH key file.
+        """
+        # Set all the correct environment variables
+        agent_process = subprocess.run(
+            ["ssh-agent", "-s"], capture_output=True, universal_newlines=True
+        )
+
+        # This pattern will match keys and values, and ignore everything after the
+        # semicolon. For example, the output of `agent_process` is of the form:
+        #     SSH_AUTH_SOCK=/tmp/ssh-c850kLXXOS5e/agent.120801; export SSH_AUTH_SOCK;
+        #     SSH_AGENT_PID=120802; export SSH_AGENT_PID;
+        #     echo Agent pid 120802;
+        pattern = re.compile("(.+)=([^;]*)")
+        for key, value in pattern.findall(agent_process.stdout):
+            logger.info(f"_setup_ssh: setting {key} to {value}")
+            os.environ[key] = value
+
+        # Add private SSH key to agent
+        # NOTE: ssh-add seems to output everything to stderr, including upon exit 0.
+        add_process = subprocess.run(
+            ["ssh-add", "-"],
+            input=ssh_private_key,
+            capture_output=True,
+            universal_newlines=True,
+        )
+        if add_process.returncode != 0:
+            raise Exception(add_process.stderr)
+        logger.info("Added private SSH key from environment.")
 
     def refresh_enabled_repos(self):
         self.enabled_repos = [
             r for r in self.applicable_repos if treestatus_subsystem.client.is_open(r)
         ]
-        logger.info(f"{len(self.enabled_repos)} enabled repos")
+        logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
     def start(self):
         logger.info("Landing worker starting")
+        logger.info(
+            f"{len(self.applicable_repos)} applicable repos: {self.applicable_repos}"
+        )
+
+        if self.ssh_private_key:
+            self._setup_ssh(self.ssh_private_key)
+
         self.running = True
-        last_job_finished = True
+
+        # Initialize state
         self.refresh_enabled_repos()
+        last_job_finished = True
 
         while self.running:
             if not last_job_finished:
