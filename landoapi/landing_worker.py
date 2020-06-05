@@ -103,7 +103,7 @@ class LandingWorker:
         #     echo Agent pid 120802;
         pattern = re.compile("(.+)=([^;]*)")
         for key, value in pattern.findall(agent_process.stdout):
-            logger.info(f"setup_ssh: setting {key} to {value}")
+            logger.info(f"_setup_ssh: setting {key} to {value}")
             os.environ[key] = value
 
         # Add private SSH key to agent
