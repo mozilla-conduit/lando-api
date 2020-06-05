@@ -44,12 +44,11 @@ def job_processing(worker):
 
 class LandingWorker:
     def __init__(self, sleep_seconds=5):
+        SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+
         self.sleep_seconds = sleep_seconds
         config_keys = ["AWS_SECRET_KEY", "AWS_ACCESS_KEY", "PATCH_BUCKET_NAME"]
         self.config = {k: current_app.config[k] for k in config_keys}
-
-        # Create a list to keep track of any environment variables being manipulated.
-        self.config["SSH_ENV_KEYS"] = []
 
         # The list of all repos that are enabled for this worker
         self.applicable_repos = (
@@ -68,27 +67,30 @@ class LandingWorker:
         # This is True when the worker is busy processing a job
         self.job_processing = False
 
+        # Fetch ssh private key from the environment. Note that this key should be
+        # stored in standard format including all new lines and new line at the end
+        # of the file.
+        self.ssh_private_key = os.environ.get(SSH_PRIVATE_KEY_ENV_KEY)
+        if not self.ssh_private_key:
+            logger.warning(f"No {SSH_PRIVATE_KEY_ENV_KEY} present in environment.")
+
         # Catch kill signals so that the worker can initiate shutdown procedure
         signal.signal(signal.SIGINT, self.exit_gracefully)
         signal.signal(signal.SIGTERM, self.exit_gracefully)
 
-    def _setup_ssh(self):
-        """Fetch a private SSH key from the environment and add it to ssh-agent.
+    @staticmethod
+    def _setup_ssh(ssh_private_key):
+        """Add a given private ssh key to ssh agent.
 
         SSH keys are needed in order to push to repositories that have an ssh
-        push path. This setup will abort gracefully if no ssh key was found in the
-        environment.
+        push path.
+
+        The private key should be passed as it is in the key file, including all
+        new line characters and the new line character at the end.
+
+        Args:
+            ssh_private_key (str): A string representing the private SSH key file.
         """
-        SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
-
-        # Fetch ssh private key from the environment. Note that this key should be
-        # stored in standard format including all new lines and new line at the end
-        # of the file.
-        ssh_private_key = os.environ.get(SSH_PRIVATE_KEY_ENV_KEY)
-        if not ssh_private_key:
-            logger.warning(f"No {SSH_PRIVATE_KEY_ENV_KEY} present in environment.")
-            return
-
         # Set all the correct environment variables
         agent_process = subprocess.run(
             ["ssh-agent", "-s"], capture_output=True, universal_newlines=True
@@ -101,7 +103,7 @@ class LandingWorker:
         #     echo Agent pid 120802;
         pattern = re.compile("(.+)=([^;]*)")
         for key, value in pattern.findall(agent_process.stdout):
-            self.config["SSH_ENV_KEYS"].append(key)
+            logger.info(f"setup_ssh: setting {key} to {value}")
             os.environ[key] = value
 
         # Add private SSH key to agent
@@ -128,7 +130,8 @@ class LandingWorker:
             f"{len(self.applicable_repos)} applicable repos: {self.applicable_repos}"
         )
 
-        self._setup_ssh()
+        if self.ssh_private_key:
+            self._setup_ssh(self.ssh_private_key)
 
         self.running = True
 
