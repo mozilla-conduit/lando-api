@@ -140,7 +140,6 @@ services:
       - ./migrations/:/migrations/
       # Prevent writing python cache to the host.
       - caches_cache:/app/.cache/
-      - repos:/repos
     depends_on:
       - lando-api.db
       - redis.queue
@@ -168,4 +167,3 @@ volumes:
   caches_pycache:
   caches_cache:
   caches_pytest_cache:
-  repos:

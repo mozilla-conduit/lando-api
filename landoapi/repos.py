@@ -44,8 +44,10 @@ Repo = namedtuple(
         "url",
         # Approval required to land on that repo (for uplifts)
         "approval_required",
+        # Config override (e.g. to override hgrc per repo)
+        "config_override",
     ),
-    defaults=(None, None, "", "", "", False, None, False),
+    defaults=(None, None, "", "", "", False, None, False, None),
 )
 
 SCM_LEVEL_3 = AccessGroup(
@@ -108,6 +110,17 @@ REPO_CONFIG = {
             pull_path="http://hg.test/second-repo",
             url="http://hg.test/second-repo",
         ),
+        "third-repo": Repo(
+            tree="third-repo",
+            access_group=SCM_LEVEL_1,
+            push_path="ssh://autoland.hg-ssh//repos/third-repo",
+            pull_path="http://hg.test/third-repo",
+            transplant_locally=True,
+            url="http://hg.test/third-repo",
+            config_override={
+                "ui.ssh": 'ssh -o "StrictHostKeyChecking no" -o "PasswordAuthentication no"'
+            },
+        ),
         # Approval is required for the uplift dev repo
         "uplift-target": Repo(
             tree="uplift-target",
@@ -117,14 +130,17 @@ REPO_CONFIG = {
         ),
     },
     "devsvcdev": {
-        # A general test repo.
+        # A general test repo that tests ssh pushes.
         "test-repo": Repo(
             tree="test-repo",
             access_group=SCM_VERSIONCONTROL,
-            push_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+            push_path="ssh://autolandhg.devsvcdev.mozaws.net//repos/test-repo",
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
             transplant_locally=True,
             url="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+            config_override={
+                "ui.ssh": 'ssh -o "StrictHostKeyChecking no" -o "PasswordAuthentication no"'
+            },
         ),
         # A repo to test local transplants.
         "first-repo": Repo(
@@ -149,6 +165,7 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             push_path="https://autolandhg.devsvcdev.mozaws.net/third-repo",
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+            transplant_locally=True,
             url="https://autolandhg.devsvcdev.mozaws.net/third-repo",
         ),
     },

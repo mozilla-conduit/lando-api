@@ -40,6 +40,9 @@ RUN cd / && pip install --no-cache /app
 ENV PYTHONPATH /app
 RUN chown -R app:app /app
 
+RUN mkdir /repos
+RUN chown -R app:app /repos
+
 # Run as a non-privileged user
 USER app
 
