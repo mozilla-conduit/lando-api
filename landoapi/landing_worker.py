@@ -120,10 +120,13 @@ class LandingWorker:
         self.enabled_repos = [
             r for r in self.applicable_repos if treestatus_subsystem.client.is_open(r)
         ]
-        logger.info(f"{len(self.enabled_repos)} enabled repos")
+        logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
     def start(self):
         logger.info("Landing worker starting")
+        logger.info(
+            f"{len(self.applicable_repos)} applicable repos: {self.applicable_repos}"
+        )
 
         self._setup_ssh()
 
