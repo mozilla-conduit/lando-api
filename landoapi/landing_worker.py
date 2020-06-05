@@ -169,7 +169,8 @@ class LandingWorker:
 
                 repo = repo_clone_subsystem.repos[job.repository_name]
                 hgrepo = HgRepo(
-                    str(repo_clone_subsystem.repo_paths[job.repository_name])
+                    str(repo_clone_subsystem.repo_paths[job.repository_name]),
+                    config=repo.config_override or {},
                 )
 
                 logger.info("Starting landing job", extra={"id": job.id})
