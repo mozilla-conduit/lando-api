@@ -135,7 +135,7 @@ REPO_CONFIG = {
         "third-repo": Repo(
             tree="third-repo",
             access_group=SCM_LEVEL_1,
-            push_path="ssh://autoland.hg:8022//repos/third-repo",
+            push_path="ssh://autoland.hg//repos/third-repo",
             pull_path="http://hg.test/third-repo",
             transplant_locally=True,
             url="http://hg.test/third-repo",
