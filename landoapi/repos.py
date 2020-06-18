@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import logging
+import os
 import pathlib
 from collections import namedtuple
 
@@ -86,6 +87,21 @@ SCM_NSS = AccessGroup(
     display_name="scm_nss",
 )
 
+# Username and SSH port to use when connecting to remote HG server.
+landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
+landing_worker_target_ssh_port = os.environ.get("LANDING_WORKER_TARGET_SSH_PORT", "22")
+
+# Configuration overrides that can be applied to any repo.
+SSH_CONFIG_OVERRIDES = (
+    "ssh "
+    '-o "SendEnv AUTOLAND_REQUEST_USER" '
+    '-o "StrictHostKeyChecking no" '
+    '-o "PasswordAuthentication no" '
+    f'-o "User {landing_worker_username}" '
+    f'-o "Port {landing_worker_target_ssh_port}"'
+)
+
+
 REPO_CONFIG = {
     # '<ENV>': {
     #     '<phabricator-short-name>': Repo(...)
@@ -113,13 +129,11 @@ REPO_CONFIG = {
         "third-repo": Repo(
             tree="third-repo",
             access_group=SCM_LEVEL_1,
-            push_path="ssh://autoland.hg-ssh//repos/third-repo",
+            push_path="ssh://autoland.hg//repos/third-repo",
             pull_path="http://hg.test/third-repo",
             transplant_locally=True,
             url="http://hg.test/third-repo",
-            config_override={
-                "ui.ssh": 'ssh -o "StrictHostKeyChecking no" -o "PasswordAuthentication no"'
-            },
+            config_override={"ui.ssh": SSH_CONFIG_OVERRIDES},
         ),
         # Approval is required for the uplift dev repo
         "uplift-target": Repo(
@@ -138,9 +152,7 @@ REPO_CONFIG = {
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
             transplant_locally=True,
             url="https://autolandhg.devsvcdev.mozaws.net/test-repo",
-            config_override={
-                "ui.ssh": 'ssh -o "StrictHostKeyChecking no" -o "PasswordAuthentication no"'
-            },
+            config_override={"ui.ssh": SSH_CONFIG_OVERRIDES},
         ),
         # A repo to test local transplants.
         "first-repo": Repo(
@@ -183,6 +195,7 @@ REPO_CONFIG = {
             pull_path="https://hg.mozilla.org/hgcustom/version-control-tools",
             transplant_locally=True,
             url="https://hg.mozilla.org/hgcustom/version-control-tools",
+            config_override={"ui.ssh": SSH_CONFIG_OVERRIDES},
         ),
         "build-tools": Repo(
             tree="build-tools",
