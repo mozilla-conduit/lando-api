@@ -87,11 +87,11 @@ SCM_NSS = AccessGroup(
     display_name="scm_nss",
 )
 
-# Default username and SSH port to use when connecting to remote HG server.
+# Username and SSH port to use when connecting to remote HG server.
 landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
 landing_worker_target_ssh_port = os.environ.get("LANDING_WORKER_TARGET_SSH_PORT", "22")
 
-# Set configuration overrides that can be applied to any repo.
+# Configuration overrides that can be applied to any repo.
 SSH_CONFIG_OVERRIDES = (
     "ssh "
     '-o "SendEnv AUTOLAND_REQUEST_USER" '
