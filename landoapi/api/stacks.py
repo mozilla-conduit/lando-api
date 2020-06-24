@@ -8,7 +8,7 @@ from connexion import problem
 from flask import current_app, g
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.phabricator import PhabricatorClient
+from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
 from landoapi.projects import (
     get_sec_approval_project_phid,
     get_secure_project_phid,
@@ -42,6 +42,13 @@ from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
 
+not_found_problem = problem(
+    404,
+    "Revision not found",
+    "The requested revision does not exist",
+    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+)
+
 
 @require_phabricator_api_key(optional=True)
 def get(revision_id):
@@ -58,17 +65,14 @@ def get(revision_id):
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
-        return problem(
-            404,
-            "Revision not found",
-            "The requested revision does not exist",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-        )
+        return not_found_problem
 
-    # TODO: This assumes that all revisions and related objects in the stack
-    # have uniform view permissions for the requesting user. Some revisions
-    # being restricted could cause this to fail.
-    nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
+    try:
+        nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
+    except PhabricatorAPIException:
+        # If a revision within the stack causes an API exception, treat the whole stack
+        # as not found.
+        return not_found_problem
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
