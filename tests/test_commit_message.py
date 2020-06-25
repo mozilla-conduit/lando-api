@@ -6,32 +6,20 @@ import pytest
 from landoapi.commit_message import format_commit_message, split_title_and_summary
 
 COMMIT_MESSAGE = """
-Bug 1 - A title. r=reviewer_one,reviewer_two
+Bug 1 - A title. r=reviewer_one,reviewer.two
 
 A summary.
 
 Differential Revision: http://phabricator.test/D123
 """.strip()
 
-FIRST_LINE = "Bug 1 - A title. r=reviewer_one,reviewer_two"
+FIRST_LINE = COMMIT_MESSAGE.split("\n")[0]
 
 
 def test_commit_message_for_multiple_reviewers():
-    reviewers = ["reviewer_one", "reviewer_two"]
+    reviewers = ["reviewer_one", "reviewer.two"]
     commit_message = format_commit_message(
         "A title.", 1, reviewers, "A summary.", "http://phabricator.test/D123"
-    )
-    assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
-
-
-def test_commit_message_reviewers_replaced():
-    reviewers = ["reviewer_one", "reviewer_two"]
-    commit_message = format_commit_message(
-        "A title. r=not_reviewer r?bogus",
-        1,
-        reviewers,
-        "A summary.",
-        "http://phabricator.test/D123",
     )
     assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
 
@@ -82,18 +70,25 @@ def test_commit_message_blocking_reviewers_requested(reviewer_text):
 @pytest.mark.parametrize(
     "reviewer_text",
     [
+        "r?bogus",
         "r?#group1",
         "r?#group1, #group2",
         "r?reviewer_one,#group1",
-        "r?#group1 r?reviewer_two",
+        "r?#group1 r?reviewer.two",
         "r?#group1! r?group2",
         "r?#group1 r?group2!",
         "r?#group1! r?group2!",
-        "r?#group1, reviewer_two!",
+        "r?#group1, reviewer.two!",
+        "r=.a",
+        "r=..a",
+        "r=a...a",
+        "r=a.b",
+        "r=a.b.c",
+        "r=aa,.a,..a,a...a,a.b,a.b.c",
     ],
 )
-def test_group_reviewers_replaced(reviewer_text):
-    reviewers = ["reviewer_one", "reviewer_two"]
+def test_commit_message_reviewers_replaced(reviewer_text):
+    reviewers = ["reviewer_one", "reviewer.two"]
     commit_message = format_commit_message(
         "A title. {}".format(reviewer_text),
         1,
@@ -102,6 +97,35 @@ def test_group_reviewers_replaced(reviewer_text):
         "http://phabricator.test/D123",
     )
     assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
+
+
+@pytest.mark.xfail(strict=True)
+def test_group_reviewers_replaced_with_period_at_end():
+    """Test unexpected period after reviewer name.
+    """
+    # NOTE: the parser stops parsing after the period at the end of a reviewer
+    # name, therefore any other reviewers past the first period will not be
+    # parsed correctly, and the output will be mangled. This should be fixed
+    # and the test should be updated.
+
+    reviewers = ["reviewer_one", "reviewer.two"]
+    commit_message = format_commit_message(
+        "A title. r=a.,b", 1, reviewers, "A summary.", "http://phabricator.test/D123"
+    )
+
+    # This is the current behaviour
+    assert commit_message == (
+        "Bug 1 - A title. r=reviewer_one,reviewer.two.,b",
+        "Bug 1 - A title. r=reviewer_one,reviewer.two.,b\n\n"
+        "A summary.\n\nDifferential Revision: http://phabricator.test/D123",
+    )
+
+    # This is the desired future behaviour
+    assert commit_message == (
+        "Bug 1 - A title. r=reviewer_one,reviewer.two.",
+        "Bug 1 - A title. r=reviewer_one,reviewer.two.\n\n"
+        "A summary.\n\nDifferential Revision: http://phabricator.test/D123",
+    )
 
 
 @pytest.mark.parametrize(

@@ -39,7 +39,7 @@ LIST = r"[;,\/\\]\s*"
 
 # Note that we only allows a subset of legal IRC-nick characters.
 # Specifically, we do not allow [ \ ] ^ ` { | }
-IRC_NICK = r"[a-zA-Z0-9\-\_]+"
+IRC_NICK = r"[a-zA-Z0-9\-\_.]*[a-zA-Z0-9\-\_]+"
 
 # fmt: off
 REVIEWERS_RE = re.compile(  # noqa: E131
