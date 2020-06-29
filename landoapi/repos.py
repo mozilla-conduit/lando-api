@@ -193,7 +193,7 @@ REPO_CONFIG = {
             push_bookmark="@",
             push_path="ssh://hg.mozilla.org/hgcustom/version-control-tools",
             pull_path="https://hg.mozilla.org/hgcustom/version-control-tools",
-            transplant_locally=False,
+            transplant_locally=True,
             url="https://hg.mozilla.org/hgcustom/version-control-tools",
             config_override={"ui.ssh": SSH_CONFIG_OVERRIDES},
         ),
