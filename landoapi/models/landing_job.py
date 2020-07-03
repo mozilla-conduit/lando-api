@@ -13,7 +13,7 @@ from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GRACE_SECONDS = 1  # 60 * 15
+DEFAULT_GRACE_SECONDS = 60 * 2
 
 
 @enum.unique

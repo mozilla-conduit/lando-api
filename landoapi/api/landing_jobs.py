@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 def put(landing_job_id, data):
     """Update a landing job.
 
-    This method checks whether the logged in user is allowed to modify the landing job
-    that is passed, does some basic validation on the data passed, and updates the
-    landing job instance accordingly.
+    Checks whether the logged in user is allowed to modify the landing job that is
+    passed, does some basic validation on the data passed, and updates the landing job
+    instance accordingly.
 
     Args:
         landing_job_id (int): The unique ID of the LandingJob object.
@@ -60,14 +60,15 @@ def put(landing_job_id, data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    if landing_job.status == LandingJobStatus.SUBMITTED:
-        landing_job.transition_status(LandingJobAction.CANCEL)
-        db.session.commit()
-        return {"id": landing_job.id}, 200
-    else:
-        raise ProblemException(
-            400,
-            "Landing job could not be cancelled.",
-            f"Landing job status ({landing_job.status}) does not allow cancelling.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
+    if data["action"] == LandingJobAction.CANCEL.value:
+        if landing_job.status == LandingJobStatus.SUBMITTED:
+            landing_job.transition_status(LandingJobAction.CANCEL)
+            db.session.commit()
+            return {"id": landing_job.id}, 200
+        else:
+            raise ProblemException(
+                400,
+                "Landing job could not be cancelled.",
+                f"Landing job status ({landing_job.status}) does not allow cancelling.",
+                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+            )
