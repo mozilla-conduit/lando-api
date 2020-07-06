@@ -95,7 +95,13 @@ def test_notify_user_of_landing_failure(check_celery, app, celery_worker, smtp):
     # for an observable effect of sending emails in this test because the
     # celery_worker fixture causes the test to cross threads.  We only ensure the
     # happy-path runs cleanly.
-    notify_user_of_landing_failure(Transplant(revision_order=["1"]))
+    transplant = Transplant(revision_order=["1"])
+    notify_user_of_landing_failure(
+        transplant.requester_email,
+        transplant.head_revision,
+        transplant.error,
+        transplant.request_id,
+    )
 
 
 def test_mail_sender_whitelist_rejections(app, smtp):

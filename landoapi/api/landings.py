@@ -61,5 +61,10 @@ def update(data):
         )
 
     if transplant.status == TransplantStatus.failed:
-        notify_user_of_landing_failure(transplant)
+        notify_user_of_landing_failure(
+            transplant.requester_email,
+            transplant.head_revision,
+            transplant.error,
+            transplant.request_id,
+        )
     return {}, 200

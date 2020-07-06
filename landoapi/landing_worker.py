@@ -21,6 +21,7 @@ from landoapi.hg import (
     TreeClosed,
 )
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
+from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.repos import repo_clone_subsystem
 from landoapi.storage import db
 from landoapi.treestatus import treestatus_subsystem
@@ -193,6 +194,18 @@ class LandingWorker:
             time.sleep(self.sleep_seconds)
         self.running = False
 
+    @staticmethod
+    def notify_user_of_landing_failure(job):
+        """Wrapper around notify_user_of_landing_failure for convenience.
+
+        Args:
+            job (LandingJob): A LandingJob instance to use when fetching the
+                notification parameters.
+        """
+        notify_user_of_landing_failure(
+            job.requester_email, job.head_revision, job.error, job.id
+        )
+
     def run_job(self, job, repo, hgrepo, treestatus, patch_bucket):
         if not treestatus.is_open(repo.tree):
             job.transition_status(
@@ -235,6 +248,7 @@ class LandingWorker:
             job.transition_status(
                 LandingJobAction.FAIL, message=message, commit=True, db=db
             )
+            self.notify_user_of_landing_failure(job)
             return True
         except PatchConflict as exc:
             message = (
@@ -246,6 +260,7 @@ class LandingWorker:
             job.transition_status(
                 LandingJobAction.FAIL, message=message, commit=True, db=db
             )
+            self.notify_user_of_landing_failure(job)
             return True
         except TreeClosed:
             job.transition_status(
@@ -271,6 +286,7 @@ class LandingWorker:
                 commit=True,
                 db=db,
             )
+            self.notify_user_of_landing_failure(job)
             return True
         finally:
             del os.environ["AUTOLAND_REQUEST_USER"]
