@@ -86,6 +86,11 @@ SCM_NSS = AccessGroup(
     membership_group="all_scm_nss",
     display_name="scm_nss",
 )
+SCM_FIREFOXCI = AccessGroup(
+    active_group="active_scm_firefoxci",
+    membership_group="all_scm_firefoxci",
+    display_name="scm_firefoxci",
+)
 
 # Username and SSH port to use when connecting to remote HG server.
 landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
@@ -204,12 +209,12 @@ REPO_CONFIG = {
         ),
         "ci-admin": Repo(
             tree="ci-admin",
-            access_group=SCM_LEVEL_3,
+            access_group=SCM_FIREFOXCI,
             url="https://hg.mozilla.org/ci/ci-admin",
         ),
         "ci-configuration": Repo(
             tree="ci-configuration",
-            access_group=SCM_LEVEL_3,
+            access_group=SCM_FIREFOXCI,
             url="https://hg.mozilla.org/ci/ci-configuration",
         ),
         "fluent-migration": Repo(
