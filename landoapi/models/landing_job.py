@@ -4,6 +4,7 @@
 import datetime
 import enum
 import logging
+import os
 
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
@@ -13,7 +14,7 @@ from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GRACE_SECONDS = 60 * 2
+DEFAULT_GRACE_SECONDS = os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2)
 
 
 @enum.unique

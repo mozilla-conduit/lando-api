@@ -28,7 +28,7 @@ def put(landing_job_id, data):
     Raises:
         ProblemException: If a LandingJob object corresponding to the landing_job_id
             is not found, if a user is not authorized to access said LandingJob object,
-            if an invalid action is provided, or if a LandingJob object can not be
+            if an invalid status is provided, or if a LandingJob object can not be
             updated (for example, when trying to cancel a job that is already in
             progress).
     """
@@ -51,16 +51,7 @@ def put(landing_job_id, data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
         )
 
-    supported_actions = [LandingJobAction.CANCEL.value]
-    if data["action"] not in supported_actions:
-        raise ProblemException(
-            400,
-            "Invalid action",
-            f"The provided action {data['action']} is not a valid action.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
-
-    if data["action"] == LandingJobAction.CANCEL.value:
+    if data["status"] == LandingJobStatus.CANCELLED.value:
         if landing_job.status == LandingJobStatus.SUBMITTED:
             landing_job.transition_status(LandingJobAction.CANCEL)
             db.session.commit()
@@ -72,3 +63,10 @@ def put(landing_job_id, data):
                 f"Landing job status ({landing_job.status}) does not allow cancelling.",
                 type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
             )
+    else:
+        raise ProblemException(
+            400,
+            "Invalid status provided",
+            f"The provided status {data['status']} is not allowed.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )

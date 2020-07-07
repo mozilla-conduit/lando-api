@@ -124,12 +124,12 @@ paths:
           schema:
             type: object
             required:
-              - action
+              - status
             properties:
-              action:
+              status:
                 type: string
                 enum:
-                  - CANCEL
+                  - CANCELLED
       responses:
         200:
           description: OK
