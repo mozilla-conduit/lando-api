@@ -101,6 +101,10 @@ jobs:
 
       - deploy:
           command: |
+            cat << EOF
+            DOCKERHUB_REPO: ${DOCKERHUB_REPO}
+            CIRCLE_BRANCH: ${CIRCLE_BRANCH}
+            EOF
             if [[ "x$DOCKERHUB_REPO" != x ]]; then
               docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
               docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}"
@@ -110,7 +114,6 @@ jobs:
                 docker push "${DOCKERHUB_REPO}:latest"
               fi
             fi
-
 workflows:
   version: 2
   main:
