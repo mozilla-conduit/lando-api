@@ -154,11 +154,6 @@ class LandingWorker:
             ).first()
 
             if job is None:
-                logger.info(
-                    "Landing job queue empty, sleeping for {} seconds".format(
-                        self.sleep_seconds
-                    )
-                )
                 time.sleep(self.sleep_seconds)
                 continue
 
