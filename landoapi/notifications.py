@@ -10,19 +10,23 @@ from landoapi.tasks import send_landing_failure_email
 logger = logging.getLogger(__name__)
 
 
-def notify_user_of_landing_failure(transplant):
+def notify_user_of_landing_failure(email, revision, error, request_id):
     """Send out user notifications that a Landing failed.
 
     Args:
-        transplant: The Transplant database object that error'd out.
+        email (str): Receipent's email address (e.g. `requester_email`.)
+        revision (str): The revision associated with the landing failure.
+        error (str): The text of the error associated with the landing failure.
+        request_id (int): A unique identifier identifying either a legacy request ID or
+            a LandingJob ID.
 
     Raises:
         kombu.exceptions.OperationalError if there is a problem connecting to the Celery
         job queue.
     """
     try:
-        send_landing_failure_email.apply_async(
-            (transplant.requester_email, transplant.head_revision, transplant.error),
+        return send_landing_failure_email.apply_async(
+            (email, revision, error),
             retry=True,
             # This policy will result in 3 connection retries if the job queue
             # is down. The current web request's response will be delayed 600ms
@@ -36,8 +40,8 @@ def notify_user_of_landing_failure(transplant):
         )
     except kombu.exceptions.OperationalError as e:
         logger.error(
-            f"No notifications were sent for request {transplant.request_id} to "
-            f"address {transplant.requester_email} because of an exception connecting "
+            f"No notifications were sent for request {request_id} to "
+            f"address {email} because of an exception connecting "
             f"to the Celery job system. Reason: {e} "
         )
         # Let the exception bubble up to any callers.  If the caller was an API call
