@@ -3,6 +3,94 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
+import pytest
+
+
+@pytest.fixture
+def landing_job(db):
+    def _landing_job(status, requester_email="tuser@example.com"):
+        job = LandingJob(
+            status=status,
+            revision_to_diff_id={},
+            revision_order=[],
+            requester_email=requester_email,
+            repository_name="",
+        )
+        db.session.add(job)
+        db.session.commit()
+        return job
+
+    return _landing_job
+
+
+def test_cancel_landing_job_cancels(db, client, landing_job, auth0_mock):
+    """Test happy path; cancelling a job that has not started yet."""
+    job = landing_job(LandingJobStatus.SUBMITTED)
+    response = client.put(
+        f"/landing_jobs/{job.id}",
+        json={"status": LandingJobStatus.CANCELLED.value},
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json["id"] == job.id
+    assert job.status == LandingJobStatus.CANCELLED
+
+
+def test_cancel_landing_job_fails_in_progress(db, client, landing_job, auth0_mock):
+    """Test trying to cancel a job that is in progress fails."""
+    job = landing_job(LandingJobStatus.IN_PROGRESS)
+    response = client.put(
+        f"/landing_jobs/{job.id}",
+        json={"status": LandingJobStatus.CANCELLED.value},
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json["detail"] == (
+        "Landing job status (LandingJobStatus.IN_PROGRESS) does not allow cancelling."
+    )
+    assert job.status == LandingJobStatus.IN_PROGRESS
+
+
+def test_cancel_landing_job_fails_not_owner(db, client, landing_job, auth0_mock):
+    """Test trying to cancel a job that is created by a different user."""
+    job = landing_job(LandingJobStatus.SUBMITTED, "anotheruser@example.org")
+    response = client.put(
+        f"/landing_jobs/{job.id}",
+        json={"status": LandingJobStatus.CANCELLED.value},
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json["detail"] == ("User not authorized to update landing job 1")
+    assert job.status == LandingJobStatus.SUBMITTED
+
+
+def test_cancel_landing_job_fails_not_found(db, client, landing_job, auth0_mock):
+    """Test trying to cancel a job that does not exist."""
+    response = client.put(
+        f"/landing_jobs/1",
+        json={"status": LandingJobStatus.CANCELLED.value},
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json["detail"] == ("A landing job with ID 1 was not found.")
+
+
+def test_cancel_landing_job_fails_bad_input(db, client, landing_job, auth0_mock):
+    """Test trying to send an invalid status to the update endpoint."""
+    job = landing_job(LandingJobStatus.SUBMITTED)
+    response = client.put(
+        f"/landing_jobs/{job.id}",
+        json={"status": LandingJobStatus.IN_PROGRESS.value},
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json["detail"] == ("'IN_PROGRESS' is not one of ['CANCELLED']")
+    assert job.status == LandingJobStatus.SUBMITTED
 
 
 def test_landing_job_acquire_job_job_queue_query(db):
