@@ -140,7 +140,14 @@ class LandingJob(Base):
 
     @classmethod
     def job_queue_query(cls, repositories=None, grace_seconds=DEFAULT_GRACE_SECONDS):
-        """Return a query which selects the queued jobs."""
+        """Return a query which selects the queued jobs.
+
+        Args:
+            repositories (iterable): A list of repository names to use when filtering
+                the landing job search query.
+            grace_seconds (int): Ignore landing jobs that were submitted after this
+                many seconds ago.
+        """
         applicable_statuses = (
             LandingJobStatus.SUBMITTED,
             LandingJobStatus.IN_PROGRESS,

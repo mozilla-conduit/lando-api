@@ -51,22 +51,22 @@ def put(landing_job_id, data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
         )
 
-    if data["status"] == LandingJobStatus.CANCELLED.value:
-        if landing_job.status == LandingJobStatus.SUBMITTED:
-            landing_job.transition_status(LandingJobAction.CANCEL)
-            db.session.commit()
-            return {"id": landing_job.id}, 200
-        else:
-            raise ProblemException(
-                400,
-                "Landing job could not be cancelled.",
-                f"Landing job status ({landing_job.status}) does not allow cancelling.",
-                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-            )
-    else:
+    if data["status"] != LandingJobStatus.CANCELLED.value:
         raise ProblemException(
             400,
             "Invalid status provided",
             f"The provided status {data['status']} is not allowed.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
+
+    if landing_job.status == LandingJobStatus.SUBMITTED:
+        landing_job.transition_status(LandingJobAction.CANCEL)
+        db.session.commit()
+        return {"id": landing_job.id}, 200
+    else:
+        raise ProblemException(
+            400,
+            "Landing job could not be cancelled.",
+            f"Landing job status ({landing_job.status}) does not allow cancelling.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
