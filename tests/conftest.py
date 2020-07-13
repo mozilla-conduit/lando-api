@@ -259,24 +259,16 @@ def mocked_repo_config(mock_repo_config):
         {
             "test": {
                 "mozilla-central": Repo(
-                    "mozilla-central",
-                    SCM_LEVEL_3,
-                    "",
-                    "",
-                    "",
-                    False,
-                    "http://hg.test",
-                    False,
+                    tree="mozilla-central",
+                    url="http://hg.test",
+                    access_group=SCM_LEVEL_3,
+                    approval_required=False,
                 ),
                 "mozilla-uplift": Repo(
-                    "mozilla-uplift",
-                    SCM_LEVEL_3,
-                    "",
-                    "",
-                    "",
-                    False,
-                    "http://hg.test/uplift",
-                    True,
+                    tree="mozilla-uplift",
+                    url="http://hg.test/uplift",
+                    access_group=SCM_LEVEL_3,
+                    approval_required=True,
                 ),
             }
         }
