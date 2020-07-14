@@ -4,6 +4,7 @@
 import datetime
 import enum
 import logging
+import os
 
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
@@ -12,6 +13,8 @@ from landoapi.models.base import Base
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_GRACE_SECONDS = os.environ.get("DEFAULT_GRACE_SECONDS", 60 * 2)
 
 
 @enum.unique
@@ -50,13 +53,16 @@ class LandingJobAction(enum.Enum):
     """
 
     # Land a job (i.e. success!)
-    LAND = enum.auto()
+    LAND = "LAND"
 
     # Defer landing to a later time (i.e. temporarily failed)
-    DEFER = enum.auto()
+    DEFER = "DEFER"
 
     # A permanent issue occurred and this requires user intervention
-    FAIL = enum.auto()
+    FAIL = "FAIL"
+
+    # A user has requested a cancellation
+    CANCEL = "CANCEL"
 
 
 class LandingJob(Base):
@@ -133,8 +139,15 @@ class LandingJob(Base):
         return cls.query.filter(cls.revision_to_diff_id.has_any(array(revisions)))
 
     @classmethod
-    def job_queue_query(cls, repositories=None):
-        """Return a query which selects the queued jobs."""
+    def job_queue_query(cls, repositories=None, grace_seconds=DEFAULT_GRACE_SECONDS):
+        """Return a query which selects the queued jobs.
+
+        Args:
+            repositories (iterable): A list of repository names to use when filtering
+                the landing job search query.
+            grace_seconds (int): Ignore landing jobs that were submitted after this
+                many seconds ago.
+        """
         applicable_statuses = (
             LandingJobStatus.SUBMITTED,
             LandingJobStatus.IN_PROGRESS,
@@ -144,6 +157,11 @@ class LandingJob(Base):
 
         if repositories:
             q = q.filter(cls.repository_name.in_(repositories))
+
+        if grace_seconds:
+            now = datetime.datetime.now(datetime.timezone.utc)
+            grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
+            q = q.filter(cls.created_at < grace_cutoff)
 
         # Any `LandingJobStatus.IN_PROGRESS` job is first and there should
         # be a maximum of one (per repository). For
@@ -187,6 +205,10 @@ class LandingJob(Base):
             LandingJobAction.DEFER: {
                 "required_params": ["message"],
                 "status": LandingJobStatus.DEFERRED,
+            },
+            LandingJobAction.CANCEL: {
+                "required_params": [],
+                "status": LandingJobStatus.CANCELLED,
             },
         }
 

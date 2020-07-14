@@ -109,6 +109,52 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /landing_jobs/{landing_job_id}:
+    put:
+      operationId: landoapi.api.landing_jobs.put
+      description: Updates a request to land (i.e. a landing job)
+      parameters:
+        - name: landing_job_id
+          in: path
+          type: string
+          required: true
+        - name: data
+          required: true
+          in: body
+          schema:
+            type: object
+            required:
+              - status
+            properties:
+              status:
+                type: string
+                enum:
+                  - CANCELLED
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: Landing Job id
+        403:
+          description: Service not authorized
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        404:
+          description: Landing job does not exist
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+
   /landings/update:
     post:
       operationId: landoapi.api.landings.update
