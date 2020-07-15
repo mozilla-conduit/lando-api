@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import logging
-import os
 import pathlib
 import urllib
 from collections import namedtuple
@@ -66,7 +65,10 @@ class Repo:
     config_override: dict = None
 
     def __post_init__(self):
-        """Updates `push_path` and `pull_path` based on `url`, if either are missing."""
+        """Set defaults based on initial values.
+
+        Updates `push_path` and `pull_path` based on `url`, if either are missing.
+        """
         if not self.push_path or not self.pull_path:
             url = urllib.parse.urlparse(self.url)
             if not self.push_path:
@@ -116,20 +118,6 @@ SCM_FIREFOXCI = AccessGroup(
     display_name="scm_firefoxci",
 )
 
-# Username and SSH port to use when connecting to remote HG server.
-landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
-landing_worker_target_ssh_port = os.environ.get("LANDING_WORKER_TARGET_SSH_PORT", "22")
-
-# Configuration overrides that can be applied to any repo.
-SSH_CONFIG_OVERRIDES = (
-    "ssh "
-    '-o "SendEnv AUTOLAND_REQUEST_USER" '
-    '-o "StrictHostKeyChecking no" '
-    '-o "PasswordAuthentication no" '
-    f'-o "User {landing_worker_username}" '
-    f'-o "Port {landing_worker_target_ssh_port}"'
-)
-
 
 REPO_CONFIG = {
     # '<ENV>': {
@@ -158,7 +146,6 @@ REPO_CONFIG = {
             push_path="ssh://autoland.hg//repos/third-repo",
             pull_path="http://hg.test/third-repo",
             transplant_locally=True,
-            config_override={"ui.ssh": SSH_CONFIG_OVERRIDES},
         ),
         # Approval is required for the uplift dev repo
         "uplift-target": Repo(
@@ -177,7 +164,6 @@ REPO_CONFIG = {
             push_path="ssh://autolandhg.devsvcdev.mozaws.net//repos/test-repo",
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
             transplant_locally=True,
-            config_override={"ui.ssh": SSH_CONFIG_OVERRIDES},
         ),
         # A repo to test local transplants.
         "first-repo": Repo(
@@ -214,7 +200,6 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             push_bookmark="@",
             transplant_locally=True,
-            config_override={"ui.ssh": SSH_CONFIG_OVERRIDES},
         ),
         "build-tools": Repo(
             tree="build-tools",
