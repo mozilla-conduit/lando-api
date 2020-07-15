@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import copy
 import logging
+import os
 import shlex
 import tempfile
 import uuid
@@ -12,6 +13,10 @@ import hglib
 from landoapi.hgexports import PatchHelper
 
 logger = logging.getLogger(__name__)
+
+# Username and SSH port to use when connecting to remote HG server.
+landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
+landing_worker_target_ssh_port = os.environ.get("LANDING_WORKER_TARGET_SSH_PORT", "22")
 
 
 class HgException(Exception):
@@ -92,7 +97,14 @@ class HgRepo:
         "ui.username": "Otto Länd <bind-autoland@mozilla.com>",
         "ui.interactive": "False",
         "ui.merge": "internal:merge",
-        "ui.ssh": 'ssh -o "SendEnv AUTOLAND_REQUEST_USER"',
+        "ui.ssh": (
+            "ssh "
+            '-o "SendEnv AUTOLAND_REQUEVST_USER" '
+            '-o "StrictHostKeyChecking no" '
+            '-o "PasswordAuthentication no" '
+            f'-o "User {landing_worker_username}" '
+            f'-o "Port {landing_worker_target_ssh_port}"'
+        ),
         "extensions.purge": "",
         "extensions.strip": "",
         "extensions.rebase": "",

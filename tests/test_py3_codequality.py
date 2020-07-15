@@ -12,7 +12,7 @@ from landoapi.cli import LINT_PATHS
 def test_check_python_style():
     cmd = ("black", "--diff")
     output = subprocess.check_output(cmd + LINT_PATHS)
-    assert not output, "The python code does not adhear to the project style."
+    assert not output, "The python code does not adhere to the project style."
 
 
 def test_check_python_flake8():

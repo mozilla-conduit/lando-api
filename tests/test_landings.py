@@ -172,7 +172,12 @@ def test_integrated_execute_job(
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo(
-        "mozilla-central", SCM_LEVEL_3, "", hg_server, hg_server, True, hg_server, False
+        tree="mozilla-central",
+        url=hg_server,
+        access_group=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        transplant_locally=True,
     )
     hgrepo = HgRepo(hg_clone.strpath)
     upload_patch(1)
