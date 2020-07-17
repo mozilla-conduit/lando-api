@@ -99,7 +99,7 @@ class HgRepo:
         "ui.merge": "internal:merge",
         "ui.ssh": (
             "ssh "
-            '-o "SendEnv AUTOLAND_REQUEVST_USER" '
+            '-o "SendEnv AUTOLAND_REQUEST_USER" '
             '-o "StrictHostKeyChecking no" '
             '-o "PasswordAuthentication no" '
             f'-o "User {landing_worker_username}" '
