@@ -65,35 +65,36 @@ REVIEWERS_RE = re.compile(  # noqa: E131
 METADATA_RE = re.compile("^MozReview-Commit-ID: ")
 
 
-def format_commit_message(title, bug, reviewers, summary, revision_url):
+def format_commit_message(title, bug, reviewers, summary, revision_url, flags=None):
     """
     Creates a default format commit message using revision metadata.
 
     The default format is as follows:
-        <Bug #> - <Message Title> r=<reviewer1>,r=<reviewer2>
+        <Bug #> - <Message Title> r=<reviewer1>,r=<reviewer2> <flag1> <flag2>
 
         <Summary>
 
         Differential Revision: <Revision URL>
 
     Args:
-        title: The first line of the original commit message.
-        bug: The bug number to use or None.
-        reviewers: A list of reviewer usernames.
-        summary: A string containing the revision's summary
-        revision_url: The revision's url in Phabricator
+        title (str): The first line of the original commit message.
+        bug (str): The bug number to use or None.
+        reviewers (list of str): A list of reviewer usernames.
+        summary (str): A string containing the revision's summary.
+        revision_url (str): The revision's url in Phabricator.
+        flags (list of str): A list of flags to append to the title.
 
     Returns:
-        A tuple of strings with the formatted title and full commit message.
-        If the title already contains the bug id or reviewers, only the missing
-        part will be added, or the title will be used unmodified if it is
-        already valid.
+        tuple of str: Includes the formatted title and full commit message. If the
+            title already contains the bug id or reviewers, only the missing part
+            will be added, or the title will be used unmodified if it is already
+            valid.
     """
     if bug and bug not in parse_bugs(title):
         # All we really care about is if a bug is known it should
         # appear in the first line of the commit message. If it
         # isn't already there we'll add it.
-        title = "Bug {} - {}".format(bug, title)
+        title = f"Bug {bug} - {title}"
 
     # Ensure that the actual reviewers are recorded in the
     # first line of the commit message.
@@ -102,6 +103,10 @@ def format_commit_message(title, bug, reviewers, summary, revision_url):
     # Clear any leading / trailing whitespace.
     title = title.strip()
     summary = summary.strip()
+
+    # Append any flags to the title, as needed
+    if flags:
+        title = f"{title} {' '.join(flags)}"
 
     # Construct the final message as a series of sections with
     # a blank line between each. Blank sections are filtered out.
@@ -180,7 +185,7 @@ def strip_commit_metadata(s):
     if type(s) == bytes:
         joiner = b"\n"
     elif type(s) == str:
-        joiner = u"\n"
+        joiner = "\n"
     else:
         raise TypeError("do not know type of commit message: %s" % type(s))
 

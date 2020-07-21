@@ -49,6 +49,8 @@ class Repo:
         approval_required (bool): Whether approval is required or not for given repo.
             Note that this is not fully implemented but is included for compatibility.
             Defaults to `False`.
+        commit_flags (bool): A list of supported flags that can be appended to the
+            commit message at landing time (e.g. `["DONTBUILD"]`).
         config_override (dict): Parameters to override when loading the Mercurial
             configuration. The keys and values map directly to configuration keys and
             values. Defaults to `None`.
@@ -62,6 +64,7 @@ class Repo:
     pull_path: str = ""
     transplant_locally: bool = False
     approval_required: bool = False
+    commit_flags: list = None
     config_override: dict = None
 
     def __post_init__(self):
@@ -75,6 +78,9 @@ class Repo:
                 self.push_path = f"ssh://{url.netloc}{url.path}"
             if not self.pull_path:
                 self.pull_path = self.url
+
+        if not self.commit_flags:
+            self.commit_flags = []
 
 
 SCM_LEVEL_3 = AccessGroup(
@@ -131,8 +137,10 @@ REPO_CONFIG = {
         "first-repo": Repo(
             tree="first-repo",
             url="http://hg.test/first-repo",
+            push_path="ssh://autoland.hg//first-repo",
             access_group=SCM_LEVEL_1,
             transplant_locally=True,
+            commit_flags=["DONTBUILD"],
         ),
         "second-repo": Repo(
             tree="second-repo",

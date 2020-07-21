@@ -99,6 +99,19 @@ def test_commit_message_reviewers_replaced(reviewer_text):
     assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
 
 
+def test_commit_message_with_flags():
+    reviewers = ["reviewer_one", "reviewer.two"]
+    commit_message = format_commit_message(
+        title="A title.",
+        bug=1,
+        reviewers=reviewers,
+        summary="A summary.",
+        revision_url="http://phabricator.test/D123",
+        flags=["DONTBUILD"],
+    )
+    assert commit_message[0] == FIRST_LINE + " DONTBUILD"
+
+
 @pytest.mark.xfail(strict=True)
 def test_group_reviewers_replaced_with_period_at_end():
     """Test unexpected period after reviewer name.

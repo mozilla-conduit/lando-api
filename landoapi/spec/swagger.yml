@@ -88,6 +88,10 @@ paths:
                       with the current warnings and the matching token. If
                       the warnings have changed between requesting a dryrun
                       and requesting a landing, the landing will fail.
+                  flags:
+                    type: array
+                    items:
+                      type: string
       responses:
         202:
           description: OK
