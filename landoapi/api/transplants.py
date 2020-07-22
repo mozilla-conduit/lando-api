@@ -338,7 +338,7 @@ def post(data):
         )
     )
 
-    if landing_repo.transplant_locally:
+    if not landing_repo.legacy_transplant:
         with db.session.begin_nested():
             _lock_table_for(db.session, model=LandingJob)
             if (

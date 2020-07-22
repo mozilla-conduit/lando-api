@@ -177,7 +177,7 @@ def test_integrated_execute_job(
         access_group=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
-        transplant_locally=True,
+        legacy_transplant=False,
     )
     hgrepo = HgRepo(hg_clone.strpath)
     upload_patch(1)
