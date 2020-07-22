@@ -44,7 +44,7 @@ class Repo:
         pull_path (str): The protocol, hostname, and path to use when cloning or pulling
             from a remote Mercurial repository. Defaults to `url`.
         legacy_transplant (bool): (defunct) When set to `True`, publishes transplant
-            request to "Autoland Transplant" instead of queing the requests in the
+            request to "Autoland Transplant" instead of queueing the requests in the
             Landing Worker. Defaults to `False`.
         approval_required (bool): Whether approval is required or not for given repo.
             Note that this is not fully implemented but is included for compatibility.
