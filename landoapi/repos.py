@@ -182,6 +182,12 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
         ),
+        "m-c": Repo(
+            tree="m-c",
+            url="https://autolandhg.devsvcdev.mozaws.net/local/m-c/",
+            access_group=SCM_VERSIONCONTROL,
+            push_path="ssh://autolandhg.devsvcdev.mozaws.net//local_repos/m-c",
+        ),
     },
     "devsvcprod": {
         "phabricator-qa-stage": Repo(
