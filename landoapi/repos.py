@@ -187,6 +187,7 @@ REPO_CONFIG = {
             url="https://autolandhg.devsvcdev.mozaws.net/local/m-c/",
             access_group=SCM_VERSIONCONTROL,
             push_path="ssh://autolandhg.devsvcdev.mozaws.net//local_repos/m-c",
+            pull_path="https://hg.mozilla.org/integration/autoland",
         ),
     },
     "devsvcprod": {
