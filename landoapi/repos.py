@@ -229,7 +229,7 @@ REPO_CONFIG = {
             access_group=SCM_L10N_INFRA,
         ),
         "mozilla-central": Repo(
-            tree="gecko",
+            tree="autoland",
             url="https://hg.mozilla.org/integration/autoland",
             access_group=SCM_LEVEL_3,
             short_name="mozilla-central",
