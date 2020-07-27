@@ -188,12 +188,14 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
         ),
-        "m-c": Repo(
+        "m-c-hammer": Repo(
             tree="m-c",
             url="https://autolandhg.devsvcdev.mozaws.net/local/m-c/",
             access_group=SCM_VERSIONCONTROL,
             push_path="ssh://autolandhg.devsvcdev.mozaws.net//local_repos/m-c",
             pull_path="https://hg.mozilla.org/integration/autoland",
+            # Set a different short name for testing purposes
+            short_name="m-c-hammer",
         ),
     },
     "devsvcprod": {
