@@ -43,6 +43,8 @@ class Repo:
             `url` but with `ssh` protocol.
         pull_path (str): The protocol, hostname, and path to use when cloning or pulling
             from a remote Mercurial repository. Defaults to `url`.
+        short_name (str): The Phabricator short name field for this repo, if different
+            from the `tree`. Defaults to `tree`.
         legacy_transplant (bool): (defunct) When set to `True`, publishes transplant
             request to "Autoland Transplant" instead of queueing the requests in the
             Landing Worker. Defaults to `False`.
@@ -60,6 +62,7 @@ class Repo:
     push_bookmark: str = ""
     push_path: str = ""
     pull_path: str = ""
+    short_name: str = ""
     legacy_transplant: bool = False
     approval_required: bool = False
     config_override: dict = None
@@ -75,6 +78,9 @@ class Repo:
                 self.push_path = f"ssh://{url.netloc}{url.path}"
             if not self.pull_path:
                 self.pull_path = self.url
+
+        if not self.short_name:
+            self.short_name = self.tree
 
 
 SCM_LEVEL_3 = AccessGroup(
@@ -226,6 +232,7 @@ REPO_CONFIG = {
             tree="gecko",
             url="https://hg.mozilla.org/integration/autoland",
             access_group=SCM_LEVEL_3,
+            short_name="mozilla-central",
         ),
         "comm-central": Repo(
             tree="comm-central",
