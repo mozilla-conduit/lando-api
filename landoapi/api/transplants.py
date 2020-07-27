@@ -357,7 +357,7 @@ def post(data):
             job = LandingJob(
                 status=LandingJobStatus.SUBMITTED,
                 requester_email=ldap_username,
-                repository_name=landing_repo.tree,
+                repository_name=landing_repo.short_name,
                 repository_url=landing_repo.url,
                 revision_to_diff_id=revision_to_diff_id,
                 revision_order=revision_order,
