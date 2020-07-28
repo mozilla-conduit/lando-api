@@ -367,7 +367,7 @@ def post(data):
         )
     )
 
-    if landing_repo.transplant_locally:
+    if not landing_repo.legacy_transplant:
         with db.session.begin_nested():
             _lock_table_for(db.session, model=LandingJob)
             if (
@@ -386,7 +386,7 @@ def post(data):
             job = LandingJob(
                 status=LandingJobStatus.SUBMITTED,
                 requester_email=ldap_username,
-                repository_name=landing_repo.tree,
+                repository_name=landing_repo.short_name,
                 repository_url=landing_repo.url,
                 revision_to_diff_id=revision_to_diff_id,
                 revision_order=revision_order,

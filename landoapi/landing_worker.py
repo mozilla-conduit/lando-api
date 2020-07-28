@@ -121,7 +121,9 @@ class LandingWorker:
 
     def refresh_enabled_repos(self):
         self.enabled_repos = [
-            r for r in self.applicable_repos if treestatus_subsystem.client.is_open(r)
+            r
+            for r in self.applicable_repos
+            if treestatus_subsystem.client.is_open(repo_clone_subsystem.repos[r].tree)
         ]
         logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 

@@ -263,12 +263,14 @@ def mocked_repo_config(mock_repo_config):
                     url="http://hg.test",
                     access_group=SCM_LEVEL_3,
                     approval_required=False,
+                    legacy_transplant=True,
                 ),
                 "mozilla-uplift": Repo(
                     tree="mozilla-uplift",
                     url="http://hg.test/uplift",
                     access_group=SCM_LEVEL_3,
                     approval_required=True,
+                    legacy_transplant=True,
                 ),
             }
         }

@@ -587,6 +587,7 @@ def test_integrated_push_bookmark_sent_when_supported_repo(
                     url="http://hg.test",
                     access_group=SCM_LEVEL_3,
                     push_bookmark="@",
+                    legacy_transplant=True,
                 )
             }
         }

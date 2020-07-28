@@ -43,9 +43,11 @@ class Repo:
             `url` but with `ssh` protocol.
         pull_path (str): The protocol, hostname, and path to use when cloning or pulling
             from a remote Mercurial repository. Defaults to `url`.
-        transplant_locally (bool): When set to `True`, disables publishing the
-            transplant requests to "Autoland Transplant" and instead queues these
-            requests in the Landing Worker. Defaults to `False`.
+        short_name (str): The Phabricator short name field for this repo, if different
+            from the `tree`. Defaults to `tree`.
+        legacy_transplant (bool): (defunct) When set to `True`, publishes transplant
+            request to "Autoland Transplant" instead of queueing the requests in the
+            Landing Worker. Defaults to `False`.
         approval_required (bool): Whether approval is required or not for given repo.
             Note that this is not fully implemented but is included for compatibility.
             Defaults to `False`.
@@ -62,7 +64,8 @@ class Repo:
     push_bookmark: str = ""
     push_path: str = ""
     pull_path: str = ""
-    transplant_locally: bool = False
+    short_name: str = ""
+    legacy_transplant: bool = False
     approval_required: bool = False
     commit_flags: list = None
     config_override: dict = None
@@ -81,6 +84,9 @@ class Repo:
 
         if not self.commit_flags:
             self.commit_flags = []
+
+        if not self.short_name:
+            self.short_name = self.tree
 
 
 SCM_LEVEL_3 = AccessGroup(
@@ -139,13 +145,13 @@ REPO_CONFIG = {
             url="http://hg.test/first-repo",
             push_path="ssh://autoland.hg//first-repo",
             access_group=SCM_LEVEL_1,
-            transplant_locally=True,
             commit_flags=["DONTBUILD"],
         ),
         "second-repo": Repo(
             tree="second-repo",
             url="http://hg.test/second-repo",
             access_group=SCM_LEVEL_1,
+            legacy_transplant=True,
         ),
         "third-repo": Repo(
             tree="third-repo",
@@ -153,7 +159,6 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_1,
             push_path="ssh://autoland.hg//repos/third-repo",
             pull_path="http://hg.test/third-repo",
-            transplant_locally=True,
         ),
         # Approval is required for the uplift dev repo
         "uplift-target": Repo(
@@ -161,6 +166,7 @@ REPO_CONFIG = {
             url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
             access_group=SCM_LEVEL_1,
             approval_required=True,
+            legacy_transplant=True,
         ),
     },
     "devsvcdev": {
@@ -171,20 +177,19 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             push_path="ssh://autolandhg.devsvcdev.mozaws.net//repos/test-repo",
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
-            transplant_locally=True,
         ),
         # A repo to test local transplants.
         "first-repo": Repo(
             tree="first-repo",
             url="https://autolandhg.devsvcdev.mozaws.net/first-repo",
             access_group=SCM_VERSIONCONTROL,
-            transplant_locally=True,
         ),
         # A repo to test autoland transplants.
         "second-repo": Repo(
             tree="second-repo",
             url="https://autolandhg.devsvcdev.mozaws.net/second-repo",
             access_group=SCM_VERSIONCONTROL,
+            legacy_transplant=True,
         ),
         # A repo to test different push/pull paths.
         "third-repo": Repo(
@@ -192,7 +197,13 @@ REPO_CONFIG = {
             url="https://autolandhg.devsvcdev.mozaws.net/third-repo",
             access_group=SCM_VERSIONCONTROL,
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
-            transplant_locally=True,
+        ),
+        "m-c": Repo(
+            tree="m-c",
+            url="https://autolandhg.devsvcdev.mozaws.net/local/m-c/",
+            access_group=SCM_VERSIONCONTROL,
+            push_path="ssh://autolandhg.devsvcdev.mozaws.net//local_repos/m-c",
+            pull_path="https://hg.mozilla.org/integration/autoland",
         ),
     },
     "devsvcprod": {
@@ -200,67 +211,56 @@ REPO_CONFIG = {
             tree="phabricator-qa-stage",
             url="https://hg.mozilla.org/automation/phabricator-qa-stage",
             access_group=SCM_LEVEL_3,
-            transplant_locally=True,
         ),
         "version-control-tools": Repo(
             tree="version-control-tools",
             url="https://hg.mozilla.org/hgcustom/version-control-tools",
             access_group=SCM_VERSIONCONTROL,
             push_bookmark="@",
-            transplant_locally=True,
         ),
         "build-tools": Repo(
             tree="build-tools",
             url="https://hg.mozilla.org/build/tools/",
             access_group=SCM_LEVEL_3,
-            transplant_locally=True,
         ),
         "ci-admin": Repo(
             tree="ci-admin",
             url="https://hg.mozilla.org/ci/ci-admin",
             access_group=SCM_FIREFOXCI,
-            transplant_locally=True,
         ),
         "ci-configuration": Repo(
             tree="ci-configuration",
             url="https://hg.mozilla.org/ci/ci-configuration",
             access_group=SCM_FIREFOXCI,
-            transplant_locally=True,
         ),
         "fluent-migration": Repo(
             tree="fluent-migration",
             url="https://hg.mozilla.org/l10n/fluent-migration",
             access_group=SCM_L10N_INFRA,
-            transplant_locally=True,
         ),
         "mozilla-central": Repo(
-            tree="gecko",
+            tree="autoland",
             url="https://hg.mozilla.org/integration/autoland",
             access_group=SCM_LEVEL_3,
+            short_name="mozilla-central",
         ),
         "comm-central": Repo(
             tree="comm-central",
             url="https://hg.mozilla.org/comm-central",
             access_group=SCM_LEVEL_3,
-            transplant_locally=True,
         ),
         "nspr": Repo(
             tree="nspr",
             url="https://hg.mozilla.org/projects/nspr",
             access_group=SCM_NSS,
-            transplant_locally=True,
         ),
         "taskgraph": Repo(
             tree="taskgraph",
             url="https://hg.mozilla.org/ci/taskgraph",
             access_group=SCM_LEVEL_3,
-            transplant_locally=True,
         ),
         "nss": Repo(
-            tree="nss",
-            url="https://hg.mozilla.org/projects/nss",
-            access_group=SCM_NSS,
-            transplant_locally=True,
+            tree="nss", url="https://hg.mozilla.org/projects/nss", access_group=SCM_NSS
         ),
     },
 }
