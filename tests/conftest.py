@@ -272,6 +272,12 @@ def mocked_repo_config(mock_repo_config):
                     approval_required=True,
                     legacy_transplant=True,
                 ),
+                "mozilla-new": Repo(
+                    tree="mozilla-new",
+                    url="http://hg.test",
+                    access_group=SCM_LEVEL_3,
+                    commit_flags=["VALIDFLAG1", "VALIDFLAG2"],
+                ),
             }
         }
     )

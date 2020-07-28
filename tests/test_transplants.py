@@ -513,6 +513,62 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     assert transplant.request_id == transplant_request_id
 
 
+def test_integrated_transplant_with_flags(
+    db, client, phabdouble, s3, auth0_mock, monkeypatch
+):
+    repo = phabdouble.repo(name="mozilla-new")
+    user = phabdouble.user(username="reviewer")
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=repo)
+    phabdouble.reviewer(r1, user)
+
+    test_flags = ["VALIDFLAG1", "VALIDFLAG2"]
+
+    mock_format_commit_message = MagicMock()
+    monkeypatch.setattr(
+        "landoapi.api.transplants.format_commit_message", mock_format_commit_message
+    )
+    response = client.post(
+        "/transplants",
+        json={
+            "flags": test_flags,
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ],
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response.status_code == 202
+    assert response.content_type == "application/json"
+    assert mock_format_commit_message.call_count == 1
+    assert test_flags in mock_format_commit_message.call_args[0]
+
+
+def test_integrated_transplant_with_invalid_flags(
+    db, client, phabdouble, s3, auth0_mock, monkeypatch
+):
+    repo = phabdouble.repo(name="mozilla-new")
+    user = phabdouble.user(username="reviewer")
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=repo)
+    phabdouble.reviewer(r1, user)
+
+    test_flags = ["VALIDFLAG1", "INVALIDFLAG"]
+    response = client.post(
+        "/transplants",
+        json={
+            "flags": test_flags,
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ],
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response.status_code == 400
+
+
 def test_integrated_transplant_checkin_project_removed(
     db, client, phabdouble, transfactory, s3, auth0_mock, checkin_project, monkeypatch
 ):
