@@ -114,6 +114,10 @@ class HgRepo:
     def __init__(self, path, config=None):
         self.path = path
         self.config = copy.copy(self.DEFAULT_CONFIGS)
+
+        # Somewhere to store patch headers
+        self.patch_header = None
+
         if config is not None:
             self.config.update(config)
 
@@ -219,6 +223,8 @@ class HgRepo:
         if not patch_helper.diff_start_line:
             raise NoDiffStartLine()
 
+        self.patch_header = patch_helper.header
+
         # Import the diff to apply the changes then commit separately to
         # ensure correct parsing of the commit message.
         f_msg = tempfile.NamedTemporaryFile()
@@ -250,6 +256,7 @@ class HgRepo:
                         b"",
                         b"forced fail: hunk FAILED -- saving rejects to file",
                     )
+                    #     b"forced fail: abort: push creates new remote head",
                 self.run_hg(import_cmd + [f_diff.name])
             except hglib.error.CommandError as exc:
                 if isinstance(HgException.from_hglib_error(exc), PatchConflict):
@@ -281,6 +288,16 @@ class HgRepo:
             )
 
     def push(self, target, bookmark=None):
+        # For testing, force a LostPushRace exception if this header is
+        # defined.
+        if (
+            self.patch_header
+            and self.patch_header("Fail HG Import") == b"LOSE_PUSH_RACE"
+        ):
+            exc = hglib.error.CommandError(
+                (), 1, b"", b"forced fail: abort: push creates new remote head"
+            )
+            raise HgException.from_hglib_error(exc)
         if bookmark is None:
             self.run_hg(["push", "-r", "tip", target])
         else:

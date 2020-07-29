@@ -15,6 +15,7 @@ from flask import current_app
 from landoapi import patches
 from landoapi.hg import (
     HgRepo,
+    LostPushRace,
     NoDiffStartLine,
     PatchConflict,
     TreeApprovalRequired,
@@ -235,7 +236,15 @@ class LandingWorker:
                     "utf-8"
                 )
                 hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
-
+        except LostPushRace:
+            logger.info(f"LandingJob {job.id} lost push race, deferring")
+            job.transition_status(
+                LandingJobAction.DEFER,
+                message=f"Lost push race when pushing to {repo.push_path}.",
+                commit=True,
+                db=db,
+            )
+            return False
         except NoDiffStartLine:
             logger.exception("Patch without a diff start line.")
             message = (
