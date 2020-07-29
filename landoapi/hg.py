@@ -293,10 +293,7 @@ class HgRepo:
             self.patch_header
             and self.patch_header("Fail HG Import") == b"LOSE_PUSH_RACE"
         ):
-            exc = hglib.error.CommandError(
-                (), 1, b"", b"forced fail: abort: push creates new remote head"
-            )
-            raise HgException.from_hglib_error(exc)
+            raise LostPushRace()
         if bookmark is None:
             self.run_hg(["push", "-r", "tip", target])
         else:
