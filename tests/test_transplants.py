@@ -513,10 +513,10 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     assert transplant.request_id == transplant_request_id
 
 
-def test_integrated_transplant_checkin_project_removed(
+def test_integrated_transplant_legacy_repo_checkin_project_removed(
     db, client, phabdouble, transfactory, s3, auth0_mock, checkin_project, monkeypatch
 ):
-    repo = phabdouble.repo()
+    repo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
 
     d = phabdouble.diff()
@@ -540,6 +540,34 @@ def test_integrated_transplant_checkin_project_removed(
     assert response.status_code == 202
     assert mock_remove.apply_async.called
     _, call_kwargs = mock_remove.apply_async.call_args
+    assert call_kwargs["args"] == (r["phid"], checkin_project["phid"])
+
+
+def test_integrated_transplant_repo_checkin_project_removed(
+    db, client, phabdouble, s3, auth0_mock, checkin_project, monkeypatch
+):
+    repo = phabdouble.repo(name="mozilla-new")
+    user = phabdouble.user(username="reviewer")
+
+    d = phabdouble.diff()
+    r = phabdouble.revision(diff=d, repo=repo, projects=[checkin_project])
+    phabdouble.reviewer(r, user)
+
+    mock_remove = MagicMock(admin_remove_phab_project)
+    monkeypatch.setattr(
+        "landoapi.api.transplants.admin_remove_phab_project", mock_remove
+    )
+
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [{"revision_id": "D{}".format(r["id"]), "diff_id": d["id"]}]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response.status_code == 202
+    assert mock_remove.apply_async.called
+    call_kwargs = mock_remove.apply_async.call_args[1]
     assert call_kwargs["args"] == (r["phid"], checkin_project["phid"])
 
 
