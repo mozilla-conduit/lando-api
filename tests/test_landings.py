@@ -17,11 +17,11 @@ from landoapi.repos import Repo, SCM_LEVEL_3
 def upload_patch():
     """A fixture that fake uploads a patch"""
 
-    def _upload_patch(number):
+    def _upload_patch(number, patch=PATCH_NORMAL_1):
         patches.upload(
             number,
             number,
-            PATCH_NORMAL_1,
+            patch,
             "landoapi.test.bucket",
             aws_access_key=None,
             aws_secret_key=None,
@@ -165,6 +165,22 @@ diff --git a/test.txt b/test.txt
 +adding one more line
 """.strip()
 
+PATCH_PUSH_LOSER = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Fail HG Import LOSE_PUSH_RACE
+# Diff Start Line 8
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding one more line again
+""".strip()
+
 
 def test_integrated_execute_job(
     app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble, upload_patch
@@ -196,6 +212,36 @@ def test_integrated_execute_job(
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
     assert job.status is LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
+
+
+def test_lose_push_race(
+    app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble, upload_patch
+):
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo(
+        tree="mozilla-central",
+        url=hg_server,
+        access_group=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+    )
+    hgrepo = HgRepo(hg_clone.strpath)
+    upload_patch(1, patch=PATCH_PUSH_LOSER)
+    job = LandingJob(
+        id=1234,
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1},
+        revision_order=["1"],
+        attempts=1,
+    )
+
+    worker = LandingWorker(sleep_seconds=0)
+
+    assert not worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert job.status is LandingJobStatus.DEFERRED
 
 
 def test_failed_landing_job_notification(
