@@ -227,14 +227,14 @@ def test_lose_push_race(
         pull_path=hg_server,
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    upload_patch(3, patch=PATCH_PUSH_LOSER)
+    upload_patch(1, patch=PATCH_PUSH_LOSER)
     job = LandingJob(
         id=1234,
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
         repository_name="mozilla-central",
-        revision_to_diff_id={"3": 3},
-        revision_order=["3"],
+        revision_to_diff_id={"1": 1},
+        revision_order=["1"],
         attempts=1,
     )
 

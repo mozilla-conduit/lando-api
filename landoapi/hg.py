@@ -115,7 +115,7 @@ class HgRepo:
         self.path = path
         self.config = copy.copy(self.DEFAULT_CONFIGS)
 
-        # Somewhere to store patch headers
+        # Somewhere to store patch headers for testing.
         self.patch_header = None
 
         if config is not None:
@@ -256,7 +256,6 @@ class HgRepo:
                         b"",
                         b"forced fail: hunk FAILED -- saving rejects to file",
                     )
-                    #     b"forced fail: abort: push creates new remote head",
                 self.run_hg(import_cmd + [f_diff.name])
             except hglib.error.CommandError as exc:
                 if isinstance(HgException.from_hglib_error(exc), PatchConflict):
