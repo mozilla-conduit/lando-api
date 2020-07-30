@@ -144,6 +144,10 @@ class LandingWorker:
         last_job_finished = True
 
         while self.running:
+            # Check if any closed trees reopened since the beginning of this iteration
+            if len(self.enabled_repos) != len(self.applicable_repos):
+                self.refresh_enabled_repos()
+
             if not last_job_finished:
                 logger.info(
                     "Last job did not complete, waiting for {} seconds".format(
