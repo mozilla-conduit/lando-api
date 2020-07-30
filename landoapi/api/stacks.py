@@ -165,7 +165,7 @@ def get(revision_id):
         url = (
             repo.url
             if landing_supported
-            else (f"{current_app.config['PHABRICATOR_URL']}/source/{short_name}")
+            else f"{current_app.config['PHABRICATOR_URL']}/source/{short_name}"
         )
 
         repositories.append(
