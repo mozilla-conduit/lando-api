@@ -162,14 +162,17 @@ def get(revision_id):
 
         repo = supported_repos.get(short_name)
         landing_supported = repo is not None
+        url = (
+            repo.url
+            if landing_supported
+            else (f"{current_app.config['PHABRICATOR_URL']}/source/{short_name}")
+        )
 
         repositories.append(
             {
                 "landing_supported": landing_supported,
                 "approval_required": landing_supported and repo.approval_required,
-                "url": repo.url
-                if landing_supported
-                else (f"{current_app.config['PHABRICATOR_URL']}/source/{short_name}"),
+                "url": url,
                 "phid": phid,
                 "shortname": short_name,
                 "commit_flags": repo.commit_flags if repo else [],
