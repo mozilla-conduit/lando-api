@@ -294,10 +294,15 @@ class HgRepo:
             and self.patch_header("Fail HG Import") == b"LOSE_PUSH_RACE"
         ):
             raise LostPushRace()
-        if bookmark is None:
-            self.run_hg(["push", "-r", "tip", target])
-        else:
-            self.run_hg_cmds([["bookmark", bookmark], ["push", "-B", bookmark, target]])
+        try:
+            if bookmark is None:
+                self.run_hg(["push", "-r", "tip", target])
+            else:
+                self.run_hg_cmds(
+                    [["bookmark", bookmark], ["push", "-B", bookmark, target]]
+                )
+        except hglib.error.CommandError as exc:
+            raise HgException.from_hglib_error(exc) from exc
 
     def update_repo(self, source):
         # Obtain remote tip. We assume there is only a single head.
