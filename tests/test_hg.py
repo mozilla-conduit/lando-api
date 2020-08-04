@@ -5,7 +5,17 @@ import io
 
 import pytest
 
-from landoapi.hg import HgCommandError, HgRepo, NoDiffStartLine, PatchConflict
+from landoapi.hg import (
+    HgCommandError,
+    HgException,
+    HgRepo,
+    LostPushRace,
+    NoDiffStartLine,
+    PatchConflict,
+    TreeApprovalRequired,
+    TreeClosed,
+    hglib,
+)
 
 
 def test_integrated_hgrepo_clean_repo(hg_clone):
@@ -219,3 +229,18 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
         repo.apply_patch(io.BytesIO(PATCH_DELETE_NO_NEWLINE_FILE))
         # Commit created.
         assert "file removed" in str(repo.run_hg(["outgoing"]))
+
+
+def test_hg_exceptions():
+    """Ensure the correct exception is raised if a particular snippet is present."""
+    snippet_exception_mapping = {
+        b"abort: push creates new remote head": LostPushRace,
+        b"APPROVAL REQUIRED!": TreeApprovalRequired,
+        b"is CLOSED!": TreeClosed,
+        b"unresolved conflicts (see hg resolve": PatchConflict,
+    }
+
+    for snippet, exception in snippet_exception_mapping.items():
+        exc = hglib.error.CommandError((), 1, b"", snippet)
+        with pytest.raises(exception):
+            raise HgException.from_hglib_error(exc)

@@ -274,7 +274,7 @@ def mocked_repo_config(mock_repo_config):
                 ),
                 "mozilla-new": Repo(
                     tree="mozilla-new",
-                    url="http://hg.test",
+                    url="http://hg.test/new",
                     access_group=SCM_LEVEL_3,
                     commit_flags=["VALIDFLAG1", "VALIDFLAG2"],
                 ),
