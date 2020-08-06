@@ -72,7 +72,7 @@ def format_commit_message(
     summary: str,
     revision_url: str,
     flags: List[str] = None,
-) -> str:
+) -> Tuple[str]:
     """
     Creates a default format commit message using revision metadata.
 
@@ -92,10 +92,10 @@ def format_commit_message(
         flags: A list of flags to append to the title.
 
     Returns:
-        tuple of str: Includes the formatted title and full commit message. If the
-            title already contains the bug id or reviewers, only the missing part
-            will be added, or the title will be used unmodified if it is already
-            valid.
+        A tuple containing the formatted title and full commit message. If the
+        title already contains the bug id or reviewers, only the missing part
+        will be added, or the title will be used unmodified if it is already
+        valid.
     """
     if bug and bug not in parse_bugs(title):
         # All we really care about is if a bug is known it should
