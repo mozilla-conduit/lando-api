@@ -170,12 +170,12 @@ def get(revision_id):
 
         repositories.append(
             {
-                "landing_supported": landing_supported,
                 "approval_required": landing_supported and repo.approval_required,
-                "url": url,
-                "phid": phid,
-                "shortname": short_name,
                 "commit_flags": repo.commit_flags if repo else [],
+                "landing_supported": landing_supported,
+                "phid": phid,
+                "short_name": short_name,
+                "url": url,
             }
         )
 

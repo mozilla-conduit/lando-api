@@ -177,6 +177,7 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             push_path="ssh://autolandhg.devsvcdev.mozaws.net//repos/test-repo",
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+            commit_flags=["DONTBUILD"],
         ),
         # A repo to test local transplants.
         "first-repo": Repo(
@@ -243,6 +244,7 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/integration/autoland",
             access_group=SCM_LEVEL_3,
             short_name="mozilla-central",
+            commit_flags=["DONTBUILD"],
         ),
         "comm-central": Repo(
             tree="comm-central",

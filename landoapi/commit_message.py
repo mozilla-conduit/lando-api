@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Add revision data to commit message."""
 import re
-from typing import Tuple
+from typing import List, Tuple
 
 REVISION_URL_TEMPLATE = "Differential Revision: {url}"
 
@@ -65,7 +65,14 @@ REVIEWERS_RE = re.compile(  # noqa: E131
 METADATA_RE = re.compile("^MozReview-Commit-ID: ")
 
 
-def format_commit_message(title, bug, reviewers, summary, revision_url, flags=None):
+def format_commit_message(
+    title: str,
+    bug: str,
+    reviewers: List[str],
+    summary: str,
+    revision_url: str,
+    flags: List[str] = None,
+) -> str:
     """
     Creates a default format commit message using revision metadata.
 
@@ -77,12 +84,12 @@ def format_commit_message(title, bug, reviewers, summary, revision_url, flags=No
         Differential Revision: <Revision URL>
 
     Args:
-        title (str): The first line of the original commit message.
-        bug (str): The bug number to use or None.
-        reviewers (list of str): A list of reviewer usernames.
-        summary (str): A string containing the revision's summary.
-        revision_url (str): The revision's url in Phabricator.
-        flags (list of str): A list of flags to append to the title.
+        title: The first line of the original commit message.
+        bug: The bug number to use or None.
+        reviewers: A list of reviewer usernames.
+        summary: A string containing the revision's summary.
+        revision_url: The revision's url in Phabricator.
+        flags: A list of flags to append to the title.
 
     Returns:
         tuple of str: Includes the formatted title and full commit message. If the
