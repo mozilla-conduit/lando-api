@@ -51,6 +51,8 @@ class Repo:
         approval_required (bool): Whether approval is required or not for given repo.
             Note that this is not fully implemented but is included for compatibility.
             Defaults to `False`.
+        commit_flags (bool): A list of supported flags that can be appended to the
+            commit message at landing time (e.g. `["DONTBUILD"]`).
         config_override (dict): Parameters to override when loading the Mercurial
             configuration. The keys and values map directly to configuration keys and
             values. Defaults to `None`.
@@ -65,6 +67,7 @@ class Repo:
     short_name: str = ""
     legacy_transplant: bool = False
     approval_required: bool = False
+    commit_flags: list = None
     config_override: dict = None
 
     def __post_init__(self):
@@ -78,6 +81,9 @@ class Repo:
                 self.push_path = f"ssh://{url.netloc}{url.path}"
             if not self.pull_path:
                 self.pull_path = self.url
+
+        if not self.commit_flags:
+            self.commit_flags = []
 
         if not self.short_name:
             self.short_name = self.tree
@@ -135,7 +141,11 @@ REPO_CONFIG = {
             tree="test-repo", url="http://hg.test/test-repo", access_group=SCM_LEVEL_1
         ),
         "first-repo": Repo(
-            tree="first-repo", url="http://hg.test/first-repo", access_group=SCM_LEVEL_1
+            tree="first-repo",
+            url="http://hg.test/first-repo",
+            push_path="ssh://autoland.hg//first-repo",
+            access_group=SCM_LEVEL_1,
+            commit_flags=["DONTBUILD"],
         ),
         "second-repo": Repo(
             tree="second-repo",
@@ -167,6 +177,7 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             push_path="ssh://autolandhg.devsvcdev.mozaws.net//repos/test-repo",
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+            commit_flags=["DONTBUILD"],
         ),
         # A repo to test local transplants.
         "first-repo": Repo(
@@ -233,6 +244,7 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/integration/autoland",
             access_group=SCM_LEVEL_3,
             short_name="mozilla-central",
+            commit_flags=["DONTBUILD"],
         ),
         "comm-central": Repo(
             tree="comm-central",

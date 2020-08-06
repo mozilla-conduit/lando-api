@@ -159,26 +159,23 @@ def get(revision_id):
         short_name = PhabricatorClient.expect(
             stack_data.repositories[phid], "fields", "shortName"
         )
+
         repo = supported_repos.get(short_name)
-        if repo is None:
-            landing_supported, approval_required = False, None
-        else:
-            landing_supported, approval_required = True, repo.approval_required
+        landing_supported = repo is not None
         url = (
-            "{phabricator_url}/source/{short_name}".format(
-                phabricator_url=current_app.config["PHABRICATOR_URL"],
-                short_name=short_name,
-            )
-            if not landing_supported
-            else supported_repos[short_name].url
+            repo.url
+            if landing_supported
+            else f"{current_app.config['PHABRICATOR_URL']}/source/{short_name}"
         )
+
         repositories.append(
             {
+                "approval_required": landing_supported and repo.approval_required,
+                "commit_flags": repo.commit_flags if repo else [],
+                "landing_supported": landing_supported,
                 "phid": phid,
                 "short_name": short_name,
                 "url": url,
-                "landing_supported": landing_supported,
-                "approval_required": approval_required,
             }
         )
 

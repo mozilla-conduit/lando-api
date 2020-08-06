@@ -54,9 +54,17 @@ from landoapi.validation import revision_id_to_int
 logger = logging.getLogger(__name__)
 
 
-def _unmarshal_transplant_request(data):
+def _parse_transplant_request(data):
+    """Extract confirmation token, flags, and the landing path from provided data.
+
+    Args
+        data (dict): A dictionary representing the transplant request.
+
+    Returns:
+        dict: A dictionary containing the landing path, confirmation token and flags.
+    """
     try:
-        path = [
+        landing_path = [
             (revision_id_to_int(item["revision_id"]), int(item["diff_id"]))
             for item in data["landing_path"]
         ]
@@ -68,7 +76,7 @@ def _unmarshal_transplant_request(data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    if not path:
+    if not landing_path:
         raise ProblemException(
             400,
             "Landing Path Required",
@@ -76,11 +84,17 @@ def _unmarshal_transplant_request(data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
+    flags = data.get("flags", [])
+
     # Confirmation token is optional. Convert usage of an empty
     # string to None as well to make using the API easier.
     confirmation_token = data.get("confirmation_token") or None
 
-    return path, confirmation_token
+    return {
+        "landing_path": landing_path,
+        "confirmation_token": confirmation_token,
+        "flags": flags,
+    }
 
 
 def _choose_middle_revision_from_path(path):
@@ -222,7 +236,7 @@ def _lock_table_for(
 @require_phabricator_api_key(optional=True)
 def dryrun(data):
     phab = g.phabricator
-    landing_path, _ = _unmarshal_transplant_request(data)
+    landing_path = _parse_transplant_request(data)["landing_path"]
     assessment, *_ = _assess_transplant_request(phab, landing_path)
     return assessment.to_dict()
 
@@ -231,12 +245,18 @@ def dryrun(data):
 @require_phabricator_api_key(optional=True)
 def post(data):
     phab = g.phabricator
-    landing_path, confirmation_token = _unmarshal_transplant_request(data)
+
+    parsed_transplant_request = _parse_transplant_request(data)
+    confirmation_token = parsed_transplant_request["confirmation_token"]
+    flags = parsed_transplant_request["flags"]
+    landing_path = parsed_transplant_request["landing_path"]
+
     logger.info(
         "transplant requested by user",
         extra={
             "has_confirmation_token": confirmation_token is not None,
             "landing_path": landing_path,
+            "flags": flags,
         },
     )
     assessment, to_land, landing_repo, stack_data = _assess_transplant_request(
@@ -249,6 +269,16 @@ def post(data):
         raise ValueError(
             "One or more values missing in access transplant request: "
             f"{to_land}, {landing_repo}, {stack_data}"
+        )
+
+    invalid_flags = set(flags) - set(landing_repo.commit_flags)
+    if invalid_flags:
+        raise ProblemException(
+            400,
+            "Invalid flags specified",
+            f"Flags must be one or more of {landing_repo.commit_flags}; "
+            f"{invalid_flags} provided.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
     if assessment.warnings:
@@ -307,6 +337,7 @@ def post(data):
             urllib.parse.urljoin(
                 current_app.config["PHABRICATOR_URL"], "D{}".format(revision["id"])
             ),
+            flags,
         )[1]
         author_name, author_email = select_diff_author(diff)
         date_modified = phab.expect(revision, "fields", "dateModified")
