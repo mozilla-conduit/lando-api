@@ -111,7 +111,10 @@ def format_commit_message(
     title = title.strip()
     summary = summary.strip()
 
-    # Append any flags to the title, as needed
+    # Check if any flags are already in the title, and exclude those.
+    flags = [f for f in flags if f not in title] if flags else None
+
+    # Append any flags to the title, as needed.
     if flags:
         title = f"{title} {' '.join(flags)}"
 
