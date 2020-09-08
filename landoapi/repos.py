@@ -250,6 +250,7 @@ REPO_CONFIG = {
             tree="comm-central",
             url="https://hg.mozilla.org/comm-central",
             access_group=SCM_LEVEL_3,
+            commit_flags=["DONTBUILD"],
         ),
         "nspr": Repo(
             tree="nspr",
