@@ -21,6 +21,8 @@ from landoapi.projects import (
     get_checkin_project_phid,
     get_sec_approval_project_phid,
     get_secure_project_phid,
+    get_testing_tag_project_phids,
+    get_testing_policy_phid,
     get_relman_group_phid,
     project_search,
 )
@@ -205,6 +207,8 @@ def _assess_transplant_request(phab, landing_path):
         users,
         projects,
         get_secure_project_phid(phab),
+        get_testing_tag_project_phids(phab),
+        get_testing_policy_phid(phab),
     )
     return (assessment, to_land, landing_repo, stack_data)
 

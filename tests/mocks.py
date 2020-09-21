@@ -236,8 +236,14 @@ class PhabricatorDouble:
             "hashes": [],
             "bugzilla.bug-id": bug_id,
             "repositoryPHID": repo["phid"] if repo is not None else None,
+            "fields": {"repositoryPHID": repo["phid"] if repo is not None else None},
             "sourcePath": None,
+            # projectPHIDs is left for backwards compatibility for older tests, though
+            # it appears to no longer be in the response from the Phabricator API.
             "projectPHIDs": [project["phid"] for project in projects],
+            "attachments": {
+                "projects": {"projectPHIDs": [project["phid"] for project in projects]}
+            },
         }
 
         for rev in depends_on:
@@ -417,7 +423,8 @@ class PhabricatorDouble:
 
         return diff
 
-    def repo(self, *, name="mozilla-central"):
+    def repo(self, *, name="mozilla-central", projects=None):
+        projects = projects or []
         repos = [r for r in self._repos if r["name"] == name]
         if repos:
             return repos[0]
@@ -440,6 +447,9 @@ class PhabricatorDouble:
             "dateCreated": 1502986064,
             "dateModified": 1505659447,
             "policy": {"view": "public", "edit": "admin", "diffusion.push": "no-one"},
+            "attachments": {
+                "projects": {"projectPHIDs": [project["phid"] for project in projects]}
+            },
         }
 
         self._repos.append(repo)

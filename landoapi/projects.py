@@ -14,6 +14,22 @@ SEC_PROJ_SLUG = "secure-revision"
 SEC_PROJ_CACHE_KEY = "secure-project-phid"
 CHECKIN_PROJ_SLUG = "check-in_needed"
 CHECKIN_PROJ_CACHE_KEY = "checkin-project-phid"
+
+# Testing tag slugs. Revisions need one of these tags to remove the respective warnings.
+TESTING_TAG_PROJ_SLUGS = (
+    "testing-approved",
+    "testing-exception-elsewhere",
+    "testing-exception-other",
+    "testing-exception-ui",
+    "testing-exception-unchanged",
+)
+
+TESTING_TAGS_PROJ_CACHE_KEY = "testing-tag-phids"
+
+# A repo with a "testing-policy" project will have testing policy warnings enabled.
+TESTING_POLICY_PROJ_SLUG = "testing-policy"
+TESTING_POLICY_PROJ_CACHE_KEY = "testing-policy-phid"
+
 # The name of the Phabricator project containing members of the Secure
 # Bug Approval Process.
 # See https://wiki.mozilla.org/Security/Bug_Approval_Process.
@@ -96,6 +112,35 @@ def get_checkin_project_phid(phabricator):
         A string phid if the project is found, otherwise None.
     """
     return get_project_phid(CHECKIN_PROJ_SLUG, phabricator)
+
+
+@cache.cached(
+    key_prefix=TESTING_POLICY_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT
+)
+def get_testing_policy_phid(phabricator):
+    """Return a phid for the project indicating testing policy.
+
+    Args:
+        phabricator: A PhabricatorClient instance.
+
+    Returns:
+        A string phid if the project is found, otherwise None.
+    """
+    return get_project_phid(TESTING_POLICY_PROJ_SLUG, phabricator)
+
+
+@cache.cached(key_prefix=TESTING_TAGS_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
+def get_testing_tag_project_phids(phabricator):
+    """Return phids for the testing tag projects.
+
+    Args:
+        phabricator: A PhabricatorClient instance.
+
+    Returns:
+        list of str: A list of phids if the projects are found, otherwise None.
+    """
+    tags = [get_project_phid(slug, phabricator) for slug in TESTING_TAG_PROJ_SLUGS]
+    return [t for t in tags if t is not None]
 
 
 @cache.cached(key_prefix=SEC_APPROVAL_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
