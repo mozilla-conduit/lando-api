@@ -51,8 +51,8 @@ class Repo:
         approval_required (bool): Whether approval is required or not for given repo.
             Note that this is not fully implemented but is included for compatibility.
             Defaults to `False`.
-        commit_flags (bool): A list of supported flags that can be appended to the
-            commit message at landing time (e.g. `["DONTBUILD"]`).
+        commit_flags (list of tuple): A list of supported flags that can be appended to
+            the commit message at landing time (e.g. `[("DONTBUILD", "help text")]`).
         config_override (dict): Parameters to override when loading the Mercurial
             configuration. The keys and values map directly to configuration keys and
             values. Defaults to `None`.
@@ -145,7 +145,16 @@ REPO_CONFIG = {
             url="http://hg.test/first-repo",
             push_path="ssh://autoland.hg//first-repo",
             access_group=SCM_LEVEL_1,
-            commit_flags=["DONTBUILD"],
+            commit_flags=[
+                (
+                    "DONTBUILD",
+                    (
+                        "Should be used only for trivial changes (typo, comment changes"
+                        " documentation changes, etc.) where the risk of introducing a"
+                        " new bug is close to none."
+                    ),
+                )
+            ],
         ),
         "second-repo": Repo(
             tree="second-repo",
@@ -177,7 +186,16 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             push_path="ssh://autolandhg.devsvcdev.mozaws.net//repos/test-repo",
             pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
-            commit_flags=["DONTBUILD"],
+            commit_flags=[
+                (
+                    "DONTBUILD",
+                    (
+                        "Should be used only for trivial changes (typo, comment changes"
+                        " documentation changes, etc.) where the risk of introducing a"
+                        " new bug is close to none."
+                    ),
+                )
+            ],
         ),
         # A repo to test local transplants.
         "first-repo": Repo(
@@ -244,7 +262,16 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/integration/autoland",
             access_group=SCM_LEVEL_3,
             short_name="mozilla-central",
-            commit_flags=["DONTBUILD"],
+            commit_flags=[
+                (
+                    "DONTBUILD",
+                    (
+                        "Should be used only for trivial changes (typo, comment changes"
+                        " documentation changes, etc.) where the risk of introducing a"
+                        " new bug is close to none."
+                    ),
+                )
+            ],
         ),
         "comm-central": Repo(
             tree="comm-central",

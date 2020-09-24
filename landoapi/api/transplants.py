@@ -271,12 +271,13 @@ def post(data):
             f"{to_land}, {landing_repo}, {stack_data}"
         )
 
-    invalid_flags = set(flags) - set(landing_repo.commit_flags)
+    allowed_flags = [f[0] for f in landing_repo.commit_flags]
+    invalid_flags = set(flags) - set(allowed_flags)
     if invalid_flags:
         raise ProblemException(
             400,
             "Invalid flags specified",
-            f"Flags must be one or more of {landing_repo.commit_flags}; "
+            f"Flags must be one or more of {allowed_flags}; "
             f"{invalid_flags} provided.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
