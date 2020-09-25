@@ -23,7 +23,6 @@ TESTING_TAG_PROJ_SLUGS = (
     "testing-exception-ui",
     "testing-exception-unchanged",
 )
-
 TESTING_TAGS_PROJ_CACHE_KEY = "testing-tag-phids"
 
 # A repo with a "testing-policy" project will have testing policy warnings enabled.

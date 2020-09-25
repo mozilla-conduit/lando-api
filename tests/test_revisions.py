@@ -7,7 +7,6 @@ from unittest.mock import MagicMock
 
 from landoapi.phabricator import RevisionStatus, ReviewerStatus
 from landoapi.repos import get_repos_for_env
-
 from landoapi.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
