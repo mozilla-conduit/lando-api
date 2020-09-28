@@ -18,6 +18,7 @@ from landoapi.revisions import (
     check_diff_author_is_known,
     check_relman_approval,
     revision_is_secure,
+    revision_needs_testing_tag,
 )
 
 logger = logging.getLogger(__name__)
@@ -257,6 +258,23 @@ def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
     )
 
 
+@RevisionWarningCheck(5, "Revision is missing a Testing Policy Project Tag.")
+def warning_revision_missing_testing_tag(
+    *, revision, testing_tag_project_phids, testing_policy_phid, **kwargs
+):
+    if not testing_tag_project_phids:
+        return None
+
+    if not revision_needs_testing_tag(
+        revision, testing_tag_project_phids, testing_policy_phid
+    ):
+        return None
+
+    return (
+        "This revision does not specify a testing tag. Please add one before landing."
+    )
+
+
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return (
@@ -289,6 +307,8 @@ def check_landing_warnings(
     users,
     projects,
     secure_project_phid,
+    testing_tag_project_phids,
+    testing_policy_phid,
     *,
     revision_warnings=[
         warning_blocking_reviews,
@@ -296,6 +316,7 @@ def check_landing_warnings(
         warning_not_accepted,
         warning_reviews_not_current,
         warning_revision_secure,
+        warning_revision_missing_testing_tag,
     ]
 ):
     assessment = TransplantAssessment()
@@ -310,6 +331,8 @@ def check_landing_warnings(
                 users=users,
                 projects=projects,
                 secure_project_phid=secure_project_phid,
+                testing_tag_project_phids=testing_tag_project_phids,
+                testing_policy_phid=testing_policy_phid,
             )
 
             if result is not None:

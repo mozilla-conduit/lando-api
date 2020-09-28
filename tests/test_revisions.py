@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import pytest
+from unittest.mock import MagicMock
 
 from landoapi.phabricator import RevisionStatus, ReviewerStatus
 from landoapi.repos import get_repos_for_env
@@ -11,6 +12,7 @@ from landoapi.revisions import (
     check_diff_author_is_known,
     check_relman_approval,
     revision_is_secure,
+    revision_needs_testing_tag,
 )
 
 pytestmark = pytest.mark.usefixtures("docker_env_vars")
@@ -143,3 +145,45 @@ def test_relman_approval_status(status, phabdouble):
             output
             == "The release-managers group did not accept that stack: you need to wait for a group approval from release-managers, or request a new review."  # noqa
         )
+
+
+def test_revision_does_not_need_testing_tag(phabdouble, monkeypatch):
+    testing_tag_projects = [{"phid": "testing-tag-phid"}]
+    testing_policy_project = {"phid": "testing-policy-phid"}
+    repo = phabdouble.repo(projects=[testing_policy_project])
+    revision = phabdouble.revision(projects=testing_tag_projects, repo=repo)
+    mock_get_phabricator_repo = MagicMock()
+    mock_get_phabricator_repo.return_value = repo
+    monkeypatch.setattr(
+        "landoapi.revisions.get_phabricator_repo", mock_get_phabricator_repo
+    )
+    assert not revision_needs_testing_tag(
+        revision, ["testing-tag-phid"], "testing-policy-phid"
+    )
+
+
+def test_revision_needs_testing_tag(phabdouble, monkeypatch):
+    testing_policy_project = {"phid": "testing-policy-phid"}
+    repo = phabdouble.repo(projects=[testing_policy_project])
+    revision = phabdouble.revision(projects=[], repo=repo)
+    mock_get_phabricator_repo = MagicMock()
+    mock_get_phabricator_repo.return_value = repo
+    monkeypatch.setattr(
+        "landoapi.revisions.get_phabricator_repo", mock_get_phabricator_repo
+    )
+    assert revision_needs_testing_tag(
+        revision, ["testing-tag-phid"], "testing-policy-phid"
+    )
+
+
+def test_repo_does_not_have_testing_policy(phabdouble, monkeypatch):
+    repo = phabdouble.repo(projects=[])
+    revision = phabdouble.revision(projects=[], repo=repo)
+    mock_get_phabricator_repo = MagicMock()
+    mock_get_phabricator_repo.return_value = repo
+    monkeypatch.setattr(
+        "landoapi.revisions.get_phabricator_repo", mock_get_phabricator_repo
+    )
+    assert not revision_needs_testing_tag(
+        revision, ["testing-tag-phid"], "testing-policy-phid"
+    )

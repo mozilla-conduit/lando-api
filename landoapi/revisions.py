@@ -4,6 +4,8 @@
 import logging
 from collections import Counter
 
+from flask import g
+
 from landoapi.models import SecApprovalRequest
 from landoapi.reviews import get_collated_reviewers
 from landoapi.phabricator import (
@@ -179,6 +181,53 @@ def revision_is_secure(revision, secure_project_phid):
         revision, "attachments", "projects", "projectPHIDs"
     )
     return secure_project_phid in revision_project_tags
+
+
+def get_phabricator_repo(repo_phid):
+    """Fetch a repo using the Phabricator API.
+
+    Args:
+        repo_phid (str): The PHID of the repo to fetch.
+
+    Returns:
+        dict: A dictionary representing the details of the repo.
+    """
+    repos = g.phabricator.call_conduit(
+        "diffusion.repository.search",
+        constraints={"phids": [repo_phid]},
+        attachments={"projects": True},
+        limit=1,
+    )
+    repo = g.phabricator.single(repos, "data")
+    return repo
+
+
+def revision_needs_testing_tag(
+    revision, testing_tag_project_phids, testing_policy_phid
+):
+    """Does the given revision contain the appropriate testing tag?
+
+    To enable this check for a particular repo, the repo needs to be associated with
+    the "needs-testing-tag" project.
+
+    Args:
+        revision (dict): A Phabricator revision.
+        testing_tag_project_phids (list): A list of all testing policy tag PHIDs.
+        testing_policy_phid (str): The PHID of the `testing-policy` tag, normally
+            associated with a repo.
+
+    Returns:
+        bool: True if the revision needs a testing policy tag, else False.
+    """
+    repo_phid = revision["fields"]["repositoryPHID"]
+    repo = get_phabricator_repo(repo_phid)
+
+    # Check if the repo has a testing-policy tag.
+    if testing_policy_phid in repo["attachments"]["projects"]["projectPHIDs"]:
+        # Check if the revision contains one of the testing policy tags.
+        revision_project_tags = revision["attachments"]["projects"]["projectPHIDs"]
+        return not set(testing_tag_project_phids) & set(revision_project_tags)
+    return False
 
 
 def find_title_and_summary_for_display(
