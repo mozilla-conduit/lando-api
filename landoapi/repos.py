@@ -134,7 +134,7 @@ SCM_FIREFOXCI = AccessGroup(
 DONTBUILD = (
     "DONTBUILD",
     (
-        "Should be used only for trivial changes (typo, comment changes"
+        "Should be used only for trivial changes (typo, comment changes,"
         " documentation changes, etc.) where the risk of introducing a"
         " new bug is close to none."
     ),
