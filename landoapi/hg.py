@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import copy
 from contextlib import contextmanager
+import configparser
 import logging
 import os
 from pathlib import Path
@@ -10,6 +11,8 @@ import shlex
 import shutil
 import tempfile
 import uuid
+
+from typing import List, Optional
 
 import hglib
 
@@ -98,6 +101,23 @@ class PatchConflict(PatchApplicationFailure):
     )
 
 
+def check_fix_output_for_replacements(fix_output: List[bytes]) -> Optional[List[str]]:
+    """Parses `hg fix` output.
+
+    Returns:
+        A list of changeset hashes, or None if no changesets are changed.
+    """
+    for line in fix_output:
+        if not line.startswith(b"REPLACEMENTS: "):
+            continue
+
+        replacements_list = line.split(b"REPLACEMENTS: ", maxsplit=1)[-1].split(b",")
+
+        return [element.decode("latin-1") for element in replacements_list]
+
+    return None
+
+
 class HgRepo:
     ENCODING = "utf-8"
     DEFAULT_CONFIGS = {
@@ -116,6 +136,10 @@ class HgRepo:
         "extensions.strip": "",
         "extensions.rebase": "",
         "extensions.set_landing_system": "/app/hgext/set_landing_system.py",
+        # Turn on fix extension for autoformatting, set to abort on failure
+        "extensions.fix": "",
+        "fix.failure": "abort",
+        "hooks.postfix": "python:/app/hgext/postfix_hook.py:postfix_hook",
     }
 
     def __init__(self, path, config=None):
@@ -125,7 +149,7 @@ class HgRepo:
         # Somewhere to store patch headers for testing.
         self.patch_header = None
 
-        if config is not None:
+        if config:
             self.config.update(config)
 
     def _config_to_list(self):
@@ -335,6 +359,47 @@ class HgRepo:
                 + ["--logfile", f_msg.name]
             )
 
+    def format(self) -> Optional[List[str]]:
+        """Run `hg fix` to format the currently checked-out stack, reading
+        fileset patterns for each formatter from the `.lando.ini` file in-tree."""
+        # Avoid attempting to autoformat without `.lando.ini` in-tree.
+        lando_config_path = Path(self.path) / ".lando.ini"
+        if not lando_config_path.exists():
+            return None
+
+        # ConfigParser will use `:` as a delimeter unless told otherwise.
+        # We set our keys as `formatter:pattern` so specify `=` as the delimiters.
+        parser = configparser.ConfigParser(delimiters="=")
+        with lando_config_path.open() as f:
+            parser.read_file(f)
+
+        fix_hg_command = []
+        for key, value in parser.items("fix"):
+            if not key.endswith(":pattern"):
+                continue
+
+            fix_hg_command += ["--config", f"fix.{key}={value}"]
+
+        # Exit if we didn't find any patterns.
+        if not fix_hg_command:
+            return None
+
+        # Run the formatters.
+        fix_hg_command += ["fix", "-r", "stack()"]
+        fix_output = self.run_hg(fix_hg_command).splitlines()
+
+        # Update the working directory to the latest change.
+        self.run_hg(["update", "-C", "-r", "tip"])
+
+        formatted_replacements = check_fix_output_for_replacements(fix_output)
+        logger.info(
+            f"revisions were reformatted: {', '.join(formatted_replacements)}"
+            if formatted_replacements
+            else "autoformatting did not change any revisions"
+        )
+
+        return formatted_replacements
+
     def push(self, target, bookmark=None):
         if not os.getenv(REQUEST_USER_ENV_VAR):
             raise ValueError(f"{REQUEST_USER_ENV_VAR} not set while attempting to push")
@@ -397,7 +462,7 @@ class HgRepo:
         # Pull and update to remote tip.
         cmds = [
             ["pull", source],
-            ["rebase", "--abort", "-r", remote_rev],
+            ["rebase", "--abort"],
             ["update", "--clean", "-r", remote_rev],
         ]
 

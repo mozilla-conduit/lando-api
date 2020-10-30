@@ -130,6 +130,12 @@ class LandingJob(Base):
     # Duration of job from start to finish
     duration_seconds = db.Column(db.Integer, default=0)
 
+    # JSON array of changeset hashes which replaced reviewed changesets
+    # after autoformatting.
+    # eg.
+    #    ["", ""]
+    formatted_replacements = db.Column(JSONB, nullable=True)
+
     @property
     def landing_path(self):
         return [(int(r), self.revision_to_diff_id[r]) for r in self.revision_order]

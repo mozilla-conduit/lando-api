@@ -88,6 +88,13 @@ class Repo:
         if not self.short_name:
             self.short_name = self.tree
 
+    @property
+    def autoformat_enabled(self) -> bool:
+        """Return `True` if formatting is enabled for the repo."""
+        return self.config_override and any(
+            config.startswith("fix") for config in self.config_override.keys()
+        )
+
 
 SCM_LEVEL_3 = AccessGroup(
     active_group="active_scm_level_3",
@@ -189,12 +196,14 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/conduit-testing/m-c",
             access_group=SCM_CONDUIT,
             commit_flags=[DONTBUILD],
+            config_override={"fix.black:command": "black -- -"},
         ),
         "vct": Repo(
             tree="vct",
             url="https://hg.mozilla.org/conduit-testing/vct",
             access_group=SCM_CONDUIT,
             push_bookmark="@",
+            config_override={"fix.black:command": "black -- -"},
         ),
     },
     "devsvcprod": {

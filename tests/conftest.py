@@ -382,7 +382,7 @@ def hg_server(hg_test_bundle, tmpdir):
     hg_url = "http://localhost:" + port
 
     repo_dir = tmpdir.mkdir("hg_server")
-    subprocess.run(["hg", "clone", hg_test_bundle, repo_dir], check=True)
+    subprocess.run(["hg", "clone", hg_test_bundle, repo_dir], check=True, cwd="/")
 
     serve = subprocess.Popen(
         [
