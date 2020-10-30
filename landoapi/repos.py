@@ -193,7 +193,8 @@ REPO_CONFIG = {
         "vct": Repo(
             tree="vct",
             url="https://hg.mozilla.org/conduit-test/vct",
-            access_group=SCM_LEVEL_1,
+            access_group=SCM_VERSIONCONTROL,
+            push_bookmark="@",
         ),
     },
     "devsvcprod": {
