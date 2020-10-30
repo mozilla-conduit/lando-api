@@ -38,7 +38,7 @@ should be printed out):
 $ docker-compose up -d
 ```
 
-To create a database:
+To create a database: 
 
 ```
 $ invoke init
