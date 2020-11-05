@@ -181,18 +181,18 @@ REPO_CONFIG = {
     "devsvcdev": {
         "test-repo": Repo(
             tree="test-repo",
-            url="https://hg.mozilla.org/conduit-test/test-repo",
+            url="https://hg.mozilla.org/conduit-testing/test-repo",
             access_group=SCM_LEVEL_1,
         ),
         "m-c": Repo(
             tree="m-c",
-            url="https://hg.mozilla.org/conduit-test/m-c",
+            url="https://hg.mozilla.org/conduit-testing/m-c",
             access_group=SCM_LEVEL_1,
             commit_flags=[DONTBUILD],
         ),
         "vct": Repo(
             tree="vct",
-            url="https://hg.mozilla.org/conduit-test/vct",
+            url="https://hg.mozilla.org/conduit-testing/vct",
             access_group=SCM_VERSIONCONTROL,
             push_bookmark="@",
         ),
