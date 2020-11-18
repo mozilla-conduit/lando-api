@@ -179,41 +179,22 @@ REPO_CONFIG = {
         ),
     },
     "devsvcdev": {
-        # A general test repo that tests ssh pushes.
         "test-repo": Repo(
             tree="test-repo",
-            url="https://autolandhg.devsvcdev.mozaws.net/test-repo",
-            access_group=SCM_VERSIONCONTROL,
-            push_path="ssh://autolandhg.devsvcdev.mozaws.net//repos/test-repo",
-            pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
-            commit_flags=[DONTBUILD],
-        ),
-        # A repo to test local transplants.
-        "first-repo": Repo(
-            tree="first-repo",
-            url="https://autolandhg.devsvcdev.mozaws.net/first-repo",
-            access_group=SCM_VERSIONCONTROL,
-        ),
-        # A repo to test autoland transplants.
-        "second-repo": Repo(
-            tree="second-repo",
-            url="https://autolandhg.devsvcdev.mozaws.net/second-repo",
-            access_group=SCM_VERSIONCONTROL,
-            legacy_transplant=True,
-        ),
-        # A repo to test different push/pull paths.
-        "third-repo": Repo(
-            tree="third-repo",
-            url="https://autolandhg.devsvcdev.mozaws.net/third-repo",
-            access_group=SCM_VERSIONCONTROL,
-            pull_path="https://autolandhg.devsvcdev.mozaws.net/test-repo",
+            url="https://hg.mozilla.org/conduit-testing/test-repo",
+            access_group=SCM_CONDUIT,
         ),
         "m-c": Repo(
             tree="m-c",
-            url="https://autolandhg.devsvcdev.mozaws.net/local/m-c/",
-            access_group=SCM_VERSIONCONTROL,
-            push_path="ssh://autolandhg.devsvcdev.mozaws.net//local_repos/m-c",
-            pull_path="https://hg.mozilla.org/integration/autoland",
+            url="https://hg.mozilla.org/conduit-testing/m-c",
+            access_group=SCM_CONDUIT,
+            commit_flags=[DONTBUILD],
+        ),
+        "vct": Repo(
+            tree="vct",
+            url="https://hg.mozilla.org/conduit-testing/vct",
+            access_group=SCM_CONDUIT,
+            push_bookmark="@",
         ),
     },
     "devsvcprod": {
