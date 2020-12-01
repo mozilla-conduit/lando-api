@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from contextlib import contextmanager
 
+from datetime import datetime
 import logging
 import os
 import re
@@ -31,17 +32,25 @@ logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def job_processing(worker):
-    """Mutex-like context manager that ensures workers shut down gracefully.
+def job_processing(worker, job, db):
+    """Mutex-like context manager that manages job processing miscellany.
+
+    This context manager facilitates graceful worker shutdown, tracks the duration of
+    the current job, and commits changes to the DB at the very end.
 
     Args:
         worker (LandingWorker): the landing worker that is processing jobs
+        job (LandingJob): the job currently being processed
+        db (SQLAlchemy): active database session
     """
     worker.job_processing = True
+    start_time = datetime.now()
     try:
         yield
     finally:
         worker.job_processing = False
+        job.duration_seconds = (datetime.now() - start_time).seconds
+        db.session.commit()
 
 
 class LandingWorker:
@@ -165,10 +174,9 @@ class LandingWorker:
                 time.sleep(self.sleep_seconds)
                 continue
 
-            with job_processing(self):
+            with job_processing(self, job, db):
                 job.status = LandingJobStatus.IN_PROGRESS
                 job.attempts += 1
-                db.session.commit()
 
                 repo = repo_clone_subsystem.repos[job.repository_name]
                 hgrepo = HgRepo(
@@ -184,10 +192,7 @@ class LandingWorker:
                     treestatus_subsystem.client,
                     current_app.config["PATCH_BUCKET_NAME"],
                 )
-
-                # Finalize job
-                db.session.commit()
-                logger.info("Finished processing landing job", extra={"id": job.id})
+            logger.info("Finished processing landing job", extra={"id": job.id})
         logger.info("Landing worker exited")
 
     def exit_gracefully(self, *args):
