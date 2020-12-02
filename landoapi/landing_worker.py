@@ -178,6 +178,9 @@ class LandingWorker:
                 job.status = LandingJobStatus.IN_PROGRESS
                 job.attempts += 1
 
+                # Make sure the status and attempt count are updated in the database
+                db.session.commit()
+
                 repo = repo_clone_subsystem.repos[job.repository_name]
                 hgrepo = HgRepo(
                     str(repo_clone_subsystem.repo_paths[job.repository_name]),
