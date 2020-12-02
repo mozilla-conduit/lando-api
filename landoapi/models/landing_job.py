@@ -121,7 +121,7 @@ class LandingJob(Base):
     priority = db.Column(db.Integer, nullable=False, default=0)
 
     # Duration of job from start to finish
-    duration_seconds = db.Column(db.Integer, nullable=False, default=0)
+    duration_seconds = db.Column(db.Integer, default=0)
 
     @property
     def landing_path(self):
