@@ -1,8 +1,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from contextlib import contextmanager
+from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime
 import logging
 import os
@@ -25,23 +26,23 @@ from landoapi.hg import (
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
 from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.repos import repo_clone_subsystem
-from landoapi.storage import db
+from landoapi.storage import db, SQLAlchemy
 from landoapi.treestatus import treestatus_subsystem
 
 logger = logging.getLogger(__name__)
 
 
 @contextmanager
-def job_processing(worker, job, db):
+def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
     """Mutex-like context manager that manages job processing miscellany.
 
     This context manager facilitates graceful worker shutdown, tracks the duration of
     the current job, and commits changes to the DB at the very end.
 
     Args:
-        worker (LandingWorker): the landing worker that is processing jobs
-        job (LandingJob): the job currently being processed
-        db (SQLAlchemy): active database session
+        worker: the landing worker that is processing jobs
+        job: the job currently being processed
+        db: active database session
     """
     worker.job_processing = True
     start_time = datetime.now()
