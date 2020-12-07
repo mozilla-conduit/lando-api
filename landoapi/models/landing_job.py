@@ -120,6 +120,9 @@ class LandingJob(Base):
     # Priority of the job. Higher values are processed first.
     priority = db.Column(db.Integer, nullable=False, default=0)
 
+    # Duration of job from start to finish
+    duration_seconds = db.Column(db.Integer, default=0)
+
     @property
     def landing_path(self):
         return [(int(r), self.revision_to_diff_id[r]) for r in self.revision_order]
