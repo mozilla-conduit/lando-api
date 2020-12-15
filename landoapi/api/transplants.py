@@ -259,7 +259,7 @@ def post(data):
         "transplant requested by user",
         extra={
             "has_confirmation_token": confirmation_token is not None,
-            "landing_path": landing_path,
+            "landing_path": str(landing_path),
             "flags": flags,
         },
     )
