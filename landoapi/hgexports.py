@@ -40,8 +40,8 @@ def build_patch_for_revision(
         diff: A string holding a Git-formatted patch.
         author: A string with information about the patch's author.
         commit_message: A string containing the full commit message.
-        timestamp: (int) Number of seconds since Unix Epoch representing the date when
-            revision was modified.
+        timestamp: (int) Number of seconds since Unix Epoch representing the date and
+            time to be included in the Date header.
 
     Returns:
         A string containing a patch in 'hg export' format.
