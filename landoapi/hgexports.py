@@ -32,7 +32,7 @@ _HG_EXPORT_HEADER_LENGTH = len(_HG_EXPORT_HEADER.splitlines())
 
 
 def build_patch_for_revision(
-    diff, author_name, author_email, commit_message, date_modified
+    diff, author_name, author_email, commit_message, timestamp
 ):
     """Generate a 'hg export' patch using Phabricator Revision data.
 
@@ -40,8 +40,8 @@ def build_patch_for_revision(
         diff: A string holding a Git-formatted patch.
         author: A string with information about the patch's author.
         commit_message: A string containing the full commit message.
-        date_modified: (int) A number of seconds since Unix Epoch representing
-            the date when revision was modified.
+        timestamp: (int) Number of seconds since Unix Epoch representing the date and
+            time to be included in the Date header.
 
     Returns:
         A string containing a patch in 'hg export' format.
@@ -51,7 +51,7 @@ def build_patch_for_revision(
     header = _HG_EXPORT_HEADER.format(
         author_name=_no_line_breaks(author_name),
         author_email=_no_line_breaks(author_email),
-        patchdate=_no_line_breaks("%s +0000" % date_modified),
+        patchdate=_no_line_breaks("%s +0000" % timestamp),
         diff_start_line=len(message_lines) + _HG_EXPORT_HEADER_LENGTH + 1,
     )
 
