@@ -1,6 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+from datetime import datetime
 import logging
 import urllib.parse
 
@@ -345,12 +346,12 @@ def post(data):
             flags,
         )[1]
         author_name, author_email = select_diff_author(diff)
-        date_modified = phab.expect(revision, "fields", "dateModified")
+        timestamp = int(datetime.now().timestamp())
 
         # Construct the patch that will be sent to transplant.
         raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
         patch = build_patch_for_revision(
-            raw_diff, author_name, author_email, commit_message, date_modified
+            raw_diff, author_name, author_email, commit_message, timestamp
         )
 
         # Upload the patch to S3
