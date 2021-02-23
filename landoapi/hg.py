@@ -2,9 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import copy
+import glob
 import logging
 import os
+from pathlib import Path
 import shlex
+import shutil
 import tempfile
 import uuid
 
@@ -17,6 +20,7 @@ logger = logging.getLogger(__name__)
 # Username and SSH port to use when connecting to remote HG server.
 landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
 landing_worker_target_ssh_port = os.environ.get("LANDING_WORKER_TARGET_SSH_PORT", "22")
+REJECTS_PATH = Path("/tmp/patch_rejects")
 
 
 class HgException(Exception):
@@ -201,6 +205,13 @@ class HgRepo:
         return last_result
 
     def clean_repo(self, *, strip_non_public_commits=True):
+        # Copy .rej files to a temporary folder.
+        rejects = glob.glob(f"{self.path}/*.rej")
+        if rejects and not REJECTS_PATH.is_dir():
+            REJECTS_PATH.mkdir()
+        for reject in rejects:
+            shutil.copy(reject, REJECTS_PATH / reject.split("/")[-1])
+
         # Clean working directory.
         try:
             self.run_hg(["--quiet", "revert", "--no-backup", "--all"])

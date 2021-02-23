@@ -337,6 +337,22 @@ definitions:
           description: |
             The ID of a phabricator diff which is associated with the
             provided revision_id.
+  ErrorBreakdown:
+    type: object
+    properties:
+      revision_id:
+        type: integer
+        description: The revision number (e.g. for D123 it will be 123.)
+      failed_paths:
+        type: array
+        description: List of paths that failed to merge.
+        items:
+          type: string
+      reject_paths:
+        type: array
+        description: List of names of .rej files.
+        items:
+          type: string
   TransplantRequest:
     type: object
     required:
@@ -362,6 +378,8 @@ definitions:
           Status of the landing job in Autoland Transplant.
       landing_path:
         $ref: '#/definitions/LandingPath'
+      error_breakdown:
+        $ref: '#/definitions/ErrorBreakdown'
       details:
         type: string
         description: |

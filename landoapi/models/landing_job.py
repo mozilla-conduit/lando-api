@@ -102,6 +102,13 @@ class LandingJob(Base):
     # Text describing errors when status != LANDED.
     error = db.Column(db.Text(), default="")
 
+    # Error details in a dictionary format, listing failed merges, etc...
+    # E.g. {
+    #    "failed_paths": [{"path": "...", "url": "..."}],
+    #     "reject_paths": [{"path": "...", "content": "..."}]
+    # }
+    error_breakdown = db.Column(JSONB, nullable=True)
+
     # LDAP email of the user who requested transplant.
     requester_email = db.Column(db.String(254), nullable=False)
 
@@ -246,6 +253,7 @@ class LandingJob(Base):
                 {"revision_id": "D{}".format(r), "diff_id": self.revision_to_diff_id[r]}
                 for r in self.revision_order
             ],
+            "error_breakdown": self.error_breakdown,
             "details": (
                 self.error or self.landed_commit_id
                 if self.status in (LandingJobStatus.FAILED, LandingJobStatus.CANCELLED)

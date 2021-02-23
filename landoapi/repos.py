@@ -152,7 +152,7 @@ REPO_CONFIG = {
         "first-repo": Repo(
             tree="first-repo",
             url="http://hg.test/first-repo",
-            push_path="ssh://autoland.hg//first-repo",
+            push_path="ssh://autoland.hg//repos/first-repo",
             access_group=SCM_LEVEL_1,
             commit_flags=[DONTBUILD],
         ),
