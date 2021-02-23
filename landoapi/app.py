@@ -22,7 +22,6 @@ from landoapi.repos import repo_clone_subsystem
 from landoapi.sentry import sentry_subsystem
 from landoapi.smtp import smtp_subsystem
 from landoapi.storage import db_subsystem
-from landoapi.transplant_client import transplant_subsystem
 from landoapi.treestatus import treestatus_subsystem
 from landoapi.ui import lando_ui_subsystem
 from landoapi.version import version
@@ -42,7 +41,6 @@ SUBSYSTEMS = [
     patches_s3_subsystem,
     phabricator_subsystem,
     smtp_subsystem,
-    transplant_subsystem,
     treestatus_subsystem,
     repo_clone_subsystem,
 ]
