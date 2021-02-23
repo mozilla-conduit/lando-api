@@ -105,7 +105,7 @@ class LandingJob(Base):
     # Error details in a dictionary format, listing failed merges, etc...
     # E.g. {
     #    "failed_paths": [{"path": "...", "url": "..."}],
-    #     "reject_paths": [{"path": "...", "content": "..."]
+    #     "reject_paths": [{"path": "...", "content": "..."}]
     # }
     error_breakdown = db.Column(JSONB, nullable=True)
 

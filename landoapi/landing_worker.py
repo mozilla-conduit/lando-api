@@ -327,7 +327,6 @@ class LandingWorker:
                     breakdown["reject_paths"] = {}
                     for r in reject_paths:
                         reject = {"path": r}
-                        # TODO: this should be a proper Path object, not a string.
                         with open(REJECTS_PATH / r, "r") as f:
                             reject["content"] = f.read()
                         breakdown["reject_paths"][r.rstrip(".rej")] = reject
@@ -344,7 +343,6 @@ class LandingWorker:
                     self.notify_user_of_landing_failure(job)
                     return True
                 except NoDiffStartLine:
-                    # error with patch format? Where does this occur?
                     logger.exception("Patch without a diff start line.")
                     message = (
                         "Lando encountered a malformed patch, please try again. "
@@ -381,7 +379,6 @@ class LandingWorker:
             try:
                 hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
             except TreeClosed:
-                # error during push?
                 job.transition_status(
                     LandingJobAction.DEFER,
                     message=f"Tree {repo.tree} is closed - retrying later.",
@@ -390,7 +387,6 @@ class LandingWorker:
                 )
                 return False
             except TreeApprovalRequired:
-                # error during push
                 job.transition_status(
                     LandingJobAction.DEFER,
                     message=f"Tree {repo.tree} requires approval - retrying later.",
@@ -399,7 +395,6 @@ class LandingWorker:
                 )
                 return False
             except LostPushRace:
-                # push error
                 logger.info(f"LandingJob {job.id} lost push race, deferring")
                 job.transition_status(
                     LandingJobAction.DEFER,
