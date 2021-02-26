@@ -59,7 +59,7 @@ paths:
         200:
           description: OK
           schema:
-            type: array
+            type: object
   /transplants:
     get:
       operationId: landoapi.api.transplants.get_list
