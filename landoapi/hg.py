@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import copy
-import glob
 import logging
 import os
 from pathlib import Path
@@ -205,12 +204,18 @@ class HgRepo:
         return last_result
 
     def clean_repo(self, *, strip_non_public_commits=True):
+        # Reset rejects directory
+        if REJECTS_PATH.is_dir():
+            shutil.rmtree(REJECTS_PATH)
+        REJECTS_PATH.mkdir()
+
         # Copy .rej files to a temporary folder.
-        rejects = glob.glob(f"{self.path}/*.rej")
-        if rejects and not REJECTS_PATH.is_dir():
-            REJECTS_PATH.mkdir()
+        rejects = Path(f"{self.path}/").rglob("*.rej")
         for reject in rejects:
-            shutil.copy(reject, REJECTS_PATH / reject.split("/")[-1])
+            os.makedirs(
+                REJECTS_PATH.joinpath(reject.parents[0].as_posix()[1:]), exist_ok=True
+            )
+            shutil.copy(reject, REJECTS_PATH.joinpath(reject.as_posix()[1:]))
 
         # Clean working directory.
         try:

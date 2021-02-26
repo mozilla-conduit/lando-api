@@ -316,6 +316,9 @@ def test_landing_worker__extract_error_data():
     1 out of 1 hunks FAILED -- saving rejects to file h/i/j.k.rej
     file G0fvb1RuMQxXNjs already exists
     1 out of 1 hunks FAILED -- saving rejects to file G0fvb1RuMQxXNjs.rej
+    unable to find 'abc/def' for patching
+    (use '--prefix' to apply patch relative to the current directory)
+    1 out of 1 hunks FAILED -- saving rejects to file abc/def.rej
     abort: patch failed to apply"""
     )
 
@@ -326,6 +329,7 @@ def test_landing_worker__extract_error_data():
         "d/e/f.g",
         "h/i/j.k",
         "G0fvb1RuMQxXNjs",
+        "abc/def",
     ]
 
     expected_rejects_paths = [
@@ -335,6 +339,7 @@ def test_landing_worker__extract_error_data():
         "d/e/f.g.rej",
         "h/i/j.k.rej",
         "G0fvb1RuMQxXNjs.rej",
+        "abc/def.rej",
     ]
 
     failed_paths, rejects_paths = LandingWorker.extract_error_data(exception_message)
