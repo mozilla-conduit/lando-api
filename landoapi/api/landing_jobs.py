@@ -4,7 +4,9 @@
 import logging
 
 from connexion import ProblemException
+from datetime import datetime
 from flask import g
+from sqlalchemy import func, Date
 
 from landoapi import auth
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
@@ -70,3 +72,53 @@ def put(landing_job_id, data):
             f"Landing job status ({landing_job.status}) does not allow cancelling.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
+
+
+def get_stats(start_date: str = "", end_date: str = "") -> dict:
+    """Return landing job statistics between given dates.
+
+    Args:
+        start_date: A string representing the start date (e.g. 2020-01-23).
+        end_date: A string representing the end date.
+
+    Returns:
+        Some meta data and the aggregated statistics.
+    """
+    if not start_date:
+        start_date = datetime.now()
+    else:
+        start_date = datetime.fromisoformat(start_date)
+
+    if not end_date:
+        end_date = datetime.now()
+    else:
+        end_date = datetime.fromisoformat(end_date)
+
+    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    if start_date > end_date:
+        raise ProblemException(
+            400,
+            "start_date must be on or before end_date.",
+            f"start_date provided: {start_date}, end_date provided: {end_date}.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
+
+    result = (
+        db.session.query(
+            func.avg(LandingJob.duration_seconds).label("duration_seconds__avg"),
+            func.avg(LandingJob.attempts).label("attempts__avg"),
+            func.sum(LandingJob.duration_seconds).label("duration_seconds__sum"),
+            func.count(LandingJob.id).label("id__count"),
+            LandingJob.created_at.cast(Date).label("day"),
+        )
+        .filter(
+            LandingJob.status == LandingJobStatus.LANDED,
+            LandingJob.created_at <= end_date,
+            LandingJob.created_at >= start_date,
+        )
+        .group_by("day")
+    )
+
+    return {"data": [r._asdict() for r in result.all()]}
