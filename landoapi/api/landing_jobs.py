@@ -105,6 +105,4 @@ def get_stats(start_date: str = "", end_date: str = "") -> dict:
         .group_by("day")
     )
 
-    return {
-        "data": [r._asdict() for r in result.all()],
-    }
+    return {"data": [r._asdict() for r in result.all()]}
