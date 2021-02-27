@@ -228,7 +228,11 @@ class LandingWorker:
         )
 
         # RE to capture files that could not be merged for one reason or another.
-        patterns = ("(?:patching file (.*))", "(?:file (.*) already exists)")
+        patterns = (
+            "(?:patching file (.*))",
+            "(?:file (.*) already exists)",
+            "(?:unable to find '(.*)' for patching)",
+        )
 
         files_re = re.compile(rf"^{'|'.join(patterns)}$", re.MULTILINE)
         return (
@@ -320,7 +324,11 @@ class LandingWorker:
                             for path in failed_paths
                         ]
 
-                        breakdown = {"revision_id": revision_id}
+                        breakdown = {
+                            "revision_id": revision_id,
+                            "content": None,
+                            "reject_paths": None,
+                        }
                         breakdown["failed_paths"] = [
                             {
                                 "path": r[0],
@@ -332,8 +340,11 @@ class LandingWorker:
                         breakdown["reject_paths"] = {}
                         for r in reject_paths:
                             reject = {"path": r}
-                            with open(REJECTS_PATH / r, "r") as f:
-                                reject["content"] = f.read()
+                            try:
+                                with open(REJECTS_PATH / hgrepo.path[1:] / r, "r") as f:
+                                    reject["content"] = f.read()
+                            except Exception as e:
+                                logger.exception(e)
                             breakdown["reject_paths"][r.rstrip(".rej")] = reject
 
                         message = (
@@ -361,7 +372,7 @@ class LandingWorker:
                     except Exception as e:
                         message = (
                             f"Aborting, could not apply patch buffer for {revision_id}, "
-                            "{diff_id}."
+                            f"{diff_id}."
                         )
                         logger.exception(message)
                         job.transition_status(
