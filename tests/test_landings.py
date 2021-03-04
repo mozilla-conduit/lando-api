@@ -319,6 +319,8 @@ def test_landing_worker__extract_error_data():
     unable to find 'abc/def' for patching
     (use '--prefix' to apply patch relative to the current directory)
     1 out of 1 hunks FAILED -- saving rejects to file abc/def.rej
+    patching file browser/locales/en-US/browser/browserContext.ftl
+    Hunk #1 succeeded at 300 with fuzz 2 (offset -4 lines).
     abort: patch failed to apply"""
     )
 

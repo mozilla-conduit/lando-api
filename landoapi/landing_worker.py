@@ -227,18 +227,12 @@ class LandingWorker:
             re.MULTILINE,
         )
 
-        # RE to capture files that could not be merged for one reason or another.
-        patterns = (
-            "(?:patching file (.*))",
-            "(?:file (.*) already exists)",
-            "(?:unable to find '(.*)' for patching)",
-        )
+        # TODO: capture reason for patch failure, e.g. deleting non-existing file, or
+        # adding a pre-existing file, etc...
+        reject_paths = rejs_re.findall(exception)
+        failed_paths = [path[:-4] for path in reject_paths]
 
-        files_re = re.compile(rf"^{'|'.join(patterns)}$", re.MULTILINE)
-        return (
-            ["".join(r) for r in files_re.findall(exception)],
-            rejs_re.findall(exception),
-        )
+        return failed_paths, reject_paths
 
     def run_job(self, job, repo, hgrepo, treestatus, patch_bucket):
         if not treestatus.is_open(repo.tree):
@@ -329,6 +323,7 @@ class LandingWorker:
                             "content": None,
                             "reject_paths": None,
                         }
+
                         breakdown["failed_paths"] = [
                             {
                                 "path": r[0],
@@ -345,7 +340,7 @@ class LandingWorker:
                                     reject["content"] = f.read()
                             except Exception as e:
                                 logger.exception(e)
-                            breakdown["reject_paths"][r.rstrip(".rej")] = reject
+                            breakdown["reject_paths"][r[:-3]] = reject
 
                         message = (
                             f"Problem while applying patch in revision {revision_id}:\n\n"
