@@ -230,6 +230,8 @@ class LandingWorker:
         # TODO: capture reason for patch failure, e.g. deleting non-existing file, or
         # adding a pre-existing file, etc...
         reject_paths = rejs_re.findall(exception)
+
+        # Collect all failed paths by removing `.rej` extension.
         failed_paths = [path[:-4] for path in reject_paths]
 
         return failed_paths, reject_paths
@@ -340,6 +342,8 @@ class LandingWorker:
                                     reject["content"] = f.read()
                             except Exception as e:
                                 logger.exception(e)
+                            # Use actual path of file to store reject data, by removing
+                            # `.rej` extension.
                             breakdown["reject_paths"][r[:-4]] = reject
 
                         message = (
