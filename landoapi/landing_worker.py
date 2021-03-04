@@ -340,7 +340,7 @@ class LandingWorker:
                                     reject["content"] = f.read()
                             except Exception as e:
                                 logger.exception(e)
-                            breakdown["reject_paths"][r[:-3]] = reject
+                            breakdown["reject_paths"][r[:-4]] = reject
 
                         message = (
                             f"Problem while applying patch in revision {revision_id}:\n\n"
