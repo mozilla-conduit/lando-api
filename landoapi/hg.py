@@ -21,6 +21,9 @@ landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
 landing_worker_target_ssh_port = os.environ.get("LANDING_WORKER_TARGET_SSH_PORT", "22")
 REJECTS_PATH = Path("/tmp/patch_rejects")
 
+# Name of the environment variable that will store the push user's email address.
+REQUEST_USER_ENV_VAR = "AUTOLAND_REQUEST_USER"
+
 
 class HgException(Exception):
     @staticmethod
@@ -102,7 +105,7 @@ class HgRepo:
         "ui.merge": "internal:merge",
         "ui.ssh": (
             "ssh "
-            '-o "SendEnv AUTOLAND_REQUEST_USER" '
+            f'-o "SendEnv {REQUEST_USER_ENV_VAR}" '
             '-o "StrictHostKeyChecking no" '
             '-o "PasswordAuthentication no" '
             f'-o "User {landing_worker_username}" '
@@ -117,6 +120,7 @@ class HgRepo:
     def __init__(self, path, config=None):
         self.path = path
         self.config = copy.copy(self.DEFAULT_CONFIGS)
+        self.requester_email = ""
 
         # Somewhere to store patch headers for testing.
         self.patch_header = None
@@ -127,18 +131,32 @@ class HgRepo:
     def _config_to_list(self):
         return ["{}={}".format(k, v) for k, v in self.config.items() if v is not None]
 
+    def __call__(self, request_user):
+        self.request_user = request_user
+        return self
+
     def __enter__(self):
+        if self.requester_email:
+            # Set the environment variable the `set_landing_system` hg extension will
+            # use to send the push user override.
+            os.environ[REQUEST_USER_ENV_VAR] = self.requester_email
+            logger.debug(f"{REQUEST_USER_ENV_VAR} set to {self.requester_email}")
         self.hg_repo = hglib.open(
             self.path, encoding=self.ENCODING, configs=self._config_to_list()
         )
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        if REQUEST_USER_ENV_VAR in os.environ:
+            del os.environ[REQUEST_USER_ENV_VAR]
         try:
             self.clean_repo()
         except Exception as e:
             logger.exception(e)
         self.hg_repo.close()
+
+    def set_request_user(self, requester_email):
+        self.requester_email = requester_email
 
     def clone(self, source):
         # Use of robustcheckout here would work, but is probably not worth

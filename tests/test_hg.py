@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import io
+import os
 
 import pytest
 
@@ -12,6 +13,7 @@ from landoapi.hg import (
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
+    REQUEST_USER_ENV_VAR,
     TreeApprovalRequired,
     TreeClosed,
     hglib,
@@ -244,3 +246,15 @@ def test_hg_exceptions():
         exc = hglib.error.CommandError((), 1, b"", snippet)
         with pytest.raises(exception):
             raise HgException.from_hglib_error(exc)
+
+
+def test_hgrepo_request_user(hg_clone):
+    """Test that the request user environment variable is set and unset correctly."""
+    repo = HgRepo(hg_clone.strpath)
+    repo.set_request_user("test@example.com")
+
+    assert REQUEST_USER_ENV_VAR not in os.environ
+    with repo:
+        assert REQUEST_USER_ENV_VAR in os.environ
+        assert os.environ[REQUEST_USER_ENV_VAR] == "test@example.com"
+    assert REQUEST_USER_ENV_VAR not in os.environ

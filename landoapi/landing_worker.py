@@ -246,18 +246,127 @@ class LandingWorker:
             )
             return False
 
-        # Set the environment variable the `set_landing_system.py` hg
-        # extension will use to send the push user override.
-        os.environ["AUTOLAND_REQUEST_USER"] = job.requester_email
+        with hgrepo(job.requester_email):
+            # Update local repo.
+            try:
+                hgrepo.update_repo(repo.pull_path)
+            except Exception as e:
+                message = f"Unexpected error while fetching repo from {repo.pull_path}."
+                logger.exception(message)
+                job.transition_status(
+                    LandingJobAction.FAIL,
+                    message=message + f"\n{e}",
+                    commit=True,
+                    db=db,
+                )
+                self.notify_user_of_landing_failure(job)
+                return True
 
-        try:
-            with hgrepo:
-                # Update local repo.
+            # Download all patches locally from S3.
+            patch_bufs = []
+            for revision_id, diff_id in job.landing_path:
                 try:
-                    hgrepo.update_repo(repo.pull_path)
+                    patch_buf = patches.download(
+                        revision_id,
+                        diff_id,
+                        patch_bucket,
+                        aws_access_key=self.config["AWS_ACCESS_KEY"],
+                        aws_secret_key=self.config["AWS_SECRET_KEY"],
+                    )
                 except Exception as e:
                     message = (
-                        f"Unexpected error while fetching repo from {repo.pull_path}."
+                        f"Aborting, could not fetch {revision_id}, {diff_id} from S3."
+                    )
+                    logger.exception(message)
+                    job.transition_status(
+                        LandingJobAction.FAIL,
+                        message=message + f"\n{e}",
+                        commit=True,
+                        db=db,
+                    )
+                    self.notify_user_of_landing_failure(job)
+                    return True
+                patch_bufs.append((revision_id, patch_buf))
+
+            # Run through the patches one by one and try to apply them.
+            for revision_id, patch_buf in patch_bufs:
+                try:
+                    hgrepo.apply_patch(patch_buf)
+                except PatchConflict as exc:
+                    failed_paths, reject_paths = self.extract_error_data(str(exc))
+
+                    # Find last commits to touch each failed path.
+                    failed_path_changesets = [
+                        (
+                            path,
+                            hgrepo.run_hg(
+                                [
+                                    "log",
+                                    "--cwd",
+                                    hgrepo.path,
+                                    "--template",
+                                    "{node}",
+                                    "-l",
+                                    "1",
+                                    path,
+                                ]
+                            ),
+                        )
+                        for path in failed_paths
+                    ]
+
+                    breakdown = {
+                        "revision_id": revision_id,
+                        "content": None,
+                        "reject_paths": None,
+                    }
+
+                    breakdown["failed_paths"] = [
+                        {
+                            "path": r[0],
+                            "url": f"{repo.pull_path}/file/{r[1].decode('utf-8')}/{r[0]}",
+                            "changeset_id": r[1].decode("utf-8"),
+                        }
+                        for r in failed_path_changesets
+                    ]
+                    breakdown["reject_paths"] = {}
+                    for r in reject_paths:
+                        reject = {"path": r}
+                        try:
+                            with open(REJECTS_PATH / hgrepo.path[1:] / r, "r") as f:
+                                reject["content"] = f.read()
+                        except Exception as e:
+                            logger.exception(e)
+                        # Use actual path of file to store reject data, by removing
+                        # `.rej` extension.
+                        breakdown["reject_paths"][r[:-4]] = reject
+
+                    message = (
+                        f"Problem while applying patch in revision {revision_id}:\n\n"
+                        f"{str(exc)}"
+                    )
+                    job.error_breakdown = breakdown
+
+                    job.transition_status(
+                        LandingJobAction.FAIL, message=message, commit=True, db=db
+                    )
+                    self.notify_user_of_landing_failure(job)
+                    return True
+                except NoDiffStartLine:
+                    logger.exception("Patch without a diff start line.")
+                    message = (
+                        "Lando encountered a malformed patch, please try again. "
+                        "If this error persists please file a bug."
+                    )
+                    job.transition_status(
+                        LandingJobAction.FAIL, message=message, commit=True, db=db
+                    )
+                    self.notify_user_of_landing_failure(job)
+                    return True
+                except Exception as e:
+                    message = (
+                        f"Aborting, could not apply patch buffer for {revision_id}, "
+                        f"{diff_id}."
                     )
                     logger.exception(message)
                     job.transition_status(
@@ -269,163 +378,44 @@ class LandingWorker:
                     self.notify_user_of_landing_failure(job)
                     return True
 
-                # Download all patches locally from S3.
-                patch_bufs = []
-                for revision_id, diff_id in job.landing_path:
-                    try:
-                        patch_buf = patches.download(
-                            revision_id,
-                            diff_id,
-                            patch_bucket,
-                            aws_access_key=self.config["AWS_ACCESS_KEY"],
-                            aws_secret_key=self.config["AWS_SECRET_KEY"],
-                        )
-                    except Exception as e:
-                        message = f"Aborting, could not fetch {revision_id}, {diff_id} from S3."
-                        logger.exception(message)
-                        job.transition_status(
-                            LandingJobAction.FAIL,
-                            message=message + f"\n{e}",
-                            commit=True,
-                            db=db,
-                        )
-                        self.notify_user_of_landing_failure(job)
-                        return True
-                    patch_bufs.append((revision_id, patch_buf))
+            commit_id = hgrepo.run_hg(["log", "-r", ".", "-T", "{node}"]).decode(
+                "utf-8"
+            )
 
-                # Run through the patches one by one and try to apply them.
-                for revision_id, patch_buf in patch_bufs:
-                    try:
-                        hgrepo.apply_patch(patch_buf)
-                    except PatchConflict as exc:
-                        failed_paths, reject_paths = self.extract_error_data(str(exc))
-
-                        # Find last commits to touch each failed path.
-                        failed_path_changesets = [
-                            (
-                                path,
-                                hgrepo.run_hg(
-                                    [
-                                        "log",
-                                        "--cwd",
-                                        hgrepo.path,
-                                        "--template",
-                                        "{node}",
-                                        "-l",
-                                        "1",
-                                        path,
-                                    ]
-                                ),
-                            )
-                            for path in failed_paths
-                        ]
-
-                        breakdown = {
-                            "revision_id": revision_id,
-                            "content": None,
-                            "reject_paths": None,
-                        }
-
-                        breakdown["failed_paths"] = [
-                            {
-                                "path": r[0],
-                                "url": f"{repo.pull_path}/file/{r[1].decode('utf-8')}/{r[0]}",
-                                "changeset_id": r[1].decode("utf-8"),
-                            }
-                            for r in failed_path_changesets
-                        ]
-                        breakdown["reject_paths"] = {}
-                        for r in reject_paths:
-                            reject = {"path": r}
-                            try:
-                                with open(REJECTS_PATH / hgrepo.path[1:] / r, "r") as f:
-                                    reject["content"] = f.read()
-                            except Exception as e:
-                                logger.exception(e)
-                            # Use actual path of file to store reject data, by removing
-                            # `.rej` extension.
-                            breakdown["reject_paths"][r[:-4]] = reject
-
-                        message = (
-                            f"Problem while applying patch in revision {revision_id}:\n\n"
-                            f"{str(exc)}"
-                        )
-                        job.error_breakdown = breakdown
-
-                        job.transition_status(
-                            LandingJobAction.FAIL, message=message, commit=True, db=db
-                        )
-                        self.notify_user_of_landing_failure(job)
-                        return True
-                    except NoDiffStartLine:
-                        logger.exception("Patch without a diff start line.")
-                        message = (
-                            "Lando encountered a malformed patch, please try again. "
-                            "If this error persists please file a bug."
-                        )
-                        job.transition_status(
-                            LandingJobAction.FAIL, message=message, commit=True, db=db
-                        )
-                        self.notify_user_of_landing_failure(job)
-                        return True
-                    except Exception as e:
-                        message = (
-                            f"Aborting, could not apply patch buffer for {revision_id}, "
-                            f"{diff_id}."
-                        )
-                        logger.exception(message)
-                        job.transition_status(
-                            LandingJobAction.FAIL,
-                            message=message + f"\n{e}",
-                            commit=True,
-                            db=db,
-                        )
-                        self.notify_user_of_landing_failure(job)
-                        return True
-
-                commit_id = hgrepo.run_hg(["log", "-r", ".", "-T", "{node}"]).decode(
-                    "utf-8"
+            try:
+                hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
+            except TreeClosed:
+                job.transition_status(
+                    LandingJobAction.DEFER,
+                    message=f"Tree {repo.tree} is closed - retrying later.",
+                    commit=True,
+                    db=db,
                 )
-
-                try:
-                    hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
-                except TreeClosed:
-                    job.transition_status(
-                        LandingJobAction.DEFER,
-                        message=f"Tree {repo.tree} is closed - retrying later.",
-                        commit=True,
-                        db=db,
-                    )
-                    return False
-                except TreeApprovalRequired:
-                    job.transition_status(
-                        LandingJobAction.DEFER,
-                        message=f"Tree {repo.tree} requires approval - retrying later.",
-                        commit=True,
-                        db=db,
-                    )
-                    return False
-                except LostPushRace:
-                    logger.info(f"LandingJob {job.id} lost push race, deferring")
-                    job.transition_status(
-                        LandingJobAction.DEFER,
-                        message=f"Lost push race when pushing to {repo.push_path}.",
-                        commit=True,
-                        db=db,
-                    )
-                    return False
-                except Exception as e:
-                    message = f"Unexpected error while pushing to {repo.push_path}."
-                    job.transition_status(
-                        LandingJobAction.FAIL,
-                        message=f"{message}\n{e}",
-                        commit=True,
-                        db=db,
-                    )
-                    self.notify_user_of_landing_failure(job)
-                    return True
-        finally:
-            del os.environ["AUTOLAND_REQUEST_USER"]
+                return False
+            except TreeApprovalRequired:
+                job.transition_status(
+                    LandingJobAction.DEFER,
+                    message=f"Tree {repo.tree} requires approval - retrying later.",
+                    commit=True,
+                    db=db,
+                )
+                return False
+            except LostPushRace:
+                logger.info(f"LandingJob {job.id} lost push race, deferring")
+                job.transition_status(
+                    LandingJobAction.DEFER,
+                    message=f"Lost push race when pushing to {repo.push_path}.",
+                    commit=True,
+                    db=db,
+                )
+                return False
+            except Exception as e:
+                message = f"Unexpected error while pushing to {repo.push_path}."
+                job.transition_status(
+                    LandingJobAction.FAIL, message=f"{message}\n{e}", commit=True, db=db
+                )
+                self.notify_user_of_landing_failure(job)
+                return True
 
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
         db.session.commit()
