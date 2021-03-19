@@ -246,7 +246,7 @@ class LandingWorker:
             )
             return False
 
-        with hgrepo(job.requester_email):
+        with hgrepo.for_push(job.requester_email):
             # Update local repo.
             try:
                 hgrepo.update_repo(repo.pull_path)

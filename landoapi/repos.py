@@ -306,7 +306,7 @@ class RepoCloneSubsystem(Subsystem):
 
             if path.exists():
                 logger.info("Repo exists, pulling.", extra={"repo": name})
-                with r:
+                with r.for_pull():
                     r.update_repo(repo.pull_path)
             else:
                 logger.info("Cloning repo.", extra={"repo": name})
