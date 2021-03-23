@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import copy
+from contextlib import contextmanager
 import logging
 import os
 from pathlib import Path
@@ -20,6 +21,9 @@ logger = logging.getLogger(__name__)
 landing_worker_username = os.environ.get("LANDING_WORKER_USERNAME", "app")
 landing_worker_target_ssh_port = os.environ.get("LANDING_WORKER_TARGET_SSH_PORT", "22")
 REJECTS_PATH = Path("/tmp/patch_rejects")
+
+# Name of the environment variable that will store the push user's email address.
+REQUEST_USER_ENV_VAR = "AUTOLAND_REQUEST_USER"
 
 
 class HgException(Exception):
@@ -102,7 +106,7 @@ class HgRepo:
         "ui.merge": "internal:merge",
         "ui.ssh": (
             "ssh "
-            '-o "SendEnv AUTOLAND_REQUEST_USER" '
+            f'-o "SendEnv {REQUEST_USER_ENV_VAR}" '
             '-o "StrictHostKeyChecking no" '
             '-o "PasswordAuthentication no" '
             f'-o "User {landing_worker_username}" '
@@ -127,18 +131,47 @@ class HgRepo:
     def _config_to_list(self):
         return ["{}={}".format(k, v) for k, v in self.config.items() if v is not None]
 
-    def __enter__(self):
-        self.hg_repo = hglib.open(
-            self.path, encoding=self.ENCODING, configs=self._config_to_list()
-        )
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def _clean_and_close(self):
+        """Perform closing activities when exiting any context managers."""
         try:
             self.clean_repo()
         except Exception as e:
             logger.exception(e)
         self.hg_repo.close()
+
+    def _open(self):
+        self.hg_repo = hglib.open(
+            self.path, encoding=self.ENCODING, configs=self._config_to_list()
+        )
+
+    @contextmanager
+    def for_push(self, request_user_email):
+        """Prepare the repo with the correct environment variables set for pushing.
+
+        The request user's email address needs to be present before initializing a repo
+        if the repo is to be used for pushing remotely.
+        """
+        os.environ[REQUEST_USER_ENV_VAR] = request_user_email
+        logger.debug(f"{REQUEST_USER_ENV_VAR} set to {request_user_email}")
+        self._open()
+        try:
+            yield self
+        finally:
+            del os.environ[REQUEST_USER_ENV_VAR]
+            self._clean_and_close()
+
+    @contextmanager
+    def for_pull(self):
+        """Prepare the repo without setting any custom environment variables.
+
+        The repo's `push` method will not function inside this context manager, as the
+        request user's email address will be absent (and not needed).
+        """
+        self._open()
+        try:
+            yield self
+        finally:
+            self._clean_and_close()
 
     def clone(self, source):
         # Use of robustcheckout here would work, but is probably not worth
@@ -303,6 +336,9 @@ class HgRepo:
             )
 
     def push(self, target, bookmark=None):
+        if not os.getenv(REQUEST_USER_ENV_VAR):
+            raise ValueError(f"{REQUEST_USER_ENV_VAR} not set while attempting to push")
+
         # For testing, force a LostPushRace exception if this header is
         # defined.
         if (

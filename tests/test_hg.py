@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import io
+import os
 
 import pytest
 
@@ -12,6 +13,7 @@ from landoapi.hg import (
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
+    REQUEST_USER_ENV_VAR,
     TreeApprovalRequired,
     TreeClosed,
     hglib,
@@ -23,7 +25,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
     # time for anything using `hg_clone` fixture is very long.
     repo = HgRepo(hg_clone.strpath)
 
-    with repo, hg_clone.as_cwd():
+    with repo.for_pull(), hg_clone.as_cwd():
         # Create a draft commits to clean.
         new_file = hg_clone.join("new-file.txt")
         new_file.write("text", mode="w+")
@@ -62,7 +64,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
         assert repo.run_hg_cmds([["outgoing"]])
         assert repo.run_hg_cmds([["status"]])
 
-    with repo, hg_clone.as_cwd():
+    with repo.for_pull(), hg_clone.as_cwd():
         # New context should be clean.
         with pytest.raises(HgCommandError, match="no changes found"):
             repo.run_hg_cmds([["outgoing"]])
@@ -71,7 +73,7 @@ def test_integrated_hgrepo_clean_repo(hg_clone):
 
 def test_integrated_hgrepo_can_log(hg_clone):
     repo = HgRepo(hg_clone.strpath)
-    with repo:
+    with repo.for_pull():
         assert repo.run_hg_cmds([["log"]])
 
 
@@ -177,19 +179,19 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
 
     # We should refuse to apply patches that are missing a
     # Diff Start Line header.
-    with pytest.raises(NoDiffStartLine), repo:
+    with pytest.raises(NoDiffStartLine), repo.for_pull():
         repo.apply_patch(io.BytesIO(PATCH_WITHOUT_STARTLINE))
 
     # Patches with conflicts should raise a proper PatchConflict exception.
-    with pytest.raises(PatchConflict), repo:
+    with pytest.raises(PatchConflict), repo.for_pull():
         repo.apply_patch(io.BytesIO(PATCH_WITH_CONFLICT))
 
-    with repo:
+    with repo.for_pull():
         repo.apply_patch(io.BytesIO(PATCH_NORMAL))
         # Commit created.
         assert repo.run_hg(["outgoing"])
 
-    with repo:
+    with repo.for_pull():
         repo.apply_patch(io.BytesIO(PATCH_UNICODE))
         # Commit created.
 
@@ -197,7 +199,7 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
         assert "こんにちは" in log_output.decode("utf-8")
         assert repo.run_hg(["outgoing"])
 
-    with repo:
+    with repo.for_pull():
         repo.apply_patch(io.BytesIO(PATCH_FAIL_HEADER))
         # Commit created.
         assert repo.run_hg(["outgoing"])
@@ -212,7 +214,7 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
     # TODO: update test if version of Mercurial is changed.
     repo = HgRepo(hg_clone.strpath)
 
-    with repo, hg_clone.as_cwd():
+    with repo.for_pull(), hg_clone.as_cwd():
         if (
             repo.run_hg(["version"]).split(b"\n")[0]
             != b"Mercurial Distributed SCM (version 5.1)"
@@ -244,3 +246,15 @@ def test_hg_exceptions():
         exc = hglib.error.CommandError((), 1, b"", snippet)
         with pytest.raises(exception):
             raise HgException.from_hglib_error(exc)
+
+
+def test_hgrepo_request_user(hg_clone):
+    """Test that the request user environment variable is set and unset correctly."""
+    repo = HgRepo(hg_clone.strpath)
+    request_user_email = "test@example.com"
+
+    assert REQUEST_USER_ENV_VAR not in os.environ
+    with repo.for_push(request_user_email):
+        assert REQUEST_USER_ENV_VAR in os.environ
+        assert os.environ[REQUEST_USER_ENV_VAR] == "test@example.com"
+    assert REQUEST_USER_ENV_VAR not in os.environ
