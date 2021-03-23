@@ -457,7 +457,7 @@ def post(data):
                 db.session.add(transplant)
         except TransplantError:
             logger.exception(
-                "error creating transplant", extra={"landing_path": landing_path}
+                "error creating transplant", extra={"landing_path": str(landing_path)}
             )
             return problem(
                 502,
@@ -472,7 +472,7 @@ def post(data):
 
         logger.info(
             "transplant created",
-            extra={"landing_path": landing_path, "transplant_id": transplant.id},
+            extra={"landing_path": str(landing_path), "transplant_id": transplant.id},
         )
         job_id = transplant.id
 
