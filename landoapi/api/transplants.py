@@ -292,7 +292,7 @@ def post(data):
         logger.info(
             "Transplant with acknowledged warnings is being requested",
             extra={
-                "landing_path": landing_path,
+                "landing_path": str(landing_path),
                 "warnings": [
                     {"i": w.i, "revision_id": w.revision_id, "details": w.details}
                     for w in assessment.warnings
