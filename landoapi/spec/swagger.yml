@@ -236,6 +236,84 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /repos/notices:
+    get:
+      operationId: landoapi.api.repos.get_repo_notices
+      description: Get a list of all repo notices
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+    post:
+      operationId: landoapi.api.repos.post_repo_notice
+      description: Post a new notice on a repo.
+      parameters:
+        - name: data
+          required: true
+          in: body
+          schema:
+            allOf:
+              - $ref: '#/definitions/RepoNotice'
+      responses:
+        201:
+          description: OK
+          schema:
+            type: object
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+                - $ref: '#/definitions/Error'
+  /repos/notices/{notice_id}:
+    put:
+      operationId: landoapi.api.repos.put_repo_notice
+      description: Edit a repo notice.
+      parameters:
+        - name: notice_id
+          in: path
+          type: string
+          description: The primary key of the repo notice to edit.
+          required: true
+        - name: data
+          required: true
+          in: body
+          schema:
+            type: object
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+    delete:
+      operationId: landoapi.api.repos.delete_repo_notice
+      description: Archive a repo notice.
+      parameters:
+        - name: notice_id
+          in: path
+          type: string
+          description: The primary key of the repo notice to archive.
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
   /stacks/{revision_id}:
     get:
       description: |
@@ -335,6 +413,27 @@ paths:
             allOf:
               - $ref: '#/definitions/Error'
 definitions:
+  RepoNotice:
+    type: object
+    properties:
+      id:
+        type: integer
+      message:
+        type: string
+      start_date:
+        type: string
+        x-nullable: true
+      end_date:
+        type: string
+        x-nullable: true
+      created_at:
+        type: string
+      updated_at:
+        type: string
+      is_warning:
+        type: boolean
+      is_archived:
+        type: boolean
   LandingPath:
     type: array
     description: |

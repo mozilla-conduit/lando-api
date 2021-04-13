@@ -30,6 +30,7 @@ from landoapi.revisions import (
     serialize_diff,
     serialize_status,
 )
+from landoapi.models.repo import RepoNotice
 from landoapi.stacks import (
     build_stack_graph,
     calculate_landable_subgraphs,
@@ -155,12 +156,14 @@ def get(revision_id):
         )
 
     repositories = []
+    repo_notices = {}
     for phid in stack_data.repositories.keys():
         short_name = PhabricatorClient.expect(
             stack_data.repositories[phid], "fields", "shortName"
         )
 
         repo = supported_repos.get(short_name)
+        repo_notices[short_name] = RepoNotice.get_active_repo_notices(short_name)
         landing_supported = repo is not None
         url = (
             repo.url
@@ -181,6 +184,7 @@ def get(revision_id):
 
     return {
         "repositories": repositories,
+        "repo_notices": repo_notices,
         "revisions": revisions_response,
         "edges": [e for e in edges],
         "landable_paths": landable,

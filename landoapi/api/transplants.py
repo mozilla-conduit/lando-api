@@ -15,6 +15,7 @@ from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
+from landoapi.models.repo import RepoNotice
 from landoapi.patches import upload
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
@@ -210,6 +211,7 @@ def _assess_transplant_request(phab, landing_path):
         get_secure_project_phid(phab),
         get_testing_tag_project_phids(phab),
         get_testing_policy_phid(phab),
+        RepoNotice.get_active_repo_notices(landing_repo.short_name),
     )
     return (assessment, to_land, landing_repo, stack_data)
 

@@ -130,6 +130,12 @@ SCM_FIREFOXCI = AccessGroup(
     display_name="scm_firefoxci",
 )
 
+SCM_ALLOW_DIRECT_PUSH = AccessGroup(
+    active_group="active_scm_allow_direct_push",
+    membership_group="all_scm_allow_direct_push",
+    display_name="scm_allow_direct_push",
+)
+
 # DONTBUILD flag and help text.
 DONTBUILD = (
     "DONTBUILD",
