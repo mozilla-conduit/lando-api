@@ -1,6 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+import datetime
 import re
 
 from sqlalchemy.ext.declarative import declared_attr
@@ -44,3 +45,19 @@ class Base(db.Model):
         For example, `<Transplant: 1235>`.
         """
         return f"<{self.__class__.__name__}: {self.id}>"
+
+    def serialize(self):
+        """Return a JSON compatible dictionary.
+
+        This method should be extended in subclasses in order to include additional
+        fields.
+        """
+        return {
+            "id": self.id,
+            "created_at": (
+                self.created_at.astimezone(datetime.timezone.utc).isoformat()
+            ),
+            "updated_at": (
+                self.updated_at.astimezone(datetime.timezone.utc).isoformat()
+            ),
+        }

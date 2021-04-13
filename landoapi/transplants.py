@@ -218,7 +218,7 @@ def warning_previously_landed(*, revision, diff, **kwargs):
     )
 
 
-@RevisionWarningCheck(2, "Is not Accepted.")
+@RevisionWarningCheck(2, "Revision is not accepted.")
 def warning_not_accepted(*, revision, **kwargs):
     status = RevisionStatus.from_status(
         PhabricatorClient.expect(revision, "fields", "status", "value")
@@ -229,7 +229,7 @@ def warning_not_accepted(*, revision, **kwargs):
     return status.output_name
 
 
-@RevisionWarningCheck(3, "No reviewer has accepted the current diff.")
+@RevisionWarningCheck(3, "Current diff is not accepted.")
 def warning_reviews_not_current(*, diff, reviewers, **kwargs):
     for _, r in reviewers.items():
         extra = calculate_review_extra_state(
@@ -239,11 +239,11 @@ def warning_reviews_not_current(*, diff, reviewers, **kwargs):
         if r["status"] is ReviewerStatus.ACCEPTED and not extra["for_other_diff"]:
             return None
 
-    return "Has no accepted review on the current diff."
+    return "Revision has no accepted review on the current diff."
 
 
 @RevisionWarningCheck(
-    4, "Is a secure revision and should follow the Security Bug Approval Process."
+    4, "Revision is secure and should follow the Security Bug Approval Process."
 )
 def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
     if secure_project_phid is None:
@@ -273,6 +273,15 @@ def warning_revision_missing_testing_tag(
     return (
         "This revision does not specify a testing tag. Please add one before landing."
     )
+
+
+@RevisionWarningCheck(6, "Repo has a warning notice.")
+def warning_repo_notices(*, revision, repo_notices, **kwargs):
+    # Filter on notices that are marked as being a warning.
+    warning_notices = [n for n in repo_notices if n["is_warning"]]
+
+    if warning_notices:
+        return ". ".join((n["message"] for n in warning_notices))
 
 
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
@@ -309,6 +318,7 @@ def check_landing_warnings(
     secure_project_phid,
     testing_tag_project_phids,
     testing_policy_phid,
+    repo_notices,
     *,
     revision_warnings=[
         warning_blocking_reviews,
@@ -317,6 +327,7 @@ def check_landing_warnings(
         warning_reviews_not_current,
         warning_revision_secure,
         warning_revision_missing_testing_tag,
+        warning_repo_notices,
     ]
 ):
     assessment = TransplantAssessment()
@@ -333,6 +344,7 @@ def check_landing_warnings(
                 secure_project_phid=secure_project_phid,
                 testing_tag_project_phids=testing_tag_project_phids,
                 testing_policy_phid=testing_policy_phid,
+                repo_notices=repo_notices,
             )
 
             if result is not None:
