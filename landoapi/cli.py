@@ -81,6 +81,24 @@ def landing_worker():
     worker.start()
 
 
+@cli.command(name="pause-landing-worker")
+def pause_landing_worker():
+    from landoapi.storage import db_subsystem
+    from landoapi.landing_worker import pause_landing_worker
+
+    db_subsystem.ensure_ready()
+    pause_landing_worker()
+
+
+@cli.command(name="resume-landing-worker")
+def resume_landing_worker():
+    from landoapi.storage import db_subsystem
+    from landoapi.landing_worker import resume_landing_worker
+
+    db_subsystem.ensure_ready()
+    resume_landing_worker()
+
+
 @cli.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def celery(celery_arguments):
