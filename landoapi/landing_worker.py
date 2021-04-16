@@ -25,6 +25,7 @@ from landoapi.hg import (
     REJECTS_PATH,
 )
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
+from landoapi.models.configuration import ConfigurationVariable
 from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.repos import repo_clone_subsystem
 from landoapi.storage import db, SQLAlchemy
@@ -131,6 +132,10 @@ class LandingWorker:
             raise Exception(add_process.stderr)
         logger.info("Added private SSH key from environment.")
 
+    @property
+    def paused(self):
+        return ConfigurationVariable.get("LANDING_WORKER_PAUSED", False)
+
     def refresh_enabled_repos(self):
         self.enabled_repos = [
             r
@@ -155,6 +160,10 @@ class LandingWorker:
         last_job_finished = True
 
         while self.running:
+            while self.paused:
+                logger.info("PAUSED")
+                time.sleep(self.sleep_seconds)
+
             # Check if any closed trees reopened since the beginning of this iteration
             if len(self.enabled_repos) != len(self.applicable_repos):
                 self.refresh_enabled_repos()
@@ -174,6 +183,7 @@ class LandingWorker:
 
             if job is None:
                 time.sleep(self.sleep_seconds)
+                logger.info("NO JOBS")
                 continue
 
             with job_processing(self, job, db):
