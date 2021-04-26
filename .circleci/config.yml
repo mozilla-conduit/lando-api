@@ -106,10 +106,10 @@ jobs:
               docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}"
               docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
               docker push "${DOCKERHUB_REPO}:${CIRCLE_SHA1}"
-              if [[ ${CIRCLE_BRANCH} == master ]]; then
-                docker push "${DOCKERHUB_REPO}:latest"
-              elif [[ ${CIRCLE_BRANCH} == develop ]]; then
+              if [[ ${CIRCLE_TAG} =~ ^testing-[0-9]+$ ]]; then
+                docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}:${CIRCLE_TAG}"
                 docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}:develop-latest"
+                docker push "${DOCKERHUB_REPO}:${CIRCLE_TAG}"
                 docker push "${DOCKERHUB_REPO}:develop-latest"
               fi
             fi
@@ -120,6 +120,9 @@ workflows:
     jobs:
       - full:
           filters:
+            tags:
+              only:
+                - /^testing-[0-9]+$/
             branches:
               ignore:
                 - /\//
