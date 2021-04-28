@@ -120,6 +120,9 @@ workflows:
     jobs:
       - full:
           filters:
+            tags:
+              only:
+                - /^release-[0-9]+$/
             branches:
               ignore:
                 - /\//
