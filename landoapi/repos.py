@@ -196,6 +196,11 @@ REPO_CONFIG = {
             access_group=SCM_CONDUIT,
             push_bookmark="@",
         ),
+        "large-repo": Repo(
+            tree="large-repo",
+            url="https://hg.mozilla.org/conduit-testing/m-c",
+            access_group=SCM_CONDUIT,
+        ),
     },
     "devsvcprod": {
         "phabricator-qa-stage": Repo(
