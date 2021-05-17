@@ -255,6 +255,11 @@ REPO_CONFIG = {
         "nss": Repo(
             tree="nss", url="https://hg.mozilla.org/projects/nss", access_group=SCM_NSS
         ),
+        "pine": Repo(
+            tree="pine",
+            url="https://hg.mozilla.org/projects/pine",
+            access_group=SCM_LEVEL_3,
+        ),
     },
 }
 
