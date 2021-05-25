@@ -83,6 +83,7 @@ def landing_worker():
 
 @cli.command(name="pause-landing-worker")
 def pause_landing_worker():
+    """Attempts to pause the landing worker."""
     from landoapi.storage import db_subsystem
     from landoapi.landing_worker import pause_landing_worker
 
@@ -92,6 +93,7 @@ def pause_landing_worker():
 
 @cli.command(name="resume-landing-worker")
 def resume_landing_worker():
+    """Attempts to resume the landing worker."""
     from landoapi.storage import db_subsystem
     from landoapi.landing_worker import resume_landing_worker
 
