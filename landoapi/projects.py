@@ -114,7 +114,7 @@ def get_testing_policy_phid(phabricator: PhabricatorClient) -> Optional[str]:
 
 @cache.cached(key_prefix=TESTING_TAGS_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
 def get_testing_tag_project_phids(
-    phabricator: PhabricatorClient
+    phabricator: PhabricatorClient,
 ) -> Optional[List[str]]:
     """Return phids for the testing tag projects.
     """

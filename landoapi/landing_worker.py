@@ -25,12 +25,26 @@ from landoapi.hg import (
     REJECTS_PATH,
 )
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
+from landoapi.models.configuration import ConfigurationVariable, VariableType
 from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.repos import repo_clone_subsystem
 from landoapi.storage import db, SQLAlchemy
 from landoapi.treestatus import treestatus_subsystem
 
 logger = logging.getLogger(__name__)
+
+
+LANDING_WORKER_PAUSED = "LANDING_WORKER_PAUSED"
+
+
+def pause_landing_worker():
+    """Pause the Landing Worker by setting the configuration variable to True."""
+    return ConfigurationVariable.set(LANDING_WORKER_PAUSED, VariableType.BOOL, "1")
+
+
+def resume_landing_worker():
+    """Resume the Landing Worker by setting the configuration variable to False."""
+    return ConfigurationVariable.set(LANDING_WORKER_PAUSED, VariableType.BOOL, "0")
 
 
 @contextmanager
@@ -131,6 +145,14 @@ class LandingWorker:
             raise Exception(add_process.stderr)
         logger.info("Added private SSH key from environment.")
 
+    @property
+    def paused(self):
+        return ConfigurationVariable.get(LANDING_WORKER_PAUSED, False)
+
+    def sleep(self, sleep_seconds=None):
+        """Sleep for the specified number of seconds."""
+        time.sleep(sleep_seconds or self.sleep_seconds)
+
     def refresh_enabled_repos(self):
         self.enabled_repos = [
             r
@@ -155,17 +177,18 @@ class LandingWorker:
         last_job_finished = True
 
         while self.running:
+            if self.paused:
+                logger.info("Landing worker is paused, sleeping...")
+                self.sleep(60)
+                continue
+
             # Check if any closed trees reopened since the beginning of this iteration
             if len(self.enabled_repos) != len(self.applicable_repos):
                 self.refresh_enabled_repos()
 
             if not last_job_finished:
-                logger.info(
-                    "Last job did not complete, waiting for {} seconds".format(
-                        self.sleep_seconds
-                    )
-                )
-                time.sleep(self.sleep_seconds)
+                logger.info("Last job did not complete, sleeping.")
+                self.sleep()
                 self.refresh_enabled_repos()
 
             job = LandingJob.next_job_for_update_query(
@@ -173,7 +196,7 @@ class LandingWorker:
             ).first()
 
             if job is None:
-                time.sleep(self.sleep_seconds)
+                self.sleep()
                 continue
 
             with job_processing(self, job, db):
@@ -203,7 +226,7 @@ class LandingWorker:
     def exit_gracefully(self, *args):
         logger.info(f"Landing worker exiting gracefully {args}")
         while self.job_processing:
-            time.sleep(self.sleep_seconds)
+            self.sleep()
         self.running = False
 
     @staticmethod

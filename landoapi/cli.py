@@ -81,6 +81,26 @@ def landing_worker():
     worker.start()
 
 
+@cli.command(name="run-pre-deploy-sequence")
+def run_pre_deploy_sequence():
+    """Runs the sequence of commands required before a deployment."""
+    from landoapi.storage import db_subsystem
+    from landoapi.landing_worker import pause_landing_worker
+
+    db_subsystem.ensure_ready()
+    pause_landing_worker()
+
+
+@cli.command(name="run-post-deploy-sequence")
+def run_post_deploy_sequence():
+    """Runs the sequence of commands required after a deployment."""
+    from landoapi.storage import db_subsystem
+    from landoapi.landing_worker import resume_landing_worker
+
+    db_subsystem.ensure_ready()
+    resume_landing_worker()
+
+
 @cli.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def celery(celery_arguments):
