@@ -90,7 +90,9 @@ def test_cancel_landing_job_fails_bad_input(db, client, landing_job, auth0_mock)
     )
 
     assert response.status_code == 400
-    assert response.json["detail"] == ("'IN_PROGRESS' is not one of ['CANCELLED']")
+    assert response.json["detail"] == (
+        "'IN_PROGRESS' is not one of ['CANCELLED'] - 'status'"
+    )
     assert job.status == LandingJobStatus.SUBMITTED
 
 
