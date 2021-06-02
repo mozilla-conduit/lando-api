@@ -182,6 +182,74 @@ diff --git a/test.txt b/test.txt
 +adding one more line again
 """.strip()
 
+PATCH_FORMATTING_PATTERN = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add formatting config
+
+diff --git a/.lando.ini b/.lando.ini
+--- /dev/null
++++ b/.lando.ini
+@@ -0,0 +1,3 @@
++[fix]
++fakefmt:pattern = set:**.txt
++fail:pattern = set:**.txt
+""".strip()
+
+PATCH_FORMATTED_1 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file for formatting 1
+
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,4 @@
+ TEST
++
++
++adding another line
+""".strip()
+
+PATCH_FORMATTED_2 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file for formatting 2
+
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -2,3 +2,4 @@ TEST
+
+ 
+ adding another line
++add one more line
+""".strip()  # noqa: W293
+
+TESTTXT_FORMATTED_1 = b"""
+TeSt
+
+
+aDdInG AnOtHeR LiNe
+""".lstrip()
+
+TESTTXT_FORMATTED_2 = b"""
+TeSt
+
+
+aDdInG AnOtHeR LiNe
+aDd oNe mOrE LiNe
+""".lstrip()
+
 
 def test_integrated_execute_job(
     app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble, upload_patch
@@ -256,8 +324,7 @@ def test_failed_landing_job_notification(
     monkeypatch,
     upload_patch,
 ):
-    """Ensure that a failed landings triggers a user notification.
-    """
+    """Ensure that a failed landings triggers a user notification."""
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
     repo = Repo(
@@ -347,3 +414,212 @@ def test_landing_worker__extract_error_data():
     failed_paths, rejects_paths = LandingWorker.extract_error_data(exception_message)
     assert failed_paths == expected_failed_paths
     assert rejects_paths == expected_rejects_paths
+
+
+def test_format_patch_success_unchanged(
+    app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble, upload_patch
+):
+    """Tests automated formatting happy path where formatters made no changes."""
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo(
+        tree="mozilla-central",
+        url=hg_server,
+        push_path=hg_server,
+        pull_path=hg_server,
+        access_group=SCM_LEVEL_3,
+        config_override={"fix.fakefmt:command": "cat"},
+    )
+
+    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+
+    upload_patch(1, patch=PATCH_FORMATTING_PATTERN)
+    upload_patch(2, patch=PATCH_FORMATTED_1)
+    upload_patch(3, patch=PATCH_FORMATTED_2)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1, "2": 2, "3": 3},
+        revision_order=["1", "2", "3"],
+        attempts=1,
+    )
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert (
+        job.status is LandingJobStatus.LANDED
+    ), "Successful landing did not set correct status"
+    assert job.formatted_replacements is None
+
+
+def test_format_patch_success_changed(
+    app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble, upload_patch
+):
+    """Tests automated formatting happy path where formatters made
+    changes before landing.
+    """
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo(
+        tree="mozilla-central",
+        url=hg_server,
+        push_path=hg_server,
+        pull_path=hg_server,
+        access_group=SCM_LEVEL_3,
+        config_override={
+            "fix.fakefmt:command": "python /app/tests/fake_formatter.py",
+            "fix.fakefmt:linerange": "--lines={first}:{last}",
+        },
+    )
+
+    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+
+    upload_patch(1, patch=PATCH_FORMATTING_PATTERN)
+    upload_patch(2, patch=PATCH_FORMATTED_1)
+    upload_patch(3, patch=PATCH_FORMATTED_2)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1, "2": 2, "3": 3},
+        revision_order=["1", "2", "3"],
+        attempts=1,
+    )
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert (
+        job.status is LandingJobStatus.LANDED
+    ), "Successful landing did not set correct status"
+    assert job.formatted_replacements == (
+        [
+            "3e7b1985f0fbe477c4d0479fb54d8ed22e222565",
+            "965189da2abd217545a26741c6be5eae57877770",
+        ]
+    ), "Did not correctly save hashes of formatted revisions"
+
+    with hgrepo.for_push(job.requester_email):
+        # Get repo root since `-R` does not change relative directory, so
+        # we would need to pass the absolute path to `test.txt`
+        repo_root = hgrepo.run_hg(["root"]).decode("utf-8").strip()
+
+        # Get the content of `test.txt`
+        rev2_content = hgrepo.run_hg(
+            ["cat", "--cwd", repo_root, "-r", "tip^", "test.txt"]
+        )
+        rev3_content = hgrepo.run_hg(
+            ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
+        )
+
+    # Assert `test.txt` was correctly formatted
+    assert rev2_content == TESTTXT_FORMATTED_1
+    assert rev3_content == TESTTXT_FORMATTED_2
+
+
+def test_format_patch_fail(
+    app,
+    db,
+    s3,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    monkeypatch,
+    upload_patch,
+):
+    """Tests automated formatting failures before landing."""
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo(
+        tree="mozilla-central",
+        access_group=SCM_LEVEL_3,
+        url=hg_server,
+        push_path=hg_server,
+        pull_path=hg_server,
+        config_override={
+            # Force failure by setting a formatter that returns exit code 1
+            "fix.fail:command": "exit 1"
+        },
+    )
+
+    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+
+    upload_patch(1, patch=PATCH_FORMATTING_PATTERN)
+    upload_patch(2)
+    upload_patch(3)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1, "2": 2, "3": 3},
+        revision_order=["1", "2", "3"],
+        attempts=1,
+    )
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
+    mock_notify = mock.MagicMock()
+    monkeypatch.setattr(
+        "landoapi.landing_worker.notify_user_of_landing_failure", mock_notify
+    )
+
+    assert not worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert job.status is LandingJobStatus.FAILED
+    assert "no fixes will be applied" in job.error
+    assert mock_notify.call_count == 1
+
+
+def test_format_patch_no_landoini(
+    app,
+    db,
+    s3,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    monkeypatch,
+    upload_patch,
+):
+    """Tests behaviour of Lando when the `.lando.ini` file is missing."""
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo(
+        tree="mozilla-central",
+        access_group=SCM_LEVEL_3,
+        url=hg_server,
+        push_path=hg_server,
+        pull_path=hg_server,
+        config_override={
+            # If the `.lando.ini` file existed, this formatter would run and fail
+            "fix.fail:command": "exit 1"
+        },
+    )
+
+    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+
+    upload_patch(1)
+    upload_patch(2)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1, "2": 2},
+        revision_order=["1", "2"],
+        attempts=1,
+    )
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
+    mock_notify = mock.MagicMock()
+    monkeypatch.setattr(
+        "landoapi.landing_worker.notify_user_of_landing_failure", mock_notify
+    )
+
+    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert job.status is LandingJobStatus.LANDED
+    assert mock_notify.call_count == 0

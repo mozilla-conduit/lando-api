@@ -90,7 +90,9 @@ def test_email_content():
 
 # Use the 'check_celery' fixture before 'celery_worker'!  Otherwise an environment
 # mis-configuration could cause the test run to hang.
-def test_notify_user_of_landing_failure(check_celery, app, celery_worker, smtp):
+def test_notify_user_of_landing_failure(
+    check_celery, app, celery_app, celery_worker, smtp
+):
     # Happy-path test for all objects that collaborate to send emails. We don't check
     # for an observable effect of sending emails in this test because the
     # celery_worker fixture causes the test to cross threads.  We only ensure the
