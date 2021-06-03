@@ -13,8 +13,7 @@ table_name_re = re.compile("((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))")
 
 
 class Base(db.Model):
-    """An abstract base model that provides common methods and columns.
-    """
+    """An abstract base model that provides common methods and columns."""
 
     __abstract__ = True
 

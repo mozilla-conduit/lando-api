@@ -299,7 +299,7 @@ class PhabricatorClient:
         return datetime.fromtimestamp(int(timestamp), timezone.utc)
 
     def verify_api_token(self):
-        """ Verifies that the api token is valid.
+        """Verifies that the api token is valid.
 
         Returns False if Phabricator returns an error code when checking this
         api token. Returns True if no errors are found.

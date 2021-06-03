@@ -142,8 +142,7 @@ class LandingJob(Base):
 
     @property
     def head_revision(self):
-        """Human-readable representation of the branch head's Phabricator revision ID.
-        """
+        """Human-readable representation of the branch head's Phabricator revision ID."""
         assert (
             self.revision_order
         ), "head_revision should never be called without setting self.revision_order!"

@@ -127,8 +127,7 @@ def test_commit_message_with_flags_does_not_duplicate_flags():
 
 @pytest.mark.xfail(strict=True)
 def test_group_reviewers_replaced_with_period_at_end():
-    """Test unexpected period after reviewer name.
-    """
+    """Test unexpected period after reviewer name."""
     # NOTE: the parser stops parsing after the period at the end of a reviewer
     # name, therefore any other reviewers past the first period will not be
     # parsed correctly, and the output will be mangled. This should be fixed

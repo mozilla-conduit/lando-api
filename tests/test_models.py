@@ -5,12 +5,10 @@ from landoapi.models.base import Base
 
 
 class TestModelsBase:
-    """Tests various attributes on the `Base` model.
-    """
+    """Tests various attributes on the `Base` model."""
 
     def test___tablename__(self):
-        """Checks various capitalization combinations get parsed correctly.
-        """
+        """Checks various capitalization combinations get parsed correctly."""
 
         class SomeModel(Base):
             pass
@@ -26,8 +24,7 @@ class TestModelsBase:
         assert ALLCAPSModel.__tablename__ == "allcaps_model"
 
     def test___repr__(self):
-        """Checks the default printable representation of the Base model.
-        """
+        """Checks the default printable representation of the Base model."""
 
         class AnotherModel(Base):
             pass
