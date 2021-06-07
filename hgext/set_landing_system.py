@@ -3,7 +3,7 @@
 
 from mercurial import commands, encoding, extensions
 
-testedwith = b"5.1"
+testedwith = b"5.1 5.5"
 
 EXTRA_KEY = b"moz-landing-system"
 

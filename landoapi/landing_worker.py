@@ -12,6 +12,7 @@ import signal
 import subprocess
 import time
 
+import hglib
 from flask import current_app
 
 from landoapi import patches
@@ -400,6 +401,30 @@ class LandingWorker:
                     )
                     self.notify_user_of_landing_failure(job)
                     return True
+
+            # Run `hg fix` configured formatters if enabled
+            if repo.autoformat_enabled:
+                try:
+                    replacements = hgrepo.format()
+
+                    # If autoformatting changed any changesets, note those in the job.
+                    if replacements:
+                        job.formatted_replacements = replacements
+
+                except hglib.error.CommandError as exc:
+                    message = (
+                        "Lando failed to format your patch for conformity with our "
+                        "formatting policy. Please see the details below.\n\n"
+                        f"{str(exc)}"
+                    )
+
+                    logger.exception(message)
+
+                    job.transition_status(
+                        LandingJobAction.FAIL, message=message, commit=True, db=db
+                    )
+                    self.notify_user_of_landing_failure(job)
+                    return False
 
             commit_id = hgrepo.run_hg(["log", "-r", ".", "-T", "{node}"]).decode(
                 "utf-8"
