@@ -50,7 +50,7 @@ def test_integrated_request_sec_approval(
 
 
 def test_integrated_public_revisions_cannot_be_submitted_for_sec_approval(
-    client, authed_headers, phabdouble
+    db, client, authed_headers, phabdouble
 ):
     public_project = phabdouble.project("public")
     revision = phabdouble.revision(projects=[public_project])
@@ -64,7 +64,7 @@ def test_integrated_public_revisions_cannot_be_submitted_for_sec_approval(
 
 
 def test_integrated_empty_commit_message_is_an_error(
-    client, authed_headers, phabdouble, secure_project, sec_approval_project
+    db, client, authed_headers, phabdouble, secure_project, sec_approval_project
 ):
     revision = phabdouble.revision(projects=[secure_project])
     response = client.post(

@@ -181,9 +181,9 @@ flask-alembic==2.0.1 \
     --hash=sha256:05a1e6f4148dbfcc9280a393373bfbd250af6f9f4f0ca9f744ef8f7376a3deec \
     --hash=sha256:7e67740b0b08d58dcae0c701d56b56e60f5fa4af907bb82b4cb0469229ba94ff
     # via -r requirements.in
-flask-caching==1.7.1 \
-    --hash=sha256:a21c3e98badfea57c9e91e3485ec0b0c029261ae4badbac876a65a834db6c368 \
-    --hash=sha256:cc25b0800fb0ae4e3fcaaf12203263c564f41197593283669b81216089803a1b
+flask-caching==1.10.1 \
+    --hash=sha256:bcda8acbc7508e31e50f63e9b1ab83185b446f6b6318bd9dd1d45626fba2e903 \
+    --hash=sha256:cf19b722fcebc2ba03e4ae7c55b532ed53f0cbf683ce36fafe5e881789a01c00
     # via -r requirements.in
 flask-sqlalchemy==2.4.0 \
     --hash=sha256:0c9609b0d72871c540a7945ea559c8fdf5455192d2db67219509aed680a3d45a \
@@ -303,6 +303,7 @@ mercurial==5.5.1 \
     --hash=sha256:3dd711c915762c579ce1a7d1ea09e2dca82ed8bcce9d0e78b8f8993123257037 \
     --hash=sha256:4f95ad8d575941835d67210e9f8700cc594a441e4fd0bd029c084923b4f40874 \
     --hash=sha256:bdfbcb2685e10d156ac40f4dd5dc3875b781a3e0f2a7f51af7a166bbc084f288
+    # via -r requirements.in
 mock==3.0.5 \
     --hash=sha256:83657d894c90d5681d62155c82bda9c1187827525880eda8ff5df4ec813437c3 \
     --hash=sha256:d157e52d4e5b938c550f39eb2fd15610db062441a9c2747d3dbfa9298211d0f8

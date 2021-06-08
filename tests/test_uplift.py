@@ -5,7 +5,9 @@
 from landoapi.phabricator import PhabricatorClient
 
 
-def test_uplift_creation(monkeypatch, phabdouble, client, auth0_mock, mock_repo_config):
+def test_uplift_creation(
+    db, monkeypatch, phabdouble, client, auth0_mock, mock_repo_config
+):
     def _call_conduit(client, method, **kwargs):
         if method == "differential.revision.edit":
             # Load transactions
@@ -98,7 +100,7 @@ def test_uplift_creation(monkeypatch, phabdouble, client, auth0_mock, mock_repo_
     assert new_rev["summary"] == "some really complex stuff\nNOTE: Uplifted from D1"
 
 
-def test_approval_creation(phabdouble, client, auth0_mock, mock_repo_config):
+def test_approval_creation(db, phabdouble, client, auth0_mock, mock_repo_config):
     repo = phabdouble.repo(name="mozilla-uplift")
     revision = phabdouble.revision(repo=repo)
     user = phabdouble.user(username="JohnDoe")

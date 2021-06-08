@@ -55,7 +55,7 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
     assert check_author_planned_changes(revision=revision) is not None
 
 
-def test_secure_api_flag_on_public_revision_is_false(client, phabdouble):
+def test_secure_api_flag_on_public_revision_is_false(db, client, phabdouble):
     public_project = phabdouble.project("public")
     revision = phabdouble.revision(projects=[public_project])
 

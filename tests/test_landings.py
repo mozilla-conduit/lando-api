@@ -59,7 +59,7 @@ def test_update_landing_bad_request_id(db, client):
     assert response.status_code == 404
 
 
-def test_update_landing_bad_api_key(client):
+def test_update_landing_bad_api_key(db, client):
     response = client.post(
         "/landings/update",
         json={"request_id": 1, "landed": True, "result": "sha123"},
@@ -69,7 +69,7 @@ def test_update_landing_bad_api_key(client):
     assert response.status_code == 403
 
 
-def test_update_landing_no_api_key(client):
+def test_update_landing_no_api_key(db, client):
     response = client.post(
         "/landings/update", json={"request_id": 1, "landed": True, "result": "sha123"}
     )
@@ -77,7 +77,7 @@ def test_update_landing_no_api_key(client):
     assert response.status_code == 400
 
 
-def test_pingback_disabled(client, config):
+def test_pingback_disabled(db, client, config):
     config["PINGBACK_ENABLED"] = "n"
 
     response = client.post(
@@ -89,7 +89,7 @@ def test_pingback_disabled(client, config):
     assert response.status_code == 403
 
 
-def test_pingback_no_api_key_header(client, config):
+def test_pingback_no_api_key_header(db, client, config):
     config["PINGBACK_ENABLED"] = "y"
 
     response = client.post(
@@ -99,7 +99,7 @@ def test_pingback_no_api_key_header(client, config):
     assert response.status_code == 400
 
 
-def test_pingback_incorrect_api_key(client, config):
+def test_pingback_incorrect_api_key(db, client, config):
     config["PINGBACK_ENABLED"] = "y"
 
     response = client.post(

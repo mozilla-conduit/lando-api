@@ -4,10 +4,18 @@
 import enum
 import logging
 
+from landoapi.cache import cache
 from landoapi.models.base import Base
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
+
+
+class ConfigurationKey:
+    """Configuration keys used throughout the system."""
+
+    LANDING_WORKER_PAUSED = "LANDING_WORKER_PAUSED"
+    API_IN_MAINTENANCE = "API_IN_MAINTENANCE"
 
 
 @enum.unique
@@ -53,6 +61,7 @@ class ConfigurationVariable(Base):
             return self.raw_value
 
     @classmethod
+    @cache.memoize()
     def get(cls, key, default):
         """Fetch a variable using `key`, return `default` if it does not exist.
 
@@ -74,7 +83,11 @@ class ConfigurationVariable(Base):
         not exist.
         """
         record = cls.query.filter(cls.key == key).one_or_none()
-        if record.variable_type == variable_type and record.raw_value == raw_value:
+        if (
+            record
+            and record.variable_type == variable_type
+            and record.raw_value == raw_value
+        ):
             logger.info(f"Configuration variable {key} is already set to {raw_value}.")
             return
 
@@ -82,7 +95,14 @@ class ConfigurationVariable(Base):
             logger.info(f"Creating new configuration variable {key}.")
             record = cls()
 
+        logger.info("Deleting memoized cache for configuration variables.")
+        logger.info(
+            f"Configuration variable {key} previously set to {record.raw_value} "
+            f"({record.value})"
+        )
+        cache.delete_memoized(cls.get)
         record.variable_type = variable_type
+        record.key = key
         record.raw_value = raw_value
         db.session.add(record)
         db.session.commit()
