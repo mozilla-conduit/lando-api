@@ -490,15 +490,18 @@ def test_format_patch_success_changed(
 
     worker = LandingWorker(sleep_seconds=0.01)
 
+    # The landed commit hashes affected by autoformat
+    formatted_replacements = [
+        "12be32a8a3ff283e0836b82be959fbd024cf271b",
+        "15b05c609cf43b49e7360eaea4de938158d18c6a",
+    ]
+
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
     assert (
         job.status is LandingJobStatus.LANDED
     ), "Successful landing did not set correct status"
-    assert job.formatted_replacements == (
-        [
-            "3e7b1985f0fbe477c4d0479fb54d8ed22e222565",
-            "965189da2abd217545a26741c6be5eae57877770",
-        ]
+    assert (
+        job.formatted_replacements == formatted_replacements
     ), "Did not correctly save hashes of formatted revisions"
 
     with hgrepo.for_push(job.requester_email):
@@ -514,9 +517,19 @@ def test_format_patch_success_changed(
             ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
         )
 
+        # Get the commit hashes
+        nodes = (
+            hgrepo.run_hg(["log", "-r", "tip^::tip", "-T", "{node}\n"])
+            .decode("utf-8")
+            .splitlines()
+        )
+
     # Assert `test.txt` was correctly formatted
     assert rev2_content == TESTTXT_FORMATTED_1
     assert rev3_content == TESTTXT_FORMATTED_2
+
+    # Assert the `formatted_replacements` field is in the landed hashes
+    assert all(replacement in nodes for replacement in job.formatted_replacements)
 
 
 def test_format_patch_fail(

@@ -391,14 +391,20 @@ class HgRepo:
         # Update the working directory to the latest change.
         self.run_hg(["update", "-C", "-r", "tip"])
 
-        formatted_replacements = check_fix_output_for_replacements(fix_output)
-        logger.info(
-            f"revisions were reformatted: {', '.join(formatted_replacements)}"
-            if formatted_replacements
-            else "autoformatting did not change any revisions"
+        # Exit if no revisions were reformatted.
+        pre_formatting_hashes = check_fix_output_for_replacements(fix_output)
+        if not pre_formatting_hashes:
+            return None
+
+        post_formatting_hashes = (
+            self.run_hg(["log", "-r", "stack()", "-T", "{node}\n"])
+            .decode("utf-8")
+            .splitlines()[len(pre_formatting_hashes) - 1 :]
         )
 
-        return formatted_replacements
+        logger.info(f"revisions were reformatted: {', '.join(post_formatting_hashes)}")
+
+        return post_formatting_hashes
 
     def push(self, target, bookmark=None):
         if not os.getenv(REQUEST_USER_ENV_VAR):
