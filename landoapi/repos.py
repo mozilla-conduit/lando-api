@@ -244,6 +244,7 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_3,
             short_name="mozilla-central",
             commit_flags=[DONTBUILD],
+            config_override={"fix.black:command": "black -- -"},
         ),
         "comm-central": Repo(
             tree="comm-central",
