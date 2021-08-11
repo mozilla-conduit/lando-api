@@ -736,7 +736,7 @@ def test_integrated_transplant_error_responds_with_502(
     assert response.json["title"] == "Transplant not created"
 
 
-def test_transplant_wrong_landing_path_format(client, auth0_mock):
+def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
     response = client.post(
         "/transplants",
         json={"landing_path": [{"revision_id": 1, "diff_id": 1}]},

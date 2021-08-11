@@ -26,7 +26,7 @@ from landoapi.hg import (
     REJECTS_PATH,
 )
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
-from landoapi.models.configuration import ConfigurationVariable, VariableType
+from landoapi.models.configuration import ConfigurationVariable
 from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.repos import repo_clone_subsystem
 from landoapi.storage import db, SQLAlchemy
@@ -36,16 +36,6 @@ logger = logging.getLogger(__name__)
 
 
 LANDING_WORKER_PAUSED = "LANDING_WORKER_PAUSED"
-
-
-def pause_landing_worker():
-    """Pause the Landing Worker by setting the configuration variable to True."""
-    return ConfigurationVariable.set(LANDING_WORKER_PAUSED, VariableType.BOOL, "1")
-
-
-def resume_landing_worker():
-    """Resume the Landing Worker by setting the configuration variable to False."""
-    return ConfigurationVariable.set(LANDING_WORKER_PAUSED, VariableType.BOOL, "0")
 
 
 @contextmanager

@@ -8,6 +8,12 @@ import sys
 import click
 from flask.cli import FlaskGroup
 
+from landoapi.models.configuration import (
+    ConfigurationVariable,
+    ConfigurationKey,
+    VariableType,
+)
+
 
 LINT_PATHS = ("setup.py", "tasks.py", "landoapi", "migrations", "tests")
 
@@ -85,20 +91,28 @@ def landing_worker():
 def run_pre_deploy_sequence():
     """Runs the sequence of commands required before a deployment."""
     from landoapi.storage import db_subsystem
-    from landoapi.landing_worker import pause_landing_worker
 
     db_subsystem.ensure_ready()
-    pause_landing_worker()
+    ConfigurationVariable.set(
+        ConfigurationKey.API_IN_MAINTENANCE, VariableType.BOOL, "1"
+    )
+    ConfigurationVariable.set(
+        ConfigurationKey.LANDING_WORKER_PAUSED, VariableType.BOOL, "1"
+    )
 
 
 @cli.command(name="run-post-deploy-sequence")
 def run_post_deploy_sequence():
     """Runs the sequence of commands required after a deployment."""
     from landoapi.storage import db_subsystem
-    from landoapi.landing_worker import resume_landing_worker
 
     db_subsystem.ensure_ready()
-    resume_landing_worker()
+    ConfigurationVariable.set(
+        ConfigurationKey.API_IN_MAINTENANCE, VariableType.BOOL, "0"
+    )
+    ConfigurationVariable.set(
+        ConfigurationKey.LANDING_WORKER_PAUSED, VariableType.BOOL, "0"
+    )
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True))
