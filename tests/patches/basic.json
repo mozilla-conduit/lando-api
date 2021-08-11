@@ -58,9 +58,7 @@
             "unix:filemode": "100644"
         },
         "oldPath": null,
-        "oldProperties": {
-            "unix:filemode": "000000"
-        },
+        "oldProperties": {},
         "type": 1
     },
     {
@@ -111,9 +109,7 @@
             "new:binary-phid": null,
             "old:binary-phid": null
         },
-        "newProperties": {
-            "unix:filemode": "000000"
-        },
+        "newProperties": {},
         "oldPath": "tete",
         "oldProperties": {
             "unix:filemode": "100644"
@@ -160,9 +156,7 @@
             "unix:filemode": "100644"
         },
         "oldPath": null,
-        "oldProperties": {
-            "unix:filemode": "000000"
-        },
+        "oldProperties": {},
         "type": 1
     },
     {
@@ -184,9 +178,7 @@
             }
         ],
         "metadata": {},
-        "newProperties": {
-            "unix:filemode": "000000"
-        },
+        "newProperties": {},
         "oldPath": "ofo",
         "oldProperties": {
             "unix:filemode": "100644"

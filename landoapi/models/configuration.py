@@ -28,8 +28,7 @@ class VariableType(enum.Enum):
 
 
 class ConfigurationVariable(Base):
-    """An arbitrary key-value table store that can be used to configure the system.
-    """
+    """An arbitrary key-value table store that can be used to configure the system."""
 
     key = db.Column(db.String, unique=True)
     raw_value = db.Column(db.String(254), default="")

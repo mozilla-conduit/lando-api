@@ -71,7 +71,7 @@ def test_raise_exception_if_api_returns_error_json_response(get_phab_client):
 
 
 def test_phabricator_exception(get_phab_client):
-    """ Ensures that the PhabricatorClient converts JSON errors from Phabricator
+    """Ensures that the PhabricatorClient converts JSON errors from Phabricator
     into proper exceptions with the error_code and error_message in tact.
     """
     phab = get_phab_client(api_key="api-key")

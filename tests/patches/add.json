@@ -22,9 +22,7 @@
             "unix:filemode": "100644"
         },
         "oldPath": null,
-        "oldProperties": {
-            "unix:filemode": "000000"
-        },
+        "oldProperties": {},
         "type": 1
     }
 ]

@@ -91,15 +91,13 @@ def get_project_phid(project_slug, phabricator, allow_empty_result=True):
 
 @cache.cached(key_prefix=SEC_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
 def get_secure_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
-    """Return a phid for the project indicating revision security.
-    """
+    """Return a phid for the project indicating revision security."""
     return get_project_phid(SEC_PROJ_SLUG, phabricator)
 
 
 @cache.cached(key_prefix=CHECKIN_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
 def get_checkin_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
-    """Return a phid for the project indicating check-in is needed.
-    """
+    """Return a phid for the project indicating check-in is needed."""
     return get_project_phid(CHECKIN_PROJ_SLUG, phabricator)
 
 
@@ -107,8 +105,7 @@ def get_checkin_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
     key_prefix=TESTING_POLICY_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT
 )
 def get_testing_policy_phid(phabricator: PhabricatorClient) -> Optional[str]:
-    """Return a phid for the project indicating testing policy.
-    """
+    """Return a phid for the project indicating testing policy."""
     return get_project_phid(TESTING_POLICY_PROJ_SLUG, phabricator)
 
 
@@ -116,8 +113,7 @@ def get_testing_policy_phid(phabricator: PhabricatorClient) -> Optional[str]:
 def get_testing_tag_project_phids(
     phabricator: PhabricatorClient,
 ) -> Optional[List[str]]:
-    """Return phids for the testing tag projects.
-    """
+    """Return phids for the testing tag projects."""
     tags = [get_project_phid(slug, phabricator) for slug in TESTING_TAG_PROJ_SLUGS]
     return [t for t in tags if t is not None]
 
@@ -137,6 +133,5 @@ def get_sec_approval_project_phid(phabricator: PhabricatorClient) -> Optional[st
 
 @cache.cached(key_prefix=RELMAN_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
 def get_relman_group_phid(phabricator: PhabricatorClient) -> Optional[str]:
-    """Return a phid for the relman group's project.
-    """
+    """Return a phid for the relman group's project."""
     return get_project_phid(RELMAN_PROJECT_SLUG, phabricator)

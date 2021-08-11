@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-FROM python:3.7
+FROM python:3.9
 
 EXPOSE 9000
 ENTRYPOINT ["lando-cli"]
@@ -40,6 +40,7 @@ RUN addgroup --gid 10001 app \
 ENV HGPYTHON3=
 
 COPY requirements.txt /python_requirements.txt
+RUN pip install pip --upgrade
 RUN pip install --no-cache -r /python_requirements.txt
 
 COPY migrations /migrations

@@ -5,10 +5,10 @@ import os
 
 
 def phab_url(path):
-    """ Utility to generate a url to Phabricator's API """
+    """Utility to generate a url to Phabricator's API"""
     return "%s/api/%s" % (os.getenv("PHABRICATOR_URL"), path)
 
 
 def trans_url(path):
-    """ Utility to generate a url to Transplant's API """
+    """Utility to generate a url to Transplant's API"""
     return "%s/%s" % (os.getenv("TRANSPLANT_URL"), path)
