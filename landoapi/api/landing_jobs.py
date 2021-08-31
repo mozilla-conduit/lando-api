@@ -61,7 +61,7 @@ def put(landing_job_id, data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    if landing_job.status == LandingJobStatus.SUBMITTED:
+    if landing_job.status in (LandingJobStatus.SUBMITTED, LandingJobStatus.DEFERRED):
         landing_job.transition_status(LandingJobAction.CANCEL)
         db.session.commit()
         return {"id": landing_job.id}, 200

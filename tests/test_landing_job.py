@@ -24,9 +24,23 @@ def landing_job(db):
     return _landing_job
 
 
-def test_cancel_landing_job_cancels(db, client, landing_job, auth0_mock):
+def test_cancel_landing_job_cancels_when_submitted(db, client, landing_job, auth0_mock):
     """Test happy path; cancelling a job that has not started yet."""
     job = landing_job(LandingJobStatus.SUBMITTED)
+    response = client.put(
+        f"/landing_jobs/{job.id}",
+        json={"status": LandingJobStatus.CANCELLED.value},
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json["id"] == job.id
+    assert job.status == LandingJobStatus.CANCELLED
+
+
+def test_cancel_landing_job_cancels_when_deferred(db, client, landing_job, auth0_mock):
+    """Test happy path; cancelling a job that has been deferred."""
+    job = landing_job(LandingJobStatus.DEFERRED)
     response = client.put(
         f"/landing_jobs/{job.id}",
         json={"status": LandingJobStatus.CANCELLED.value},
