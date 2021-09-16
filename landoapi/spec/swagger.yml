@@ -134,6 +134,82 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /diff_warnings/{pk}:
+    delete:
+      operationId: landoapi.api.diff_warnings.delete
+      description: Archives a given diff warning.
+      parameters:
+        - name: pk
+          in: path
+          type: integer
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+        400:
+          description: Bad request
+          schema:
+            type: object
+        404:
+          description: Not found
+          schema:
+            type: object
+  /diff_warnings:
+    get:
+      operationId: landoapi.api.diff_warnings.get
+      description: Gets a list of diff warnings based on provided filters
+      parameters:
+        - name: revision_id 
+          in: query
+          required: true
+          type: integer
+        - name: diff_id
+          in: query
+          required: true
+          type: integer
+        - name: group
+          in: query
+          required: true
+          type: string
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+    post:
+      operationId: landoapi.api.diff_warnings.post
+      description: Creates a new diff warning
+      parameters:
+        - name: data 
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - revision_id
+              - diff_id
+              - group
+              - data
+            properties:
+              revision_id:
+                type: integer
+              diff_id:
+                type: integer
+              group:
+                type: string
+              data:
+                type: object
+      responses:
+        201:
+          description: OK
+          schema:
+            type: object
+        400:
+          description: Bad request
+          schema:
+            type: object
   /landing_jobs/{landing_job_id}:
     put:
       operationId: landoapi.api.landing_jobs.put

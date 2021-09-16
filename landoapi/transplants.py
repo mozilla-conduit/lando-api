@@ -11,6 +11,7 @@ from connexion import ProblemException
 
 from landoapi.repos import Repo
 from landoapi.models.transplant import Transplant, TransplantStatus
+from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (
@@ -29,7 +30,9 @@ DEFAULT_OTHER_BLOCKER_CHECKS = [
 ]
 
 RevisionWarning = namedtuple(
-    "RevisionWarning", ("i", "display", "revision_id", "details")
+    "RevisionWarning",
+    ("i", "display", "revision_id", "details", "articulated"),
+    defaults=(None, None, None, None, False),
 )
 
 
@@ -62,10 +65,15 @@ class TransplantAssessment:
                     "id": w.i,
                     "display": w.display,
                     "instances": [],
+                    "articulated": w.articulated,
                 }
 
             bucketed_warnings[w.i]["instances"].append(
-                {"revision_id": w.revision_id, "details": w.details}
+                {
+                    "revision_id": w.revision_id,
+                    "details": w.details,
+                    "articulated": w.articulated,
+                }
             )
 
         return {
@@ -122,7 +130,7 @@ class TransplantAssessment:
 class RevisionWarningCheck:
     _warning_ids = set()
 
-    def __init__(self, i, display):
+    def __init__(self, i, display, articulated=False):
         if not isinstance(i, int):
             raise ValueError("Warning ids must be provided as an integer")
 
@@ -136,6 +144,7 @@ class RevisionWarningCheck:
         self._warning_ids.add(i)
         self.i = i
         self.display = display
+        self.articulated = articulated
 
     def __call__(self, f):
         @functools.wraps(f)
@@ -146,7 +155,7 @@ class RevisionWarningCheck:
                 None
                 if result is None
                 else RevisionWarning(
-                    self.i, self.display, "D{}".format(revision["id"]), result
+                    self.i, self.display, f'D{revision["id"]}', result, self.articulated
                 )
             )
 
@@ -275,6 +284,17 @@ def warning_revision_missing_testing_tag(
     )
 
 
+@RevisionWarningCheck(6, "Revision has a diff warning.", True)
+def warning_diff_warning(*, revision, diff, **kwargs):
+    warnings = DiffWarning.query.filter(
+        DiffWarning.revision_id == revision["id"],
+        DiffWarning.diff_id == diff["id"],
+        DiffWarning.status == DiffWarningStatus.ACTIVE,
+    )
+    if warnings.count():
+        return [w.data for w in warnings]
+
+
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return (
@@ -317,7 +337,8 @@ def check_landing_warnings(
         warning_reviews_not_current,
         warning_revision_secure,
         warning_revision_missing_testing_tag,
-    ]
+        warning_diff_warning,
+    ],
 ):
     assessment = TransplantAssessment()
     for revision, diff in to_land:
@@ -348,7 +369,7 @@ def check_landing_blockers(
     landable_paths,
     landable_repos,
     *,
-    user_blocks=[user_block_no_auth0_email, user_block_scm_level]
+    user_blocks=[user_block_no_auth0_email, user_block_scm_level],
 ):
     revision_path = []
     revision_to_diff_id = {}
