@@ -270,6 +270,11 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/projects/pine",
             access_group=SCM_LEVEL_3,
         ),
+        "elm": Repo(
+            tree="elm",
+            url="https://hg.mozilla.org/projects/elm",
+            access_group=SCM_LEVEL_3,
+        ),
     },
 }
 
