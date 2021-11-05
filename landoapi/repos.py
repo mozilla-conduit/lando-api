@@ -275,6 +275,11 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/projects/elm",
             access_group=SCM_LEVEL_3,
         ),
+        "mozilla-build": Repo(
+            tree="mozilla-build",
+            url="https://hg.mozilla.org/mozilla-build",
+            access_group=SCM_LEVEL_3,
+        ),
     },
 }
 
