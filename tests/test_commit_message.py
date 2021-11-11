@@ -19,14 +19,14 @@ FIRST_LINE = COMMIT_MESSAGE.split("\n")[0]
 def test_commit_message_for_multiple_reviewers():
     reviewers = ["reviewer_one", "reviewer.two"]
     commit_message = format_commit_message(
-        "A title.", 1, reviewers, "A summary.", "http://phabricator.test/D123"
+        "A title.", 1, reviewers, [], "A summary.", "http://phabricator.test/D123"
     )
     assert commit_message == (FIRST_LINE, COMMIT_MESSAGE)
 
 
 def test_commit_message_blank_summary():
     first_line, message = format_commit_message(
-        "A title.", 1, ["reviewer"], "", "http://phabricator.test/D123"
+        "A title.", 1, ["reviewer"], [], "", "http://phabricator.test/D123"
     )
 
     # A blank summary should result in only a single blank line between
@@ -60,6 +60,7 @@ def test_commit_message_blocking_reviewers_requested(reviewer_text):
         "A title! {}".format(reviewer_text),
         1,
         ["blocker"],
+        [],
         "",
         "http://phabricator.test/D123",
     )
@@ -93,6 +94,7 @@ def test_commit_message_reviewers_replaced(reviewer_text):
         "A title. {}".format(reviewer_text),
         1,
         reviewers,
+        [],
         "A summary.",
         "http://phabricator.test/D123",
     )
@@ -105,6 +107,7 @@ def test_commit_message_with_flags():
         title="A title.",
         bug=1,
         reviewers=reviewers,
+        approvals=[],
         summary="A summary.",
         revision_url="http://phabricator.test/D123",
         flags=["DONTBUILD"],
@@ -118,6 +121,7 @@ def test_commit_message_with_flags_does_not_duplicate_flags():
         title="A title. DONTBUILD",
         bug=1,
         reviewers=reviewers,
+        approvals=[],
         summary="A summary.",
         revision_url="http://phabricator.test/D123",
         flags=["DONTBUILD"],
@@ -135,7 +139,12 @@ def test_group_reviewers_replaced_with_period_at_end():
 
     reviewers = ["reviewer_one", "reviewer.two"]
     commit_message = format_commit_message(
-        "A title. r=a.,b", 1, reviewers, "A summary.", "http://phabricator.test/D123"
+        "A title. r=a.,b",
+        1,
+        reviewers,
+        [],
+        "A summary.",
+        "http://phabricator.test/D123",
     )
 
     # This is the current behaviour
@@ -166,3 +175,22 @@ def test_split_title_and_summary(message, title, summary):
     parsed_title, parsed_summary = split_title_and_summary(message)
     assert parsed_title == title
     assert parsed_summary == summary
+
+
+def test_relman_reviews_become_approvals():
+    commit_message = format_commit_message(
+        "A title r?#release-managers!",
+        "1",
+        [],
+        ["ryanvm"],
+        ("A summary.\n" "\n" "Original Revision: http://phabricator.test/D1"),
+        "http://phabricator.test/D123",
+    )
+
+    assert commit_message == (
+        "Bug 1 - A title  a=ryanvm",
+        "Bug 1 - A title  a=ryanvm\n\n"
+        "A summary.\n\n"
+        "Original Revision: http://phabricator.test/D1\n\n"
+        "Differential Revision: http://phabricator.test/D123",
+    )

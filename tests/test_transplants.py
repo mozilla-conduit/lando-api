@@ -462,7 +462,7 @@ def test_confirmation_token_warning_order():
 
 
 def test_integrated_transplant_simple_stack_saves_data_in_db(
-    db, client, phabdouble, transfactory, s3, auth0_mock
+    db, client, phabdouble, transfactory, s3, auth0_mock, release_management_project
 ):
     repo = phabdouble.repo()
     user = phabdouble.user(username="reviewer")
@@ -515,7 +515,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
 
 def test_integrated_transplant_with_flags(
-    db, client, phabdouble, s3, auth0_mock, monkeypatch
+    db, client, phabdouble, s3, auth0_mock, monkeypatch, release_management_project
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -571,7 +571,15 @@ def test_integrated_transplant_with_invalid_flags(
 
 
 def test_integrated_transplant_legacy_repo_checkin_project_removed(
-    db, client, phabdouble, transfactory, s3, auth0_mock, checkin_project, monkeypatch
+    db,
+    client,
+    phabdouble,
+    transfactory,
+    s3,
+    auth0_mock,
+    checkin_project,
+    monkeypatch,
+    release_management_project,
 ):
     repo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -601,7 +609,14 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
 
 
 def test_integrated_transplant_repo_checkin_project_removed(
-    db, client, phabdouble, s3, auth0_mock, checkin_project, monkeypatch
+    db,
+    client,
+    phabdouble,
+    s3,
+    auth0_mock,
+    checkin_project,
+    monkeypatch,
+    release_management_project,
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -662,6 +677,7 @@ def test_integrated_push_bookmark_sent_when_supported_repo(
     auth0_mock,
     get_phab_client,
     mock_repo_config,
+    release_management_project,
 ):
     # Mock the repo to have a push bookmark.
     mock_repo_config(
@@ -716,7 +732,15 @@ def test_integrated_push_bookmark_sent_when_supported_repo(
     ],
 )
 def test_integrated_transplant_error_responds_with_502(
-    app, db, client, phabdouble, transfactory, s3, auth0_mock, mock_error_method
+    app,
+    db,
+    client,
+    phabdouble,
+    transfactory,
+    s3,
+    auth0_mock,
+    mock_error_method,
+    release_management_project,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -841,7 +865,15 @@ def test_integrated_transplant_revision_with_unmapped_repo(
 
 
 def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_list(
-    app, db, client, phabdouble, auth0_mock, s3, transfactory, sec_approval_project
+    app,
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    s3,
+    transfactory,
+    sec_approval_project,
+    release_management_project,
 ):
     repo = phabdouble.repo()
     user = phabdouble.user(username="normal_reviewer")

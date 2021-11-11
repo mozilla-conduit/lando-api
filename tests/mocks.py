@@ -203,6 +203,7 @@ class PhabricatorDouble:
         comments=[],
         title="",
         summary="",
+        uplift=None,
     ):
         revision_id = self._new_id(self._revisions)
         phid = self._new_phid("DREV-")
@@ -235,8 +236,12 @@ class PhabricatorDouble:
             "ccs": [],
             "hashes": [],
             "bugzilla.bug-id": bug_id,
+            "uplift.request": uplift,
             "repositoryPHID": repo["phid"] if repo is not None else None,
-            "fields": {"repositoryPHID": repo["phid"] if repo is not None else None},
+            "fields": {
+                "repositoryPHID": repo["phid"] if repo is not None else None,
+                "uplift.request": uplift,
+            },
             "sourcePath": None,
             # projectPHIDs is left for backwards compatibility for older tests, though
             # it appears to no longer be in the response from the Phabricator API.
@@ -514,11 +519,14 @@ class PhabricatorDouble:
 
         return reviewer
 
-    def project(self, name, *, no_slug=False):
+    def project(self, name, *, attachments=None, no_slug=False):
         """Return a Phabricator Project."""
         projects = [p for p in self._projects if p["name"] == name]
         if projects:
             return projects[0]
+
+        if not attachments:
+            attachments = {}
 
         phid = self._new_phid("PROJ-")
         uri = "http://phabricator.test/tag/{}/".format(name)
@@ -540,6 +548,7 @@ class PhabricatorDouble:
             "dateModified": 1524762062,
             "policy": {"view": "public", "edit": "admin", "join": "admin"},
             "description": "Project named {}".format(name),
+            "attachments": attachments,
         }
         self._projects.append(project)
         self._phids.append(
@@ -685,7 +694,7 @@ class PhabricatorDouble:
                         },
                         "description": i["description"],
                     },
-                    "attachments": {},
+                    "attachments": i["attachments"],
                 }
             )
 
@@ -879,6 +888,7 @@ class PhabricatorDouble:
             bug_id = (
                 str(i["bugzilla.bug-id"]) if i["bugzilla.bug-id"] is not None else ""
             )
+            uplift = i["uplift.request"] if i["uplift.request"] is not None else ""
 
             resp = {
                 "id": i["id"],
@@ -900,6 +910,7 @@ class PhabricatorDouble:
                     "dateModified": i["dateModified"],
                     "policy": {"view": "public", "edit": "users"},
                     "bugzilla.bug-id": bug_id,
+                    "uplift.request": uplift,
                 },
                 "attachments": {},
             }
@@ -1024,6 +1035,7 @@ class PhabricatorDouble:
             "subscribers.set",
             "phabricator:auditors",
             "bugzilla.bug-id",
+            "uplift.request",
             "comment",
         ]
 
@@ -1144,10 +1156,13 @@ class PhabricatorDouble:
             bug_id = (
                 str(i["bugzilla.bug-id"]) if i["bugzilla.bug-id"] is not None else ""
             )
+            uplift = i["uplift.request"] if i["uplift.request"] is not None else ""
+
             auxiliary = {
                 "phabricator:depends-on": dependencies,
                 "phabricator:projects": [],
                 "bugzilla.bug-id": bug_id,
+                "uplift.request": uplift,
             }
 
             resp = {

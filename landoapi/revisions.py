@@ -4,6 +4,11 @@
 import logging
 from collections import Counter
 
+from typing import (
+    Callable,
+    Optional,
+)
+
 from flask import g
 
 from landoapi.models import SecApprovalRequest
@@ -20,6 +25,9 @@ from landoapi.secapproval import (
     parse_comment,
     search_sec_approval_request_for_comment,
     TransactionSearchError,
+)
+from landoapi.uplift import (
+    stack_uplift_form_submitted,
 )
 
 logger = logging.getLogger(__name__)
@@ -136,10 +144,10 @@ def check_author_planned_changes(*, revision, **kwargs):
     return "The author has indicated they are planning changes to this revision."
 
 
-def check_relman_approval(relman_phid, supported_repos):
+def check_uplift_approval(relman_phid, supported_repos, stack_data) -> Callable:
     """Check that Release Managers group approved a revision"""
 
-    def _check(*, revision, repo, **kwargs):
+    def _check(*, revision, repo, **kwargs) -> Optional[str]:
 
         # Check if this repository needs an approval from relman
         local_repo = supported_repos.get(repo["fields"]["shortName"])
@@ -148,19 +156,24 @@ def check_relman_approval(relman_phid, supported_repos):
             return None
 
         # Check that relman approval was requested and that the
-        # approval was granted
+        # approval was granted.
         reviewers = get_collated_reviewers(revision)
         relman_review = reviewers.get(relman_phid)
-        if relman_review is None:
-            return "The release-managers group was not requested for review"
-        if relman_review["status"] == ReviewerStatus.ACCEPTED:
-            return None
+        if relman_review is None or relman_review["status"] != ReviewerStatus.ACCEPTED:
+            return (
+                "The release-managers group did not accept the stack: "
+                "you need to wait for a group approval from release-managers, "
+                "or request a new review."
+            )
 
-        return (
-            "The release-managers group did not accept that stack: "
-            "you need to wait for a group approval from release-managers, "
-            "or request a new review."
-        )
+        # Check that the uplift request form is filled out for the revision.
+        if not stack_uplift_form_submitted(stack_data):
+            return (
+                "The uplift request form has not been submitted for this stack; "
+                "Please submit an uplift request on the head of the stack."
+            )
+
+        return None
 
     return _check
 

@@ -96,6 +96,11 @@ class Repo:
         )
 
 
+SCM_ALLOW_DIRECT_PUSH = AccessGroup(
+    active_group="active_scm_allow_direct_push",
+    membership_group="all_scm_allow_direct_push",
+    display_name="Above Level 3 Commit Access",
+)
 SCM_LEVEL_3 = AccessGroup(
     active_group="active_scm_level_3",
     membership_group="all_scm_level_3",
@@ -176,6 +181,7 @@ REPO_CONFIG = {
             push_path="ssh://autoland.hg//repos/third-repo",
             pull_path="http://hg.test/third-repo",
             config_override={"fix.black:command": "black -- -"},
+            approval_required=True,
         ),
         # Approval is required for the uplift dev repo
         "uplift-target": Repo(
@@ -198,6 +204,7 @@ REPO_CONFIG = {
             access_group=SCM_CONDUIT,
             commit_flags=[DONTBUILD],
             config_override={"fix.black:command": "black -- -"},
+            approval_required=True,
         ),
         "vct": Repo(
             tree="vct",
@@ -280,6 +287,12 @@ REPO_CONFIG = {
             tree="mozilla-build",
             url="https://hg.mozilla.org/mozilla-build",
             access_group=SCM_LEVEL_3,
+        ),
+        "beta": Repo(
+            tree="mozilla-beta",
+            url="https://hg.mozilla.org/releases/mozilla-beta",
+            access_group=SCM_ALLOW_DIRECT_PUSH,
+            approval_required=True,
         ),
     },
 }

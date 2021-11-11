@@ -28,7 +28,11 @@ from landoapi.projects import (
     project_search,
 )
 from landoapi.repos import get_repos_for_env
-from landoapi.reviews import get_collated_reviewers, reviewers_for_commit_message
+from landoapi.reviews import (
+    approvals_for_commit_message,
+    get_collated_reviewers,
+    reviewers_for_commit_message,
+)
 from landoapi.revisions import (
     gather_involved_phids,
     get_bugzilla_bug,
@@ -51,6 +55,9 @@ from landoapi.transplants import (
     TransplantAssessment,
 )
 from landoapi.transplant_client import TransplantClient, TransplantError
+from landoapi.uplift import (
+    get_release_managers,
+)
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
@@ -156,7 +163,9 @@ def _assess_transplant_request(phab, landing_path):
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     other_checks = get_blocker_checks(
-        repositories=supported_repos, relman_group_phid=get_relman_group_phid(phab)
+        repositories=supported_repos,
+        relman_group_phid=get_relman_group_phid(phab),
+        stack_data=stack_data,
     )
 
     landable, blocked = calculate_landable_subgraphs(
@@ -323,6 +332,11 @@ def post(data):
     ]
 
     sec_approval_project_phid = get_sec_approval_project_phid(phab)
+    release_managers = get_release_managers(phab)
+    relman_phids = {
+        member["phid"]
+        for member in release_managers["attachments"]["members"]["members"]
+    }
 
     # Build the patches to land.
     patch_urls = []
@@ -332,6 +346,11 @@ def post(data):
             reviewers, users, projects, sec_approval_project_phid
         )
 
+        # Find RelMan reviews for rewriting to `a=<reviewer>`.
+        accepted_reviewers, approval_reviewers = approvals_for_commit_message(
+            reviewers, users, projects, relman_phids, accepted_reviewers
+        )
+
         secure = revision_is_secure(revision, secure_project_phid)
         commit_description = find_title_and_summary_for_landing(phab, revision, secure)
 
@@ -339,6 +358,7 @@ def post(data):
             commit_description.title,
             get_bugzilla_bug(revision),
             accepted_reviewers,
+            approval_reviewers,
             commit_description.summary,
             urllib.parse.urljoin(
                 current_app.config["PHABRICATOR_URL"], "D{}".format(revision["id"])

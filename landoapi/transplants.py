@@ -17,9 +17,12 @@ from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
-    check_relman_approval,
+    check_uplift_approval,
     revision_is_secure,
     revision_needs_testing_tag,
+)
+from landoapi.stacks import (
+    RevisionData,
 )
 
 logger = logging.getLogger(__name__)
@@ -436,11 +439,13 @@ def check_landing_blockers(
     return TransplantAssessment()
 
 
-def get_blocker_checks(repositories: dict, relman_group_phid: str):
+def get_blocker_checks(
+    repositories: dict, relman_group_phid: str, stack_data: RevisionData
+):
     """Build all transplant blocker checks that need extra Phabricator data"""
     assert all(map(lambda r: isinstance(r, Repo), repositories.values()))
 
     return DEFAULT_OTHER_BLOCKER_CHECKS + [
-        # Configure relman check with extra data
-        check_relman_approval(relman_group_phid, repositories)
+        # Configure uplift check with extra data.
+        check_uplift_approval(relman_group_phid, repositories, stack_data)
     ]

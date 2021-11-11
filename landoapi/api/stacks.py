@@ -17,6 +17,7 @@ from landoapi.projects import (
 )
 from landoapi.repos import get_repos_for_env
 from landoapi.reviews import (
+    approvals_for_commit_message,
     get_collated_reviewers,
     reviewers_for_commit_message,
     serialize_reviewers,
@@ -37,6 +38,7 @@ from landoapi.stacks import (
     request_extended_revision_data,
 )
 from landoapi.transplants import get_blocker_checks
+from landoapi.uplift import get_release_managers
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
@@ -79,7 +81,9 @@ def get(revision_id):
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     other_checks = get_blocker_checks(
-        repositories=supported_repos, relman_group_phid=get_relman_group_phid(phab)
+        relman_group_phid=get_relman_group_phid(phab),
+        repositories=supported_repos,
+        stack_data=stack_data,
     )
 
     landable, blocked = calculate_landable_subgraphs(
@@ -100,6 +104,11 @@ def get(revision_id):
 
     secure_project_phid = get_secure_project_phid(phab)
     sec_approval_project_phid = get_sec_approval_project_phid(phab)
+    release_managers = get_release_managers(phab)
+    relman_phids = {
+        member["phid"]
+        for member in release_managers["attachments"]["members"]["members"]
+    }
 
     revisions_response = []
     for _phid, revision in stack_data.revisions.items():
@@ -118,10 +127,14 @@ def get(revision_id):
         accepted_reviewers = reviewers_for_commit_message(
             reviewers, users, projects, sec_approval_project_phid
         )
+        accepted_reviewers, approval_reviewers = approvals_for_commit_message(
+            reviewers, users, projects, relman_phids, accepted_reviewers
+        )
         commit_message_title, commit_message = format_commit_message(
             commit_description.title,
             bug_id,
             accepted_reviewers,
+            approval_reviewers,
             commit_description.summary,
             revision_url,
         )

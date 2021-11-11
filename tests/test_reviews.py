@@ -7,6 +7,7 @@ import pytest
 from landoapi.phabricator import PhabricatorCommunicationException
 from landoapi.projects import project_search
 from landoapi.reviews import (
+    approvals_for_commit_message,
     collate_reviewer_attachments,
     get_collated_reviewers,
     reviewers_for_commit_message,
@@ -91,3 +92,46 @@ def test_sec_approval_is_filtered_from_commit_message_reviewer_list(
     )
     assert user["userName"] in filtered_reviewers
     assert sec_approval_project["name"] not in filtered_reviewers
+
+
+def test_approvals_for_commit_message(
+    phabdouble, sec_approval_project, release_management_project
+):
+    revision = phabdouble.revision()
+    user = phabdouble.user(username="normal_reviewer")
+    phabdouble.reviewer(revision, user)
+    phabdouble.reviewer(revision, release_management_project)
+
+    revision = phabdouble.api_object_for(
+        revision, attachments={"reviewers": True, "reviewers-extra": True}
+    )
+    reviewers = get_collated_reviewers(revision)
+
+    involved_phids = reviewers.keys()
+    phab = phabdouble.get_phabricator_client()
+    users = user_search(phab, involved_phids)
+    projects = project_search(phab, involved_phids)
+
+    accepted_reviewers = reviewers_for_commit_message(
+        reviewers, users, projects, sec_approval_project["phid"]
+    )
+
+    relman_phids = {user["phid"]}
+
+    accepted_reviewers, approval_reviewers = approvals_for_commit_message(
+        reviewers,
+        users,
+        projects,
+        relman_phids,
+        accepted_reviewers,
+    )
+
+    assert (
+        user["userName"] in approval_reviewers
+    ), "RelMan review should be recognized as approval."
+    assert (
+        user["userName"] not in accepted_reviewers
+    ), "RelMan review should be filtered from regular reviewers."
+    assert (
+        release_management_project["name"] not in accepted_reviewers
+    ), "`release-managers` project should be filtered from `accepted_reviewers`."
