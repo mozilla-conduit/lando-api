@@ -175,6 +175,7 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_1,
             push_path="ssh://autoland.hg//repos/third-repo",
             pull_path="http://hg.test/third-repo",
+            config_override={"fix.black:command": "black -- -"},
         ),
         # Approval is required for the uplift dev repo
         "uplift-target": Repo(
