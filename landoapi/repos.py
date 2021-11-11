@@ -91,7 +91,7 @@ class Repo:
     @property
     def autoformat_enabled(self) -> bool:
         """Return `True` if formatting is enabled for the repo."""
-        return self.config_override and any(
+        return self.config_override is not None and any(
             config.startswith("fix") for config in self.config_override.keys()
         )
 
