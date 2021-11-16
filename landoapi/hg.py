@@ -373,6 +373,10 @@ class HgRepo:
         with lando_config_path.open() as f:
             parser.read_file(f)
 
+        # If the file doesn't have a `fix` section, exit early.
+        if not parser.has_section("fix"):
+            return None
+
         fix_hg_command = []
         for key, value in parser.items("fix"):
             if not key.endswith(":pattern"):
