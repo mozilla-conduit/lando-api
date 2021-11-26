@@ -8,6 +8,7 @@ from connexion import problem
 from flask import current_app, g
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
+from landoapi.models.revisions import Revision
 from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
 from landoapi.projects import (
     get_sec_approval_project_phid,
@@ -103,6 +104,9 @@ def get(revision_id):
 
     revisions_response = []
     for _phid, revision in stack_data.revisions.items():
+        lando_revision = Revision.query.filter(
+            Revision.revision_id == revision["id"]
+        ).one_or_none()
         revision_phid = PhabricatorClient.expect(revision, "phid")
         fields = PhabricatorClient.expect(revision, "fields")
         diff_phid = PhabricatorClient.expect(fields, "diffPHID")
@@ -151,6 +155,9 @@ def get(revision_id):
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
                 "is_secure": secure,
                 "is_using_secure_commit_message": commit_description.sanitized,
+                "lando_revision": lando_revision.serialize()
+                if lando_revision
+                else None,
             }
         )
 

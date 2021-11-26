@@ -87,6 +87,20 @@ def landing_worker():
     worker.start()
 
 
+@cli.command(name="revision-worker")
+def revision_worker():
+    from landoapi.app import auth0_subsystem, lando_ui_subsystem
+
+    exclusions = [auth0_subsystem, lando_ui_subsystem]
+    for system in get_subsystems(exclude=exclusions):
+        system.ensure_ready()
+
+    from landoapi.revision_worker import RevisionWorker
+
+    worker = RevisionWorker()
+    worker.start()
+
+
 @cli.command(name="run-pre-deploy-sequence")
 def run_pre_deploy_sequence():
     """Runs the sequence of commands required before a deployment."""
