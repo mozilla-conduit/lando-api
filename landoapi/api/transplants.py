@@ -382,6 +382,7 @@ def post(data):
             current_app.config["PATCH_BUCKET_NAME"],
             aws_access_key=current_app.config["AWS_ACCESS_KEY"],
             aws_secret_key=current_app.config["AWS_SECRET_KEY"],
+            endpoint_url=current_app.config["S3_ENDPOINT_URL"],
         )
         patch_urls.append(patch_url)
 
