@@ -21,6 +21,7 @@ from landoapi.transplants import (
     warning_previously_landed,
     warning_reviews_not_current,
     warning_revision_secure,
+    warning_wip_commit_message,
 )
 
 
@@ -869,6 +870,18 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     )
     patch_text = patch.get()["Body"].read().decode()
     assert sec_approval_project["name"] not in patch_text
+
+
+def test_warning_wip_commit_message(phabdouble):
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(
+            title="WIP: Bug 123: test something r?reviewer",
+            status=RevisionStatus.ACCEPTED,
+        ),
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+
+    assert warning_wip_commit_message(revision=revision) is not None
 
 
 def test_display_branch_head():

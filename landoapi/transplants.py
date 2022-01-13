@@ -295,6 +295,13 @@ def warning_diff_warning(*, revision, diff, **kwargs):
         return [w.data for w in warnings]
 
 
+@RevisionWarningCheck(7, "Revision is marked as WIP.")
+def warning_wip_commit_message(*, revision, **kwargs):
+    title = PhabricatorClient.expect(revision, "fields", "title")
+    if title.lower().startswith("wip:"):
+        return "This revision is marked as a WIP. Please remove `WIP:` before landing."
+
+
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return (
@@ -338,6 +345,7 @@ def check_landing_warnings(
         warning_revision_secure,
         warning_revision_missing_testing_tag,
         warning_diff_warning,
+        warning_wip_commit_message,
     ],
 ):
     assessment = TransplantAssessment()
