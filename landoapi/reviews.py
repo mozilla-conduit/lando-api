@@ -4,12 +4,15 @@
 
 import logging
 from collections import namedtuple
-from typing import List
+from typing import List, Tuple
 
 from landoapi.phabricator import (
     PhabricatorClient,
     PhabricatorCommunicationException,
     ReviewerStatus,
+)
+from landoapi.projects import (
+    RELMAN_PROJECT_SLUG,
 )
 
 logger = logging.getLogger(__name__)
@@ -165,3 +168,41 @@ def reviewers_for_commit_message(
         for phid, r in reviewers.items()
         if (phid != sec_approval_phid and r["status"] is ReviewerStatus.ACCEPTED)
     ]
+
+
+def approvals_for_commit_message(
+    reviewers: dict,
+    users: List[dict],
+    projects: List[dict],
+    relman_phids: List[dict],
+    accepted_reviewers: List[str],
+) -> Tuple[List[str], List[str]]:
+    """Turn a list of reviewer objects into a list of approval names.
+
+    The list holds release managers that approved the revision, to be re-written as
+    `a=<reviewer>` in the final commit message.
+
+    Args:
+        reviewers: Dict of {reviewer_phid: reviewer_data}
+        users: List of Phabricator Users that were involved in the revision.
+        projects: List of Phabricator Projects that were involved in the revision.
+        sec_approval_phid: The PHID string of the sec-approval project.
+
+    Returns:
+        A list of strings.
+    """
+    # Approvals are reviews where the user is in the `release-managers` group.
+    approvals = [
+        reviewer_identity(phid, users, projects).identifier
+        for phid, r in reviewers.items()
+        if phid in relman_phids and r["status"] == ReviewerStatus.ACCEPTED
+    ]
+
+    # Filter approvals from regular reviews.
+    accepted_reviewers = [
+        reviewer
+        for reviewer in accepted_reviewers
+        if reviewer not in approvals and reviewer != RELMAN_PROJECT_SLUG
+    ]
+
+    return accepted_reviewers, approvals

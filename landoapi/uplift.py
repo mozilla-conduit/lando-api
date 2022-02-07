@@ -5,10 +5,16 @@
 import logging
 import json
 
+from typing import (
+    Optional,
+    Tuple,
+)
+
 from flask import current_app
 
 from landoapi.phabricator import PhabricatorClient
 from landoapi.phabricator_patch import patch_to_changes
+from landoapi.projects import RELMAN_PROJECT_SLUG
 from landoapi.repos import get_repos_for_env
 from landoapi.stacks import request_extended_revision_data
 
@@ -16,17 +22,25 @@ from landoapi.stacks import request_extended_revision_data
 logger = logging.getLogger(__name__)
 
 
+def get_uplift_request_form(revision) -> Optional[str]:
+    """Return the content of the uplift request form or `None` if missing."""
+    bug = PhabricatorClient.expect(revision, "fields").get("uplift.request")
+    return bug
+
+
 def get_release_managers(phab: PhabricatorClient) -> dict:
     """Load the release-managers group details from Phabricator"""
     groups = phab.call_conduit(
-        "project.search", constraints={"slugs": ["release-managers"]}
+        "project.search",
+        attachments={"members": True},
+        constraints={"slugs": [RELMAN_PROJECT_SLUG]},
     )
     return phab.single(groups, "data")
 
 
 def check_approval_state(
     phab: PhabricatorClient, revision_id: int, target_repository_name: str
-) -> dict:
+) -> Tuple[bool, dict, dict]:
     """Helper to load the Phabricator revision and check its approval requirement state
 
     * if the revision's target repository is the same as its current
@@ -51,7 +65,7 @@ def check_approval_state(
 
     # Lookup if this is an uplift or an approval request
     is_approval = target_repo_phid == revision_repo_phid
-    return (is_approval, revision, target_repo)
+    return is_approval, revision, target_repo
 
 
 def create_uplift_revision(
@@ -197,3 +211,12 @@ def create_approval_request(phab: PhabricatorClient, revision: dict, form_conten
         "revision_id": rev_id,
         "revision_phid": rev_phid,
     }
+
+
+def stack_uplift_form_submitted(stack_data) -> bool:
+    """Return `True` if the stack has a valid uplift request form submitted."""
+    # NOTE: this just checks that any of the revisions in the stack have the uplift form
+    # submitted.
+    return any(
+        get_uplift_request_form(revision) for revision in stack_data.revisions.values()
+    )

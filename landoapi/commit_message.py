@@ -69,10 +69,11 @@ def format_commit_message(
     title: str,
     bug: str,
     reviewers: List[str],
+    approvals: List[str],
     summary: str,
     revision_url: str,
     flags: List[str] = None,
-) -> Tuple[str]:
+) -> Tuple[str, str]:
     """
     Creates a default format commit message using revision metadata.
 
@@ -87,6 +88,7 @@ def format_commit_message(
         title: The first line of the original commit message.
         bug: The bug number to use or None.
         reviewers: A list of reviewer usernames.
+        approvals: A list of approval usernames.
         summary: A string containing the revision's summary.
         revision_url: The revision's url in Phabricator.
         flags: A list of flags to append to the title.
@@ -105,7 +107,7 @@ def format_commit_message(
 
     # Ensure that the actual reviewers are recorded in the
     # first line of the commit message.
-    title = replace_reviewers(title, reviewers)
+    title = replace_reviewers(title, reviewers, approvals)
 
     # Clear any leading / trailing whitespace.
     title = title.strip()
@@ -134,11 +136,15 @@ def parse_bugs(s):
     return [bug for bug in bugs if bug < 100000000]
 
 
-def replace_reviewers(commit_description, reviewers):
+def replace_reviewers(commit_description, reviewers, approvals):
     if not reviewers:
         reviewers_str = ""
     else:
         reviewers_str = "r=" + ",".join(reviewers)
+
+    if approvals:
+        reviewers_str += " a="
+        reviewers_str += ",".join(approvals)
 
     if commit_description == "":
         return reviewers_str

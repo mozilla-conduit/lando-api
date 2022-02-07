@@ -253,7 +253,7 @@ class PhabricatorClient:
 
         if len(result) > 1 or (not result and not none_when_empty):
             raise PhabricatorCommunicationException(
-                "Phabricator responded with unexpected data"
+                "Phabricator responded with unexpected data: %s" % result
             )
 
         return result[0] if result else None

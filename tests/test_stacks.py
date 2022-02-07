@@ -594,7 +594,9 @@ def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
     assert landable_repos[repo1["phid"]].tree == "mozilla-central"
 
 
-def test_integrated_stack_endpoint_simple(db, client, phabdouble, mocked_repo_config):
+def test_integrated_stack_endpoint_simple(
+    db, client, phabdouble, mocked_repo_config, release_management_project
+):
     repo = phabdouble.repo()
     unsupported_repo = phabdouble.repo(name="not-mozilla-central")
     r1 = phabdouble.revision(repo=repo)
@@ -627,7 +629,9 @@ def test_integrated_stack_endpoint_simple(db, client, phabdouble, mocked_repo_co
     )
 
 
-def test_integrated_stack_endpoint_repos(db, client, phabdouble, mocked_repo_config):
+def test_integrated_stack_endpoint_repos(
+    db, client, phabdouble, mocked_repo_config, release_management_project
+):
     repo = phabdouble.repo()
     unsupported_repo = phabdouble.repo(name="not-mozilla-central")
     r1 = phabdouble.revision(repo=repo)
@@ -652,7 +656,7 @@ def test_integrated_stack_endpoint_repos(db, client, phabdouble, mocked_repo_con
 
 
 def test_integrated_stack_has_revision_security_status(
-    db, client, phabdouble, mock_repo_config, secure_project
+    db, client, phabdouble, mock_repo_config, secure_project, release_management_project
 ):
     repo = phabdouble.repo()
     public_revision = phabdouble.revision(repo=repo)
