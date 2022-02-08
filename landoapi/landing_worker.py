@@ -65,7 +65,12 @@ class LandingWorker:
         SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
         self.sleep_seconds = sleep_seconds
-        config_keys = ["AWS_SECRET_KEY", "AWS_ACCESS_KEY", "PATCH_BUCKET_NAME"]
+        config_keys = [
+            "AWS_SECRET_KEY",
+            "AWS_ACCESS_KEY",
+            "PATCH_BUCKET_NAME",
+            "S3_ENDPOINT_URL",
+        ]
         self.config = {k: current_app.config[k] for k in config_keys}
 
         # The list of all repos that are enabled for this worker
@@ -286,6 +291,7 @@ class LandingWorker:
                         patch_bucket,
                         aws_access_key=self.config["AWS_ACCESS_KEY"],
                         aws_secret_key=self.config["AWS_SECRET_KEY"],
+                        endpoint_url=self.config["S3_ENDPOINT_URL"],
                     )
                 except Exception as e:
                     message = (

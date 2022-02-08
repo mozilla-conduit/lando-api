@@ -89,6 +89,7 @@ def load_config():
         "PHABRICATOR_URL",
         "REPO_CLONES_PATH",
         "REPOS_TO_LAND",
+        "S3_ENDPOINT_URL",
         "SENTRY_DSN",
         "TRANSPLANT_PASSWORD",
         "TRANSPLANT_API_KEY",
