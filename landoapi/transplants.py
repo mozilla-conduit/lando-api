@@ -248,7 +248,7 @@ def warning_reviews_not_current(*, diff, reviewers, **kwargs):
             diff["phid"], r["status"], r["diffPHID"], r["voidedPHID"]
         )
 
-        if r["status"] is ReviewerStatus.ACCEPTED and not extra["for_other_diff"]:
+        if r["status"] == ReviewerStatus.ACCEPTED and not extra["for_other_diff"]:
             return None
 
     return "Has no accepted review on the current diff."

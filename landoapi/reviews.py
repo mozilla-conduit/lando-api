@@ -44,8 +44,8 @@ def calculate_review_extra_state(
         }
     """
     other_diff = for_diff_phid != reviewer_diff_phid and reviewer_status.diff_specific
-    blocks_landing = reviewer_status is ReviewerStatus.BLOCKING or (
-        reviewer_status is ReviewerStatus.REJECTED and not other_diff
+    blocks_landing = reviewer_status == ReviewerStatus.BLOCKING or (
+        reviewer_status == ReviewerStatus.REJECTED and not other_diff
     )
     return {"for_other_diff": other_diff, "blocking_landing": blocks_landing}
 
@@ -166,7 +166,7 @@ def reviewers_for_commit_message(
     return [
         reviewer_identity(phid, users, projects).identifier
         for phid, r in reviewers.items()
-        if (phid != sec_approval_phid and r["status"] is ReviewerStatus.ACCEPTED)
+        if (phid != sec_approval_phid and r["status"] == ReviewerStatus.ACCEPTED)
     ]
 
 

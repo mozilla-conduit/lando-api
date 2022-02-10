@@ -279,7 +279,7 @@ def test_integrated_execute_job(
     worker = LandingWorker(sleep_seconds=0.01)
 
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
-    assert job.status is LandingJobStatus.LANDED
+    assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
 
 
@@ -310,7 +310,7 @@ def test_lose_push_race(
     worker = LandingWorker(sleep_seconds=0)
 
     assert not worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
-    assert job.status is LandingJobStatus.DEFERRED
+    assert job.status == LandingJobStatus.DEFERRED
 
 
 def test_failed_landing_job_notification(
@@ -356,7 +356,7 @@ def test_failed_landing_job_notification(
     )
 
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
-    assert job.status is LandingJobStatus.FAILED
+    assert job.status == LandingJobStatus.FAILED
     assert mock_notify.call_count == 1
 
 
@@ -449,7 +449,7 @@ def test_format_patch_success_unchanged(
 
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
     assert (
-        job.status is LandingJobStatus.LANDED
+        job.status == LandingJobStatus.LANDED
     ), "Successful landing did not set correct status"
     assert job.formatted_replacements is None
 
@@ -498,7 +498,7 @@ def test_format_patch_success_changed(
 
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
     assert (
-        job.status is LandingJobStatus.LANDED
+        job.status == LandingJobStatus.LANDED
     ), "Successful landing did not set correct status"
     assert (
         job.formatted_replacements == formatted_replacements
@@ -581,7 +581,7 @@ def test_format_patch_fail(
     )
 
     assert not worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
-    assert job.status is LandingJobStatus.FAILED
+    assert job.status == LandingJobStatus.FAILED
     assert "no fixes will be applied" in job.error
     assert mock_notify.call_count == 1
 
@@ -634,5 +634,5 @@ def test_format_patch_no_landoini(
     )
 
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
-    assert job.status is LandingJobStatus.LANDED
+    assert job.status == LandingJobStatus.LANDED
     assert mock_notify.call_count == 0
