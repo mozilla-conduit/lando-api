@@ -110,4 +110,4 @@ def test_is_open_for_closed_tree(treestatusdouble):
 def test_is_open_for_approval_required_tree(treestatusdouble):
     ts = treestatusdouble.get_treestatus_client()
     treestatusdouble.set_tree("mozilla-central", status="approval required")
-    assert not ts.is_open("mozilla-central")
+    assert ts.is_open("mozilla-central")
