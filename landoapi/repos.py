@@ -293,6 +293,7 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/releases/mozilla-beta",
             access_group=SCM_ALLOW_DIRECT_PUSH,
             approval_required=True,
+            commit_flags=[DONTBUILD],
         ),
     },
 }
