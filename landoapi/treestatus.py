@@ -16,8 +16,16 @@ class TreeStatus:
 
     DEFAULT_URL = "https://treestatus.mozilla-releng.net"
 
+    # A repo is considered open for landing when either of these
+    # statuses are present.
+
+    # For the "approval required" status Lando will enforce the appropriate
+    # Phabricator group review for approval (`release-managers`) and the hg
+    # hook will enforce `a=<reviewer>` is present in the commit message.
+    OPEN_STATUSES = {"approval required", "open"}
+
     def __init__(self, *, url=None, session=None):
-        self.url = url if url is not None else self.DEFAULT_URL
+        self.url = url if url is not None else TreeStatus.DEFAULT_URL
         self.url = self.url if self.url[-1] == "/" else self.url + "/"
         self.session = session or self.create_session()
 
@@ -35,7 +43,7 @@ class TreeStatus:
             return True
 
         try:
-            return resp["result"]["status"] == "open"
+            return resp["result"]["status"] in TreeStatus.OPEN_STATUSES
         except KeyError as exc:
             raise TreeStatusCommunicationException(
                 "Tree status response did not contain expected data"
