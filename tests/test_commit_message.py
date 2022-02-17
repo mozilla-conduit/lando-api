@@ -76,6 +76,11 @@ def test_commit_message_blocking_reviewers_requested(reviewer_text):
     "reviewer_text",
     [
         "r?bogus",
+        "a=bogus",
+        "a=bogus r?bogus",
+        "a=bogus r=bogus",
+        "r?bogus a=bogus",
+        "r=bogus a=bogus",
         "r?#group1",
         "r?#group1, #group2",
         "r?reviewer_one,#group1",

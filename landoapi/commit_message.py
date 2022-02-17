@@ -31,9 +31,8 @@ BUG_RE = re.compile(
 # "bug" syntax like "bug X" or "b=".
 BUG_CONSERVATIVE_RE = re.compile(r"""((?:bug|b=)(?:\s*)(\d+)(?=\b))""", re.I | re.X)
 
-SPECIFIER = r"(?:r|a|sr|rs|ui-r)[=?]"
-R_SPECIFIER = r"\br[=?]"
-R_SPECIFIER_RE = re.compile(R_SPECIFIER)
+SPECIFIER = r"\b(?:r|a|sr|rs|ui-r)[=?]"
+SPECIFIER_RE = re.compile(SPECIFIER)
 
 LIST = r"[;,\/\\]\s*"
 
@@ -156,7 +155,7 @@ def replace_reviewers(
     commit_summary = commit_description_lines.pop(0)
     commit_description = "\n".join(commit_description_lines)
 
-    if not R_SPECIFIER_RE.search(commit_summary):
+    if not SPECIFIER_RE.search(commit_summary):
         commit_summary += " " + reviewers_str
     else:
         # replace the first r? with the reviewer list, and all subsequent
@@ -165,7 +164,7 @@ def replace_reviewers(
         d = {"first": True}
 
         def replace_first_reviewer(matchobj):
-            if R_SPECIFIER_RE.match(matchobj.group(2)):
+            if SPECIFIER_RE.match(matchobj.group(2)):
                 if d["first"]:
                     d["first"] = False
                     return matchobj.group(1) + reviewers_str
