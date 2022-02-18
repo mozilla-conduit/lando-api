@@ -290,6 +290,7 @@ REPO_CONFIG = {
         ),
         "beta": Repo(
             tree="mozilla-beta",
+            short_name="beta",
             url="https://hg.mozilla.org/releases/mozilla-beta",
             access_group=SCM_ALLOW_DIRECT_PUSH,
             approval_required=True,
