@@ -186,10 +186,12 @@ def approvals_for_commit_message(
         reviewers: Dict of {reviewer_phid: reviewer_data}
         users: List of Phabricator Users that were involved in the revision.
         projects: List of Phabricator Projects that were involved in the revision.
+        relman_phids: List of Phabricator users in the `release-managers` group.
         sec_approval_phid: The PHID string of the sec-approval project.
 
     Returns:
-        A list of strings.
+        A tuple of lists of strings, representing `r=` reviewers and `a=` approvers
+        respectively.
     """
     # Approvals are reviews where the user is in the `release-managers` group.
     approvals = [

@@ -61,8 +61,9 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
 def test_secure_api_flag_on_public_revision_is_false(
     db, client, phabdouble, release_management_project
 ):
+    repo = phabdouble.repo(name="test-repo")
     public_project = phabdouble.project("public")
-    revision = phabdouble.revision(projects=[public_project])
+    revision = phabdouble.revision(projects=[public_project], repo=repo)
 
     response = client.get("/stacks/D{}".format(revision["id"]))
 
@@ -74,7 +75,8 @@ def test_secure_api_flag_on_public_revision_is_false(
 def test_secure_api_flag_on_secure_revision_is_true(
     db, client, phabdouble, secure_project, release_management_project
 ):
-    revision = phabdouble.revision(projects=[secure_project])
+    repo = phabdouble.repo(name="test-repo")
+    revision = phabdouble.revision(projects=[secure_project], repo=repo)
 
     response = client.get("/stacks/D{}".format(revision["id"]))
 
