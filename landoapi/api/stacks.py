@@ -115,6 +115,7 @@ def get(revision_id):
         revision_phid = PhabricatorClient.expect(revision, "phid")
         fields = PhabricatorClient.expect(revision, "fields")
         diff_phid = PhabricatorClient.expect(fields, "diffPHID")
+        repo_phid = PhabricatorClient.expect(fields, "repositoryPHID")
         diff = stack_data.diffs[diff_phid]
         human_revision_id = "D{}".format(PhabricatorClient.expect(revision, "id"))
         revision_url = urllib.parse.urljoin(
@@ -127,9 +128,23 @@ def get(revision_id):
         accepted_reviewers = reviewers_for_commit_message(
             reviewers, users, projects, sec_approval_project_phid
         )
-        accepted_reviewers, approval_reviewers = approvals_for_commit_message(
-            reviewers, users, projects, relman_phids, accepted_reviewers
+
+        repo_short_name = PhabricatorClient.expect(
+            stack_data.repositories[repo_phid], "fields", "shortName"
         )
+        approval_required = (
+            repo_short_name in supported_repos
+            and supported_repos[repo_short_name].approval_required
+        )
+
+        # Only update the approvals/reviewers if `approval_required` is set on the repo.
+        if approval_required:
+            accepted_reviewers, approval_reviewers = approvals_for_commit_message(
+                reviewers, users, projects, relman_phids, accepted_reviewers
+            )
+        else:
+            approval_reviewers = []
+
         commit_message_title, commit_message = format_commit_message(
             commit_description.title,
             bug_id,
@@ -158,7 +173,7 @@ def get(revision_id):
                 "summary": commit_description.summary,
                 "commit_message_title": commit_message_title,
                 "commit_message": commit_message,
-                "repo_phid": PhabricatorClient.expect(fields, "repositoryPHID"),
+                "repo_phid": repo_phid,
                 "diff": serialize_diff(diff),
                 "author": author_response,
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),

@@ -347,9 +347,12 @@ def post(data):
         )
 
         # Find RelMan reviews for rewriting to `a=<reviewer>`.
-        accepted_reviewers, approval_reviewers = approvals_for_commit_message(
-            reviewers, users, projects, relman_phids, accepted_reviewers
-        )
+        if landing_repo.approval_required:
+            accepted_reviewers, approval_reviewers = approvals_for_commit_message(
+                reviewers, users, projects, relman_phids, accepted_reviewers
+            )
+        else:
+            approval_reviewers = []
 
         secure = revision_is_secure(revision, secure_project_phid)
         commit_description = find_title_and_summary_for_landing(phab, revision, secure)
