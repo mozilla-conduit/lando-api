@@ -6,7 +6,10 @@ import logging
 import pathlib
 import urllib
 from collections import namedtuple
-from dataclasses import dataclass
+from dataclasses import (
+    dataclass,
+    field,
+)
 
 from landoapi.systems import Subsystem
 
@@ -67,8 +70,8 @@ class Repo:
     short_name: str = ""
     legacy_transplant: bool = False
     approval_required: bool = False
-    commit_flags: list = None
-    config_override: dict = None
+    commit_flags: list[tuple[str, str]] = field(default_factory=list)
+    config_override: dict = field(default_factory=dict)
 
     def __post_init__(self):
         """Set defaults based on initial values.
@@ -82,18 +85,17 @@ class Repo:
             if not self.pull_path:
                 self.pull_path = self.url
 
-        if not self.commit_flags:
-            self.commit_flags = []
-
         if not self.short_name:
             self.short_name = self.tree
 
     @property
     def autoformat_enabled(self) -> bool:
         """Return `True` if formatting is enabled for the repo."""
-        return self.config_override is not None and any(
-            config.startswith("fix") for config in self.config_override.keys()
-        )
+        if not self.config_override:
+            # Empty config override always indicates no autoformat.
+            return False
+
+        return any(config.startswith("fix") for config in self.config_override.keys())
 
 
 SCM_ALLOW_DIRECT_PUSH = AccessGroup(
