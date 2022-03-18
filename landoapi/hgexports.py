@@ -3,6 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import re
 
+from typing import (
+    Optional,
+)
+
 
 HEADER_NAMES = (
     b"User",
@@ -113,7 +117,7 @@ class PatchHelper(object):
         finally:
             self.patch.seek(0)
 
-    def header(self, name):
+    def header(self, name) -> Optional[str]:
         """Returns value of the specified header, or None if missing."""
         name = name.encode("utf-8") if isinstance(name, str) else name
         return self.headers.get(name.lower())
