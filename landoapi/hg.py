@@ -351,10 +351,19 @@ class HgRepo:
 
             # Commit using the extracted date, user, and commit desc.
             # --landing_system is provided by the set_landing_system hgext.
+            date = patch_helper.header("Date")
+            user = patch_helper.header("User")
+
+            if not user:
+                raise ValueError("Missing `User` header!")
+
+            if not date:
+                raise ValueError("Missing `Date` header!")
+
             self.run_hg(
                 ["commit"]
-                + ["--date", patch_helper.header("Date")]
-                + ["--user", patch_helper.header("User")]
+                + ["--date", date]
+                + ["--user", user]
                 + ["--landing_system", "lando"]
                 + ["--logfile", f_msg.name]
             )
