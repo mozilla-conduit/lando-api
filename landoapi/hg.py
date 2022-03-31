@@ -209,7 +209,7 @@ class HgRepo:
             configs=self._config_to_list(),
         )
 
-    def run_hg(self, args):
+    def run_hg(self, args: List[str]) -> bytes:
         correlation_id = str(uuid.uuid4())
         logger.info(
             "running hg command",
@@ -251,8 +251,8 @@ class HgRepo:
 
         return out
 
-    def run_hg_cmds(self, cmds):
-        last_result = ""
+    def run_hg_cmds(self, cmds: List[List[str]]) -> bytes:
+        last_result = b""
         for cmd in cmds:
             try:
                 last_result = self.run_hg(cmd)
@@ -465,7 +465,7 @@ class HgRepo:
             ]
         )
 
-    def get_remote_head(self, source):
+    def get_remote_head(self, source: str) -> bytes:
         # Obtain remote head. We assume there is only a single head.
         # TODO: use a template here
         cset = self.run_hg_cmds([["identify", source, "-r", "default"]])

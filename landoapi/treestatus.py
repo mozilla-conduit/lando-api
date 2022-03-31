@@ -29,7 +29,7 @@ class TreeStatus:
         self.url = self.url if self.url[-1] == "/" else self.url + "/"
         self.session = session or self.create_session()
 
-    def is_open(self, tree):
+    def is_open(self, tree: str) -> bool:
         if not tree:
             raise ValueError("tree must be a non-empty string")
 
@@ -49,17 +49,17 @@ class TreeStatus:
                 "Tree status response did not contain expected data"
             ) from exc
 
-    def get_trees(self, tree=""):
+    def get_trees(self, tree: str = "") -> dict:
         path = f"trees/{tree}" if tree else "trees"
         return self.request("GET", path)
 
     @staticmethod
-    def create_session():
+    def create_session() -> requests.Session:
         s = requests.Session()
         s.headers.update({"User-Agent": "landoapi.treestatus.TreeStatus/dev"})
         return requests.Session()
 
-    def request(self, method, url_path, **kwargs):
+    def request(self, method: str, url_path: str, **kwargs) -> dict:
         """Return the response of a request to Tree Status API.
 
         Args:
@@ -93,7 +93,7 @@ class TreeStatus:
         TreeStatusError.raise_if_error(response, data)
         return data
 
-    def ping(self):
+    def ping(self) -> bool:
         """Ping the Tree Status API
 
         Returns:
