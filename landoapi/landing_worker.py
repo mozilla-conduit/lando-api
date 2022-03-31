@@ -28,9 +28,15 @@ from landoapi.hg import (
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
 from landoapi.models.configuration import ConfigurationVariable
 from landoapi.notifications import notify_user_of_landing_failure
-from landoapi.repos import repo_clone_subsystem
+from landoapi.repos import (
+    Repo,
+    repo_clone_subsystem,
+)
 from landoapi.storage import db, SQLAlchemy
-from landoapi.treestatus import treestatus_subsystem
+from landoapi.treestatus import (
+    TreeStatus,
+    treestatus_subsystem,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -255,7 +261,14 @@ class LandingWorker:
 
         return failed_paths, reject_paths
 
-    def run_job(self, job, repo, hgrepo, treestatus, patch_bucket):
+    def run_job(
+        self,
+        job: LandingJob,
+        repo: Repo,
+        hgrepo: HgRepo,
+        treestatus: TreeStatus,
+        patch_bucket: str,
+    ) -> bool:
         if not treestatus.is_open(repo.tree):
             job.transition_status(
                 LandingJobAction.DEFER,
