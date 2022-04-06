@@ -52,24 +52,15 @@ def cli():
 
 
 @cli.command()
-@click.option("--init-s3", is_flag=True)
-def init(init_s3):
-    """Initialize Lando API (Create the DB, etc.)"""
-    # Create the database and set the alembic version to
-    # head revision.
-    from landoapi.storage import alembic, db
-
-    db.create_all()
-    alembic.stamp("head")
-
+def init_s3():
+    """Initialize fake S3 bucket for development purposes."""
     # Create a fake S3 bucket, ie for moto.
-    if init_s3:
-        s3 = patches.create_s3(
-            aws_access_key=os.environ["AWS_ACCESS_KEY"],
-            aws_secret_key=os.environ["AWS_SECRET_KEY"],
-            endpoint_url=os.environ["S3_ENDPOINT_URL"],
-        )
-        s3.create_bucket(Bucket=os.environ["PATCH_BUCKET_NAME"])
+    s3 = patches.create_s3(
+        aws_access_key=os.environ["AWS_ACCESS_KEY"],
+        aws_secret_key=os.environ["AWS_SECRET_KEY"],
+        endpoint_url=os.environ["S3_ENDPOINT_URL"],
+    )
+    s3.create_bucket(Bucket=os.environ["PATCH_BUCKET_NAME"])
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True))
