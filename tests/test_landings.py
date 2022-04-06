@@ -450,7 +450,7 @@ def test_format_patch_success_unchanged(
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
     assert (
         job.status == LandingJobStatus.LANDED
-    ), "Successful landing did not set correct status"
+    ), "Successful landing should set `LANDED` status."
     assert job.formatted_replacements is None
 
 
@@ -496,10 +496,12 @@ def test_format_patch_success_changed(
         "15b05c609cf43b49e7360eaea4de938158d18c6a",
     ]
 
-    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert worker.run_job(
+        job, repo, hgrepo, treestatus, "landoapi.test.bucket"
+    ), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
-    ), "Successful landing did not set correct status"
+    ), "Successful landing should set `LANDED` status."
     assert (
         job.formatted_replacements == formatted_replacements
     ), "Did not correctly save hashes of formatted revisions"
@@ -524,12 +526,14 @@ def test_format_patch_success_changed(
             .splitlines()
         )
 
-    # Assert `test.txt` was correctly formatted
-    assert rev2_content == TESTTXT_FORMATTED_1
-    assert rev3_content == TESTTXT_FORMATTED_2
+    assert (
+        rev2_content == TESTTXT_FORMATTED_1
+    ), "`test.txt` is incorrect in base commit."
+    assert rev3_content == TESTTXT_FORMATTED_2, "`test.txt` is incorrect in tip commit."
 
-    # Assert the `formatted_replacements` field is in the landed hashes
-    assert all(replacement in nodes for replacement in job.formatted_replacements)
+    assert all(
+        replacement in nodes for replacement in job.formatted_replacements
+    ), "Values in `formatted_replacements` field should be in the landed hashes."
 
 
 def test_format_patch_fail(
@@ -580,10 +584,15 @@ def test_format_patch_fail(
         "landoapi.landing_worker.notify_user_of_landing_failure", mock_notify
     )
 
-    assert not worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
-    assert job.status == LandingJobStatus.FAILED
-    assert "no fixes will be applied" in job.error
-    assert mock_notify.call_count == 1
+    assert not worker.run_job(
+        job, repo, hgrepo, treestatus, "landoapi.test.bucket"
+    ), "`run_job` should return `False` when autoformatting fails."
+    assert (
+        job.status == LandingJobStatus.FAILED
+    ), "Failed autoformatting should set `FAILED` job status."
+    assert (
+        mock_notify.call_count == 1
+    ), "User should be notified their landing was unsuccessful due to autoformat."
 
 
 def test_format_patch_no_landoini(
@@ -634,5 +643,9 @@ def test_format_patch_no_landoini(
     )
 
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
-    assert job.status == LandingJobStatus.LANDED
-    assert mock_notify.call_count == 0
+    assert (
+        job.status == LandingJobStatus.LANDED
+    ), "Missing `.lando.ini` should not inhibit landing."
+    assert (
+        mock_notify.call_count == 0
+    ), "Should not notify user of landing failure due to `.lando.ini` missing."
