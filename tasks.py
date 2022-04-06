@@ -58,10 +58,10 @@ def add_migration(ctx, msg):
     ctx.run("docker-compose run --rm lando-api db revision '%s'" % msg)
 
 
-@task(name="init")
-def init(ctx):
-    """Run Lando API first run init."""
-    ctx.run("docker-compose run --rm lando-api init")
+@task(name="setup-db")
+def setup_db(ctx):
+    """Setup the Lando database by upgrading to latest migration file."""
+    ctx.run("docker-compose run --rm lando-api db upgrade")
 
 
 @task
@@ -74,7 +74,7 @@ namespace = Collection(
     Collection("lint", lint_all, lint_flake8, lint_black),
     add_migration,
     format,
-    init,
+    setup_db,
     test,
     upgrade,
 )

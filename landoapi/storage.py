@@ -1,14 +1,14 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from flask_alembic import Alembic
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
+from flask_migrate import Migrate
 
 from landoapi.systems import Subsystem
 
 db = SQLAlchemy()
-alembic = Alembic()
+migrate = Migrate()
 
 
 class DBSubsystem(Subsystem):
@@ -17,7 +17,7 @@ class DBSubsystem(Subsystem):
     def init_app(self, app):
         super().init_app(app)
         db.init_app(app)
-        alembic.init_app(app)
+        migrate.init_app(app=app, db=db)
 
     def healthy(self):
         try:

@@ -185,10 +185,10 @@ def disable_migrations(monkeypatch):
         def __init__(self):
             pass
 
-        def init_app(self, app):
+        def init_app(self, app, db):
             pass
 
-    monkeypatch.setattr("landoapi.storage.alembic", StubAlembic())
+    monkeypatch.setattr("landoapi.storage.migrate", StubAlembic())
 
 
 @pytest.fixture
@@ -369,7 +369,7 @@ def pytest_assertrepr_compare(op, left, right):
         #   assert response == 200  # Fails if response is HTTP 401, triggers this hook
         return [
             f"Mismatch in status code for response: {left.status_code} != {right}",
-            f"",
+            "",
             f"    Response JSON: {left.json}",
         ]
 
