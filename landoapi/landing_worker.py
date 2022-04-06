@@ -12,12 +12,12 @@ import signal
 import subprocess
 import time
 
-import hglib
 import kombu
 from flask import current_app
 
 from landoapi import patches
 from landoapi.hg import (
+    AutoformattingException,
     HgRepo,
     LostPushRace,
     NoDiffStartLine,
@@ -451,16 +451,16 @@ class LandingWorker:
                     self.notify_user_of_landing_failure(job)
                     return True
 
-            # Run `hg fix` configured formatters if enabled
+            # Run automated code formatters if enabled.
             if repo.autoformat_enabled:
                 try:
-                    replacements = hgrepo.format()
+                    replacements = hgrepo.format_stack(len(patch_bufs))
 
-                    # If autoformatting changed any changesets, note those in the job.
+                    # If autoformatting added any changesets, note those in the job.
                     if replacements:
                         job.formatted_replacements = replacements
 
-                except hglib.error.CommandError as exc:
+                except AutoformattingException as exc:
                     message = (
                         "Lando failed to format your patch for conformity with our "
                         "formatting policy. Please see the details below.\n\n"

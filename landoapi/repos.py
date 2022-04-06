@@ -72,6 +72,7 @@ class Repo:
     short_name: str = ""
     legacy_transplant: bool = False
     approval_required: bool = False
+    autoformat_enabled: bool = False
     commit_flags: list[tuple[str, str]] = field(default_factory=list)
     config_override: dict = field(default_factory=dict)
     product_details_url: str = ""
@@ -90,15 +91,6 @@ class Repo:
 
         if not self.short_name:
             self.short_name = self.tree
-
-    @property
-    def autoformat_enabled(self) -> bool:
-        """Return `True` if formatting is enabled for the repo."""
-        if not self.config_override:
-            # Empty config override always indicates no autoformat.
-            return False
-
-        return any(config.startswith("fix") for config in self.config_override.keys())
 
     @property
     def phab_identifier(self) -> str:
@@ -193,7 +185,7 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_1,
             push_path="ssh://autoland.hg//repos/third-repo",
             pull_path="http://hg.test/third-repo",
-            config_override={"fix.black:command": "black -- -"},
+            autoformat_enabled=True,
             approval_required=True,
         ),
         # Approval is required for the uplift dev repo
@@ -226,7 +218,6 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/conduit-testing/vct",
             access_group=SCM_CONDUIT,
             push_bookmark="@",
-            config_override={"fix.black:command": "black -- -"},
         ),
     },
     "devsvcstage": {
@@ -274,9 +265,9 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_3,
             short_name="mozilla-central",
             commit_flags=[DONTBUILD],
-            config_override={"fix.black:command": "black -- -"},
             product_details_url="https://product-details.mozilla.org"
             "/1.0/firefox_versions.json",
+            autoformat_enabled=True,
         ),
         "comm-central": Repo(
             tree="comm-central",
@@ -376,6 +367,10 @@ class RepoCloneSubsystem(Subsystem):
             else:
                 logger.info("Cloning repo.", extra={"repo": name})
                 r.clone(repo.pull_path)
+
+            # Ensure packages required for automated code formatting are installed.
+            if repo.autoformat_enabled:
+                r.run_mach_bootstrap()
 
             logger.info("Repo ready.", extra={"repo": name})
             self.repo_paths[name] = path

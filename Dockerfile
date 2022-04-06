@@ -9,6 +9,10 @@ ENTRYPOINT ["lando-cli"]
 CMD ["uwsgi"]
 ENV PYTHONUNBUFFERED=1
 
+# Set the MozBuild state path for `mach` autoformatting.
+# Avoids any prompts in output.
+ENV MOZBUILD_STATE_PATH /app/.mozbuild
+
 # uWSGI configuration
 ENV UWSGI_MODULE=landoapi.wsgi:app \
     UWSGI_SOCKET=:9000 \
