@@ -41,7 +41,7 @@ $ docker-compose up -d
 To create a database: 
 
 ```
-$ invoke init
+$ invoke setup-db
 ```
 
 You can use a tool like [httpie][] to test the service.
