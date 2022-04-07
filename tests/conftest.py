@@ -34,7 +34,6 @@ from landoapi.storage import db as _db, db_subsystem
 from landoapi.tasks import celery
 from landoapi.transplants import tokens_are_equal
 
-from tests.factories import TransResponseFactory
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
 
@@ -152,12 +151,6 @@ def release_management_project(phabdouble):
         RELMAN_PROJECT_SLUG,
         attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
     )
-
-
-@pytest.fixture
-def transfactory(request_mocker):
-    """Mock Transplant service."""
-    yield TransResponseFactory(request_mocker)
 
 
 @pytest.fixture

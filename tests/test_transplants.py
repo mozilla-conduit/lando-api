@@ -1,7 +1,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,10 +9,8 @@ from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import ReviewerStatus, RevisionStatus
-from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.reviews import get_collated_reviewers
 from landoapi.tasks import admin_remove_phab_project
-from landoapi.transplant_client import TransplantClient
 from landoapi.transplants import (
     RevisionWarning,
     TransplantAssessment,
@@ -461,59 +458,6 @@ def test_confirmation_token_warning_order():
     )
 
 
-def test_integrated_transplant_simple_stack_saves_data_in_db(
-    db, client, phabdouble, transfactory, s3, auth0_mock, release_management_project
-):
-    repo = phabdouble.repo()
-    user = phabdouble.user(username="reviewer")
-
-    d1 = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1, repo=repo)
-    phabdouble.reviewer(r1, user)
-
-    d2 = phabdouble.diff()
-    r2 = phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
-    phabdouble.reviewer(r2, user)
-
-    d3 = phabdouble.diff()
-    r3 = phabdouble.revision(diff=d3, repo=repo, depends_on=[r2])
-    phabdouble.reviewer(r3, user)
-
-    transplant_request_id = 3
-    transfactory.mock_successful_response(transplant_request_id)
-
-    response = client.post(
-        "/transplants",
-        json={
-            "landing_path": [
-                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
-                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
-                {"revision_id": "D{}".format(r3["id"]), "diff_id": d3["id"]},
-            ]
-        },
-        headers=auth0_mock.mock_headers,
-    )
-    assert response.status_code == 202
-    assert response.content_type == "application/json"
-    assert "id" in response.json
-    transplant_id = response.json["id"]
-
-    # Ensure DB access isn't using uncommitted data.
-    db.session.close()
-
-    # Get Transplant object by its id
-    transplant = Transplant.query.get(transplant_id)
-    assert transplant.id == transplant_id
-    assert transplant.revision_to_diff_id == {
-        str(r1["id"]): d1["id"],
-        str(r2["id"]): d2["id"],
-        str(r3["id"]): d3["id"],
-    }
-    assert transplant.revision_order == [str(r1["id"]), str(r2["id"]), str(r3["id"])]
-    assert transplant.status == TransplantStatus.submitted
-    assert transplant.request_id == transplant_request_id
-
-
 def test_integrated_transplant_with_flags(
     db, client, phabdouble, s3, auth0_mock, monkeypatch, release_management_project
 ):
@@ -574,7 +518,6 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     db,
     client,
     phabdouble,
-    transfactory,
     s3,
     auth0_mock,
     checkin_project,
@@ -587,8 +530,6 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d, repo=repo, projects=[checkin_project])
     phabdouble.reviewer(r, user)
-
-    transfactory.mock_successful_response(3)
 
     mock_remove = MagicMock(admin_remove_phab_project)
     monkeypatch.setattr(
@@ -666,99 +607,6 @@ def test_integrated_transplant_without_auth0_permissions(
         "You have insufficient permissions to land. "
         "Level 3 Commit Access is required. See the FAQ for help."
     )
-
-
-def test_integrated_push_bookmark_sent_when_supported_repo(
-    db,
-    client,
-    phabdouble,
-    monkeypatch,
-    s3,
-    auth0_mock,
-    get_phab_client,
-    mock_repo_config,
-    release_management_project,
-):
-    # Mock the repo to have a push bookmark.
-    mock_repo_config(
-        {
-            "test": {
-                "mozilla-central": Repo(
-                    tree="mozilla-central",
-                    url="http://hg.test",
-                    access_group=SCM_LEVEL_3,
-                    push_bookmark="@",
-                    legacy_transplant=True,
-                )
-            }
-        }
-    )
-
-    # Mock the phabricator response data
-    repo = phabdouble.repo(name="mozilla-central")
-    d1 = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1, repo=repo)
-    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
-    patch_url = patches.url("landoapi.test.bucket", patches.name(r1["id"], d1["id"]))
-
-    tsclient = MagicMock(spec=TransplantClient)
-    tsclient().land.return_value = 1
-    monkeypatch.setattr("landoapi.api.transplants.TransplantClient", tsclient)
-    client.post(
-        "/transplants",
-        json={
-            "landing_path": [
-                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
-            ]
-        },
-        headers=auth0_mock.mock_headers,
-    )
-    tsclient().land.assert_called_once_with(
-        revision_id=r1["id"],
-        ldap_username="tuser@example.com",
-        patch_urls=[patch_url],
-        tree="mozilla-central",
-        pingback="{}/landings/update".format(os.getenv("PINGBACK_HOST_URL")),
-        push_bookmark="@",
-    )
-
-
-@pytest.mark.parametrize(
-    "mock_error_method",
-    [
-        "mock_http_error_response",
-        "mock_connection_error_response",
-        "mock_malformed_data_response",
-    ],
-)
-def test_integrated_transplant_error_responds_with_502(
-    app,
-    db,
-    client,
-    phabdouble,
-    transfactory,
-    s3,
-    auth0_mock,
-    mock_error_method,
-    release_management_project,
-):
-    d1 = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
-    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
-    getattr(transfactory, mock_error_method)()
-
-    response = client.post(
-        "/transplants",
-        json={
-            "landing_path": [
-                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
-            ]
-        },
-        headers=auth0_mock.mock_headers,
-    )
-
-    assert response.status_code == 502
-    assert response.json["title"] == "Transplant not created"
 
 
 def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
@@ -871,7 +719,6 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     phabdouble,
     auth0_mock,
     s3,
-    transfactory,
     sec_approval_project,
     release_management_project,
 ):
@@ -882,8 +729,6 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     revision = phabdouble.revision(diff=diff, repo=repo)
     phabdouble.reviewer(revision, user)
     phabdouble.reviewer(revision, sec_approval_project)
-
-    transfactory.mock_successful_response()
 
     response = client.post(
         "/transplants",
