@@ -10,7 +10,7 @@ from flask import current_app, g, request
 
 from landoapi.models.configuration import ConfigurationVariable, ConfigurationKey
 from landoapi.phabricator import PhabricatorAPIException
-from landoapi.sentry import sentry
+from landoapi.sentry import sentry_sdk
 from landoapi.treestatus import TreeStatusException
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ def request_logging_after_request(response):
 
 
 def handle_phabricator_api_exception(exc):
-    sentry.captureException()
+    sentry_sdk.capture_exception()
     logger.error(
         "phabricator exception",
         extra={"error_code": exc.error_code, "error_info": exc.error_info},
@@ -112,7 +112,7 @@ def handle_phabricator_api_exception(exc):
 
 
 def handle_treestatus_exception(exc):
-    sentry.captureException()
+    sentry_sdk.capture_exception()
     logger.error("Tree Status exception", exc_info=exc)
 
     if current_app.propagate_exceptions:

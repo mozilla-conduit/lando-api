@@ -8,7 +8,7 @@ from random import randint
 
 import requests
 
-from landoapi.sentry import sentry
+from landoapi.sentry import sentry_sdk
 from landoapi.systems import Subsystem
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class TransplantClient:
             )
             return response.json()["request_id"]
         except requests.HTTPError as e:
-            sentry.captureException()
+            sentry_sdk.capture_exception()
             logger.warning(
                 "Transplant Submission HTTPError",
                 extra={"status_code": e.response.status_code, "body": e.response.text},
@@ -92,11 +92,11 @@ class TransplantClient:
             logger.warning("Transplant Connection Error", exc_info=e)
             raise TransplantError()
         except requests.RequestException as e:
-            sentry.captureException()
+            sentry_sdk.capture_exception()
             logger.warning("Transplant Request Exception", exc_info=e)
             raise TransplantError()
         except (json.JSONDecodeError, KeyError) as e:
-            sentry.captureException()
+            sentry_sdk.capture_exception()
             logger.warning(
                 "Transplant Data Parse Error",
                 extra={"status_code": response.status_code, "body": response.text},
