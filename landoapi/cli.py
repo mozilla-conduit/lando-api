@@ -35,7 +35,7 @@ def get_subsystems(exclude=None):
     return [s for s in SUBSYSTEMS if s not in exclusions]
 
 
-def create_lando_api_app(info):
+def create_lando_api_app():
     from landoapi.app import construct_app, load_config
 
     config = load_config()

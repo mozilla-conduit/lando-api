@@ -8,13 +8,13 @@ To create a new migration file (e.g. after updating your models), follow these s
 $ docker-compose run lando-api db upgrade
 ```
 
-4. Generate a new revision by running 
+2. Generate a new revision by running 
 
 ```
 $ docker-compose run lando-api db revision --autogenerate --message <describe your change here>
 ```
 
-5. Repeat step (1) to run your migration.
+3. Repeat step (1) to run your migration.
 
 To check that your migrations are up to date, you can run the following command. The output would show information about the current revision.
 
