@@ -3,6 +3,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 from collections import namedtuple
+from typing import (
+    List,
+    Set,
+    Tuple,
+)
 
 from landoapi.phabricator import (
     PhabricatorClient,
@@ -13,7 +18,9 @@ from landoapi.phabricator import (
 logger = logging.getLogger(__name__)
 
 
-def build_stack_graph(phab, revision_phid):
+def build_stack_graph(
+    phab: PhabricatorClient, revision_phid: str
+) -> Tuple[Set[str], Set[Tuple[str, str]]]:
     """Return a graph representation of a revision stack.
 
     This function is expensive and can make up to approximately
@@ -67,7 +74,9 @@ def build_stack_graph(phab, revision_phid):
 RevisionData = namedtuple("RevisionData", ("revisions", "diffs", "repositories"))
 
 
-def request_extended_revision_data(phab, revision_phids):
+def request_extended_revision_data(
+    phab: PhabricatorClient, revision_phids: List[str]
+) -> RevisionData:
     """Return a RevisionData containing extended data for revisions.
 
     Args:

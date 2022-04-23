@@ -377,21 +377,19 @@ paths:
         - name: data
           in: body
           description: |
-            Retrieve status of the landing job
+            Provide information about which revision to uplift and which repository
+            the uplift will land in.
           required: true
           schema:
             type: object
             required:
-              - revision_id
+              - landing_path 
               - repository
-              - form_content
             properties:
-              revision_id:
-                type: integer
               repository:
                 type: string
-              form_content:
-                type: string
+              landing_path:
+                $ref: '#/definitions/LandingPath'
       responses:
         201:
           description: OK

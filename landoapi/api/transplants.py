@@ -49,17 +49,21 @@ from landoapi.stacks import (
 from landoapi.storage import db
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
+    TransplantAssessment,
     check_landing_blockers,
     check_landing_warnings,
+    convert_path_id_to_phid,
     get_blocker_checks,
-    TransplantAssessment,
 )
 from landoapi.transplant_client import TransplantClient, TransplantError
 from landoapi.uplift import (
     get_release_managers,
 )
 from landoapi.users import user_search
-from landoapi.validation import revision_id_to_int
+from landoapi.validation import (
+    revision_id_to_int,
+    parse_landing_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,18 +77,7 @@ def _parse_transplant_request(data):
     Returns:
         dict: A dictionary containing the landing path, confirmation token and flags.
     """
-    try:
-        landing_path = [
-            (revision_id_to_int(item["revision_id"]), int(item["diff_id"]))
-            for item in data["landing_path"]
-        ]
-    except (ValueError, TypeError):
-        raise ProblemException(
-            400,
-            "Landing Path Malformed",
-            "The provided landing_path was malformed.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
+    landing_path = parse_landing_path(data["landing_path"])
 
     if not landing_path:
         raise ProblemException(
@@ -138,26 +131,10 @@ def _find_stack_from_landing_path(phab, landing_path):
     return build_stack_graph(phab, phab.expect(revision, "phid"))
 
 
-def _convert_path_id_to_phid(path, stack_data):
-    mapping = {
-        PhabricatorClient.expect(r, "id"): PhabricatorClient.expect(r, "phid")
-        for r in stack_data.revisions.values()
-    }
-    try:
-        return [(mapping[r], d) for r, d in path]
-    except IndexError:
-        ProblemException(
-            400,
-            "Landing Path Invalid",
-            "The provided landing_path is not valid.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
-
-
 def _assess_transplant_request(phab, landing_path):
     nodes, edges = _find_stack_from_landing_path(phab, landing_path)
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
-    landing_path = _convert_path_id_to_phid(landing_path, stack_data)
+    landing_path = convert_path_id_to_phid(landing_path, stack_data)
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
