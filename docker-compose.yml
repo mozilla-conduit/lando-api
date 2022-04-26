@@ -4,6 +4,11 @@
 
 version: '2'
 services:
+  build-requirements:
+    image: python:3.9
+    volumes:
+      - ./:/app
+    command: sh -c "cd /app && pip install pip --upgrade && pip install pip-tools && python -m piptools compile requirements.in --generate-hashes --allow-unsafe"
   lando-api:
     build:
       context: ./
