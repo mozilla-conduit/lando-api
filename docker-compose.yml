@@ -2,8 +2,16 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-version: '2'
+version: '3.4'
 services:
+  build-requirements:
+    build:
+        context: ./
+        dockerfile: ./Dockerfile-dev
+        target: python_base
+    volumes:
+      - ./:/app
+    command: sh -c "cd /app && pip install pip --upgrade && pip install pip-tools && python -m piptools compile requirements.in --generate-hashes --allow-unsafe"
   lando-api:
     build:
       context: ./
