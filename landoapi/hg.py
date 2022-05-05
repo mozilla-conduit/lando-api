@@ -467,12 +467,7 @@ class HgRepo:
 
     def get_remote_head(self, source: str) -> bytes:
         # Obtain remote head. We assume there is only a single head.
-        # TODO: use a template here
-        cset = self.run_hg_cmds([["identify", source, "-r", "default"]])
-
-        # Output can contain bookmark or branch name after a space. Only take
-        # first component.
-        cset = cset.split()[0]
+        cset = self.run_hg(["identify", source, "-r", "default", "--id"]).strip()
 
         assert len(cset) == 12, cset
         return cset
