@@ -208,18 +208,11 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
 def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
     """Test newline bug in Mercurial
 
-    See https://bugzilla.mozilla.org/show_bug.cgi?id=1541181 for context. This test
-    will be skipped if not using version 5.1 of Mercurial.
+    See https://bugzilla.mozilla.org/show_bug.cgi?id=1541181 for context.
     """
-    # TODO: update test if version of Mercurial is changed.
     repo = HgRepo(hg_clone.strpath)
 
     with repo.for_pull(), hg_clone.as_cwd():
-        if (
-            repo.run_hg(["version"]).split(b"\n")[0]
-            != b"Mercurial Distributed SCM (version 5.1)"
-        ):
-            pytest.skip("Test not relevant for this version of mercurial")
         # Create a file without a new line and with a trailing `\r`
         # Note that to reproduce this bug, this file needs to already exist
         # in the repo and not be imported in a patch.
