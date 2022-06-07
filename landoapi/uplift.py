@@ -74,6 +74,17 @@ def get_uplift_request_form(revision) -> Optional[str]:
     return bug
 
 
+def get_uplift_repositories(phab: PhabricatorClient) -> list:
+    repos = phab.call_conduit(
+        "diffusion.repository.search",
+        constraints={"projects": ["uplift"]},
+    )
+
+    repos = phab.expect(repos, "data")
+
+    return repos
+
+
 def get_release_managers(phab: PhabricatorClient) -> dict:
     """Load the release-managers group details from Phabricator"""
     groups = phab.call_conduit(

@@ -369,6 +369,14 @@ paths:
             allOf:
               - $ref: '#/definitions/Error'
   /uplift:
+    get:
+      operationId: landoapi.api.uplift.get
+      description: |
+        Return the list of valid uplift repositories.
+      responses:
+        201:
+          description: OK
+
     post:
       operationId: landoapi.api.uplift.create
       description: |

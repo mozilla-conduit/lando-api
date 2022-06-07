@@ -15,11 +15,23 @@ from landoapi.transplants import convert_path_id_to_phid
 from landoapi.uplift import (
     create_uplift_revision,
     get_uplift_conduit_state,
+    get_uplift_repositories,
 )
 from landoapi.validation import parse_landing_path
 from landoapi.decorators import require_phabricator_api_key
 
 logger = logging.getLogger(__name__)
+
+
+@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
+def get(_):
+    """"""
+    phab: PhabricatorClient = g.phabricator
+    repos = [
+        phab.expect(repo, "fields", "name") for repo in get_uplift_repositories(phab)
+    ]
+
+    return {"repos": repos}, 201
 
 
 @require_phabricator_api_key(optional=False)
