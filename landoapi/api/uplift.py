@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
-def get(_):
+def get():
     """"""
     phab: PhabricatorClient = g.phabricator
     repos = [
