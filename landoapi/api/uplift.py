@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 @require_phabricator_api_key(optional=True)
 def get():
-    """"""
+    """Return the list of valid uplift repositories."""
     phab: PhabricatorClient = g.phabricator
     repos = [
         phab.expect(repo, "fields", "name") for repo in get_uplift_repositories(phab)
