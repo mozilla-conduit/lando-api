@@ -4,14 +4,18 @@
 
 import logging
 import json
+import time
 
 from typing import (
     Optional,
     Tuple,
 )
 
+import requests
+
 from flask import current_app
 
+from landoapi.commit_message import parse_bugs
 from landoapi.phabricator import PhabricatorClient
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.projects import RELMAN_PROJECT_SLUG
@@ -220,3 +224,57 @@ def stack_uplift_form_submitted(stack_data) -> bool:
     return any(
         get_uplift_request_form(revision) for revision in stack_data.revisions.values()
     )
+
+
+def create_uplift_bug_update_payload(bug: dict) -> dict:
+    """Create a payload for updating a bug using the BMO REST API."""
+    payload = {
+        "ids": [bug],
+    }
+    if "leave-open" not in bug["keywords"]:
+        # Set the status of a bug to fixed if it's fix got uplifted to a branch
+        # and the "leave-open" keyword is not set
+        payload["status"] = "RESOLVED"
+        payload["resolution"] = "FIXED"
+
+    if "[checkin-needed-beta]" in bug["whiteboard"]:
+        # Remove "[checkin-needed-beta]" etc. texts from the whiteboard (rarely used, only
+        # if something doesn't need an uplift approval because it is not part of the build).
+        payload["whiteboard"] = bug["whiteboard"].replace("[checkin-needed-beta]", "")
+
+    return payload
+
+
+UPDATE_RETRIES = 3
+
+
+def update_bugs_for_uplift(bmo_url: str, changeset_titles: list[str]):
+    """Update Bugzilla bugs for uplift."""
+    bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
+    params = {
+        "ids": ",".join(bugs),
+    }
+    bug_endpoint = f"{bmo_url}/rest/bug"
+    resp_get = requests.get(bug_endpoint, params=params)
+    resp_get.raise_for_status()
+
+    bugs = resp_get.json()["bugs"]
+
+    for bug in bugs:
+        payload = create_uplift_bug_update_payload(bug)
+
+        for i in range(1, UPDATE_RETRIES):
+            # Update bug and account for potential errors.
+            try:
+                resp = requests.put(bug_endpoint, json=payload)
+                resp.raise_for_status()
+
+                continue
+            except requests.RequestException as e:
+                if i == UPDATE_RETRIES:
+                    raise e
+
+                logger.exception("Error while updating bugs after uplift, retrying...")
+                logger.exception(str(e))
+
+                time.sleep(0.1 * i)

@@ -66,6 +66,7 @@ def load_config():
     config_keys = (
         "AWS_ACCESS_KEY",
         "AWS_SECRET_KEY",
+        "BMO_URL",
         "CACHE_REDIS_DB",
         "CACHE_REDIS_HOST",
         "CACHE_REDIS_PASSWORD",

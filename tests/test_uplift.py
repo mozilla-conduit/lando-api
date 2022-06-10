@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from landoapi.phabricator import PhabricatorClient
+from landoapi.uplift import create_uplift_bug_update_payload
 
 
 def test_uplift_creation(
@@ -135,3 +136,30 @@ def test_approval_creation(
     assert len(phabdouble._revisions) == 1
     new_rev = phabdouble._revisions[0]
     assert new_rev["title"] == "my test revision title"
+
+
+def test_create_uplift_bug_update_payload():
+    bug = {
+        "whiteboard": "[checkin-needed-beta]",
+        "keywords": [],
+    }
+    payload = create_uplift_bug_update_payload(bug)
+
+    assert (
+        payload["whiteboard"] == ""
+    ), "checkin-needed flag should be removed from whiteboard."
+    assert payload["status"] == "RESOLVED", "Bug status should be set to RESOLVED."
+    assert payload["resolution"] == "FIXED", "Bug resolution should be set to FIXED."
+
+    bug = {
+        "whiteboard": "[checkin-needed-beta]",
+        "keywords": ["leave-open"],
+    }
+    payload = create_uplift_bug_update_payload(bug)
+
+    assert (
+        "status" not in payload
+    ), "Status should not have been set with `leave-open` keyword on bug."
+    assert (
+        "resolution" not in payload
+    ), "Resolution should not have been set with `leave-open` keyword on bug."
