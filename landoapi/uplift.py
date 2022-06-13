@@ -229,7 +229,7 @@ def stack_uplift_form_submitted(stack_data) -> bool:
 def create_uplift_bug_update_payload(bug: dict) -> dict:
     """Create a payload for updating a bug using the BMO REST API."""
     payload = {
-        "ids": [bug],
+        "ids": [bug["id"]],
     }
     if "leave-open" not in bug["keywords"]:
         # Set the status of a bug to fixed if it's fix got uplifted to a branch

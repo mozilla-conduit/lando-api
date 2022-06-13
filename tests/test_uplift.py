@@ -140,11 +140,13 @@ def test_approval_creation(
 
 def test_create_uplift_bug_update_payload():
     bug = {
+        "id": 123,
         "whiteboard": "[checkin-needed-beta]",
         "keywords": [],
     }
     payload = create_uplift_bug_update_payload(bug)
 
+    assert payload["ids"] == [123], "Passed bug ID should be present in the payload."
     assert (
         payload["whiteboard"] == ""
     ), "checkin-needed flag should be removed from whiteboard."
@@ -152,6 +154,7 @@ def test_create_uplift_bug_update_payload():
     assert payload["resolution"] == "FIXED", "Bug resolution should be set to FIXED."
 
     bug = {
+        "id": 123,
         "whiteboard": "[checkin-needed-beta]",
         "keywords": ["leave-open"],
     }
