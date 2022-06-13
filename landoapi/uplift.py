@@ -248,14 +248,15 @@ def create_uplift_bug_update_payload(bug: dict) -> dict:
 UPDATE_RETRIES = 3
 
 
-def update_bugs_for_uplift(bmo_url: str, changeset_titles: list[str]):
+def update_bugs_for_uplift(bmo_url: str, bmo_api_key: str, changeset_titles: list[str]):
     """Update Bugzilla bugs for uplift."""
+    headers = {"X-Bugzilla-API-Key": bmo_api_key}
     bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
     params = {
         "ids": ",".join(bugs),
     }
     bug_endpoint = f"{bmo_url}/rest/bug"
-    resp_get = requests.get(bug_endpoint, params=params)
+    resp_get = requests.get(bug_endpoint, headers=headers, params=params)
     resp_get.raise_for_status()
 
     bugs = resp_get.json()["bugs"]
@@ -263,10 +264,10 @@ def update_bugs_for_uplift(bmo_url: str, changeset_titles: list[str]):
     for bug in bugs:
         payload = create_uplift_bug_update_payload(bug)
 
-        for i in range(1, UPDATE_RETRIES):
+        for i in range(1, UPDATE_RETRIES + 1):
             # Update bug and account for potential errors.
             try:
-                resp = requests.put(bug_endpoint, json=payload)
+                resp = requests.put(bug_endpoint, headers=headers, json=payload)
                 resp.raise_for_status()
 
                 continue
@@ -274,7 +275,9 @@ def update_bugs_for_uplift(bmo_url: str, changeset_titles: list[str]):
                 if i == UPDATE_RETRIES:
                     raise e
 
-                logger.exception("Error while updating bugs after uplift, retrying...")
+                logger.exception(
+                    f"Error while updating bugs after uplift on attempt {i}, retrying..."
+                )
                 logger.exception(str(e))
 
                 time.sleep(0.1 * i)

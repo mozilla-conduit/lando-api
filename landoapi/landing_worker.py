@@ -458,6 +458,7 @@ class LandingWorker:
 
             # Gather changesets hashes and commit titles for each node in the stack in
             # case we need to further analyse. Use the null character as the separator.
+            # This variable is a list of (node, changeset title) pairs.
             stack_ids: list[tuple[str, str]] = [
                 tuple(line.split("\0", 1))
                 for line in hgrepo.run_hg(
@@ -509,13 +510,18 @@ class LandingWorker:
         db.session.commit()
 
         if repo.approval_required:
+            # Extra steps for post-uplift landings.
             changeset_titles = [title for _node, title in stack_ids]
 
             try:
                 # If we just landed an uplift, update the relevant bugs as appropriate.
-                update_bugs_for_uplift(current_app.config["BMO_URL"], changeset_titles)
+                update_bugs_for_uplift(
+                    current_app.config["BMO_URL"],
+                    current_app.config["BMO_API_KEY"],
+                    changeset_titles,
+                )
             except Exception as e:
-                # The landing will have gone through even if updating the bugs fails. Notify
+                # The changesets will have gone through even if updating the bugs fails. Notify
                 # the landing user so they are aware and can update the bugs themselves.
                 self.notify_user_of_bug_update_failure(job, e)
 

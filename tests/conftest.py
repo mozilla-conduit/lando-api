@@ -92,6 +92,7 @@ def docker_env_vars(versionfile, monkeypatch):
         "PHABRICATOR_UNPRIVILEGED_API_KEY", "api-thiskeymustbe32characterslen"
     )
     monkeypatch.setenv("BMO_URL", "http://bmo.test")
+    monkeypatch.setenv("BMO_URL", "asdfasdfasdfasdfasdfasdf")
     monkeypatch.setenv("TRANSPLANT_URL", "http://autoland.test")
     monkeypatch.setenv("TRANSPLANT_API_KEY", "someapikey")
     monkeypatch.setenv("TRANSPLANT_USERNAME", "autoland")
