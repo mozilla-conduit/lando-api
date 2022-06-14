@@ -140,29 +140,29 @@ def test_approval_creation(
 
 def test_create_uplift_bug_update_payload():
     bug = {
+        "cf_status_firefox100": "---",
         "id": 123,
-        "whiteboard": "[checkin-needed-beta]",
         "keywords": [],
+        "whiteboard": "[checkin-needed-beta]",
     }
-    payload = create_uplift_bug_update_payload(bug)
+    payload = create_uplift_bug_update_payload(bug, "beta", 100)
 
     assert payload["ids"] == [123], "Passed bug ID should be present in the payload."
     assert (
         payload["whiteboard"] == ""
     ), "checkin-needed flag should be removed from whiteboard."
-    assert payload["status"] == "RESOLVED", "Bug status should be set to RESOLVED."
-    assert payload["resolution"] == "FIXED", "Bug resolution should be set to FIXED."
+    assert (
+        payload["cf_status_firefox100"] == "fixed"
+    ), "Custom tracking flag should be set to `fixed`."
 
     bug = {
+        "cf_status_firefox100": "---",
         "id": 123,
-        "whiteboard": "[checkin-needed-beta]",
         "keywords": ["leave-open"],
+        "whiteboard": "[checkin-needed-beta]",
     }
-    payload = create_uplift_bug_update_payload(bug)
+    payload = create_uplift_bug_update_payload(bug, "beta", 100)
 
     assert (
-        "status" not in payload
+        "cf_status_firefox100" not in payload
     ), "Status should not have been set with `leave-open` keyword on bug."
-    assert (
-        "resolution" not in payload
-    ), "Resolution should not have been set with `leave-open` keyword on bug."

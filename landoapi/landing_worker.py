@@ -513,12 +513,21 @@ class LandingWorker:
             # Extra steps for post-uplift landings.
             changeset_titles = [title for _node, title in stack_ids]
 
+            # Get the major release number from `config/milestone.txt`.
+            milestone = int(
+                hgrepo.run_hg(["cat" "-r", ".", "config/milestone.txt"])
+                .decode("utf-8")
+                .split(".")[0]
+            )
+
             try:
                 # If we just landed an uplift, update the relevant bugs as appropriate.
                 update_bugs_for_uplift(
                     current_app.config["BMO_URL"],
                     current_app.config["BMO_API_KEY"],
                     changeset_titles,
+                    repo.short_name,
+                    milestone,
                 )
             except Exception as e:
                 # The changesets will have gone through even if updating the bugs fails. Notify

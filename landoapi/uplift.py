@@ -7,6 +7,7 @@ import json
 import time
 
 from typing import (
+    Any,
     Optional,
     Tuple,
 )
@@ -20,7 +21,10 @@ from landoapi.phabricator import PhabricatorClient
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.projects import RELMAN_PROJECT_SLUG
 from landoapi.repos import get_repos_for_env
-from landoapi.stacks import request_extended_revision_data
+from landoapi.stacks import (
+    RevisionData,
+    request_extended_revision_data,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -217,7 +221,7 @@ def create_approval_request(phab: PhabricatorClient, revision: dict, form_conten
     }
 
 
-def stack_uplift_form_submitted(stack_data) -> bool:
+def stack_uplift_form_submitted(stack_data: RevisionData) -> bool:
     """Return `True` if the stack has a valid uplift request form submitted."""
     # NOTE: this just checks that any of the revisions in the stack have the uplift form
     # submitted.
@@ -226,21 +230,24 @@ def stack_uplift_form_submitted(stack_data) -> bool:
     )
 
 
-def create_uplift_bug_update_payload(bug: dict) -> dict:
+def create_uplift_bug_update_payload(
+    bug: dict, repo_name: str, milestone: int
+) -> dict[str, Any]:
     """Create a payload for updating a bug using the BMO REST API."""
-    payload = {
+    payload: dict[str, Any] = {
         "ids": [bug["id"]],
     }
-    if "leave-open" not in bug["keywords"]:
-        # Set the status of a bug to fixed if it's fix got uplifted to a branch
-        # and the "leave-open" keyword is not set
-        payload["status"] = "RESOLVED"
-        payload["resolution"] = "FIXED"
 
-    if "[checkin-needed-beta]" in bug["whiteboard"]:
-        # Remove "[checkin-needed-beta]" etc. texts from the whiteboard (rarely used, only
-        # if something doesn't need an uplift approval because it is not part of the build).
-        payload["whiteboard"] = bug["whiteboard"].replace("[checkin-needed-beta]", "")
+    milestone_tracking_flag = f"cf_status_firefox{milestone}"
+    if "leave-open" not in bug["keywords"] and milestone_tracking_flag in bug:
+        # Set the status of a bug to fixed if the fix was uplifted to a branch
+        # and the "leave-open" keyword is not set.
+        payload[f"cf_status_firefox{milestone}"] = "fixed"
+
+    checkin_needed_flag = f"[checkin-needed-{repo_name}]"
+    if checkin_needed_flag in bug["whiteboard"]:
+        # Remove "[checkin-needed-beta]" etc. texts from the whiteboard.
+        payload["whiteboard"] = bug["whiteboard"].replace(checkin_needed_flag, "")
 
     return payload
 
@@ -248,7 +255,13 @@ def create_uplift_bug_update_payload(bug: dict) -> dict:
 UPDATE_RETRIES = 3
 
 
-def update_bugs_for_uplift(bmo_url: str, bmo_api_key: str, changeset_titles: list[str]):
+def update_bugs_for_uplift(
+    bmo_url: str,
+    bmo_api_key: str,
+    changeset_titles: list[str],
+    repo_name: str,
+    milestone: int,
+):
     """Update Bugzilla bugs for uplift."""
     headers = {"X-Bugzilla-API-Key": bmo_api_key}
     bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
@@ -262,7 +275,7 @@ def update_bugs_for_uplift(bmo_url: str, bmo_api_key: str, changeset_titles: lis
     bugs = resp_get.json()["bugs"]
 
     for bug in bugs:
-        payload = create_uplift_bug_update_payload(bug)
+        payload = create_uplift_bug_update_payload(bug, repo_name, milestone)
 
         for i in range(1, UPDATE_RETRIES + 1):
             # Update bug and account for potential errors.
