@@ -242,7 +242,7 @@ def create_uplift_bug_update_payload(
     if "leave-open" not in bug["keywords"] and milestone_tracking_flag in bug:
         # Set the status of a bug to fixed if the fix was uplifted to a branch
         # and the "leave-open" keyword is not set.
-        payload[f"cf_status_firefox{milestone}"] = "fixed"
+        payload[milestone_tracking_flag] = "fixed"
 
     checkin_needed_flag = f"[checkin-needed-{repo_name}]"
     if checkin_needed_flag in bug["whiteboard"]:
