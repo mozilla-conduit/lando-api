@@ -523,8 +523,8 @@ class LandingWorker:
             try:
                 # If we just landed an uplift, update the relevant bugs as appropriate.
                 update_bugs_for_uplift(
-                    current_app.config["BMO_URL"],
-                    current_app.config["BMO_API_KEY"],
+                    current_app.config["BUGZILLA_URL"],
+                    current_app.config["BUGZILLA_API_KEY"],
                     changeset_titles,
                     repo.short_name,
                     milestone,
