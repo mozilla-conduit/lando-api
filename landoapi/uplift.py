@@ -30,6 +30,9 @@ from landoapi.stacks import (
 logger = logging.getLogger(__name__)
 
 
+UPLIFT_BUG_UPDATE_RETRIES = 3
+
+
 def get_uplift_request_form(revision) -> Optional[str]:
     """Return the content of the uplift request form or `None` if missing."""
     bug = PhabricatorClient.expect(revision, "fields").get("uplift.request")
@@ -261,8 +264,6 @@ def create_uplift_bug_update_payload(
     return payload
 
 
-UPDATE_RETRIES = 3
-
 
 def update_bugs_for_uplift(
     changeset_titles: list[str],
@@ -287,7 +288,7 @@ def update_bugs_for_uplift(
     for bug in bugs:
         payload = create_uplift_bug_update_payload(bug, repo_name, milestone)
 
-        for i in range(1, UPDATE_RETRIES + 1):
+        for i in range(1, UPLIFT_BUG_UPDATE_RETRIES + 1):
             # Update bug and account for potential errors.
             try:
                 resp = requests.put(bug_endpoint, headers=headers, json=payload)
@@ -295,7 +296,7 @@ def update_bugs_for_uplift(
 
                 continue
             except requests.RequestException as e:
-                if i == UPDATE_RETRIES:
+                if i == UPLIFT_BUG_UPDATE_RETRIES:
                     raise e
 
                 logger.exception(
