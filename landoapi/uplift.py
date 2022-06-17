@@ -233,7 +233,16 @@ def stack_uplift_form_submitted(stack_data: RevisionData) -> bool:
 def create_uplift_bug_update_payload(
     bug: dict, repo_name: str, milestone: int
 ) -> dict[str, Any]:
-    """Create a payload for updating a bug using the BMO REST API."""
+    """Create a payload for updating a bug using the BMO REST API.
+
+    Examines the data returned from the BMO REST API bug access endpoint to
+    determine if any post-uplift updates should be made to the bug.
+
+    - Sets the `status_firefoxXX` flags to `fixed`.
+    - Removes `[checkin-needed-*]` from the bug whiteboard.
+
+    Returns the bug update payload to be passed to the BMO REST API.
+    """
     payload: dict[str, Any] = {
         "ids": [bug["id"]],
     }
