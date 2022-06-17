@@ -90,12 +90,12 @@ def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg
 def send_bug_update_failure_email(
     recipient_email: str, revision_id: str, error_msg: str
 ):
-    """Tell a user that the Transplant service couldn't land their code.
+    """Tell a user that Lando couldn't update bugs post-uplift.
 
     Args:
-        recipient_email: The email of the user receiving the failure notification.
-        revision_id: The Phabricator Revision ID that failed to land. e.g. D12345
-        error_msg: The error message returned by the Transplant service.
+        recipient_email: The email of the user receiving the bug update notification.
+        revision_id: The Phabricator Revision ID that failed to update bugs. e.g. D12345
+        error_msg: The error message returned by Bugzilla.
     """
     if smtp.suppressed:
         logger.warning(
