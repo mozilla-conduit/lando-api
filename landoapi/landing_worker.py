@@ -456,20 +456,9 @@ class LandingWorker:
                     self.notify_user_of_landing_failure(job)
                     return False
 
-            # Gather changesets hashes and commit titles for each node in the stack in
-            # case we need to further analyse. Use the null character as the separator.
-            # This variable is a list of (node, changeset title) pairs.
-            stack_ids: list[tuple[str, str]] = [
-                tuple(line.split("\0", 1))
-                for line in hgrepo.run_hg(
-                    ["log", "-r", "stack()", "-T", "{node}\\0{desc|firstline}\n"]
-                )
-                .decode("utf-8")
-                .splitlines()
-            ]
-
             # Get the changeset hash of the first node.
-            commit_id = stack_ids[0][0]
+            commit_id = hgrepo.run_hg(["log", "-r", ".", "-T", "{node}"]).decode("utf-8")
+
 
             try:
                 hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
@@ -511,7 +500,10 @@ class LandingWorker:
 
         if repo.approval_required:
             # Extra steps for post-uplift landings.
-            changeset_titles = [title for _node, title in stack_ids]
+            changeset_titles = hgrepo.run_hg(
+                ["log", "-r", "stack()", "-T", "{desc|firstline}\n"]
+            ).decode("utf-8").splitlines()
+
 
             # Get the major release number from `config/milestone.txt`.
             milestone = int(
