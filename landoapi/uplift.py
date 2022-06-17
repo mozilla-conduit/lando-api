@@ -256,19 +256,20 @@ UPDATE_RETRIES = 3
 
 
 def update_bugs_for_uplift(
-    bmo_url: str,
-    bmo_api_key: str,
     changeset_titles: list[str],
     repo_name: str,
     milestone: int,
 ):
     """Update Bugzilla bugs for uplift."""
+    bug_endpoint = f"{current_app.config['BUGZILLA_URL']}/rest/bug"
+    bmo_api_key = current_app.config["BUGZILLA_API_KEY"]
     headers = {"X-Bugzilla-API-Key": bmo_api_key}
+
     bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
     params = {
         "ids": ",".join(bugs),
     }
-    bug_endpoint = f"{bmo_url}/rest/bug"
+
     resp_get = requests.get(bug_endpoint, headers=headers, params=params)
     resp_get.raise_for_status()
 
