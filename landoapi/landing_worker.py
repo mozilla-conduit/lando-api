@@ -457,8 +457,9 @@ class LandingWorker:
                     return False
 
             # Get the changeset hash of the first node.
-            commit_id = hgrepo.run_hg(["log", "-r", ".", "-T", "{node}"]).decode("utf-8")
-
+            commit_id = hgrepo.run_hg(["log", "-r", ".", "-T", "{node}"]).decode(
+                "utf-8"
+            )
 
             try:
                 hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
@@ -500,10 +501,11 @@ class LandingWorker:
 
         if repo.approval_required:
             # Extra steps for post-uplift landings.
-            changeset_titles = hgrepo.run_hg(
-                ["log", "-r", "stack()", "-T", "{desc|firstline}\n"]
-            ).decode("utf-8").splitlines()
-
+            changeset_titles = (
+                hgrepo.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
+                .decode("utf-8")
+                .splitlines()
+            )
 
             # Get the major release number from `config/milestone.txt`.
             milestone = int(

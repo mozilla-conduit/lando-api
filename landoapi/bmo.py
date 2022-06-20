@@ -6,14 +6,22 @@ import requests
 
 from flask import current_app
 
-BUG_ENDPOINT = f"{current_app.config['BUGZILLA_URL']}/rest/bug"
-BMO_API_KEY = current_app.config["BUGZILLA_API_KEY"]
-DEFAULT_HEADERS = {"X-Bugzilla-API-Key": BMO_API_KEY}
+
+def bmo_bug_endpoint() -> str:
+    """Returns the BMO REST API endpoint url for bugs."""
+    return f"{current_app.config['BUGZILLA_URL']}/rest/bug"
+
+
+def bmo_default_headers() -> dict[str, str]:
+    """Returns a `dict` containing the default REST API headers."""
+    return {"X-Bugzilla-API-Key": current_app.config["BUGZILLA_API_KEY"]}
 
 
 def get_bug(params: dict) -> requests.Response:
     """Retrieve bug information from the BMO REST API endpoint."""
-    resp_get = requests.get(BUG_ENDPOINT, headers=DEFAULT_HEADERS, params=params)
+    resp_get = requests.get(
+        bmo_bug_endpoint(), headers=bmo_default_headers(), params=params
+    )
     resp_get.raise_for_status()
 
     return resp_get
@@ -21,7 +29,9 @@ def get_bug(params: dict) -> requests.Response:
 
 def update_bug(json: dict) -> requests.Response:
     """Update a BMO bug."""
-    resp_put = requests.put(BUG_ENDPOINT, headers=DEFAULT_HEADERS, json=json)
+    resp_put = requests.put(
+        bmo_bug_endpoint(), headers=bmo_default_headers(), json=json
+    )
     resp_put.raise_for_status()
 
     return resp_put

@@ -265,7 +265,6 @@ def create_uplift_bug_update_payload(
     return payload
 
 
-
 def update_bugs_for_uplift(
     changeset_titles: list[str],
     repo_name: str,
