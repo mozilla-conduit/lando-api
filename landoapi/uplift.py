@@ -16,6 +16,7 @@ import requests
 
 from flask import current_app
 
+from landoapi import bmo
 from landoapi.commit_message import parse_bugs
 from landoapi.phabricator import PhabricatorClient
 from landoapi.phabricator_patch import patch_to_changes
@@ -271,19 +272,12 @@ def update_bugs_for_uplift(
     milestone: int,
 ):
     """Update Bugzilla bugs for uplift."""
-    bug_endpoint = f"{current_app.config['BUGZILLA_URL']}/rest/bug"
-    bmo_api_key = current_app.config["BUGZILLA_API_KEY"]
-    headers = {"X-Bugzilla-API-Key": bmo_api_key}
-
     bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
     params = {
         "ids": ",".join(bugs),
     }
 
-    resp_get = requests.get(bug_endpoint, headers=headers, params=params)
-    resp_get.raise_for_status()
-
-    bugs = resp_get.json()["bugs"]
+    bugs = bmo.get_bug(params)["bugs"]
 
     for bug in bugs:
         payload = create_uplift_bug_update_payload(bug, repo_name, milestone)
@@ -291,8 +285,7 @@ def update_bugs_for_uplift(
         for i in range(1, UPLIFT_BUG_UPDATE_RETRIES + 1):
             # Update bug and account for potential errors.
             try:
-                resp = requests.put(bug_endpoint, headers=headers, json=payload)
-                resp.raise_for_status()
+                bmo.update_bug(payload)
 
                 continue
             except requests.RequestException as e:
@@ -304,4 +297,4 @@ def update_bugs_for_uplift(
                 )
                 logger.exception(str(e))
 
-                time.sleep(0.1 * i)
+                time.sleep(1.0 * i)
