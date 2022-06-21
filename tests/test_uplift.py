@@ -3,7 +3,32 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from landoapi.phabricator import PhabricatorClient
-from landoapi.uplift import create_uplift_bug_update_payload
+from landoapi.uplift import (
+    create_uplift_bug_update_payload,
+    parse_milestone_major_version,
+)
+
+MILESTONE_TEST_CONTENTS = """
+# Holds the current milestone.
+# Should be in the format of
+#
+#    x.x.x
+#    x.x.x.x
+#    x.x.x+
+#
+# Referenced by build/moz.configure/init.configure.
+# Hopefully I'll be able to automate replacement of *all*
+# hardcoded milestones in the tree from these two files.
+#--------------------------------------------------------
+
+84.0a1
+"""
+
+
+def test_parse_milestone_major_version():
+    assert (
+        parse_milestone_major_version(MILESTONE_TEST_CONTENTS) == 84
+    ), "Test milestone file should have 84 as major milestone version."
 
 
 def test_uplift_creation(

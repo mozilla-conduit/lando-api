@@ -46,7 +46,10 @@ def parse_milestone_major_version(milestone_contents: str) -> int:
     if len(milestone_lines) != 1:
         raise ValueError("`config/milestone.txt` is not in expected format.")
 
-    return int(milestone_lines[0])
+    # `milestone` will be over the form `85.0a4` etc. Get the major version as the first
+    # value before the `.`.
+    milestone = milestone_lines[0]
+    return int(milestone.split(".", 1)[0])
 
 
 def get_uplift_request_form(revision) -> Optional[str]:
