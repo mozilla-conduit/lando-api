@@ -313,7 +313,7 @@ def update_bugs_for_uplift(
             try:
                 bmo.update_bug(payload)
 
-                continue
+                break
             except requests.RequestException as e:
                 if i == UPLIFT_BUG_UPDATE_RETRIES:
                     raise e
