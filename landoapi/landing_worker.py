@@ -499,27 +499,13 @@ class LandingWorker:
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
         db.session.commit()
 
+        # Extra steps for post-uplift landings.
         if repo.approval_required:
-            # Extra steps for post-uplift landings.
-            changeset_titles = (
-                hgrepo.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
-                .decode("utf-8")
-                .splitlines()
-            )
-
-            # Get the major release number from `config/milestone.txt`.
-            milestone = int(
-                hgrepo.run_hg(["cat" "-r", ".", "config/milestone.txt"])
-                .decode("utf-8")
-                .split(".")[0]
-            )
-
             try:
                 # If we just landed an uplift, update the relevant bugs as appropriate.
                 update_bugs_for_uplift(
-                    changeset_titles,
                     repo.short_name,
-                    milestone,
+                    hgrepo,
                 )
             except Exception as e:
                 # The changesets will have gone through even if updating the bugs fails. Notify

@@ -18,6 +18,7 @@ from flask import current_app
 
 from landoapi import bmo
 from landoapi.commit_message import parse_bugs
+from landoapi.hg import HgRepo
 from landoapi.phabricator import PhabricatorClient
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.projects import RELMAN_PROJECT_SLUG
@@ -32,6 +33,20 @@ logger = logging.getLogger(__name__)
 
 
 UPLIFT_BUG_UPDATE_RETRIES = 3
+
+
+def parse_milestone_major_version(milestone_contents: str) -> int:
+    """Parse `config/milestone.txt` to return the major milestone version as an `int`."""
+    milestone_lines = [
+        line
+        for line in milestone_contents.splitlines()
+        if line and not line.startswith("#")
+    ]
+
+    if len(milestone_lines) != 1:
+        raise ValueError("`config/milestone.txt` is not in expected format.")
+
+    return int(milestone_lines[0])
 
 
 def get_uplift_request_form(revision) -> Optional[str]:
@@ -266,17 +281,29 @@ def create_uplift_bug_update_payload(
 
 
 def update_bugs_for_uplift(
-    changeset_titles: list[str],
     repo_name: str,
-    milestone: int,
+    hgrepo: HgRepo,
 ):
     """Update Bugzilla bugs for uplift."""
+    # Parse bug numbers from commits in the stack.
+    changeset_titles = (
+        hgrepo.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
+        .decode("utf-8")
+        .splitlines()
+    )
     bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
     params = {
         "ids": ",".join(bugs),
     }
 
+    # Get information about the parsed bugs.
     bugs = bmo.get_bug(params)["bugs"]
+
+    # Get the major release number from `config/milestone.txt`.
+    milestone_contents = hgrepo.run_hg(
+        ["cat" "-r", ".", "config/milestone.txt"]
+    ).decode("utf-8")
+    milestone = parse_milestone_major_version(milestone_contents)
 
     for bug in bugs:
         payload = create_uplift_bug_update_payload(bug, repo_name, milestone)
