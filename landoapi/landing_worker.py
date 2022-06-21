@@ -502,11 +502,12 @@ class LandingWorker:
         # Extra steps for post-uplift landings.
         if repo.approval_required:
             try:
-                # If we just landed an uplift, update the relevant bugs as appropriate.
-                update_bugs_for_uplift(
-                    repo.short_name,
-                    hgrepo,
-                )
+                with hgrepo.for_push(job.requester_email):
+                    # If we just landed an uplift, update the relevant bugs as appropriate.
+                    update_bugs_for_uplift(
+                        repo.short_name,
+                        hgrepo,
+                    )
             except Exception as e:
                 # The changesets will have gone through even if updating the bugs fails. Notify
                 # the landing user so they are aware and can update the bugs themselves.
