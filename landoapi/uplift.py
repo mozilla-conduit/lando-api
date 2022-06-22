@@ -300,7 +300,7 @@ def update_bugs_for_uplift(
 
     # Get the major release number from `config/milestone.txt`.
     milestone_contents = hgrepo.run_hg(
-        ["cat" "-r", ".", "config/milestone.txt"]
+        ["cat", "-r", ".", "config/milestone.txt"]
     ).decode("utf-8")
     milestone = parse_milestone_major_version(milestone_contents)
 
