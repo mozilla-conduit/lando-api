@@ -286,14 +286,10 @@ def create_uplift_bug_update_payload(
 def update_bugs_for_uplift(
     repo_name: str,
     hgrepo: HgRepo,
+    changeset_titles: list[str],
 ):
     """Update Bugzilla bugs for uplift."""
     # Parse bug numbers from commits in the stack.
-    changeset_titles = (
-        hgrepo.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
-        .decode("utf-8")
-        .splitlines()
-    )
     bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
     params = {
         "ids": ",".join(bugs),

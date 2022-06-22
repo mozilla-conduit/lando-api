@@ -461,6 +461,14 @@ class LandingWorker:
                 "utf-8"
             )
 
+            # Get the changeset titles for the stack. We do this here since the
+            # changesets will not be part of the `stack()` revset after pushing.
+            changeset_titles = (
+                hgrepo.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
+                .decode("utf-8")
+                .splitlines()
+            )
+
             try:
                 hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
             except TreeClosed:
@@ -507,6 +515,7 @@ class LandingWorker:
                     update_bugs_for_uplift(
                         repo.short_name,
                         hgrepo,
+                        changeset_titles,
                     )
             except Exception as e:
                 # The changesets will have gone through even if updating the bugs fails. Notify
