@@ -292,7 +292,7 @@ def update_bugs_for_uplift(
     # Parse bug numbers from commits in the stack.
     bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
     params = {
-        "ids": ",".join(bugs),
+        "id": ",".join(bugs),
     }
 
     # Get information about the parsed bugs.
