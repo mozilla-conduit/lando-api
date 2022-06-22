@@ -296,7 +296,7 @@ def update_bugs_for_uplift(
     }
 
     # Get information about the parsed bugs.
-    bugs = bmo.get_bug(params)["bugs"]
+    bugs = bmo.get_bug(params).json()["bugs"]
 
     # Get the major release number from `config/milestone.txt`.
     milestone_contents = hgrepo.run_hg(
