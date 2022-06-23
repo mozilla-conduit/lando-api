@@ -58,6 +58,7 @@ def parse_milestone_major_version(milestone_contents: str) -> int:
     milestone = milestone_lines[0]
     return int(milestone.split(".", 1)[0])
 
+
 def get_milestone_major_version(hgrepo: HgRepo) -> int:
     """Get and parse the `config/miletone.txt` file."""
     milestone_path = Path(hgrepo.path) / "config" / "milestone.txt"
@@ -65,6 +66,7 @@ def get_milestone_major_version(hgrepo: HgRepo) -> int:
         milestone_contents = f.read()
 
     return parse_milestone_major_version(milestone_contents)
+
 
 def get_uplift_request_form(revision) -> Optional[str]:
     """Return the content of the uplift request form or `None` if missing."""
@@ -333,7 +335,8 @@ def update_bugs_for_uplift(
                     raise e
 
                 logger.exception(
-                    f"Error while updating bugs after uplift on attempt {i}, retrying...\n{str(e)}"
+                    f"Error while updating bugs after uplift on attempt {i}, retrying...\n"
+                    f"{str(e)}"
                 )
 
                 time.sleep(1.0 * i)
