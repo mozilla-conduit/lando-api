@@ -304,13 +304,13 @@ def update_bugs_for_uplift(
 ):
     """Update Bugzilla bugs for uplift."""
     # Parse bug numbers from commits in the stack.
-    bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
+    bug_ids = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
 
-    if not bugs:
+    if not bug_ids:
         raise ValueError("No bugs found in uplift landing.")
 
     params = {
-        "id": ",".join(bugs),
+        "id": ",".join(bug_ids),
     }
 
     # Get information about the parsed bugs.
