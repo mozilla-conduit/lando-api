@@ -14,7 +14,10 @@ def bmo_bug_endpoint() -> str:
 
 def bmo_default_headers() -> dict[str, str]:
     """Returns a `dict` containing the default REST API headers."""
-    return {"X-Bugzilla-API-Key": current_app.config["BUGZILLA_API_KEY"]}
+    return {
+        "User-Agent": "Lando-API",
+        "X-Bugzilla-API-Key": current_app.config["BUGZILLA_API_KEY"],
+    }
 
 
 def get_bug(params: dict) -> requests.Response:
@@ -29,8 +32,13 @@ def get_bug(params: dict) -> requests.Response:
 
 def update_bug(json: dict) -> requests.Response:
     """Update a BMO bug."""
+    if "ids" not in json or not json["ids"]:
+        raise ValueError("Need bug values to be able to update!")
+
+    first_bug = json["ids"][0]
+
     resp_put = requests.put(
-        bmo_bug_endpoint(), headers=bmo_default_headers(), json=json
+        f"{bmo_bug_endpoint()}/{first_bug}", headers=bmo_default_headers(), json=json
     )
     resp_put.raise_for_status()
 
