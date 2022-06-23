@@ -6,6 +6,9 @@ import logging
 import json
 import time
 
+from pathlib import (
+    Path,
+)
 from typing import (
     Any,
     Optional,
@@ -299,9 +302,9 @@ def update_bugs_for_uplift(
     bugs = bmo.get_bug(params).json()["bugs"]
 
     # Get the major release number from `config/milestone.txt`.
-    milestone_contents = hgrepo.run_hg(
-        ["cat", "-r", ".", "config/milestone.txt"]
-    ).decode("utf-8")
+    milestone_path = Path(hgrepo.path) / "config" / "milestone.txt"
+    with milestone_path.open() as f:
+        milestone_contents = f.read()
     milestone = parse_milestone_major_version(milestone_contents)
 
     for bug in bugs:
