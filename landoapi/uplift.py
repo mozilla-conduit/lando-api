@@ -40,20 +40,31 @@ UPLIFT_BUG_UPDATE_RETRIES = 3
 
 def parse_milestone_major_version(milestone_contents: str) -> int:
     """Parse `config/milestone.txt` to return the major milestone version as an `int`."""
+    # Remove commented lines and empty lines.
     milestone_lines = [
         line
         for line in milestone_contents.splitlines()
         if line and not line.startswith("#")
     ]
 
+    # There should be only one line remaining which contains the milestone.
     if len(milestone_lines) != 1:
-        raise ValueError("`config/milestone.txt` is not in expected format.")
+        raise ValueError(
+            f"`config/milestone.txt` should contain 1 line, got {milestone_lines} instead."
+        )
 
     # `milestone` will be over the form `85.0a4` etc. Get the major version as the first
     # value before the `.`.
     milestone = milestone_lines[0]
     return int(milestone.split(".", 1)[0])
 
+def get_milestone_major_version(hgrepo: HgRepo) -> int:
+    """Get and parse the `config/miletone.txt` file."""
+    milestone_path = Path(hgrepo.path) / "config" / "milestone.txt"
+    with milestone_path.open() as f:
+        milestone_contents = f.read()
+
+    return parse_milestone_major_version(milestone_contents)
 
 def get_uplift_request_form(revision) -> Optional[str]:
     """Return the content of the uplift request form or `None` if missing."""
@@ -269,7 +280,7 @@ def create_uplift_bug_update_payload(
     Returns the bug update payload to be passed to the BMO REST API.
     """
     payload: dict[str, Any] = {
-        "ids": [bug["id"]],
+        "ids": [int(bug["id"])],
     }
 
     milestone_tracking_flag = f"cf_status_firefox{milestone}"
@@ -294,6 +305,10 @@ def update_bugs_for_uplift(
     """Update Bugzilla bugs for uplift."""
     # Parse bug numbers from commits in the stack.
     bugs = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
+
+    if not bugs:
+        raise ValueError("No bugs found in uplift landing.")
+
     params = {
         "id": ",".join(bugs),
     }
@@ -302,10 +317,7 @@ def update_bugs_for_uplift(
     bugs = bmo.get_bug(params).json()["bugs"]
 
     # Get the major release number from `config/milestone.txt`.
-    milestone_path = Path(hgrepo.path) / "config" / "milestone.txt"
-    with milestone_path.open() as f:
-        milestone_contents = f.read()
-    milestone = parse_milestone_major_version(milestone_contents)
+    milestone = get_milestone_major_version(hgrepo)
 
     for bug in bugs:
         payload = create_uplift_bug_update_payload(bug, repo_name, milestone)
@@ -321,8 +333,7 @@ def update_bugs_for_uplift(
                     raise e
 
                 logger.exception(
-                    f"Error while updating bugs after uplift on attempt {i}, retrying..."
+                    f"Error while updating bugs after uplift on attempt {i}, retrying...\n{str(e)}"
                 )
-                logger.exception(str(e))
 
                 time.sleep(1.0 * i)
