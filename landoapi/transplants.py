@@ -461,8 +461,8 @@ def convert_path_id_to_phid(path, stack_data):
     except IndexError:
         raise ProblemException(
             400,
-            "Landing Path Invalid",
-            "The provided landing_path is not valid.",
+            "Stack data invalid",
+            "The provided stack_data is not valid.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
