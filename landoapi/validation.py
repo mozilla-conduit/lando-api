@@ -22,6 +22,7 @@ def revision_id_to_int(revision_id: str) -> int:
 
 
 def parse_landing_path(landing_path: list[dict]) -> list[tuple[int, int]]:
+    """Convert a list of landing path dicts with `str` values into a list of int tuples."""
     try:
         return [
             (revision_id_to_int(item["revision_id"]), int(item["diff_id"]))
