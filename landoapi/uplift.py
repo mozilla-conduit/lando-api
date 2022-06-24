@@ -98,6 +98,15 @@ def get_release_managers(phab: PhabricatorClient) -> dict:
 def get_uplift_conduit_state(
     phab: PhabricatorClient, revision_id: int, target_repository_name: str
 ) -> Tuple[RevisionData, dict]:
+    """Queries Conduit for repository and stack information about the requested uplift.
+
+    Gathers information about:
+        - the requested uplift repository.
+        - the stack of revisions to be uplifted.
+
+    Also enforces the stack has appropriate properties for uplift, such as a max
+    stack size.
+    """
     # Load target repo from Phabricator
     target_repo = phab.call_conduit(
         "diffusion.repository.search",
@@ -115,9 +124,12 @@ def get_uplift_conduit_state(
 
     try:
         nodes, _ = build_stack_graph(phab, phab.expect(revision, "phid"))
-    except PhabricatorAPIException:
+    except PhabricatorAPIException as e:
         # If a revision within the stack causes an API exception, treat the whole stack
         # as not found.
+        logger.exception(
+            f"Phabricator returned an error searching for {revision_id}: {str(e)}"
+        )
         raise ValueError(f"Missing revision info for stack ending in {revision_id}")
 
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
