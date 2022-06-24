@@ -39,7 +39,7 @@ UPLIFT_BUG_UPDATE_RETRIES = 3
 
 
 def parse_milestone_major_version(milestone_contents: str) -> int:
-    """Parse `config/milestone.txt` to return the major milestone version as an `int`."""
+    """Parse the major milestone version from the contents of `config/milestone.txt`."""
     # Remove commented lines and empty lines.
     milestone_lines = [
         line
@@ -321,9 +321,10 @@ def update_bugs_for_uplift(
     # Get the major release number from `config/milestone.txt`.
     milestone = get_milestone_major_version(hgrepo)
 
-    for bug in bugs:
-        payload = create_uplift_bug_update_payload(bug, repo_name, milestone)
+    # Create bug update payloads.
+    payloads = [create_uplift_bug_update_payload(bug, repo_name, milestone) for bug in bugs]
 
+    for payload in payloads:
         for i in range(1, UPLIFT_BUG_UPDATE_RETRIES + 1):
             # Update bug and account for potential errors.
             try:
