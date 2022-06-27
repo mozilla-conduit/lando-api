@@ -4,11 +4,9 @@
 
 import logging
 import json
+import re
 import time
 
-from pathlib import (
-    Path,
-)
 from typing import (
     Any,
     Optional,
@@ -21,7 +19,6 @@ from flask import current_app
 
 from landoapi import bmo
 from landoapi.commit_message import parse_bugs
-from landoapi.hg import HgRepo
 from landoapi.phabricator import PhabricatorClient
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.projects import RELMAN_PROJECT_SLUG
@@ -34,38 +31,22 @@ from landoapi.stacks import (
 
 logger = logging.getLogger(__name__)
 
+MILESTONE_MAJOR_VERSION_RE = re.compile(r"^(?P<major>\d+)\.\d+.", flags=re.MULTILINE)
+
 
 UPLIFT_BUG_UPDATE_RETRIES = 3
 
 
 def parse_milestone_major_version(milestone_contents: str) -> int:
     """Parse the major milestone version from the contents of `config/milestone.txt`."""
-    # Remove commented lines and empty lines.
-    milestone_lines = [
-        line
-        for line in milestone_contents.splitlines()
-        if line and not line.startswith("#")
-    ]
+    match = MILESTONE_MAJOR_VERSION_RE.search(milestone_contents)
 
-    # There should be only one line remaining which contains the milestone.
-    if len(milestone_lines) != 1:
+    if not match:
         raise ValueError(
-            f"`config/milestone.txt` should contain 1 line, got {milestone_lines} instead."
+            f"`config/milestone.txt` is not in the expected format: {milestone_contents}"
         )
 
-    # `milestone` will be over the form `85.0a4` etc. Get the major version as the first
-    # value before the `.`.
-    milestone = milestone_lines[0]
-    return int(milestone.split(".", 1)[0])
-
-
-def get_milestone_major_version(hgrepo: HgRepo) -> int:
-    """Get and parse the `config/miletone.txt` file."""
-    milestone_path = Path(hgrepo.path) / "config" / "milestone.txt"
-    with milestone_path.open() as f:
-        milestone_contents = f.read()
-
-    return parse_milestone_major_version(milestone_contents)
+    return int(match.group("major"))
 
 
 def get_uplift_request_form(revision) -> Optional[str]:
@@ -301,7 +282,7 @@ def create_uplift_bug_update_payload(
 
 def update_bugs_for_uplift(
     repo_name: str,
-    hgrepo: HgRepo,
+    milestone_file_contents: str,
     changeset_titles: list[str],
 ):
     """Update Bugzilla bugs for uplift."""
@@ -319,10 +300,12 @@ def update_bugs_for_uplift(
     bugs = bmo.get_bug(params).json()["bugs"]
 
     # Get the major release number from `config/milestone.txt`.
-    milestone = get_milestone_major_version(hgrepo)
+    milestone = parse_milestone_major_version(milestone_file_contents)
 
     # Create bug update payloads.
-    payloads = [create_uplift_bug_update_payload(bug, repo_name, milestone) for bug in bugs]
+    payloads = [
+        create_uplift_bug_update_payload(bug, repo_name, milestone) for bug in bugs
+    ]
 
     for payload in payloads:
         for i in range(1, UPLIFT_BUG_UPDATE_RETRIES + 1):
