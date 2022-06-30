@@ -8,7 +8,7 @@ import os
 logger = logging.getLogger(__name__)
 
 
-def version():
+def version() -> dict[str, str]:
     version = {
         "source": "https://github.com/mozilla-conduit/lando-api",
         "version": "0.0.0",

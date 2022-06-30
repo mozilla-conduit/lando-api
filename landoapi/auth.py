@@ -1,11 +1,17 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 import functools
 import hashlib
 import hmac
 import logging
 import os
+
+from typing import (
+    Optional,
+    Union,
+)
 
 import requests
 from connexion import ProblemException, request
@@ -23,7 +29,7 @@ ALGORITHMS = ["RS256"]
 mock_auth0 = MockAuth0()
 
 
-def get_auth_token():
+def get_auth_token() -> str:
     auth = request.headers.get("Authorization")
     if auth is None:
         raise ProblemException(
@@ -71,7 +77,7 @@ def get_auth_token():
     return parts[1]
 
 
-def get_rsa_key(jwks, token):
+def get_rsa_key(jwks: dict, token: str) -> Optional[dict[str, str]]:
     """Return the rsa key from jwks for the provided token.
 
     `None` is returned if the key is not found.
@@ -82,11 +88,11 @@ def get_rsa_key(jwks, token):
             return {i: key[i] for i in ("kty", "kid", "use", "n", "e")}
 
 
-def jwks_cache_key(url):
+def jwks_cache_key(url: str) -> str:
     return "auth0_jwks_{}".format(hashlib.sha256(url.encode("utf-8")).hexdigest())
 
 
-def get_jwks():
+def get_jwks() -> dict:
     """Return the auth0 jwks."""
     jwks_url = "https://{oidc_domain}/.well-known/jwks.json".format(
         oidc_domain=current_app.config["OIDC_DOMAIN"]
@@ -148,25 +154,25 @@ def get_jwks():
     return jwks
 
 
-def userinfo_cache_key(access_token, user_sub):
+def userinfo_cache_key(access_token: str, user_sub: str) -> str:
     return "auth0_userinfo_{user_sub}_{token_hash}".format(
         user_sub=user_sub,
         token_hash=hashlib.sha256(access_token.encode("utf-8")).hexdigest(),
     )
 
 
-def get_userinfo_url():
+def get_userinfo_url() -> str:
     return "https://{}/userinfo".format(current_app.config["OIDC_DOMAIN"])
 
 
-def fetch_auth0_userinfo(access_token):
+def fetch_auth0_userinfo(access_token: str) -> requests.Response:
     """Return userinfo response from auth0 endpoint."""
     return requests.get(
         get_userinfo_url(), headers={"Authorization": "Bearer {}".format(access_token)}
     )
 
 
-def get_auth0_userinfo(access_token, user_sub):
+def get_auth0_userinfo(access_token: str, user_sub: str) -> dict:
     """Return userinfo data from auth0."""
     cache_key = userinfo_cache_key(access_token, user_sub)
 
@@ -273,7 +279,7 @@ class A0User:
         self._email = None
 
     @property
-    def groups(self):
+    def groups(self) -> Optional[set[str]]:
         if self._groups is None:
             groups = self._userinfo.get(self._GROUPS_CLAIM_KEY, [])
             groups = [groups] if isinstance(groups, str) else groups
@@ -282,7 +288,7 @@ class A0User:
         return self._groups
 
     @property
-    def email(self):
+    def email(self) -> Optional[str]:
         """The Mozilla LDAP email address of the Auth0 user.
 
         Returns a Mozilla LDAP address or None if the userinfo has no email set
@@ -295,12 +301,15 @@ class A0User:
 
         return self._email
 
-    def is_in_groups(self, *args):
+    def is_in_groups(self, *args) -> bool:
         """Return True if the user is in all provided groups."""
+        if not self.groups:
+            return False
+
         return set(args).issubset(self.groups)
 
 
-def _mock_userinfo_claims(userinfo):
+def _mock_userinfo_claims(userinfo: dict):
     """Partially mocks Auth0 userinfo by only injecting ldap claims
 
     Modifies the userinfo in place with either valid or invalid ldap claims
@@ -574,7 +583,7 @@ def require_transplant_authentication(f):
 class Auth0Subsystem(Subsystem):
     name = "auth0"
 
-    def ready(self):
+    def ready(self) -> Union[bool, str]:
         domain = self.flask_app.config.get("OIDC_DOMAIN")
         identifier = self.flask_app.config.get("OIDC_IDENTIFIER")
 
@@ -592,7 +601,7 @@ class Auth0Subsystem(Subsystem):
 
         return True
 
-    def healthy(self):
+    def healthy(self) -> Union[bool, str]:
         try:
             get_jwks()
         except ProblemException as exc:

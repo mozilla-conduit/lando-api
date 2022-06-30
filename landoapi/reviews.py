@@ -19,8 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 def calculate_review_extra_state(
-    for_diff_phid, reviewer_status, reviewer_diff_phid, reviewer_voided_phid
-):
+    for_diff_phid: str,
+    reviewer_status: ReviewerStatus,
+    reviewer_diff_phid: str,
+) -> dict[str, bool]:
     """Return review state given a reviewer's phabricator information.
 
     Args:
@@ -53,7 +55,9 @@ def calculate_review_extra_state(
 ReviewerIdentity = namedtuple("ReviewerIdentity", ("identifier", "full_name"))
 
 
-def reviewer_identity(phid, user_search_data, project_search_data):
+def reviewer_identity(
+    phid: str, user_search_data: list[dict], project_search_data: list[dict]
+) -> ReviewerIdentity:
     if phid in user_search_data:
         return ReviewerIdentity(
             PhabricatorClient.expect(user_search_data, phid, "fields", "username"),
@@ -70,7 +74,7 @@ def reviewer_identity(phid, user_search_data, project_search_data):
     return ReviewerIdentity("<unknown>", "Unknown User/Project")
 
 
-def get_collated_reviewers(revision):
+def get_collated_reviewers(revision: dict) -> dict:
     """Return a dictionary mapping phid to collated reviewer attachment data.
 
     Args:
@@ -84,7 +88,7 @@ def get_collated_reviewers(revision):
     )
 
 
-def collate_reviewer_attachments(reviewers, reviewers_extra):
+def collate_reviewer_attachments(reviewers: dict, reviewers_extra: dict) -> dict:
     """Return collated reviewer data.
 
     Args:
@@ -122,15 +126,16 @@ def collate_reviewer_attachments(reviewers, reviewers_extra):
 
 
 def serialize_reviewers(
-    collated_reviewers, user_search_data, project_search_data, diff_phid
-):
+    collated_reviewers: dict,
+    user_search_data: list[dict],
+    project_search_data: list[dict],
+    diff_phid: str,
+) -> list[dict[str, str]]:
     reviewers = []
 
     for phid, r in collated_reviewers.items():
         identity = reviewer_identity(phid, user_search_data, project_search_data)
-        state = calculate_review_extra_state(
-            diff_phid, r["status"], r["diffPHID"], r["voidedPHID"]
-        )
+        state = calculate_review_extra_state(diff_phid, r["status"], r["diffPHID"])
         reviewers.append(
             {
                 "phid": phid,
