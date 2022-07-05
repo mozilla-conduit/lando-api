@@ -301,7 +301,7 @@ class A0User:
 
         return self._email
 
-    def is_in_groups(self, *args) -> bool:
+    def is_in_groups(self, *args: str) -> bool:
         """Return True if the user is in all provided groups."""
         if not self.groups:
             return False

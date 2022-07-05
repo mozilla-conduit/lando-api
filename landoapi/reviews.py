@@ -29,7 +29,7 @@ def calculate_review_extra_state(
         for_diff_phid: The diff phid that this review state is being
             calculated against. This would usually be the phid of
             the diff to be landed.
-        reviewer_status: A landoapi.phabricator.ReviewerStatus.
+        reviewer_status: The status of the review for the given reviewer.
         reviewer_diff_phid: The diff phid the reviewer is currently
             associated with. This would be the value returned in
             'diffPHID' of the 'reviewers-extra' attachment.
