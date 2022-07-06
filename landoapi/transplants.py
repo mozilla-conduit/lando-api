@@ -168,9 +168,7 @@ class RevisionWarningCheck:
 @RevisionWarningCheck(0, "Has a review intended to block landing.")
 def warning_blocking_reviews(*, revision, diff, reviewers, users, projects, **kwargs):
     reviewer_extra_state = {
-        phid: calculate_review_extra_state(
-            diff["phid"], r["status"], r["diffPHID"], r["voidedPHID"]
-        )
+        phid: calculate_review_extra_state(diff["phid"], r["status"], r["diffPHID"])
         for phid, r in reviewers.items()
     }
     blocking_phids = [
@@ -244,9 +242,7 @@ def warning_not_accepted(*, revision, **kwargs):
 @RevisionWarningCheck(3, "No reviewer has accepted the current diff.")
 def warning_reviews_not_current(*, diff, reviewers, **kwargs):
     for _, r in reviewers.items():
-        extra = calculate_review_extra_state(
-            diff["phid"], r["status"], r["diffPHID"], r["voidedPHID"]
-        )
+        extra = calculate_review_extra_state(diff["phid"], r["status"], r["diffPHID"])
 
         if r["status"] == ReviewerStatus.ACCEPTED and not extra["for_other_diff"]:
             return None
