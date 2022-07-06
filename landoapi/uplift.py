@@ -4,22 +4,49 @@
 
 import logging
 import json
+import re
+import time
 
 from typing import (
+    Any,
     Optional,
     Tuple,
 )
 
+import requests
+
 from flask import current_app
 
+from landoapi import bmo
+from landoapi.commit_message import parse_bugs
 from landoapi.phabricator import PhabricatorClient
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.projects import RELMAN_PROJECT_SLUG
 from landoapi.repos import get_repos_for_env
-from landoapi.stacks import request_extended_revision_data
+from landoapi.stacks import (
+    RevisionData,
+    request_extended_revision_data,
+)
 
 
 logger = logging.getLogger(__name__)
+
+MILESTONE_MAJOR_VERSION_RE = re.compile(r"^(?P<major>\d+)\.\d+.", flags=re.MULTILINE)
+
+
+UPLIFT_BUG_UPDATE_RETRIES = 3
+
+
+def parse_milestone_major_version(milestone_contents: str) -> int:
+    """Parse the major milestone version from the contents of `config/milestone.txt`."""
+    match = MILESTONE_MAJOR_VERSION_RE.search(milestone_contents)
+
+    if not match:
+        raise ValueError(
+            f"`config/milestone.txt` is not in the expected format: {milestone_contents}"
+        )
+
+    return int(match.group("major"))
 
 
 def get_uplift_request_form(revision) -> Optional[str]:
@@ -213,10 +240,87 @@ def create_approval_request(phab: PhabricatorClient, revision: dict, form_conten
     }
 
 
-def stack_uplift_form_submitted(stack_data) -> bool:
+def stack_uplift_form_submitted(stack_data: RevisionData) -> bool:
     """Return `True` if the stack has a valid uplift request form submitted."""
     # NOTE: this just checks that any of the revisions in the stack have the uplift form
     # submitted.
     return any(
         get_uplift_request_form(revision) for revision in stack_data.revisions.values()
     )
+
+
+def create_uplift_bug_update_payload(
+    bug: dict, repo_name: str, milestone: int
+) -> dict[str, Any]:
+    """Create a payload for updating a bug using the BMO REST API.
+
+    Examines the data returned from the BMO REST API bug access endpoint to
+    determine if any post-uplift updates should be made to the bug.
+
+    - Sets the `status_firefoxXX` flags to `fixed`.
+    - Removes `[checkin-needed-*]` from the bug whiteboard.
+
+    Returns the bug update payload to be passed to the BMO REST API.
+    """
+    payload: dict[str, Any] = {
+        "ids": [int(bug["id"])],
+    }
+
+    milestone_tracking_flag = f"cf_status_firefox{milestone}"
+    if "leave-open" not in bug["keywords"] and milestone_tracking_flag in bug:
+        # Set the status of a bug to fixed if the fix was uplifted to a branch
+        # and the "leave-open" keyword is not set.
+        payload[milestone_tracking_flag] = "fixed"
+
+    checkin_needed_flag = f"[checkin-needed-{repo_name}]"
+    if checkin_needed_flag in bug["whiteboard"]:
+        # Remove "[checkin-needed-beta]" etc. texts from the whiteboard.
+        payload["whiteboard"] = bug["whiteboard"].replace(checkin_needed_flag, "")
+
+    return payload
+
+
+def update_bugs_for_uplift(
+    repo_name: str,
+    milestone_file_contents: str,
+    changeset_titles: list[str],
+):
+    """Update Bugzilla bugs for uplift."""
+    # Parse bug numbers from commits in the stack.
+    bug_ids = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
+
+    if not bug_ids:
+        raise ValueError("No bugs found in uplift landing.")
+
+    params = {
+        "id": ",".join(bug_ids),
+    }
+
+    # Get information about the parsed bugs.
+    bugs = bmo.get_bug(params).json()["bugs"]
+
+    # Get the major release number from `config/milestone.txt`.
+    milestone = parse_milestone_major_version(milestone_file_contents)
+
+    # Create bug update payloads.
+    payloads = [
+        create_uplift_bug_update_payload(bug, repo_name, milestone) for bug in bugs
+    ]
+
+    for payload in payloads:
+        for i in range(1, UPLIFT_BUG_UPDATE_RETRIES + 1):
+            # Update bug and account for potential errors.
+            try:
+                bmo.update_bug(payload)
+
+                break
+            except requests.RequestException as e:
+                if i == UPLIFT_BUG_UPDATE_RETRIES:
+                    raise e
+
+                logger.exception(
+                    f"Error while updating bugs after uplift on attempt {i}, retrying...\n"
+                    f"{str(e)}"
+                )
+
+                time.sleep(1.0 * i)
