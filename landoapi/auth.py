@@ -9,6 +9,7 @@ import logging
 import os
 
 from typing import (
+    Callable,
     Optional,
     Union,
 )
@@ -353,7 +354,7 @@ class require_auth0:
     accessed using flask.g.auth0_user.
     """
 
-    def __init__(self, scopes=None, userinfo=False):
+    def __init__(self, scopes: Optional[tuple[str]] = None, userinfo: bool = False):
         assert scopes is not None, (
             "`scopes` must be provided. If this endpoint truly does not "
             "require any scopes, explicilty pass an empty tuple `()`"
@@ -361,7 +362,7 @@ class require_auth0:
         self.userinfo = userinfo
         self.scopes = scopes
 
-    def _require_scopes(self, f):
+    def _require_scopes(self, f: Callable) -> Callable:
         @functools.wraps(f)
         def wrapped(*args, **kwargs):
             token_scopes = set(g.access_token_payload.get("scope", "").split())
@@ -377,7 +378,7 @@ class require_auth0:
 
         return wrapped
 
-    def _require_userinfo(self, f):
+    def _require_userinfo(self, f: Callable) -> Callable:
         """Decorator which fetches userinfo using an Auth0 access_token.
 
         This decorator assumes that any caller of the wrapped function has
@@ -403,7 +404,7 @@ class require_auth0:
 
         return wrapped
 
-    def _require_access_token(self, f):
+    def _require_access_token(self, f: Callable) -> Callable:
         """Decorator which verifies Auth0 access_token."""
 
         @functools.wraps(f)
@@ -487,7 +488,7 @@ class require_auth0:
 
         return wrapped
 
-    def __call__(self, f):
+    def __call__(self, f: Callable) -> Callable:
         if self.userinfo:
             f = self._require_userinfo(f)
 
@@ -506,7 +507,7 @@ def _not_authorized_problem_exception():
     )
 
 
-def require_transplant_authentication(f):
+def require_transplant_authentication(f: Callable) -> Callable:
     """Decorator which authenticates requests to only allow Transplant."""
 
     @functools.wraps(f)

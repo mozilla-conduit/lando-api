@@ -3,6 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 
+from typing import Union
+
 from flask_caching import Cache
 from flask_caching.backends.rediscache import RedisCache
 from redis import RedisError
@@ -39,7 +41,7 @@ class CacheSubsystem(Subsystem):
 
         cache.init_app(self.flask_app, config=cache_config)
 
-    def healthy(self):
+    def healthy(self) -> Union[bool, str]:
         if not isinstance(cache.cache, RedisCache):
             return "Cache is not configured to use redis"
 

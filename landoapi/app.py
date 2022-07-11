@@ -5,6 +5,8 @@ import logging
 import logging.config
 import os
 
+from typing import Any
+
 import connexion
 from connexion.resolver import RestyResolver
 
@@ -22,6 +24,7 @@ from landoapi.repos import repo_clone_subsystem
 from landoapi.sentry import sentry_subsystem
 from landoapi.smtp import smtp_subsystem
 from landoapi.storage import db_subsystem
+from landoapi.systems import Subsystem
 from landoapi.treestatus import treestatus_subsystem
 from landoapi.ui import lando_ui_subsystem
 from landoapi.version import version
@@ -29,7 +32,7 @@ from landoapi.version import version
 logger = logging.getLogger(__name__)
 
 # Subsystems shared across different services
-SUBSYSTEMS = [
+SUBSYSTEMS: list[Subsystem] = [
     # Logging & sentry first so that other systems log properly.
     logging_subsystem,
     sentry_subsystem,
@@ -46,7 +49,7 @@ SUBSYSTEMS = [
 ]
 
 
-def load_config():
+def load_config() -> dict[str, Any]:
     """Return configuration pulled from the environment."""
     config = {
         "ALEMBIC": {"script_location": "/migrations/"},
@@ -115,7 +118,7 @@ def load_config():
     return config
 
 
-def construct_app(config):
+def construct_app(config: dict[str, Any]) -> connexion.App:
     app = connexion.App(__name__, specification_dir="spec/")
 
     app.add_api(
