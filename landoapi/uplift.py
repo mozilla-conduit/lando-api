@@ -207,9 +207,10 @@ def create_uplift_revision(
                     "author": phab.expect(commit, "author", "name"),
                     "authorEmail": phab.expect(commit, "author", "email"),
                     "time": 0,
+                    "summary": phab.expect(commit, "message").splitlines()[0],
                     "message": phab.expect(commit, "message"),
+                    "commit": phab.expect(commit, "identifier"),
                     "rev": phab.expect(commit, "identifier"),
-                    "tree": None,
                     "parents": phab.expect(commit, "parents"),
                 }
                 for commit in commits
