@@ -16,7 +16,10 @@ from flask import current_app
 from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.projects import RELMAN_PROJECT_SLUG
-from landoapi.repos import get_repos_for_env
+from landoapi.repos import (
+    Repo,
+    get_repos_for_env,
+)
 from landoapi.stacks import (
     RevisionData,
     build_stack_graph,
@@ -142,17 +145,10 @@ def get_uplift_conduit_state(
     return stack_data, target_repo
 
 
-def create_uplift_revision(
-    phab: PhabricatorClient,
-    source_revision: dict,
-    source_diff: dict,
-    parent_phid: Optional[str],
-    relman_phid: str,
-    target_repository: dict,
-) -> dict[str, str]:
-    """Create a new revision on a repository, cloning a diff from another repo.
+def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> Repo:
+    """Return the local Repo object corresponding to `target_repository`.
 
-    Returns a `dict` to be returned as JSON from the uplift API.
+    Raise if the repo is not an uplift repo.
     """
     # Check the target repository needs an approval.
     repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
@@ -167,6 +163,22 @@ def create_uplift_revision(
         # Assert the repo is an uplift train.
         raise ValueError(f"No approval required for {repo_shortname}")
 
+    return local_repo
+
+
+def create_uplift_revision(
+    phab: PhabricatorClient,
+    local_repo: Repo,
+    source_revision: dict,
+    source_diff: dict,
+    parent_phid: Optional[str],
+    relman_phid: str,
+    target_repository: dict,
+) -> dict[str, str]:
+    """Create a new revision on a repository, cloning a diff from another repo.
+
+    Returns a `dict` to be returned as JSON from the uplift API.
+    """
     # Get raw diff.
     raw_diff = phab.call_conduit("differential.getrawdiff", diffID=source_diff["id"])
     if not raw_diff:

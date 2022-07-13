@@ -14,6 +14,7 @@ from landoapi.repos import get_repos_for_env
 from landoapi.transplants import convert_path_id_to_phid
 from landoapi.uplift import (
     create_uplift_revision,
+    get_local_uplift_repo,
     get_uplift_conduit_state,
     get_uplift_repositories,
 )
@@ -75,6 +76,7 @@ def create(data):
             revision_id=tip_revision_id,
             target_repository_name=repo_name,
         )
+        local_repo = get_local_uplift_repo(phab, target_repository)
         logger.info("Approval state is valid")
     except ValueError as err:
         logger.exception(
@@ -117,7 +119,13 @@ def create(data):
         try:
             # Create the revision.
             rev = create_uplift_revision(
-                phab, revision, diff, parent_phid, relman_phid, target_repository
+                phab,
+                local_repo,
+                revision,
+                diff,
+                parent_phid,
+                relman_phid,
+                target_repository,
             )
             commit_stack.append(rev)
         except Exception as e:
