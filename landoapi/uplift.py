@@ -149,35 +149,39 @@ def create_uplift_revision(
     parent_phid: Optional[str],
     relman_phid: str,
     target_repository: dict,
-) -> dict:
+) -> dict[str, str]:
     """Create a new revision on a repository, cloning a diff from another repo.
 
     Returns a `dict` to be returned as JSON from the uplift API.
     """
-    # Check the target repository needs an approval
+    # Check the target repository needs an approval.
     repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     repo_shortname = phab.expect(target_repository, "fields", "shortName")
     local_repo = repos.get(repo_shortname)
-    assert local_repo is not None, f"Unknown repository {repo_shortname}"
-    assert (
-        local_repo.approval_required is True
-    ), f"No approval required for {repo_shortname}"
 
-    # Get raw diff
+    if not local_repo:
+        # Assert the repo is known.
+        raise ValueError(f"Unknown repository {repo_shortname}")
+
+    if not local_repo.approval_required:
+        # Assert the repo is an uplift train.
+        raise ValueError(f"No approval required for {repo_shortname}")
+
+    # Get raw diff.
     raw_diff = phab.call_conduit("differential.getrawdiff", diffID=source_diff["id"])
     if not raw_diff:
         raise Exception("Missing raw source diff, cannot uplift revision.")
 
-    # Base revision hash is available on the diff fields
+    # Base revision hash is available on the diff fields.
     refs = {ref["type"]: ref for ref in phab.expect(source_diff, "fields", "refs")}
     base_revision = refs["base"]["identifier"] if "base" in refs else None
 
     # The first commit in the attachment list is the current HEAD of stack
-    # we can use the HEAD to mark the changes being created
+    # we can use the HEAD to mark the changes being created.
     commits = phab.expect(source_diff, "attachments", "commits", "commits")
     head = commits[0] if commits else None
 
-    # Upload it on target repo
+    # Upload it on target repo.
     new_diff = phab.call_conduit(
         "differential.creatediff",
         changes=patch_to_changes(raw_diff, head["identifier"] if head else None),
@@ -196,7 +200,7 @@ def create_uplift_revision(
     new_diff_phid = phab.expect(new_diff, "phid")
     logger.info("Created new diff", extra={"id": new_diff_id, "phid": new_diff_phid})
 
-    # Attach commit information to setup the author (needed for landing)
+    # Attach commit information to setup the author (needed for landing).
     phab.call_conduit(
         "differential.setdiffproperty",
         diff_id=new_diff_id,
@@ -224,15 +228,15 @@ def create_uplift_revision(
 
     transactions = [
         {"type": "update", "value": new_diff_phid},
-        # Copy title & summary from source revision
+        # Copy title & summary from source revision.
         {"type": "title", "value": phab.expect(source_revision, "fields", "title")},
         {"type": "summary", "value": summary},
-        # Set release managers as reviewers
+        # Set release managers as reviewers.
         {
             "type": "reviewers.add",
             "value": [f"blocking({relman_phid})"],
         },
-        # Copy Bugzilla id
+        # Copy Bugzilla id.
         {
             "type": "bugzilla.bug-id",
             "value": phab.expect(source_revision, "fields", "bugzilla.bug-id"),
@@ -243,7 +247,7 @@ def create_uplift_revision(
     if parent_phid:
         transactions.append({"type": "parents.set", "value": [parent_phid]})
 
-    # Finally create the revision to link all the pieces
+    # Finally create the revision to link all the pieces.
     new_rev = phab.call_conduit(
         "differential.revision.edit",
         transactions=transactions,
@@ -255,9 +259,11 @@ def create_uplift_revision(
         extra={"id": new_rev_id, "phid": new_rev_phid},
     )
 
+    repository = str(phab.expect(target_repository, "fields", "shortName"))
+
     return {
         "mode": "uplift",
-        "repository": phab.expect(target_repository, "fields", "shortName"),
+        "repository": repository,
         "url": f"{phab.url_base}/D{new_rev_id}",
         "revision_id": new_rev_id,
         "revision_phid": new_rev_phid,
