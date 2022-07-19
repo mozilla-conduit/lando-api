@@ -105,6 +105,7 @@ def create(data):
 
     landing_path = convert_path_id_to_phid(landing_path, revision_data)
     commit_stack = []
+    parent_phid = parent_revision = None
     for rev_id, _diff_id in landing_path:
         # Get the relevant revision.
         revision = revision_data.revisions[rev_id]
@@ -114,10 +115,18 @@ def create(data):
         diff = revision_data.diffs[diff_phid]
 
         # Get the parent commit PHID from the stack if available.
-        parent_phid = commit_stack[-1]["revision_phid"] if commit_stack else None
+        if commit_stack:
+            parent = commit_stack[-1]
+            parent_phid = parent["revision_phid"]
 
-        # TODO set this properly.
-        # parent_revision = commit_stack[-1][""] if commit_stack else None
+            # Get the previous diff hash so we can correctly set the diff parent.
+            parent_diff = phab.call_conduit(
+                "differential.diff.search", constraints={"phids": [parent["diff_phid"]]}
+            )
+            refs = {
+                ref["type"]: ref for ref in phab.expect(parent_diff, "fields", "refs")
+            }
+            parent_revision = refs["base"]["identifier"] if "base" in refs else None
 
         try:
             # Create the revision.
@@ -127,7 +136,7 @@ def create(data):
                 revision,
                 diff,
                 parent_phid,
-                # parent_revision,
+                parent_revision,
                 relman_phid,
                 target_repository,
             )

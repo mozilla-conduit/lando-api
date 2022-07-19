@@ -172,7 +172,7 @@ def create_uplift_revision(
     source_revision: dict,
     source_diff: dict,
     parent_phid: Optional[str],
-    # parent_revision: Optional[str],
+    parent_revision: Optional[str],
     relman_phid: str,
     target_repository: dict,
 ) -> dict[str, str]:
@@ -186,8 +186,8 @@ def create_uplift_revision(
         raise Exception("Missing raw source diff, cannot uplift revision.")
 
     # Base revision hash is available on the diff fields.
-    refs = {ref["type"]: ref for ref in phab.expect(source_diff, "fields", "refs")}
-    base_revision = refs["base"]["identifier"] if "base" in refs else None
+    # refs = {ref["type"]: ref for ref in phab.expect(source_diff, "fields", "refs")}
+    # base_revision = refs["base"]["identifier"] if "base" in refs else None
 
     # The first commit in the attachment list is the current HEAD of stack
     # we can use the HEAD to mark the changes being created.
@@ -201,7 +201,7 @@ def create_uplift_revision(
         sourceMachine=local_repo.url,
         sourceControlSystem=phab.expect(target_repository, "fields", "vcs"),
         sourceControlPath="/",
-        sourceControlBaseRevision=base_revision,
+        sourceControlBaseRevision=parent_revision,
         creationMethod="lando-uplift",
         lintStatus="none",
         unitStatus="none",
@@ -228,7 +228,7 @@ def create_uplift_revision(
                     "message": phab.expect(commit, "message"),
                     "commit": phab.expect(commit, "identifier"),
                     "rev": phab.expect(commit, "identifier"),
-                    "parents": [base_revision],
+                    "parents": [parent_revision],
                 }
                 for commit in commits
             }
