@@ -116,6 +116,9 @@ def create(data):
         # Get the parent commit PHID from the stack if available.
         parent_phid = commit_stack[-1]["revision_phid"] if commit_stack else None
 
+        # TODO set this properly.
+        # parent_revision = commit_stack[-1][""] if commit_stack else None
+
         try:
             # Create the revision.
             rev = create_uplift_revision(
@@ -124,6 +127,7 @@ def create(data):
                 revision,
                 diff,
                 parent_phid,
+                # parent_revision,
                 relman_phid,
                 target_repository,
             )

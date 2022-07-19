@@ -172,6 +172,7 @@ def create_uplift_revision(
     source_revision: dict,
     source_diff: dict,
     parent_phid: Optional[str],
+    # parent_revision: Optional[str],
     relman_phid: str,
     target_repository: dict,
 ) -> dict[str, str]:
@@ -227,7 +228,7 @@ def create_uplift_revision(
                     "message": phab.expect(commit, "message"),
                     "commit": phab.expect(commit, "identifier"),
                     "rev": phab.expect(commit, "identifier"),
-                    "parents": phab.expect(commit, "parents"),
+                    "parents": [base_revision],
                 }
                 for commit in commits
             }
@@ -260,6 +261,13 @@ def create_uplift_revision(
         transactions.append({"type": "parents.set", "value": [parent_phid]})
 
     # Finally create the revision to link all the pieces.
+    # RESPONSE:
+    # {'object': {'id': 3361, 'phid': 'PHID-DREV-a46wqf2wg65wp5ynlq6t'},
+    #  'transactions': [{'phid': 'PHID-XACT-DREV-2lm4sfd3lxfj2fa'},
+    #                   {'phid': 'PHID-XACT-DREV-zoj2fqqdhj2vwmx'},
+    #                   {'phid': 'PHID-XACT-DREV-vnwyudft4r5gsya'},
+    #                   {'phid': 'PHID-XACT-DREV-dw3jx4x56idlq6o'},
+    #                   {'phid': 'PHID-XACT-DREV-udxkmbplrr3skj5'}]}
     new_rev = phab.call_conduit(
         "differential.revision.edit",
         transactions=transactions,
