@@ -125,6 +125,11 @@ def create(data):
                 attachments={"commits": True},
                 constraints={"phids": [parent["diff_phid"]]},
             )
+            parent_diff = phab.single(parent_diff, "data", none_when_empty=True)
+
+            if not parent_diff:
+                raise Exception("No parent diff commits.")
+
             commits = phab.expect(parent_diff, "attachments", "commits", "commits")
             parent_revision = commits[0] if commits else None
 
