@@ -121,12 +121,12 @@ def create(data):
 
             # Get the previous diff hash so we can correctly set the diff parent.
             parent_diff = phab.call_conduit(
-                "differential.diff.search", constraints={"phids": [parent["diff_phid"]]}
+                "differential.diff.search",
+                attachments={"commits": True},
+                constraints={"phids": [parent["diff_phid"]]},
             )
-            refs = {
-                ref["type"]: ref for ref in phab.expect(parent_diff, "fields", "refs")
-            }
-            parent_revision = refs["base"]["identifier"] if "base" in refs else None
+            commits = phab.expect(parent_diff, "attachments", "commits", "commits")
+            parent_revision = commits[0] if commits else None
 
         try:
             # Create the revision.
