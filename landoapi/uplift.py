@@ -228,7 +228,8 @@ def create_uplift_revision(
                     "message": phab.expect(commit, "message"),
                     "commit": phab.expect(commit, "identifier"),
                     "rev": phab.expect(commit, "identifier"),
-                    "parents": [parent_revision],
+                    # No parent.
+                    "parents": [],
                 }
                 for commit in commits
             }
