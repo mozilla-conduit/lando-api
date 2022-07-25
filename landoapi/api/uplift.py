@@ -105,7 +105,7 @@ def create(data):
 
     landing_path = convert_path_id_to_phid(landing_path, revision_data)
     commit_stack = []
-    parent_phid = parent_revision = None
+    base_revision = parent_phid = parent_revision = None
     for rev_id, _diff_id in landing_path:
         # Get the relevant revision.
         revision = revision_data.revisions[rev_id]
@@ -113,6 +113,11 @@ def create(data):
         # Get the relevant diff.
         diff_phid = phab.expect(revision, "fields", "diffPHID")
         diff = revision_data.diffs[diff_phid]
+
+        if not base_revision:
+            # Base revision hash is available on the diff fields.
+            refs = {ref["type"]: ref for ref in phab.expect(revision, "fields", "refs")}
+            base_revision = refs["base"]["identifier"]
 
         # Get the parent commit PHID from the stack if available.
         if commit_stack:
@@ -138,6 +143,7 @@ def create(data):
             rev = create_uplift_revision(
                 phab,
                 local_repo,
+                base_revision,
                 revision,
                 diff,
                 parent_phid,

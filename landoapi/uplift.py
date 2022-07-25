@@ -169,6 +169,7 @@ def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> R
 def create_uplift_revision(
     phab: PhabricatorClient,
     local_repo: Repo,
+    base_revision: str,
     source_revision: dict,
     source_diff: dict,
     parent_phid: Optional[str],
