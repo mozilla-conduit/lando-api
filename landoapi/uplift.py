@@ -186,8 +186,8 @@ def create_uplift_revision(
         raise Exception("Missing raw source diff, cannot uplift revision.")
 
     # Base revision hash is available on the diff fields.
-    # refs = {ref["type"]: ref for ref in phab.expect(source_diff, "fields", "refs")}
-    # base_revision = refs["base"]["identifier"] if "base" in refs else None
+    refs = {ref["type"]: ref for ref in phab.expect(source_diff, "fields", "refs")}
+    base_revision = refs["base"]["identifier"] if "base" in refs else None
 
     # The first commit in the attachment list is the current HEAD of stack
     # we can use the HEAD to mark the changes being created.
@@ -201,7 +201,7 @@ def create_uplift_revision(
         sourceMachine=local_repo.url,
         sourceControlSystem=phab.expect(target_repository, "fields", "vcs"),
         sourceControlPath="/",
-        sourceControlBaseRevision=parent_revision,
+        sourceControlBaseRevision=base_revision,
         creationMethod="lando-uplift",
         lintStatus="none",
         unitStatus="none",
