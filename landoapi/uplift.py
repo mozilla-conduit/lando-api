@@ -257,10 +257,6 @@ def create_uplift_revision(
         },
     ]
 
-    # If `parent_phid` is defined, add a transaction to set the parent.
-    if parent_phid:
-        transactions.append({"type": "parents.set", "value": [parent_phid]})
-
     # Finally create the revision to link all the pieces.
     # RESPONSE:
     # {'object': {'id': 3361, 'phid': 'PHID-DREV-a46wqf2wg65wp5ynlq6t'},
@@ -281,6 +277,14 @@ def create_uplift_revision(
     )
 
     repository = str(phab.expect(target_repository, "fields", "shortName"))
+
+    # If `parent_phid` is defined, set the parent.
+    if parent_phid:
+        phab.call_conduit(
+            "differential.revision.edit",
+            objectIdentifier=new_rev["object"]["phid"],
+            transactions=[{"type": "parents.set", "value": [parent_phid]}],
+        )
 
     return {
         "mode": "uplift",
