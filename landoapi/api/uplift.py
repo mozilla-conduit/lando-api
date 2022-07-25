@@ -116,7 +116,7 @@ def create(data):
 
         if not base_revision:
             # Base revision hash is available on the diff fields.
-            refs = {ref["type"]: ref for ref in phab.expect(revision, "fields", "refs")}
+            refs = {ref["type"]: ref for ref in phab.expect(diff, "fields", "refs")}
             base_revision = refs["base"]["identifier"]
 
         # Get the parent commit PHID from the stack if available.
