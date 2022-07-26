@@ -105,7 +105,6 @@ def create(data):
 
     landing_path = convert_path_id_to_phid(landing_path, revision_data)
     commit_stack = []
-    base_revision = parent_phid = parent_revision = None
     for rev_id, _diff_id in landing_path:
         # Get the relevant revision.
         revision = revision_data.revisions[rev_id]
@@ -114,40 +113,17 @@ def create(data):
         diff_phid = phab.expect(revision, "fields", "diffPHID")
         diff = revision_data.diffs[diff_phid]
 
-        if not base_revision:
-            # Base revision hash is available on the diff fields.
-            refs = {ref["type"]: ref for ref in phab.expect(diff, "fields", "refs")}
-            base_revision = refs["base"]["identifier"]
-
         # Get the parent commit PHID from the stack if available.
-        if commit_stack:
-            parent = commit_stack[-1]
-            parent_phid = parent["revision_phid"]
-
-            # Get the previous diff hash so we can correctly set the diff parent.
-            parent_diff = phab.call_conduit(
-                "differential.diff.search",
-                attachments={"commits": True},
-                constraints={"phids": [parent["diff_phid"]]},
-            )
-            parent_diff = phab.single(parent_diff, "data", none_when_empty=True)
-
-            if not parent_diff:
-                raise Exception("No parent diff commits.")
-
-            commits = phab.expect(parent_diff, "attachments", "commits", "commits")
-            parent_revision = commits[0] if commits else None
+        parent_phid = commit_stack[-1]["revision_phid"] if commit_stack else None
 
         try:
             # Create the revision.
             rev = create_uplift_revision(
                 phab,
                 local_repo,
-                base_revision,
                 revision,
                 diff,
                 parent_phid,
-                parent_revision,
                 relman_phid,
                 target_repository,
             )

@@ -169,11 +169,9 @@ def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> R
 def create_uplift_revision(
     phab: PhabricatorClient,
     local_repo: Repo,
-    base_revision: str,
     source_revision: dict,
     source_diff: dict,
     parent_phid: Optional[str],
-    parent_revision: Optional[str],
     relman_phid: str,
     target_repository: dict,
 ) -> dict[str, str]:
@@ -193,12 +191,16 @@ def create_uplift_revision(
     # The first commit in the attachment list is the current HEAD of stack
     # we can use the HEAD to mark the changes being created.
     commits = phab.expect(source_diff, "attachments", "commits", "commits")
-    head = commits[0] if commits else None
+
+    if not commits or "identifier" not in commits[0]:
+        raise ValueError("Source diff does not have commit information attached.")
+
+    head = commits[0]["identifier"]
 
     # Upload it on target repo.
     new_diff = phab.call_conduit(
         "differential.creatediff",
-        changes=patch_to_changes(raw_diff, head["identifier"] if head else None),
+        changes=patch_to_changes(raw_diff, head),
         sourceMachine=local_repo.url,
         sourceControlSystem=phab.expect(target_repository, "fields", "vcs"),
         sourceControlPath="/",
@@ -229,7 +231,7 @@ def create_uplift_revision(
                     "message": phab.expect(commit, "message"),
                     "commit": phab.expect(commit, "identifier"),
                     "rev": phab.expect(commit, "identifier"),
-                    "parents": [parent_revision],
+                    "parents": phab.expect(commit, "parents"),
                 }
                 for commit in commits
             }
@@ -258,13 +260,6 @@ def create_uplift_revision(
     ]
 
     # Finally create the revision to link all the pieces.
-    # RESPONSE:
-    # {'object': {'id': 3361, 'phid': 'PHID-DREV-a46wqf2wg65wp5ynlq6t'},
-    #  'transactions': [{'phid': 'PHID-XACT-DREV-2lm4sfd3lxfj2fa'},
-    #                   {'phid': 'PHID-XACT-DREV-zoj2fqqdhj2vwmx'},
-    #                   {'phid': 'PHID-XACT-DREV-vnwyudft4r5gsya'},
-    #                   {'phid': 'PHID-XACT-DREV-dw3jx4x56idlq6o'},
-    #                   {'phid': 'PHID-XACT-DREV-udxkmbplrr3skj5'}]}
     new_rev = phab.call_conduit(
         "differential.revision.edit",
         transactions=transactions,
@@ -278,11 +273,13 @@ def create_uplift_revision(
 
     repository = str(phab.expect(target_repository, "fields", "shortName"))
 
-    # If `parent_phid` is defined, set the parent.
     if parent_phid:
+        # If `parent_phid` is defined, set the parent revision. We do this in a separate
+        # transaction to avoid a bug where revisions with similar diff properties are
+        # automatically associated with one another.
         phab.call_conduit(
             "differential.revision.edit",
-            objectIdentifier=new_rev["object"]["phid"],
+            objectIdentifier=new_rev_phid,
             transactions=[{"type": "parents.set", "value": [parent_phid]}],
         )
 
@@ -297,7 +294,7 @@ def create_uplift_revision(
     }
 
 
-def stack_uplift_form_submitted(stack_data) -> bool:
+def stack_uplift_form_submitted(stack_data: RevisionData) -> bool:
     """Return `True` if the stack has a valid uplift request form submitted."""
     # NOTE: this just checks that any of the revisions in the stack have the uplift form
     # submitted.
