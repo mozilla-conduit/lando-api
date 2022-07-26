@@ -21,6 +21,8 @@ services:
     ports:
       - "8888:8888"
     environment:
+      - BUGZILLA_URL=https://bugzilla-dev.allizom.org/
+      - BUGZILLA_API_KEY=asdfasdfasdfasdfasdfasdf
       - PHABRICATOR_URL=https://phabricator-dev.allizom.org/
       - PHABRICATOR_ADMIN_API_KEY=api-0123456789012345678901234567
       - PHABRICATOR_UNPRIVILEGED_API_KEY=api-0123456789012345678901234567

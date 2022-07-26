@@ -509,3 +509,13 @@ class HgRepo:
                 raise HgException.from_hglib_error(e)
 
         return self.run_hg_cmds([["log", "-r", "tip", "-T", "{node}"]])
+
+    def read_checkout_file(self, path: str) -> str:
+        """Return the contents of the file at `path` in the checkout as a `str`."""
+        checkout_file_path = Path(self.path) / path
+
+        if not checkout_file_path.exists():
+            raise ValueError(f"File at {checkout_file_path} does not exist.")
+
+        with checkout_file_path.open() as f:
+            return f.read()

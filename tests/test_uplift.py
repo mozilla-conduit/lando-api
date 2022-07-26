@@ -6,7 +6,33 @@ import pytest
 
 from landoapi.phabricator import PhabricatorClient
 from landoapi.stacks import build_stack_graph
-from landoapi.uplift import move_drev_to_original
+from landoapi.uplift import (
+    create_uplift_bug_update_payload,
+    move_drev_to_original,
+    parse_milestone_major_version,
+)
+
+MILESTONE_TEST_CONTENTS = """
+# Holds the current milestone.
+# Should be in the format of
+#
+#    x.x.x
+#    x.x.x.x
+#    x.x.x+
+#
+# Referenced by build/moz.configure/init.configure.
+# Hopefully I'll be able to automate replacement of *all*
+# hardcoded milestones in the tree from these two files.
+#--------------------------------------------------------
+
+84.0a1
+"""
+
+
+def test_parse_milestone_major_version():
+    assert (
+        parse_milestone_major_version(MILESTONE_TEST_CONTENTS) == 84
+    ), "Test milestone file should have 84 as major milestone version."
 
 
 def test_move_drev_to_original():
@@ -38,7 +64,6 @@ def test_move_drev_to_original():
     ), "Commit message should not have changed when original revision already present."
 
 
-# TODO remove this and fix mock
 @pytest.mark.xfail
 def test_uplift_creation(
     db,
@@ -256,3 +281,37 @@ def test_uplift_creation(
         ("PHID-DREV-7", "PHID-DREV-6"),
         ("PHID-DREV-6", "PHID-DREV-5"),
     }, "Uplift does not preserve parent/child relationships."
+    # We still have the same revision
+    assert len(phabdouble._revisions) == 1
+    new_rev = phabdouble._revisions[0]
+    assert new_rev["title"] == "my test revision title"
+
+
+def test_create_uplift_bug_update_payload():
+    bug = {
+        "cf_status_firefox100": "---",
+        "id": 123,
+        "keywords": [],
+        "whiteboard": "[checkin-needed-beta]",
+    }
+    payload = create_uplift_bug_update_payload(bug, "beta", 100)
+
+    assert payload["ids"] == [123], "Passed bug ID should be present in the payload."
+    assert (
+        payload["whiteboard"] == ""
+    ), "checkin-needed flag should be removed from whiteboard."
+    assert (
+        payload["cf_status_firefox100"] == "fixed"
+    ), "Custom tracking flag should be set to `fixed`."
+
+    bug = {
+        "cf_status_firefox100": "---",
+        "id": 123,
+        "keywords": ["leave-open"],
+        "whiteboard": "[checkin-needed-beta]",
+    }
+    payload = create_uplift_bug_update_payload(bug, "beta", 100)
+
+    assert (
+        "cf_status_firefox100" not in payload
+    ), "Status should not have been set with `leave-open` keyword on bug."

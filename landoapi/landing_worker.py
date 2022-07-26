@@ -27,7 +27,10 @@ from landoapi.hg import (
 )
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
 from landoapi.models.configuration import ConfigurationVariable
-from landoapi.notifications import notify_user_of_landing_failure
+from landoapi.notifications import (
+    notify_user_of_bug_update_failure,
+    notify_user_of_landing_failure,
+)
 from landoapi.repos import (
     Repo,
     repo_clone_subsystem,
@@ -36,6 +39,9 @@ from landoapi.storage import db, SQLAlchemy
 from landoapi.treestatus import (
     TreeStatus,
     treestatus_subsystem,
+)
+from landoapi.uplift import (
+    update_bugs_for_uplift,
 )
 
 logger = logging.getLogger(__name__)
@@ -244,6 +250,21 @@ class LandingWorker:
         )
 
     @staticmethod
+    def notify_user_of_bug_update_failure(job, exception):
+        """Wrapper around notify_user_of_bug_update_failure for convenience.
+
+        Args:
+            job (LandingJob): A LandingJob instance to use when fetching the
+                notification parameters.
+        """
+        notify_user_of_bug_update_failure(
+            job.requester_email,
+            job.head_revision,
+            f"Failed to update Bugzilla after landing uplift revisions: {str(exception)}",
+            job.id,
+        )
+
+    @staticmethod
     def extract_error_data(exception: str) -> tuple[list[str], list[str]]:
         """Extract rejected hunks and file paths from exception message."""
         # RE to capture .rej file paths.
@@ -435,8 +456,17 @@ class LandingWorker:
                     self.notify_user_of_landing_failure(job)
                     return False
 
+            # Get the changeset hash of the first node.
             commit_id = hgrepo.run_hg(["log", "-r", ".", "-T", "{node}"]).decode(
                 "utf-8"
+            )
+
+            # Get the changeset titles for the stack. We do this here since the
+            # changesets will not be part of the `stack()` revset after pushing.
+            changeset_titles = (
+                hgrepo.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
+                .decode("utf-8")
+                .splitlines()
             )
 
             try:
@@ -476,4 +506,19 @@ class LandingWorker:
 
         job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
         db.session.commit()
+
+        # Extra steps for post-uplift landings.
+        if repo.approval_required:
+            try:
+                # If we just landed an uplift, update the relevant bugs as appropriate.
+                update_bugs_for_uplift(
+                    repo.short_name,
+                    hgrepo.read_checkout_file("config/milestone.txt"),
+                    changeset_titles,
+                )
+            except Exception as e:
+                # The changesets will have gone through even if updating the bugs fails. Notify
+                # the landing user so they are aware and can update the bugs themselves.
+                self.notify_user_of_bug_update_failure(job, e)
+
         return True
