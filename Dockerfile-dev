@@ -3,7 +3,13 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 FROM python:3.9 as python_base
+
+# Install the Rust toolchain. Some packages do not have pre-built wheels (e.g.
+# rs-parsepatch) and require this in order to compile.
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+
+# Include ~/.cargo/bin in PATH.
+# See: rust-lang.org/tools/install (Configuring the PATH environment variable).
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 FROM python_base
