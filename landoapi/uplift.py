@@ -2,8 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import logging
 import json
+import logging
 import re
 import time
 
@@ -19,17 +19,63 @@ from flask import current_app
 
 from landoapi import bmo
 from landoapi.commit_message import parse_bugs
-from landoapi.phabricator import PhabricatorClient
+from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.projects import RELMAN_PROJECT_SLUG
-from landoapi.repos import get_repos_for_env
+from landoapi.repos import (
+    Repo,
+    get_repos_for_env,
+)
 from landoapi.stacks import (
     RevisionData,
+    build_stack_graph,
     request_extended_revision_data,
 )
 
 
 logger = logging.getLogger(__name__)
+
+# Maximum number of revisions allowable in a stack to be auto-uplifted.
+MAX_UPLIFT_STACK_SIZE = 5
+
+ARC_DIFF_REV_RE = re.compile(
+    r"^\s*Differential Revision:\s*(?P<phab_url>https?://.+)/D(?P<rev>\d+)\s*$",
+    flags=re.MULTILINE,
+)
+ORIGINAL_DIFF_REV_RE = re.compile(
+    r"^\s*Original Revision:\s*(?P<phab_url>https?://.+)/D(?P<rev>\d+)\s*$",
+    flags=re.MULTILINE,
+)
+
+
+def move_drev_to_original(body: str) -> str:
+    """Handle moving the `Differential Revision` line.
+
+    Moves the `Differential Revision` line to `Original Revision`, if a link
+    to the original revision does not already exist. If the `Original Revision`
+    line does exist, scrub the `Differential Revision` line.
+
+    Args:
+        body: `str` text of the commit message.
+
+    Returns:
+        New commit message body text as `str`.
+    """
+    differential_revision = ARC_DIFF_REV_RE.search(body)
+    original_revision = ORIGINAL_DIFF_REV_RE.search(body)
+
+    # If both match, we already have an `Original Revision` line.
+    if differential_revision and original_revision:
+        return body
+
+    def repl(match):
+        phab_url = match.group("phab_url")
+        rev = match.group("rev")
+        return f"\nOriginal Revision: {phab_url}/D{rev}"
+
+    # Update the commit message.
+    return ARC_DIFF_REV_RE.sub(repl, body)
+
 
 MILESTONE_MAJOR_VERSION_RE = re.compile(r"^(?P<major>\d+)\.\d+.", flags=re.MULTILINE)
 
@@ -55,6 +101,17 @@ def get_uplift_request_form(revision) -> Optional[str]:
     return bug
 
 
+def get_uplift_repositories(phab: PhabricatorClient) -> list:
+    repos = phab.call_conduit(
+        "diffusion.repository.search",
+        constraints={"projects": ["uplift"]},
+    )
+
+    repos = phab.expect(repos, "data")
+
+    return repos
+
+
 def get_release_managers(phab: PhabricatorClient) -> dict:
     """Load the release-managers group details from Phabricator"""
     groups = phab.call_conduit(
@@ -65,92 +122,125 @@ def get_release_managers(phab: PhabricatorClient) -> dict:
     return phab.single(groups, "data")
 
 
-def check_approval_state(
+def get_uplift_conduit_state(
     phab: PhabricatorClient, revision_id: int, target_repository_name: str
-) -> Tuple[bool, dict, dict]:
-    """Helper to load the Phabricator revision and check its approval requirement state
+) -> Tuple[RevisionData, dict]:
+    """Queries Conduit for repository and stack information about the requested uplift.
 
-    * if the revision's target repository is the same as its current
-      repository, it's an approval
-    * otherwise it's an uplift request
+    Gathers information about:
+        - the requested uplift repository.
+        - the stack of revisions to be uplifted.
+
+    Also enforces the stack has appropriate properties for uplift, such as a max
+    stack size.
     """
-
     # Load target repo from Phabricator
     target_repo = phab.call_conduit(
         "diffusion.repository.search",
         constraints={"shortNames": [target_repository_name]},
     )
     target_repo = phab.single(target_repo, "data")
-    target_repo_phid = phab.expect(target_repo, "phid")
 
     # Load base revision details from Phabricator
     revision = phab.call_conduit(
         "differential.revision.search", constraints={"ids": [revision_id]}
     )
-    revision = phab.single(revision, "data")
-    revision_repo_phid = phab.expect(revision, "fields", "repositoryPHID")
+    revision = phab.single(revision, "data", none_when_empty=True)
+    if not revision:
+        raise ValueError(f"No revision found with id {revision_id}")
 
-    # Lookup if this is an uplift or an approval request
-    is_approval = target_repo_phid == revision_repo_phid
-    return is_approval, revision, target_repo
+    try:
+        nodes, _ = build_stack_graph(phab, phab.expect(revision, "phid"))
+    except PhabricatorAPIException as e:
+        # If a revision within the stack causes an API exception, treat the whole stack
+        # as not found.
+        logger.exception(
+            f"Phabricator returned an error searching for {revision_id}: {str(e)}"
+        )
+        raise ValueError(f"Missing revision info for stack ending in {revision_id}")
+
+    stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
+
+    if len(stack_data.revisions) > MAX_UPLIFT_STACK_SIZE:
+        raise ValueError(
+            f"Cannot create uplift for stack > {MAX_UPLIFT_STACK_SIZE} revisions."
+        )
+
+    return stack_data, target_repo
+
+
+def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> Repo:
+    """Return the local Repo object corresponding to `target_repository`.
+
+    Raise if the repo is not an uplift repo.
+    """
+    # Check the target repository needs an approval.
+    repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    repo_shortname = phab.expect(target_repository, "fields", "shortName")
+    local_repo = repos.get(repo_shortname)
+
+    if not local_repo:
+        # Assert the repo is known.
+        raise ValueError(f"Unknown repository {repo_shortname}")
+
+    if not local_repo.approval_required:
+        # Assert the repo is an uplift train.
+        raise ValueError(f"No approval required for {repo_shortname}")
+
+    return local_repo
 
 
 def create_uplift_revision(
     phab: PhabricatorClient,
+    local_repo: Repo,
     source_revision: dict,
+    source_diff: dict,
+    parent_phid: Optional[str],
+    relman_phid: str,
     target_repository: dict,
-    form_content: str,
-):
-    """Create a new revision on a repository, cloning a diff from another repo"""
-    # Check the target repository needs an approval
-    repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
-    local_repo = repos.get(target_repository["fields"]["shortName"])
-    assert local_repo is not None, f"Unknown repository {target_repository}"
-    assert (
-        local_repo.approval_required is True
-    ), f"No approval required for {target_repository}"
+) -> dict[str, str]:
+    """Create a new revision on a repository, cloning a diff from another repo.
 
-    # Load release managers group for review
-    release_managers = get_release_managers(phab)
-
-    # Find the source diff on phabricator
-    stack = request_extended_revision_data(phab, [source_revision["phid"]])
-    diff = stack.diffs[source_revision["fields"]["diffPHID"]]
-
-    # Get raw diff
-    raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
+    Returns a `dict` to be returned as JSON from the uplift API.
+    """
+    # Get raw diff.
+    raw_diff = phab.call_conduit("differential.getrawdiff", diffID=source_diff["id"])
     if not raw_diff:
         raise Exception("Missing raw source diff, cannot uplift revision.")
 
-    # Base revision hash is available on the diff fields
-    refs = {ref["type"]: ref for ref in phab.expect(diff, "fields", "refs")}
+    # Base revision hash is available on the diff fields.
+    refs = {ref["type"]: ref for ref in phab.expect(source_diff, "fields", "refs")}
     base_revision = refs["base"]["identifier"] if "base" in refs else None
 
     # The first commit in the attachment list is the current HEAD of stack
-    # we can use the HEAD to mark the changes being created
-    commits = phab.expect(diff, "attachments", "commits", "commits")
-    head = commits[0] if commits else None
+    # we can use the HEAD to mark the changes being created.
+    commits = phab.expect(source_diff, "attachments", "commits", "commits")
 
-    # Upload it on target repo
+    if not commits or "identifier" not in commits[0]:
+        raise ValueError("Source diff does not have commit information attached.")
+
+    head = commits[0]["identifier"]
+
+    # Upload it on target repo.
     new_diff = phab.call_conduit(
         "differential.creatediff",
-        changes=patch_to_changes(raw_diff, head["identifier"] if head else None),
+        changes=patch_to_changes(raw_diff, head),
         sourceMachine=local_repo.url,
-        sourceControlSystem="hg",
+        sourceControlSystem=phab.expect(target_repository, "fields", "vcs"),
         sourceControlPath="/",
         sourceControlBaseRevision=base_revision,
         creationMethod="lando-uplift",
         lintStatus="none",
         unitStatus="none",
-        repositoryPHID=target_repository["phid"],
-        sourcePath=None,  # TODO ? Local path
-        branch="HEAD",
+        repositoryPHID=phab.expect(target_repository, "phid"),
+        sourcePath=None,
+        branch=phab.expect(target_repository, "fields", "defaultBranch"),
     )
     new_diff_id = phab.expect(new_diff, "diffid")
     new_diff_phid = phab.expect(new_diff, "phid")
     logger.info("Created new diff", extra={"id": new_diff_id, "phid": new_diff_phid})
 
-    # Attach commit information to setup the author (needed for landing)
+    # Attach commit information to setup the author (needed for landing).
     phab.call_conduit(
         "differential.setdiffproperty",
         diff_id=new_diff_id,
@@ -161,9 +251,10 @@ def create_uplift_revision(
                     "author": phab.expect(commit, "author", "name"),
                     "authorEmail": phab.expect(commit, "author", "email"),
                     "time": 0,
+                    "summary": phab.expect(commit, "message").splitlines()[0],
                     "message": phab.expect(commit, "message"),
                     "commit": phab.expect(commit, "identifier"),
-                    "tree": None,
+                    "rev": phab.expect(commit, "identifier"),
                     "parents": phab.expect(commit, "parents"),
                 }
                 for commit in commits
@@ -171,28 +262,31 @@ def create_uplift_revision(
         ),
     )
 
-    # Append an uplift mention to the summary
-    summary = phab.expect(source_revision, "fields", "summary")
-    summary += f"\nNOTE: Uplifted from D{source_revision['id']}"
+    # Update `Differential Revision` to `Original Revision`.
+    summary = str(phab.expect(source_revision, "fields", "summary"))
+    summary = move_drev_to_original(summary)
 
-    # Finally create the revision to link all the pieces
+    transactions = [
+        {"type": "update", "value": new_diff_phid},
+        # Copy title & summary from source revision.
+        {"type": "title", "value": phab.expect(source_revision, "fields", "title")},
+        {"type": "summary", "value": summary},
+        # Set release managers as reviewers.
+        {
+            "type": "reviewers.add",
+            "value": [f"blocking({relman_phid})"],
+        },
+        # Copy Bugzilla id.
+        {
+            "type": "bugzilla.bug-id",
+            "value": phab.expect(source_revision, "fields", "bugzilla.bug-id"),
+        },
+    ]
+
+    # Finally create the revision to link all the pieces.
     new_rev = phab.call_conduit(
         "differential.revision.edit",
-        transactions=[
-            {"type": "update", "value": new_diff_phid},
-            # Copy title & summary from source revision
-            {"type": "title", "value": phab.expect(source_revision, "fields", "title")},
-            {"type": "summary", "value": summary},
-            # Set release managers as reviewers
-            {"type": "reviewers.add", "value": [release_managers["phid"]]},
-            # Post the form as a comment on the revision
-            {"type": "comment", "value": form_content},
-            # Copy Bugzilla id
-            {
-                "type": "bugzilla.bug-id",
-                "value": phab.expect(source_revision, "fields", "bugzilla.bug-id"),
-            },
-        ],
+        transactions=transactions,
     )
     new_rev_id = phab.expect(new_rev, "object", "id")
     new_rev_phid = phab.expect(new_rev, "object", "phid")
@@ -201,42 +295,26 @@ def create_uplift_revision(
         extra={"id": new_rev_id, "phid": new_rev_phid},
     )
 
+    repository = str(phab.expect(target_repository, "fields", "shortName"))
+
+    if parent_phid:
+        # If `parent_phid` is defined, set the parent revision. We do this in a separate
+        # transaction to avoid a bug where revisions with similar diff properties are
+        # automatically associated with one another.
+        phab.call_conduit(
+            "differential.revision.edit",
+            objectIdentifier=new_rev_phid,
+            transactions=[{"type": "parents.set", "value": [parent_phid]}],
+        )
+
     return {
         "mode": "uplift",
-        "repository": phab.expect(target_repository, "fields", "shortName"),
+        "repository": repository,
         "url": f"{phab.url_base}/D{new_rev_id}",
         "revision_id": new_rev_id,
         "revision_phid": new_rev_phid,
         "diff_id": new_diff_id,
         "diff_phid": new_diff_phid,
-    }
-
-
-def create_approval_request(phab: PhabricatorClient, revision: dict, form_content: str):
-    """Update an existing revision with reviewers & form comment"""
-    release_managers = get_release_managers(phab)
-
-    rev = phab.call_conduit(
-        "differential.revision.edit",
-        objectIdentifier=revision["phid"],
-        transactions=[
-            # Set release managers as reviewers
-            {"type": "reviewers.add", "value": [release_managers["phid"]]},
-            # Post the form as a comment on the revision
-            {"type": "comment", "value": form_content},
-        ],
-    )
-    rev_id = phab.expect(rev, "object", "id")
-    rev_phid = phab.expect(rev, "object", "phid")
-    assert rev_id == revision["id"], "Revision id mismatch"
-
-    logger.info("Updated Phabricator revision", extra={"id": rev_id, "phid": rev_phid})
-
-    return {
-        "mode": "approval",
-        "url": f"{phab.url_base}/D{rev_id}",
-        "revision_id": rev_id,
-        "revision_phid": rev_phid,
     }
 
 
