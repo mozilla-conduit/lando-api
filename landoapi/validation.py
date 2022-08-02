@@ -8,7 +8,7 @@ from connexion import ProblemException
 REVISION_ID_RE = re.compile(r"^D(?P<id>[1-9][0-9]*)$")
 
 
-def revision_id_to_int(revision_id):
+def revision_id_to_int(revision_id: str) -> int:
     m = REVISION_ID_RE.match(revision_id)
     if m is None:
         raise ProblemException(
@@ -19,3 +19,19 @@ def revision_id_to_int(revision_id):
         )
 
     return int(m.group("id"))
+
+
+def parse_landing_path(landing_path: list[dict]) -> list[tuple[int, int]]:
+    """Convert a list of landing path dicts with `str` values into a list of int tuples."""
+    try:
+        return [
+            (revision_id_to_int(item["revision_id"]), int(item["diff_id"]))
+            for item in landing_path
+        ]
+    except (ValueError, TypeError) as e:
+        raise ProblemException(
+            400,
+            "Landing Path Malformed",
+            f"The provided landing_path was malformed.\n{str(e)}",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )

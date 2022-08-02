@@ -445,3 +445,21 @@ def get_blocker_checks(
         # Configure uplift check with extra data.
         check_uplift_approval(relman_group_phid, repositories, stack_data)
     ]
+
+
+def convert_path_id_to_phid(path, stack_data):
+    mapping = {
+        PhabricatorClient.expect(r, "id"): PhabricatorClient.expect(r, "phid")
+        for r in stack_data.revisions.values()
+    }
+    try:
+        mapped = [(mapping[r], d) for r, d in path]
+    except IndexError:
+        raise ProblemException(
+            400,
+            "Stack data invalid",
+            "The provided stack_data is not valid.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
+
+    return mapped

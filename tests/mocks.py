@@ -455,6 +455,7 @@ class PhabricatorDouble:
             "attachments": {
                 "projects": {"projectPHIDs": [project["phid"] for project in projects]}
             },
+            "defaultBranch": "default",
         }
 
         self._repos.append(repo)
@@ -1239,6 +1240,7 @@ class PhabricatorDouble:
                         "dateCreated": i["dateCreated"],
                         "dateModified": i["dateModified"],
                         "policy": i["policy"],
+                        "defaultBranch": i["defaultBranch"],
                     },
                     "attachments": {},
                 }
