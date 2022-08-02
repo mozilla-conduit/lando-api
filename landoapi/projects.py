@@ -5,12 +5,11 @@ import logging
 
 from typing import Optional, List
 
-from landoapi.cache import cache
+from landoapi.cache import cache, DEFAULT_CACHE_KEY_TIMEOUT
 from landoapi.phabricator import result_list_to_phid_dict, PhabricatorClient
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CACHE_KEY_TIMEOUT = 86400  # 60s * 60m * 24h
 
 SEC_PROJ_SLUG = "secure-revision"
 SEC_PROJ_CACHE_KEY = "secure-project-phid"

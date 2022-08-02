@@ -10,6 +10,8 @@ from redis import RedisError
 from landoapi.redis import SuppressRedisFailure
 from landoapi.systems import Subsystem
 
+DEFAULT_CACHE_KEY_TIMEOUT = 86400  # 60s * 60m * 24h
+
 logger = logging.getLogger(__name__)
 cache = Cache()
 cache.suppress_failure = SuppressRedisFailure

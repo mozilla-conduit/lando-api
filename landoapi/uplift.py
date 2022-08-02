@@ -18,6 +18,7 @@ import requests
 from flask import current_app
 
 from landoapi import bmo
+from landoapi.cache import cache, DEFAULT_CACHE_KEY_TIMEOUT
 from landoapi.commit_message import parse_bugs
 from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
 from landoapi.phabricator_patch import patch_to_changes
@@ -101,6 +102,7 @@ def get_uplift_request_form(revision) -> Optional[str]:
     return bug
 
 
+@cache.cached(key_prefix="uplift-repositories", timeout=DEFAULT_CACHE_KEY_TIMEOUT)
 def get_uplift_repositories(phab: PhabricatorClient) -> list:
     repos = phab.call_conduit(
         "diffusion.repository.search",
