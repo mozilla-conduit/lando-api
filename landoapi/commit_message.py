@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Add revision data to commit message."""
 import re
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 REVISION_URL_TEMPLATE = "Differential Revision: {url}"
 

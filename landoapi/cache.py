@@ -1,9 +1,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import logging
 
-from typing import Union
+from __future__ import annotations
+
+import logging
 
 from flask_caching import Cache
 from flask_caching.backends.rediscache import RedisCache
@@ -41,7 +42,7 @@ class CacheSubsystem(Subsystem):
 
         cache.init_app(self.flask_app, config=cache_config)
 
-    def healthy(self) -> Union[bool, str]:
+    def healthy(self) -> bool | str:
         if not isinstance(cache.cache, RedisCache):
             return "Cache is not configured to use redis"
 
