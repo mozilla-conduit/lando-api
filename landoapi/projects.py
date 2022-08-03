@@ -5,12 +5,11 @@ import logging
 
 from typing import Optional, List
 
-from landoapi.cache import cache
+from landoapi.cache import cache, DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
 from landoapi.phabricator import result_list_to_phid_dict, PhabricatorClient
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CACHE_KEY_TIMEOUT = 86400  # 60s * 60m * 24h
 
 SEC_PROJ_SLUG = "secure-revision"
 SEC_PROJ_CACHE_KEY = "secure-project-phid"
@@ -89,27 +88,31 @@ def get_project_phid(project_slug, phabricator, allow_empty_result=True):
     return phabricator.expect(project, "phid")
 
 
-@cache.cached(key_prefix=SEC_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
+@cache.cached(key_prefix=SEC_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
 def get_secure_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
     """Return a phid for the project indicating revision security."""
     return get_project_phid(SEC_PROJ_SLUG, phabricator)
 
 
-@cache.cached(key_prefix=CHECKIN_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
+@cache.cached(
+    key_prefix=CHECKIN_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
+)
 def get_checkin_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
     """Return a phid for the project indicating check-in is needed."""
     return get_project_phid(CHECKIN_PROJ_SLUG, phabricator)
 
 
 @cache.cached(
-    key_prefix=TESTING_POLICY_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT
+    key_prefix=TESTING_POLICY_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
 )
 def get_testing_policy_phid(phabricator: PhabricatorClient) -> Optional[str]:
     """Return a phid for the project indicating testing policy."""
     return get_project_phid(TESTING_POLICY_PROJ_SLUG, phabricator)
 
 
-@cache.cached(key_prefix=TESTING_TAGS_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
+@cache.cached(
+    key_prefix=TESTING_TAGS_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
+)
 def get_testing_tag_project_phids(
     phabricator: PhabricatorClient,
 ) -> Optional[List[str]]:
@@ -118,7 +121,9 @@ def get_testing_tag_project_phids(
     return [t for t in tags if t is not None]
 
 
-@cache.cached(key_prefix=SEC_APPROVAL_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
+@cache.cached(
+    key_prefix=SEC_APPROVAL_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
+)
 def get_sec_approval_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
     """Return a phid for the sec-approval group's project.
 
@@ -131,7 +136,7 @@ def get_sec_approval_project_phid(phabricator: PhabricatorClient) -> Optional[st
     return get_project_phid(SEC_APPROVAL_PROJECT_SLUG, phabricator)
 
 
-@cache.cached(key_prefix=RELMAN_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT)
+@cache.cached(key_prefix=RELMAN_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
 def get_relman_group_phid(phabricator: PhabricatorClient) -> Optional[str]:
     """Return a phid for the relman group's project."""
     return get_project_phid(RELMAN_PROJECT_SLUG, phabricator)
