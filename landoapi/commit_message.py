@@ -188,34 +188,6 @@ def replace_reviewers(
         return commit_summary.strip() + "\n" + commit_description
 
 
-def strip_commit_metadata(message: str) -> str:
-    """Strips metadata related to commit tracking.
-
-    Will strip lines like "MozReview-Commit-ID: foo" from the commit
-    message.
-    """
-    # TODO this parsing is overly simplified. There is room to handle
-    # empty lines before the metadata.
-    lines = [l for l in message.splitlines() if not METADATA_RE.match(l)]
-
-    while lines and not lines[-1].strip():
-        lines.pop(-1)
-
-    return "\n".join(lines)
-
-
-def parse_commit_id(message: str) -> Optional[str]:
-    """Parse a MozReview-Commit-ID value out of a string.
-
-    Returns None if the commit ID is not found.
-    """
-    m = re.search("^MozReview-Commit-ID: ([a-zA-Z0-9]+)$", message, re.MULTILINE)
-    if not m:
-        return None
-
-    return m.group(1)
-
-
 def split_title_and_summary(msg: str) -> Tuple[str, str]:
     """Split a VCS commit message into its title and body.
 
