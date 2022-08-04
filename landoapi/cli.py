@@ -5,7 +5,13 @@ import logging
 import os
 import sys
 
+from typing import (
+    Optional,
+    Type,
+)
+
 import click
+import connexion
 from flask.cli import FlaskGroup
 
 from landoapi import (
@@ -16,12 +22,13 @@ from landoapi.models.configuration import (
     ConfigurationKey,
     VariableType,
 )
+from landoapi.systems import Subsystem
 
 
 LINT_PATHS = ("setup.py", "tasks.py", "landoapi", "migrations", "tests")
 
 
-def get_subsystems(exclude=None):
+def get_subsystems(exclude: Optional[list[Type[Subsystem]]] = None):
     """Get subsystems from the app, excluding those specified in the given parameter.
 
     Args:
@@ -35,7 +42,7 @@ def get_subsystems(exclude=None):
     return [s for s in SUBSYSTEMS if s not in exclusions]
 
 
-def create_lando_api_app():
+def create_lando_api_app() -> connexion.App:
     from landoapi.app import construct_app, load_config
 
     config = load_config()

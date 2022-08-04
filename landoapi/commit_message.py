@@ -128,15 +128,18 @@ def format_commit_message(
     return title, "\n\n".join(sections)
 
 
-def parse_bugs(s):
-    bugs_with_duplicates = [int(m[1]) for m in BUG_RE.findall(s)]
+def parse_bugs(message: str) -> list[int]:
+    """Parse `commit_message` and return a list of `int` bug numbers."""
+    bugs_with_duplicates = [int(m[1]) for m in BUG_RE.findall(message)]
     bugs_seen = set()
     bugs_seen_add = bugs_seen.add
     bugs = [x for x in bugs_with_duplicates if not (x in bugs_seen or bugs_seen_add(x))]
     return [bug for bug in bugs if bug < 100000000]
 
 
-def replace_reviewers(commit_description, reviewers, approvals):
+def replace_reviewers(
+    commit_description: str, reviewers: list[str], approvals: list[str]
+) -> str:
     if not reviewers:
         reviewers_str = ""
     else:
@@ -149,9 +152,9 @@ def replace_reviewers(commit_description, reviewers, approvals):
     if commit_description == "":
         return reviewers_str
 
-    commit_description = commit_description.splitlines()
-    commit_summary = commit_description.pop(0)
-    commit_description = "\n".join(commit_description)
+    commit_description_lines = commit_description.splitlines()
+    commit_summary = commit_description_lines.pop(0)
+    commit_description = "\n".join(commit_description_lines)
 
     if not R_SPECIFIER_RE.search(commit_summary):
         commit_summary += " " + reviewers_str
@@ -183,41 +186,6 @@ def replace_reviewers(commit_description, reviewers, approvals):
         return commit_summary.strip()
     else:
         return commit_summary.strip() + "\n" + commit_description
-
-
-def strip_commit_metadata(s):
-    """Strips metadata related to commit tracking.
-
-    Will strip lines like "MozReview-Commit-ID: foo" from the commit
-    message.
-    """
-    # TODO this parsing is overly simplified. There is room to handle
-    # empty lines before the metadata.
-    lines = [l for l in s.splitlines() if not METADATA_RE.match(l)]
-
-    while lines and not lines[-1].strip():
-        lines.pop(-1)
-
-    if type(s) == bytes:
-        joiner = b"\n"
-    elif type(s) == str:
-        joiner = "\n"
-    else:
-        raise TypeError("do not know type of commit message: %s" % type(s))
-
-    return joiner.join(lines)
-
-
-def parse_commit_id(s):
-    """Parse a MozReview-Commit-ID value out of a string.
-
-    Returns None if the commit ID is not found.
-    """
-    m = re.search("^MozReview-Commit-ID: ([a-zA-Z0-9]+)$", s, re.MULTILINE)
-    if not m:
-        return None
-
-    return m.group(1)
 
 
 def split_title_and_summary(msg: str) -> Tuple[str, str]:

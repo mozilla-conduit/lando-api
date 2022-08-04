@@ -5,8 +5,16 @@
 import logging
 import time
 
+from typing import Optional
+
 from connexion import FlaskApi, problem
-from flask import current_app, g, request
+from flask import (
+    Flask,
+    Response,
+    current_app,
+    g,
+    request,
+)
 
 from landoapi.models.configuration import ConfigurationVariable, ConfigurationKey
 from landoapi.phabricator import PhabricatorAPIException
@@ -17,7 +25,7 @@ logger = logging.getLogger(__name__)
 request_logger = logging.getLogger("request.summary")
 
 
-def check_maintenance():
+def check_maintenance() -> Optional[Response]:
     """Returns a 503 error if the API maintenance flag is on."""
     excepted_endpoints = (
         "dockerflow.heartbeat",
@@ -41,7 +49,7 @@ def check_maintenance():
         )
 
 
-def set_app_wide_headers(response):
+def set_app_wide_headers(response: Response) -> Response:
     local_dev = current_app.config.get("ENVIRONMENT") == "localdev"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -58,8 +66,11 @@ def set_app_wide_headers(response):
                 "style-src 'self' 'unsafe-inline'",
             ]
         )
+
     report_uri = current_app.config.get("CSP_REPORTING_URL")
-    report_uri and csp.append("report-uri {}".format(report_uri))
+    if report_uri:
+        csp.append("report-uri {}".format(report_uri))
+
     response.headers["Content-Security-Policy"] = "; ".join(csp)
 
     return response
@@ -69,7 +80,7 @@ def request_logging_before_request():
     g._request_start_timestamp = time.time()
 
 
-def request_logging_after_request(response):
+def request_logging_after_request(response: Response) -> Response:
     summary = {
         "errno": 0 if response.status_code < 400 else 1,
         "agent": request.headers.get("User-Agent", ""),
@@ -88,7 +99,7 @@ def request_logging_after_request(response):
     return response
 
 
-def handle_phabricator_api_exception(exc):
+def handle_phabricator_api_exception(exc: PhabricatorAPIException) -> Response:
     sentry_sdk.capture_exception()
     logger.error(
         "phabricator exception",
@@ -111,7 +122,7 @@ def handle_phabricator_api_exception(exc):
     )
 
 
-def handle_treestatus_exception(exc):
+def handle_treestatus_exception(exc: TreeStatusException) -> Response:
     sentry_sdk.capture_exception()
     logger.error("Tree Status exception", exc_info=exc)
 
@@ -130,7 +141,7 @@ def handle_treestatus_exception(exc):
     )
 
 
-def initialize_hooks(flask_app):
+def initialize_hooks(flask_app: Flask):
     flask_app.after_request(set_app_wide_headers)
     flask_app.before_request(check_maintenance)
     flask_app.before_request(request_logging_before_request)

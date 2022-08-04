@@ -4,11 +4,15 @@
 import logging
 from collections import namedtuple
 from typing import (
+    Callable,
+    Iterable,
     List,
+    Optional,
     Set,
     Tuple,
 )
 
+from landoapi.repos import Repo
 from landoapi.phabricator import (
     PhabricatorClient,
     result_list_to_phid_dict,
@@ -127,9 +131,25 @@ def request_extended_revision_data(
     return RevisionData(revs, diffs, repos)
 
 
+class RevisionStack:
+    def __init__(self, nodes, edges):
+        self.nodes = nodes
+        self.edges = edges
+
+        self.children = {phid: set() for phid in self.nodes}
+        self.parents = {phid: set() for phid in self.nodes}
+        for child, parent in self.edges:
+            self.children[parent].add(child)
+            self.parents[child].add(parent)
+
+
 def calculate_landable_subgraphs(
-    revision_data, edges, landable_repos, *, other_checks=[]
-):
+    revision_data: RevisionData,
+    edges: set[tuple[str, str]],
+    landable_repos: set[str],
+    *,
+    other_checks: Iterable[Callable[[dict, dict, dict], Optional[str]]] = []
+) -> tuple[list[list[str]], dict[str, str]]:
     """Return a list of landable DAG paths.
 
     Args:
@@ -288,7 +308,15 @@ def calculate_landable_subgraphs(
     return paths, blocked
 
 
-def _blocked_by(phid, revision_data, statuses, stack, blocked, *, other_checks=[]):
+def _blocked_by(
+    phid: str,
+    revision_data: RevisionData,
+    statuses: dict,
+    stack: RevisionStack,
+    blocked: dict,
+    *,
+    other_checks: Iterable[Callable[[dict, dict, dict], Optional[str]]] = []
+) -> Optional[str]:
     # If this revision has already been marked as blocked just return
     # the reason that was given previously.
     if phid in blocked:
@@ -329,19 +357,9 @@ def _blocked_by(phid, revision_data, statuses, stack, blocked, *, other_checks=[
     return None
 
 
-class RevisionStack:
-    def __init__(self, nodes, edges):
-        self.nodes = nodes
-        self.edges = edges
-
-        self.children = {phid: set() for phid in self.nodes}
-        self.parents = {phid: set() for phid in self.nodes}
-        for child, parent in self.edges:
-            self.children[parent].add(child)
-            self.parents[child].add(parent)
-
-
-def get_landable_repos_for_revision_data(revision_data, supported_repos):
+def get_landable_repos_for_revision_data(
+    revision_data: RevisionData, supported_repos: dict[str, Repo]
+) -> dict[str, Repo]:
     """Return a dictionary mapping string PHID to landable Repo
 
     Args:
