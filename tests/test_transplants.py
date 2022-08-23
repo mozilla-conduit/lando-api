@@ -143,6 +143,48 @@ def test_dryrun_reviewers_warns(client, db, phabdouble, auth0_mock):
     assert response.json["confirmation_token"] is not None
 
 
+def test_dryrun_codefreeze_warn(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    codefreeze_datetime,
+    monkeypatch,
+    request_mocker,
+):
+    request_mocker.register_uri(
+        "GET",
+        "https://product-details.mozilla.org/1.0/firefox_versions.json",
+        json={
+            "NEXT_SOFTFREEZE_DATE": "freeze_date",
+            "NEXT_MERGE_DATE": "merge_date",
+        },
+    )
+    monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    phabdouble.reviewer(
+        r1, phabdouble.user(username="reviewer"), status=ReviewerStatus.ACCEPTED
+    )
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert 200 == response.status_code
+    assert "application/json" == response.content_type
+    assert response.json["warnings"]
+    assert response.json["warnings"][0]["id"] == 8
+    assert response.json["confirmation_token"] is not None
+
+
 @pytest.mark.parametrize(
     "userinfo,status,blocker",
     [
@@ -462,7 +504,14 @@ def test_confirmation_token_warning_order():
 
 
 def test_integrated_transplant_simple_stack_saves_data_in_db(
-    db, client, phabdouble, transfactory, s3, auth0_mock, release_management_project
+    db,
+    client,
+    phabdouble,
+    transfactory,
+    s3,
+    auth0_mock,
+    release_management_project,
+    register_codefreeze_uri,
 ):
     repo = phabdouble.repo()
     user = phabdouble.user(username="reviewer")
@@ -580,6 +629,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     checkin_project,
     monkeypatch,
     release_management_project,
+    register_codefreeze_uri,
 ):
     repo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -678,6 +728,7 @@ def test_integrated_push_bookmark_sent_when_supported_repo(
     get_phab_client,
     mock_repo_config,
     release_management_project,
+    register_codefreeze_uri,
 ):
     # Mock the repo to have a push bookmark.
     mock_repo_config(
@@ -741,6 +792,7 @@ def test_integrated_transplant_error_responds_with_502(
     auth0_mock,
     mock_error_method,
     release_management_project,
+    register_codefreeze_uri,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -874,6 +926,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     transfactory,
     sec_approval_project,
     release_management_project,
+    register_codefreeze_uri,
 ):
     repo = phabdouble.repo()
     user = phabdouble.user(username="normal_reviewer")

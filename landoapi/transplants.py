@@ -5,7 +5,9 @@ import functools
 import hashlib
 import json
 import logging
+import requests
 from collections import namedtuple
+from datetime import datetime
 
 from connexion import ProblemException
 
@@ -301,6 +303,33 @@ def warning_wip_commit_message(*, revision, **kwargs):
         return "This revision is marked as a WIP. Please remove `WIP:` before landing."
 
 
+@RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
+def warning_code_freeze(*, repo, **kwargs):
+    repo_fields = repo.get("fields", {})
+    short_name = repo_fields.get("shortName")
+    if short_name == "mozilla-central":
+        product_details = requests.get(
+            "https://product-details.mozilla.org/1.0/firefox_versions.json"
+        ).json()
+
+        freeze_date = datetime.strptime(
+            product_details.get("NEXT_SOFTFREEZE_DATE"),
+            "%Y-%m-%d",
+        )
+        merge_date = datetime.strptime(
+            product_details.get("NEXT_MERGE_DATE"),
+            "%Y-%m-%d",
+        )
+
+        warning = {
+            "message": f"Repository is under a soft code freeze "
+            f"(ends {merge_date.strftime('%Y-%m-%d')})."
+        }
+
+        if freeze_date <= datetime.today() <= merge_date:
+            return [warning]
+
+
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return (
@@ -345,6 +374,7 @@ def check_landing_warnings(
         warning_revision_missing_testing_tag,
         warning_diff_warning,
         warning_wip_commit_message,
+        warning_code_freeze,
     ],
 ):
     assessment = TransplantAssessment()

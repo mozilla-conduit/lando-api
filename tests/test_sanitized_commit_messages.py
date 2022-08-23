@@ -139,6 +139,7 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
     monkeypatch,
     authed_headers,
     release_management_project,
+    register_codefreeze_uri,
 ):
     sanitized_title = "my secure commit title"
     revision_title = "my insecure revision title"
@@ -211,6 +212,7 @@ def test_integrated_sec_approval_problem_halts_landing(
     monkeypatch,
     authed_headers,
     release_management_project,
+    register_codefreeze_uri,
 ):
     sanitized_title = "my secure commit title"
     revision_title = "my insecure revision title"

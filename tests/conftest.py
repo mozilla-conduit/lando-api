@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import time
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -428,3 +429,38 @@ def hg_clone(hg_server, tmpdir):
     clone_dir = tmpdir.join("hg_clone")
     subprocess.run(["hg", "clone", hg_server, clone_dir.strpath], check=True)
     return clone_dir
+
+
+@pytest.fixture
+def register_codefreeze_uri(request_mocker):
+    request_mocker.register_uri(
+        "GET",
+        "https://product-details.mozilla.org/1.0/firefox_versions.json",
+        json={
+            "NEXT_SOFTFREEZE_DATE": "2000-01-01",
+            "NEXT_MERGE_DATE": "2000-01-01",
+        },
+    )
+
+
+@pytest.fixture
+def codefreeze_datetime(request_mocker):
+    today = datetime(2000, 1, 5, 0, 0, 0)
+    freeze_date = datetime(2000, 1, 3, 0, 0, 0)
+    merge_date = datetime(2000, 1, 6, 0, 0, 0)
+
+    class Mockdatetime:
+        @classmethod
+        def today(cls):
+            return today
+
+        @classmethod
+        def strptime(cls, date_string, fmt):
+            if date_string == "freeze_date":
+                return freeze_date
+            elif date_string == "merge_date":
+                return merge_date
+
+            return today
+
+    return Mockdatetime
