@@ -308,26 +308,36 @@ def warning_code_freeze(*, repo, **kwargs):
     repo_fields = repo.get("fields", {})
     short_name = repo_fields.get("shortName")
     if short_name == "mozilla-central":
-        product_details = requests.get(
-            "https://product-details.mozilla.org/1.0/firefox_versions.json"
-        ).json()
+        message = ""
+        try:
+            product_details = requests.get(
+                "https://product-details.mozilla.org/1.0/firefox_versions.json"
+            ).json()
 
-        freeze_date = datetime.strptime(
-            product_details.get("NEXT_SOFTFREEZE_DATE"),
-            "%Y-%m-%d",
-        )
-        merge_date = datetime.strptime(
-            product_details.get("NEXT_MERGE_DATE"),
-            "%Y-%m-%d",
-        )
+            today = datetime.today()
+            freeze_date = datetime.strptime(
+                product_details.get("NEXT_SOFTFREEZE_DATE"),
+                "%Y-%m-%d",
+            )
+            if today < freeze_date:
+                return
 
-        warning = {
-            "message": f"Repository is under a soft code freeze "
-            f"(ends {merge_date.strftime('%Y-%m-%d')})."
-        }
+            merge_date = datetime.strptime(
+                product_details.get("NEXT_MERGE_DATE"),
+                "%Y-%m-%d",
+            )
 
-        if freeze_date <= datetime.today() <= merge_date:
-            return [warning]
+            if freeze_date <= today <= merge_date:
+                message = (
+                    f"Repository is under a soft code freeze "
+                    f"(ends {merge_date.strftime('%Y-%m-%d')}"
+                )
+
+        except requests.exceptions.RequestException as e:
+            logger.error(e)
+            message = "Could not retrieve repository's code freeze status."
+
+        return [{"message": message}]
 
 
 def user_block_no_auth0_email(*, auth0_user, **kwargs):

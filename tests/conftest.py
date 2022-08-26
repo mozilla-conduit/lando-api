@@ -437,8 +437,8 @@ def register_codefreeze_uri(request_mocker):
         "GET",
         "https://product-details.mozilla.org/1.0/firefox_versions.json",
         json={
-            "NEXT_SOFTFREEZE_DATE": "2000-01-01",
-            "NEXT_MERGE_DATE": "2000-01-01",
+            "NEXT_SOFTFREEZE_DATE": "2122-01-01",
+            "NEXT_MERGE_DATE": "2122-01-01",
         },
     )
 
@@ -448,6 +448,8 @@ def codefreeze_datetime(request_mocker):
     today = datetime(2000, 1, 5, 0, 0, 0)
     freeze_date = datetime(2000, 1, 3, 0, 0, 0)
     merge_date = datetime(2000, 1, 6, 0, 0, 0)
+    outside_freeze_date = datetime(2000, 2, 3, 0, 0, 0)
+    outside_merge_date = datetime(2000, 2, 6, 0, 0, 0)
 
     class Mockdatetime:
         @classmethod
@@ -460,6 +462,10 @@ def codefreeze_datetime(request_mocker):
                 return freeze_date
             elif date_string == "merge_date":
                 return merge_date
+            elif date_string == "outside_freeze_date":
+                return outside_freeze_date
+            elif date_string == "outside_merge_date":
+                return outside_merge_date
 
             return today
 

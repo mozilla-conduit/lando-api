@@ -185,6 +185,46 @@ def test_dryrun_codefreeze_warn(
     assert response.json["confirmation_token"] is not None
 
 
+def test_dryrun_outside_codefreeze(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    codefreeze_datetime,
+    monkeypatch,
+    request_mocker,
+):
+    request_mocker.register_uri(
+        "GET",
+        "https://product-details.mozilla.org/1.0/firefox_versions.json",
+        json={
+            "NEXT_SOFTFREEZE_DATE": "outside_freeze_date",
+            "NEXT_MERGE_DATE": "outside_merge_date",
+        },
+    )
+    monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    phabdouble.reviewer(
+        r1, phabdouble.user(username="reviewer"), status=ReviewerStatus.ACCEPTED
+    )
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert 200 == response.status_code
+    assert "application/json" == response.content_type
+    assert not response.json["warnings"]
+
+
 @pytest.mark.parametrize(
     "userinfo,status,blocker",
     [
