@@ -27,10 +27,6 @@ def build_stack_graph(
 ) -> Tuple[Set[str], Set[Tuple[str, str]]]:
     """Return a graph representation of a revision stack.
 
-    This function is expensive and can make up to approximately
-    n/2 calls to phabricator for a linear stack where n is the
-    number of revisions in the stack.
-
     Args:
         phab: A landoapi.phabricator.PhabricatorClient.
         revision_phid: String PHID of a revision in the stack.
@@ -42,35 +38,20 @@ def build_stack_graph(
         between two nodes. `child` and `parent` are also string
         PHIDs.
     """
-    phids = set()
-    new_phids = {revision_phid}
-    edges = []
+    result = phab.call_conduit(
+        "differential.revision.search",
+        constraints={"phids": [revision_phid]},
+        limit=1,
+    )
 
-    # Repeatedly request all related edges, adding connected revisions
-    # each time until no new revisions are found.
-    while new_phids:
-        phids.update(new_phids)
-        edges = phab.call_conduit(
-            "edge.search",
-            types=["revision.parent", "revision.child"],
-            sourcePHIDs=[phid for phid in phids],
-            limit=10000,
-        )
-        edges = phab.expect(edges, "data")
-        new_phids = set()
-        for edge in edges:
-            new_phids.add(edge["sourcePHID"])
-            new_phids.add(edge["destinationPHID"])
+    revision = PhabricatorClient.single(result, "data")
+    stack_graph = PhabricatorClient.expect(revision, "fields", "stackGraph")
+    phids = set(stack_graph.keys())
+    edges = set()
 
-        new_phids = new_phids - phids
-
-    # Treat the stack like a commit DAG, we only care about edges going
-    # from child to parent. This is enough to represent the graph.
-    edges = {
-        (edge["sourcePHID"], edge["destinationPHID"])
-        for edge in edges
-        if edge["edgeType"] == "revision.parent"
-    }
+    for source_node, destination_nodes in stack_graph.items():
+        for predecessor_node in destination_nodes:
+            edges.add((source_node, predecessor_node))
 
     return phids, edges
 
