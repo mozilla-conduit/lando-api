@@ -4,15 +4,19 @@
 
 import pytest
 
+from packaging.version import (
+    Version,
+)
+
 from landoapi.phabricator import PhabricatorClient
 from landoapi.stacks import build_stack_graph
 from landoapi.uplift import (
     create_uplift_bug_update_payload,
     move_drev_to_original,
-    parse_milestone_major_version,
+    parse_milestone_version,
 )
 
-MILESTONE_TEST_CONTENTS = """
+MILESTONE_TEST_CONTENTS_1 = """
 # Holds the current milestone.
 # Should be in the format of
 #
@@ -28,11 +32,31 @@ MILESTONE_TEST_CONTENTS = """
 84.0a1
 """
 
+MILESTONE_TEST_CONTENTS_2 = """
+# Holds the current milestone.
+# Should be in the format of
+#
+#    x.x.x
+#    x.x.x.x
+#    x.x.x+
+#
+# Referenced by build/moz.configure/init.configure.
+# Hopefully I'll be able to automate replacement of *all*
+# hardcoded milestones in the tree from these two files.
+#--------------------------------------------------------
 
-def test_parse_milestone_major_version():
-    assert (
-        parse_milestone_major_version(MILESTONE_TEST_CONTENTS) == 84
-    ), "Test milestone file should have 84 as major milestone version."
+105.0
+"""
+
+
+def test_parse_milestone_version():
+    assert parse_milestone_version(MILESTONE_TEST_CONTENTS_1) == Version(
+        "84.0a1"
+    ), "Test milestone file 1 should have 84 as major milestone version."
+
+    assert parse_milestone_version(MILESTONE_TEST_CONTENTS_2) == Version(
+        "105.0"
+    ), "Test milestone file 2 should have 84 as major milestone version."
 
 
 def test_move_drev_to_original():
