@@ -7,7 +7,7 @@ import json
 import logging
 import requests
 from collections import namedtuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 from connexion import ProblemException
 
@@ -314,18 +314,18 @@ def warning_code_freeze(*, repo, **kwargs):
                 "https://product-details.mozilla.org/1.0/firefox_versions.json"
             ).json()
 
-            today = datetime.today()
+            today = datetime.now(tz=timezone.utc)
             freeze_date = datetime.strptime(
-                product_details.get("NEXT_SOFTFREEZE_DATE"),
-                "%Y-%m-%d",
-            )
+                f"{product_details.get('NEXT_SOFTFREEZE_DATE')} -0800",
+                "%Y-%m-%d %z",
+            ).replace(tzinfo=timezone.utc)
             if today < freeze_date:
                 return
 
             merge_date = datetime.strptime(
-                product_details.get("NEXT_MERGE_DATE"),
-                "%Y-%m-%d",
-            )
+                f"{product_details.get('NEXT_MERGE_DATE')} -0800",
+                "%Y-%m-%d %z",
+            ).replace(tzinfo=timezone.utc)
 
             if freeze_date <= today <= merge_date:
                 message = (

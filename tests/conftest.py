@@ -5,7 +5,7 @@ import json
 import os
 import subprocess
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -445,7 +445,7 @@ def register_codefreeze_uri(request_mocker):
 
 @pytest.fixture
 def codefreeze_datetime(request_mocker):
-    today = datetime(2000, 1, 5, 0, 0, 0)
+    today = datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc)
     freeze_date = datetime(2000, 1, 3, 0, 0, 0)
     merge_date = datetime(2000, 1, 6, 0, 0, 0)
     outside_freeze_date = datetime(2000, 2, 3, 0, 0, 0)
@@ -453,18 +453,18 @@ def codefreeze_datetime(request_mocker):
 
     class Mockdatetime:
         @classmethod
-        def today(cls):
+        def now(cls, tz):
             return today
 
         @classmethod
         def strptime(cls, date_string, fmt):
-            if date_string == "freeze_date":
+            if date_string == "freeze_date -0800":
                 return freeze_date
-            elif date_string == "merge_date":
+            elif date_string == "merge_date -0800":
                 return merge_date
-            elif date_string == "outside_freeze_date":
+            elif date_string == "outside_freeze_date -0800":
                 return outside_freeze_date
-            elif date_string == "outside_merge_date":
+            elif date_string == "outside_merge_date -0800":
                 return outside_merge_date
 
             return today
