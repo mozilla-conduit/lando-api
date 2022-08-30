@@ -5,10 +5,10 @@ import functools
 import hashlib
 import json
 import logging
-import requests
 from collections import namedtuple
 from datetime import datetime, timezone
 
+import requests
 from connexion import ProblemException
 
 from landoapi.repos import Repo
@@ -314,16 +314,21 @@ def warning_code_freeze(*, repo, **kwargs):
                 "https://product-details.mozilla.org/1.0/firefox_versions.json"
             ).json()
 
+            if "NEXT_SOFTFREEZE_DATE" not in product_details:
+                raise KeyError
+
+            # The code freeze dates generally correspond to PST work days.
+            utc_offset = "-0800"
             today = datetime.now(tz=timezone.utc)
             freeze_date = datetime.strptime(
-                f"{product_details.get('NEXT_SOFTFREEZE_DATE')} -0800",
+                f"{product_details.get('NEXT_SOFTFREEZE_DATE')} {utc_offset}",
                 "%Y-%m-%d %z",
             ).replace(tzinfo=timezone.utc)
             if today < freeze_date:
                 return
 
             merge_date = datetime.strptime(
-                f"{product_details.get('NEXT_MERGE_DATE')} -0800",
+                f"{product_details.get('NEXT_MERGE_DATE')} {utc_offset}",
                 "%Y-%m-%d %z",
             ).replace(tzinfo=timezone.utc)
 
@@ -332,8 +337,7 @@ def warning_code_freeze(*, repo, **kwargs):
                     f"Repository is under a soft code freeze "
                     f"(ends {merge_date.strftime('%Y-%m-%d')}"
                 )
-
-        except requests.exceptions.RequestException as e:
+        except (requests.exceptions.RequestException, KeyError) as e:
             logger.error(e)
             message = "Could not retrieve repository's code freeze status."
 
