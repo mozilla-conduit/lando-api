@@ -58,6 +58,10 @@ def test_parse_milestone_version():
         "105.0"
     ), "Test milestone file 2 should have 84 as major milestone version."
 
+    bad_milestone_contents = "blahblahblah"
+    with pytest.raises(ValueError, match=bad_milestone_contents):
+        parse_milestone_version(bad_milestone_contents)
+
 
 def test_move_drev_to_original():
     # Ensure `Differential Revision` is moved to `Original`.
