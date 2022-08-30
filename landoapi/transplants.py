@@ -10,8 +10,9 @@ from datetime import datetime, timezone
 
 import requests
 from connexion import ProblemException
+from flask import current_app
 
-from landoapi.repos import Repo
+from landoapi.repos import Repo, get_repos_for_env
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
@@ -305,43 +306,52 @@ def warning_wip_commit_message(*, revision, **kwargs):
 
 @RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
 def warning_code_freeze(*, repo, **kwargs):
-    repo_fields = repo.get("fields", {})
-    short_name = repo_fields.get("shortName")
-    if short_name == "mozilla-central":
-        message = ""
+    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    try:
+        repo_details = supported_repos[repo["fields"]["name"]]
+    except KeyError:
+        return
+
+    if repo_details.codefreeze_enabled:
+        default_message = "Could not retrieve repository's code freeze status."
+
         try:
-            product_details = requests.get(
-                "https://product-details.mozilla.org/1.0/firefox_versions.json"
-            ).json()
+            product_details = requests.get(repo_details.product_details_url).json()
+        except requests.exceptions.RequestException as e:
+            logger.exception(e)
+            return [{"message": default_message}]
 
-            if "NEXT_SOFTFREEZE_DATE" not in product_details:
-                raise KeyError
-
-            # The code freeze dates generally correspond to PST work days.
-            utc_offset = "-0800"
-            today = datetime.now(tz=timezone.utc)
-            freeze_date = datetime.strptime(
-                f"{product_details.get('NEXT_SOFTFREEZE_DATE')} {utc_offset}",
-                "%Y-%m-%d %z",
-            ).replace(tzinfo=timezone.utc)
-            if today < freeze_date:
-                return
-
-            merge_date = datetime.strptime(
-                f"{product_details.get('NEXT_MERGE_DATE')} {utc_offset}",
-                "%Y-%m-%d %z",
-            ).replace(tzinfo=timezone.utc)
-
-            if freeze_date <= today <= merge_date:
-                message = (
-                    f"Repository is under a soft code freeze "
-                    f"(ends {merge_date.strftime('%Y-%m-%d')}"
-                )
-        except (requests.exceptions.RequestException, KeyError) as e:
+        # The code freeze dates generally correspond to PST work days.
+        utc_offset = "-0800"
+        today = datetime.now(tz=timezone.utc)
+        try:
+            freeze_date_str = product_details["NEXT_SOFTFREEZE_DATE"]
+            merge_date_str = product_details["NEXT_MERGE_DATE"]
+        except KeyError as e:
             logger.error(e)
-            message = "Could not retrieve repository's code freeze status."
+            return [{"message": default_message}]
 
-        return [{"message": message}]
+        freeze_date = datetime.strptime(
+            f"{freeze_date_str} {utc_offset}",
+            "%Y-%m-%d %z",
+        ).replace(tzinfo=timezone.utc)
+        if today < freeze_date:
+            return
+
+        merge_date = datetime.strptime(
+            f"{merge_date_str} {utc_offset}",
+            "%Y-%m-%d %z",
+        ).replace(tzinfo=timezone.utc)
+
+        if freeze_date <= today <= merge_date:
+            return [
+                {
+                    "message": (
+                        f"Repository is under a soft code freeze "
+                        f"(ends {merge_date_str})."
+                    )
+                }
+            ]
 
 
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
