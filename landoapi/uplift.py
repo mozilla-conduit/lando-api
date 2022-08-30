@@ -7,6 +7,10 @@ import logging
 import re
 import time
 
+from packaging.version import (
+    InvalidVersion,
+    Version,
+)
 from typing import (
     Any,
     Optional,
@@ -78,22 +82,20 @@ def move_drev_to_original(body: str) -> str:
     return ARC_DIFF_REV_RE.sub(repl, body)
 
 
-MILESTONE_MAJOR_VERSION_RE = re.compile(r"^(?P<major>\d+)\.\d+.", flags=re.MULTILINE)
-
-
 UPLIFT_BUG_UPDATE_RETRIES = 3
 
 
-def parse_milestone_major_version(milestone_contents: str) -> int:
-    """Parse the major milestone version from the contents of `config/milestone.txt`."""
-    match = MILESTONE_MAJOR_VERSION_RE.search(milestone_contents)
+def parse_milestone_version(milestone_contents: str) -> Version:
+    """Parse the milestone version from the contents of `config/milestone.txt`."""
+    try:
+        # Get the last line of the file.
+        milestone = milestone_contents.strip().splitlines()[-1]
 
-    if not match:
+        return Version(milestone)
+    except InvalidVersion as e:
         raise ValueError(
-            f"`config/milestone.txt` is not in the expected format: {milestone_contents}"
-        )
-
-    return int(match.group("major"))
+            f"`config/milestone.txt` is not in the expected format:\n{milestone_contents}"
+        ) from e
 
 
 def get_uplift_request_form(revision) -> Optional[str]:
@@ -382,11 +384,12 @@ def update_bugs_for_uplift(
     bugs = bmo.get_bug(params).json()["bugs"]
 
     # Get the major release number from `config/milestone.txt`.
-    milestone = parse_milestone_major_version(milestone_file_contents)
+    milestone = parse_milestone_version(milestone_file_contents)
 
     # Create bug update payloads.
     payloads = [
-        create_uplift_bug_update_payload(bug, repo_name, milestone) for bug in bugs
+        create_uplift_bug_update_payload(bug, repo_name, milestone.major)
+        for bug in bugs
     ]
 
     for payload in payloads:
