@@ -29,7 +29,8 @@ AccessGroup = namedtuple(
     ),
 )
 
-# Ideally we would have a difference here, will get in touch with service owners.
+PRODUCT_DETAILS_LOCAL = "http://product-details.test"
+# TODO: update dev once json file is on merurcial server.
 PRODUCT_DETAILS_DEV = "https://product-details.mozilla.org"
 PRODUCT_DETAILS_PROD = "https://product-details.mozilla.org"
 
@@ -172,7 +173,11 @@ REPO_CONFIG = {
     "default": {},
     "localdev": {
         "test-repo": Repo(
-            tree="test-repo", url="http://hg.test/test-repo", access_group=SCM_LEVEL_1
+            tree="test-repo",
+            url="http://hg.test/test-repo",
+            access_group=SCM_LEVEL_1,
+            codefreeze_enabled=True,
+            product_details_url=f"{PRODUCT_DETAILS_LOCAL}/1.0/firefox_versions.json"
         ),
         "first-repo": Repo(
             tree="first-repo",

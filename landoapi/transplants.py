@@ -308,7 +308,7 @@ def warning_wip_commit_message(*, revision, **kwargs):
 def warning_code_freeze(*, repo, **kwargs):
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     try:
-        repo_details = supported_repos[repo["fields"]["name"]]
+        repo_details = supported_repos[repo["fields"]["shortName"]]
     except KeyError:
         return
 
