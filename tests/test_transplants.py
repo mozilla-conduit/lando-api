@@ -10,7 +10,7 @@ from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import ReviewerStatus, RevisionStatus
-from landoapi.repos import Repo, SCM_LEVEL_3
+from landoapi.repos import Repo, SCM_LEVEL_3, SCM_CONDUIT, DONTBUILD
 from landoapi.reviews import get_collated_reviewers
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplant_client import TransplantClient
@@ -152,15 +152,29 @@ def test_dryrun_codefreeze_warn(
     monkeypatch,
     request_mocker,
 ):
+    product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
         "GET",
-        "https://product-details.mozilla.org/1.0/firefox_versions.json",
+        product_details,
         json={
             "NEXT_SOFTFREEZE_DATE": "freeze_date",
             "NEXT_MERGE_DATE": "merge_date",
         },
     )
     monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
+    mc_repo = Repo(
+        tree="mozilla-conduit",
+        url="https://hg.test/mozilla-conduit",
+        access_group=SCM_CONDUIT,
+        commit_flags=[DONTBUILD],
+        config_override={"fix.black:command": "black -- -"},
+        approval_required=True,
+        codefreeze_enabled=True,
+        product_details_url=product_details,
+    )
+    mc_mock = MagicMock()
+    mc_mock.return_value = {"mozilla-central": mc_repo}
+    monkeypatch.setattr("landoapi.transplants.get_repos_for_env", mc_mock)
 
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -194,15 +208,29 @@ def test_dryrun_outside_codefreeze(
     monkeypatch,
     request_mocker,
 ):
+    product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
         "GET",
-        "https://product-details.mozilla.org/1.0/firefox_versions.json",
+        product_details,
         json={
             "NEXT_SOFTFREEZE_DATE": "outside_freeze_date",
             "NEXT_MERGE_DATE": "outside_merge_date",
         },
     )
     monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
+    mc_repo = Repo(
+        tree="mozilla-conduit",
+        url="https://hg.test/mozilla-conduit",
+        access_group=SCM_CONDUIT,
+        commit_flags=[DONTBUILD],
+        config_override={"fix.black:command": "black -- -"},
+        approval_required=True,
+        codefreeze_enabled=True,
+        product_details_url=product_details,
+    )
+    mc_mock = MagicMock()
+    mc_mock.return_value = {"mozilla-central": mc_repo}
+    monkeypatch.setattr("landoapi.transplants.get_repos_for_env", mc_mock)
 
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
