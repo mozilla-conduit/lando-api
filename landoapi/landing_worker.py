@@ -31,6 +31,7 @@ from landoapi.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
 )
+from landoapi.phabricator import PhabricatorAPIException, PhabricatorClient
 from landoapi.repos import (
     Repo,
     repo_clone_subsystem,
@@ -520,5 +521,18 @@ class LandingWorker:
                 # The changesets will have gone through even if updating the bugs fails. Notify
                 # the landing user so they are aware and can update the bugs themselves.
                 self.notify_user_of_bug_update_failure(job, e)
+
+        try:
+            # Tell Phabricator to scan the landing repo so revisions are closed quickly.
+            phab = PhabricatorClient(
+                current_app.config["PHABRICATOR_URL"],
+                current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
+            )
+            phab.call_conduit("diffusion.looksoon", repositories=[repo.phab_identifier])
+
+        except PhabricatorAPIException as e:
+            # Log the exception but continue gracefully.
+            logger.exception("Failed calling `diffusion.looksoon` to update Phab.")
+            logger.exception(e)
 
         return True
