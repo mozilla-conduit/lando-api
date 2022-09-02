@@ -377,10 +377,6 @@ mercurial==6.1.1 \
     --hash=sha256:d381614c41c80f061c8f2df532e75fb14c440b9c41461848c6a7702df496f237 \
     --hash=sha256:ff338578db5d415a8134d0dc8e5b8f892ca4ea30dc8b4b3eaeef3719a753cc1e
     # via -r requirements.in
-mock==4.0.3 \
-    --hash=sha256:122fcb64ee37cfad5b3f48d7a7d51875d7031aaf3d8be7c42e2bee25044eee62 \
-    --hash=sha256:7d3fbbde18228f4ff2f1f119a45cdffa458b4c0dee32eb4d2bb2f82554bac7bc
-    # via -r requirements.in
 moto==4.0.1 \
     --hash=sha256:6fb81f500c49f46f19f44b1db1c2ea56f19f90d0ca6b944866ae0f0eeab76398 \
     --hash=sha256:a9529f295ac786ea80cdce682d57170f801c3618c3b540ced29d0473518f534d

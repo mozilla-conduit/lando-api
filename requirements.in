@@ -8,7 +8,6 @@ datadog==0.44.0
 flake8-bugbear==19.3.0
 flake8==3.7.7
 mercurial==6.1.1
-mock==4.0.3
 moto==4.0.1
 packaging==21.3
 psycopg2==2.8.2
