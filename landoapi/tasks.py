@@ -127,9 +127,10 @@ def send_bug_update_failure_email(
 @celery.task(
     autoretry_for=(IOError, PhabricatorCommunicationException),
     default_retry_delay=20,
-    max_retries=3 * 20,  # 20 minutes
     acks_late=True,
     ignore_result=True,
+    # Retry 3 times every 2 seconds.
+    max_retries=3 * 20,
 )
 def admin_remove_phab_project(
     revision_phid: str, project_phid: str, comment: Optional[str] = None
@@ -164,8 +165,7 @@ def admin_remove_phab_project(
 
 @celery.task(
     autoretry_for=(IOError, PhabricatorCommunicationException),
-    default_retry_delay=20,
-    max_retries=3 * 20,  # 20 minutes
+    default_retry_delay=3,
     acks_late=True,
     ignore_result=True,
 )
