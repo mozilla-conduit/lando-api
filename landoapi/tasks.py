@@ -160,3 +160,20 @@ def admin_remove_phab_project(
         objectIdentifier=revision_phid,
         transactions=transactions,
     )
+
+
+@celery.task(
+    autoretry_for=(IOError, PhabricatorCommunicationException),
+    default_retry_delay=20,
+    max_retries=3 * 20,  # 20 minutes
+    acks_late=True,
+    ignore_result=True,
+)
+def phab_trigger_repo_update(repo_identifier: str):
+    """Trigger a repo update in Phabricator's backend."""
+    # Tell Phabricator to scan the landing repo so revisions are closed quickly.
+    phab = PhabricatorClient(
+        current_app.config["PHABRICATOR_URL"],
+        current_app.config["PHABRICATOR_ADMIN_API_KEY"],
+    )
+    phab.call_conduit("diffusion.looksoon", repositories=[repo_identifier])

@@ -13,6 +13,7 @@ import subprocess
 import time
 
 import hglib
+import kombu
 from flask import current_app
 
 from landoapi import patches
@@ -31,12 +32,12 @@ from landoapi.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
 )
-from landoapi.phabricator import PhabricatorAPIException, PhabricatorClient
 from landoapi.repos import (
     Repo,
     repo_clone_subsystem,
 )
 from landoapi.storage import db, SQLAlchemy
+from landoapi.tasks import phab_trigger_repo_update
 from landoapi.treestatus import (
     TreeStatus,
     treestatus_subsystem,
@@ -264,6 +265,23 @@ class LandingWorker:
             f"Failed to update Bugzilla after landing uplift revisions: {str(exception)}",
             job.id,
         )
+
+    @staticmethod
+    def phab_trigger_repo_update(phab_identifier: str):
+        """Wrapper around `phab_trigger_repo_update` for convenience.
+
+        Args:
+            phab_identifier: `str` to be passed to Phabricator to identify
+            repo.
+        """
+        try:
+            # Send a Phab repo update task to Celery.
+            phab_trigger_repo_update.apply_async(args=(phab_identifier,))
+        except kombu.exceptions.OperationalError as e:
+            # Log the exception but continue gracefully.
+            # The repo will eventually update.
+            logger.exception("Failed sending repo update task to Celery.")
+            logger.exception(e)
 
     @staticmethod
     def extract_error_data(exception: str) -> tuple[list[str], list[str]]:
@@ -522,17 +540,8 @@ class LandingWorker:
                 # the landing user so they are aware and can update the bugs themselves.
                 self.notify_user_of_bug_update_failure(job, e)
 
-        try:
-            # Tell Phabricator to scan the landing repo so revisions are closed quickly.
-            phab = PhabricatorClient(
-                current_app.config["PHABRICATOR_URL"],
-                current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
-            )
-            phab.call_conduit("diffusion.looksoon", repositories=[repo.phab_identifier])
-
-        except PhabricatorAPIException as e:
-            # Log the exception but continue gracefully.
-            logger.exception("Failed calling `diffusion.looksoon` to update Phab.")
-            logger.exception(e)
+        # Trigger update of repo in Phabricator so patches are closed quicker.
+        # Especially useful on low-traffic repositories.
+        self.phab_trigger_repo_update(repo.phab_identifier)
 
         return True
