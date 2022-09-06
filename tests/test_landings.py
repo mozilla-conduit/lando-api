@@ -2,9 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import mock
 import pytest
 import textwrap
+import unittest.mock as mock
 
 from landoapi import patches
 from landoapi.hg import HgRepo
@@ -252,7 +252,15 @@ aDd oNe mOrE LiNe
 
 
 def test_integrated_execute_job(
-    app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble, upload_patch
+    app,
+    db,
+    s3,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    monkeypatch,
+    upload_patch,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
@@ -278,9 +286,19 @@ def test_integrated_execute_job(
 
     worker = LandingWorker(sleep_seconds=0.01)
 
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
+    assert (
+        mock_trigger_update.call_count == 1
+    ), "Successful landing should trigger Phab repo update."
 
 
 def test_lose_push_race(
@@ -417,7 +435,15 @@ def test_landing_worker__extract_error_data():
 
 
 def test_format_patch_success_unchanged(
-    app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble, upload_patch
+    app,
+    db,
+    s3,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    monkeypatch,
+    upload_patch,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
     treestatus = treestatusdouble.get_treestatus_client()
@@ -447,15 +473,33 @@ def test_format_patch_success_unchanged(
 
     worker = LandingWorker(sleep_seconds=0.01)
 
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert job.formatted_replacements is None
+    assert (
+        mock_trigger_update.call_count == 1
+    ), "Successful landing should trigger Phab repo update."
 
 
 def test_format_patch_success_changed(
-    app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble, upload_patch
+    app,
+    db,
+    s3,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    monkeypatch,
+    upload_patch,
 ):
     """Tests automated formatting happy path where formatters made
     changes before landing.
@@ -490,6 +534,13 @@ def test_format_patch_success_changed(
 
     worker = LandingWorker(sleep_seconds=0.01)
 
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
     # The landed commit hashes affected by autoformat
     formatted_replacements = [
         "12be32a8a3ff283e0836b82be959fbd024cf271b",
@@ -505,6 +556,9 @@ def test_format_patch_success_changed(
     assert (
         job.formatted_replacements == formatted_replacements
     ), "Did not correctly save hashes of formatted revisions"
+    assert (
+        mock_trigger_update.call_count == 1
+    ), "Successful landing should trigger Phab repo update."
 
     with hgrepo.for_push(job.requester_email):
         # Get repo root since `-R` does not change relative directory, so
@@ -636,6 +690,13 @@ def test_format_patch_no_landoini(
 
     worker = LandingWorker(sleep_seconds=0.01)
 
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
@@ -649,3 +710,6 @@ def test_format_patch_no_landoini(
     assert (
         mock_notify.call_count == 0
     ), "Should not notify user of landing failure due to `.lando.ini` missing."
+    assert (
+        mock_trigger_update.call_count == 1
+    ), "Successful landing should trigger Phab repo update."
