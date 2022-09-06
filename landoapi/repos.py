@@ -29,11 +29,6 @@ AccessGroup = namedtuple(
     ),
 )
 
-PRODUCT_DETAILS_LOCAL = "http://product-details.test"
-# TODO: update dev once json file is on merurcial server.
-PRODUCT_DETAILS_DEV = "https://product-details.mozilla.org"
-PRODUCT_DETAILS_PROD = "https://product-details.mozilla.org"
-
 
 @dataclass
 class Repo:
@@ -64,9 +59,6 @@ class Repo:
         config_override (dict): Parameters to override when loading the Mercurial
             configuration. The keys and values map directly to configuration keys and
             values. Defaults to `None`.
-        codefreeze_enabled (bool): Whether or not this repo has a code freeze window.
-            This is used to warn users when previewing a landing within the window.
-            Defaults to `False`.
         product_details_url (str): The URL which contains product-related information
             relevant to the repo. Defaults to an empty string.
     """
@@ -82,7 +74,6 @@ class Repo:
     approval_required: bool = False
     commit_flags: list[tuple[str, str]] = field(default_factory=list)
     config_override: dict = field(default_factory=dict)
-    codefreeze_enabled: bool = False
     product_details_url: str = ""
 
     def __post_init__(self):
@@ -181,8 +172,7 @@ REPO_CONFIG = {
             tree="test-repo",
             url="http://hg.test/test-repo",
             access_group=SCM_LEVEL_1,
-            codefreeze_enabled=True,
-            product_details_url=f"{PRODUCT_DETAILS_LOCAL}/1.0/firefox_versions.json"
+            product_details_url="http://product-details.test/1.0/firefox_versions.json",
         ),
         "first-repo": Repo(
             tree="first-repo",
@@ -228,8 +218,8 @@ REPO_CONFIG = {
             commit_flags=[DONTBUILD],
             config_override={"fix.black:command": "black -- -"},
             approval_required=True,
-            codefreeze_enabled=True,
-            product_details_url=f"{PRODUCT_DETAILS_DEV}/1.0/firefox_versions.json",
+            product_details_url="https://hg.mozilla.org/conduit-testing/m-c/raw-file"
+            "/tip/product-details/1.0/firefox_versions.json",
         ),
         "vct": Repo(
             tree="vct",
@@ -278,6 +268,8 @@ REPO_CONFIG = {
             short_name="mozilla-central",
             commit_flags=[DONTBUILD],
             config_override={"fix.black:command": "black -- -"},
+            product_details_url="https://product-details.mozilla.org"
+            "/1.0/firefox_versions.json",
         ),
         "comm-central": Repo(
             tree="comm-central",

@@ -169,7 +169,6 @@ def test_dryrun_codefreeze_warn(
         commit_flags=[DONTBUILD],
         config_override={"fix.black:command": "black -- -"},
         approval_required=True,
-        codefreeze_enabled=True,
         product_details_url=product_details,
     )
     mc_mock = MagicMock()
@@ -225,7 +224,6 @@ def test_dryrun_outside_codefreeze(
         commit_flags=[DONTBUILD],
         config_override={"fix.black:command": "black -- -"},
         approval_required=True,
-        codefreeze_enabled=True,
         product_details_url=product_details,
     )
     mc_mock = MagicMock()

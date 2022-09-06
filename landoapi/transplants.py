@@ -312,7 +312,7 @@ def warning_code_freeze(*, repo, **kwargs):
     except KeyError:
         return
 
-    if repo_details.codefreeze_enabled:
+    if repo_details.product_details_url:
         default_message = "Could not retrieve repository's code freeze status."
 
         try:
@@ -321,16 +321,16 @@ def warning_code_freeze(*, repo, **kwargs):
             logger.exception(e)
             return [{"message": default_message}]
 
-        # The code freeze dates generally correspond to PST work days.
-        utc_offset = "-0800"
-        today = datetime.now(tz=timezone.utc)
+        # If the JSON doesn't have these keys, this warning isn't applicable
         try:
             freeze_date_str = product_details["NEXT_SOFTFREEZE_DATE"]
             merge_date_str = product_details["NEXT_MERGE_DATE"]
-        except KeyError as e:
-            logger.error(e)
-            return [{"message": default_message}]
+        except KeyError:
+            return
 
+        # The code freeze dates generally correspond to PST work days.
+        utc_offset = "-0800"
+        today = datetime.now(tz=timezone.utc)
         freeze_date = datetime.strptime(
             f"{freeze_date_str} {utc_offset}",
             "%Y-%m-%d %z",
