@@ -109,6 +109,11 @@ class Repo:
 
         return any(config.startswith("fix") for config in self.config_override.keys())
 
+    @property
+    def phab_identifier(self) -> str:
+        """Return a valid Phabricator identifier as a `str`."""
+        return self.short_name if self.short_name else self.tree
+
 
 SCM_ALLOW_DIRECT_PUSH = AccessGroup(
     active_group="active_scm_allow_direct_push",
