@@ -450,10 +450,8 @@ def codefreeze_datetime(request_mocker):
         "today": datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc),
         f"two_days_ago {utc_offset}": datetime(2000, 1, 3, 0, 0, 0),
         f"tomorrow {utc_offset}": datetime(2000, 1, 6, 0, 0, 0),
-        f"one_month_from_today {utc_offset}": datetime(2000, 2, 3, 0, 0, 0),
-        f"one_month_and_two_days_from_today {utc_offset}": datetime(
-            2000, 2, 6, 0, 0, 0
-        ),
+        f"four_weeks_from_today {utc_offset}": datetime(2000, 2, 3, 0, 0, 0),
+        f"five_weeks_from_today {utc_offset}": datetime(2000, 2, 10, 0, 0, 0),
     }
 
     class Mockdatetime:
