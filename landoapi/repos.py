@@ -218,8 +218,8 @@ REPO_CONFIG = {
             commit_flags=[DONTBUILD],
             config_override={"fix.black:command": "black -- -"},
             approval_required=True,
-            product_details_url="https://hg.mozilla.org/conduit-testing/m-c/raw-file"
-            "/tip/product-details/1.0/firefox_versions.json",
+            product_details_url="https://raw.githubusercontent.com/mozilla-conduit"
+            "/suite/main/docker/product-details/1.0/firefox_versions.json",
         ),
         "vct": Repo(
             tree="vct",
