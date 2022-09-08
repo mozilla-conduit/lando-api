@@ -322,11 +322,10 @@ def warning_code_freeze(*, repo, **kwargs):
         logger.exception(e)
         return [{"message": "Could not retrieve repository's code freeze status."}]
 
+    freeze_date_str = product_details.get("NEXT_SOFTFREEZE_DATE")
+    merge_date_str = product_details.get("NEXT_MERGE_DATE")
     # If the JSON doesn't have these keys, this warning isn't applicable
-    try:
-        freeze_date_str = product_details["NEXT_SOFTFREEZE_DATE"]
-        merge_date_str = product_details["NEXT_MERGE_DATE"]
-    except KeyError:
+    if not freeze_date_str or not merge_date_str:
         return
 
     # The code freeze dates generally correspond to PST work days.

@@ -157,8 +157,8 @@ def test_dryrun_codefreeze_warn(
         "GET",
         product_details,
         json={
-            "NEXT_SOFTFREEZE_DATE": "freeze_date",
-            "NEXT_MERGE_DATE": "merge_date",
+            "NEXT_SOFTFREEZE_DATE": "two_days_ago",
+            "NEXT_MERGE_DATE": "tomorrow",
         },
     )
     monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
@@ -210,8 +210,8 @@ def test_dryrun_outside_codefreeze(
         "GET",
         product_details,
         json={
-            "NEXT_SOFTFREEZE_DATE": "outside_freeze_date",
-            "NEXT_MERGE_DATE": "outside_merge_date",
+            "NEXT_SOFTFREEZE_DATE": "one_month_from_today",
+            "NEXT_MERGE_DATE": "one_month_and_two_days_from_today",
         },
     )
     monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
