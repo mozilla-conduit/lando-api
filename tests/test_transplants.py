@@ -167,8 +167,6 @@ def test_dryrun_codefreeze_warn(
         url="https://hg.test/mozilla-conduit",
         access_group=SCM_CONDUIT,
         commit_flags=[DONTBUILD],
-        config_override={"fix.black:command": "black -- -"},
-        approval_required=True,
         product_details_url=product_details,
     )
     mc_mock = MagicMock()
@@ -222,8 +220,6 @@ def test_dryrun_outside_codefreeze(
         url="https://hg.test/mozilla-conduit",
         access_group=SCM_CONDUIT,
         commit_flags=[DONTBUILD],
-        config_override={"fix.black:command": "black -- -"},
-        approval_required=True,
         product_details_url=product_details,
     )
     mc_mock = MagicMock()
