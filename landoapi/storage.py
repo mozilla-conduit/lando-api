@@ -11,6 +11,29 @@ db = SQLAlchemy()
 migrate = Migrate()
 
 
+def _lock_table_for(
+    db_session, mode="SHARE ROW EXCLUSIVE MODE", table=None, model=None
+):
+    """Locks a given table in the given database with the given mode.
+
+    Args:
+        db_session (SQLAlchemy.db.session): the database session to use
+        mode (str): the lock mode to apply to the table when locking
+        model (SQLAlchemy.db.model): a model to fetch the table name from
+        table (str): a string representing the table name in the database
+
+    Raises:
+        TypeError: if either both model and table arguments are missing or provided
+    """
+    if table is not None and model is not None:
+        raise TypeError("Only one of table or model should be provided")
+    if table is None and model is None:
+        raise TypeError("Missing table or model argument")
+
+    query = f"LOCK TABLE {model.__table__.name} IN {mode};"
+    db.session.execute(query)
+
+
 class DBSubsystem(Subsystem):
     name = "database"
 

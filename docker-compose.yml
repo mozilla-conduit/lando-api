@@ -131,28 +131,54 @@ services:
       - smtp
   lando-api.landing-worker:
     image: lando-api
-    command: ["landing-worker"]
+    command: ["start-landing-worker"]
     environment:
-      - ENV=localdev
-      - DATABASE_URL=postgresql://postgres:password@lando-api.db/lando_api_dev
-      - SENTRY_DSN=
-      # See http://docs.celeryproject.org/en/stable/getting-started/brokers/redis.html#configuration
-      # for the full URL format.
-      - CELERY_BROKER_URL=redis://redis.queue/0
-      - OIDC_IDENTIFIER=https://lando-api.test
-      - OIDC_DOMAIN=https://auth0.test
-      - LANDO_UI_URL=https://lando.test
-      - REPO_CLONES_PATH=/repos
-      - REPOS_TO_LAND=localdev
+      CELERY_BROKER_URL: "redis://redis.queue/0"
+      DATABASE_URL: "postgresql://postgres:password@lando-api.db/lando_api_dev"
+      ENV: "localdev"
+      LANDO_UI_URL: "https://lando.test"
+      OIDC_DOMAIN: "https://auth0.test"
+      OIDC_IDENTIFIER: "https://lando-api.test"
+      REPOS_TO_LAND: "localdev"
+      REPO_CLONES_PATH: "/repos"
+      SENTRY_DSN: ""
     user: root
     volumes:
       - ./:/app
       - ./migrations/:/migrations/
       # Prevent writing python cache to the host.
       - caches_cache:/app/.cache/
+      - repos:/repos
     depends_on:
       - lando-api.db
       - redis.queue
+  lando-api.revision-worker:
+     image: lando-api
+     command: ["start-revision-worker"]
+     environment:
+       CELERY_BROKER_URL: "redis://redis.queue/0"
+       DATABASE_URL: "postgresql://postgres:password@lando-api.db/lando_api_dev"
+       ENV: "localdev"
+       LANDO_UI_URL: "https://lando.test"
+       OIDC_DOMAIN: "https://auth0.test"
+       OIDC_IDENTIFIER: "https://lando-api.test"
+       PHABRICATOR_ADMIN_API_KEY: "api-lefsv24henzsbzpw337bhizawuyh"
+       PHABRICATOR_UNPRIVILEGED_API_KEY: "api-lefsv24henzsbzpw337bhizawuyh"
+       PHABRICATOR_URL: "http://phabricator.test/"
+       REPOS_TO_LAND: "localdev"
+       REPO_CLONES_PATH: "/repos"
+       SENTRY_DSN: ""
+     user: root
+     volumes:
+       - ./:/app
+       - ./migrations/:/migrations/
+       # Prevent writing python cache to the host.
+       - caches_cache:/app/.cache/
+       - repos:/repos
+       - patches:/patches
+     depends_on:
+       - lando-api.db
+       - redis.queue
   lando-api.db:
     image: postgres:9.6-alpine
     environment:
@@ -177,3 +203,5 @@ volumes:
   caches_pycache:
   caches_cache:
   caches_pytest_cache:
+  repos:
+  patches:

@@ -250,7 +250,7 @@ def test_request_extended_revision_data_stacked_revisions(phabdouble):
     assert repo["phid"] in data.repositories
 
 
-def test_calculate_landable_subgraphs_no_edges_open(phabdouble):
+def test_calculate_landable_subgraphs_no_edges_open(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -263,7 +263,7 @@ def test_calculate_landable_subgraphs_no_edges_open(phabdouble):
     assert landable[0] == [revision["phid"]]
 
 
-def test_calculate_landable_subgraphs_no_edges_closed(phabdouble):
+def test_calculate_landable_subgraphs_no_edges_closed(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -275,7 +275,7 @@ def test_calculate_landable_subgraphs_no_edges_closed(phabdouble):
     assert not landable
 
 
-def test_calculate_landable_subgraphs_closed_root(phabdouble):
+def test_calculate_landable_subgraphs_closed_root(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -289,7 +289,7 @@ def test_calculate_landable_subgraphs_closed_root(phabdouble):
     assert landable == [[r2["phid"]]]
 
 
-def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble):
+def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -310,7 +310,7 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble):
     assert landable == [[r1["phid"], r2["phid"], r4["phid"]]]
 
 
-def test_calculate_landable_subgraphs_stops_multiple_repo_paths(phabdouble):
+def test_calculate_landable_subgraphs_stops_multiple_repo_paths(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -330,7 +330,7 @@ def test_calculate_landable_subgraphs_stops_multiple_repo_paths(phabdouble):
     assert landable == [[r1["phid"], r2["phid"]]]
 
 
-def test_calculate_landable_subgraphs_allows_distinct_repo_paths(phabdouble):
+def test_calculate_landable_subgraphs_allows_distinct_repo_paths(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -356,7 +356,7 @@ def test_calculate_landable_subgraphs_allows_distinct_repo_paths(phabdouble):
     assert [r3["phid"], r4["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_different_repo_parents(phabdouble):
+def test_calculate_landable_subgraphs_different_repo_parents(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -380,7 +380,7 @@ def test_calculate_landable_subgraphs_different_repo_parents(phabdouble):
     assert [r2["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble):
+def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -403,7 +403,7 @@ def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble):
     assert [r2["phid"], r3["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble):
+def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -440,7 +440,7 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble):
     assert [r1["phid"], r6["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_complex_graph(phabdouble):
+def test_calculate_landable_subgraphs_complex_graph(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repoA = phabdouble.repo(name="repoA")
@@ -523,7 +523,7 @@ def test_calculate_landable_subgraphs_complex_graph(phabdouble):
     assert [rB1["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_extra_check(phabdouble):
+def test_calculate_landable_subgraphs_extra_check(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -670,3 +670,25 @@ def test_integrated_stack_has_revision_security_status(
     revisions = {r["phid"]: r for r in response.json["revisions"]}
     assert not revisions[public_revision["phid"]]["is_secure"]
     assert revisions[secure_revision["phid"]]["is_secure"]
+
+
+def test_get_stacks(phabdouble):
+    # phab = phabdouble.get_phabricator_client()
+    r1a = phabdouble.revision()
+    r2a = phabdouble.revision(depends_on=[r1a])
+    r3a = phabdouble.revision(depends_on=[r2a])
+
+    r1b = phabdouble.revision()
+    r2b = phabdouble.revision(depends_on=[r1b])
+    r3b = phabdouble.revision(depends_on=[r2b])
+
+    result = phabdouble.call_conduit("differential.revision.search")
+
+    from landoapi.workers.revision_worker import get_stacks
+
+    input_revisions = {r["phid"]: r for r in result["data"]}
+
+    test = get_stacks(input_revisions)
+    assert len(test) == 2
+    assert set(test[0].nodes) == set((r1a["phid"], r2a["phid"], r3a["phid"]))
+    assert set(test[1].nodes) == set((r1b["phid"], r2b["phid"], r3b["phid"]))

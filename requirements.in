@@ -1,4 +1,5 @@
 Flask-Caching==2.0.1
+Flask-Admin==1.6.0
 Flask-Migrate==3.1.0
 Flask==2.1.1
 black==22.3.0
@@ -7,8 +8,11 @@ connexion==2.13.0
 datadog==0.44.0
 flake8-bugbear==19.3.0
 flake8==3.7.7
+matplotlib==3.5.3
 mercurial==6.1.1
 moto==4.0.1
+mots==0.3.0.dev0
+networkx==2.8.6
 packaging==21.3
 psycopg2==2.8.2
 pytest-flask==1.2.0

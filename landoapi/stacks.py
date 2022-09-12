@@ -19,6 +19,8 @@ from landoapi.phabricator import (
     RevisionStatus,
 )
 
+from landoapi.models.revisions import Revision, RevisionStatus as RV
+
 logger = logging.getLogger(__name__)
 
 
@@ -190,6 +192,24 @@ def calculate_landable_subgraphs(
 
         if repo not in landable_repos:
             block(phid, "Repository is not supported by Lando.")
+
+        # Check for any blockers in Lando.
+        lando_revision = Revision.query.filter(
+            Revision.revision_id == revision["id"]
+        ).one_or_none()
+        if not lando_revision:
+            pass
+            # block(phid, f"Revision {revision['id']} has not been preprocessed yet.")
+        elif lando_revision.status == RV.QUEUED:
+            block(phid, "Revision is queued for landing, please wait.")
+        elif lando_revision.status == RV.LANDED:
+            block(phid, "Revision has already landed. Please wait until it is closed.")
+        elif lando_revision.status == RV.LANDING:
+            block(phid, "Revision is landing.")
+        elif lando_revision.status == RV.PROBLEM:
+            block(
+                phid, lando_revision.data.get("error", "An unknown error has occurred.")
+            )
 
     # We only want to consider paths starting from the open revisions
     # do grab the status for all revisions.

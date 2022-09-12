@@ -333,6 +333,25 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /stack_hashes/{revision_id}:
+    get:
+      operationId: landoapi.api.revisions.get_stack_hashes
+      description: |
+          Get a dictionary of stack hashes.
+      parameters:
+        - name: revision_id
+          description: The revision ID
+          required: true
+          in: path
+          type: integer
+      responses:
+        200:
+          description: OK
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
   /requestSecApproval:
     post:
       operationId: landoapi.api.revisions.request_sec_approval

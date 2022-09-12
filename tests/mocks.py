@@ -60,7 +60,7 @@ def validate_hunk(hunk):
     assert isinstance(hunk["corpus"], str)
     lines = hunk["corpus"].splitlines()
     assert len(lines) > 0
-    assert all([l[0] in (" ", "-", "+") for l in lines])
+    assert all([line[0] in (" ", "-", "+") for line in lines])
 
     return True
 
@@ -1000,6 +1000,7 @@ class PhabricatorDouble:
             r["stack_graph"] = get_stack(r["phid"], self)
             items.append(r)
 
+        # TODO: add repo constraints to test feature flag.
         if constraints and "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]
 

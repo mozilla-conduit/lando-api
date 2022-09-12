@@ -48,9 +48,8 @@ class Repo:
             from a remote Mercurial repository. Defaults to `url`.
         short_name (str): The Phabricator short name field for this repo, if different
             from the `tree`. Defaults to `tree`.
-        legacy_transplant (bool): (defunct) When set to `True`, publishes transplant
-            request to "Autoland Transplant" instead of queueing the requests in the
-            Landing Worker. Defaults to `False`.
+        use_revision_worker (bool): When set to `True`, enables Revision Worker
+            functionality for this repo. Defaults to `False`.
         approval_required (bool): Whether approval is required or not for given repo.
             Note that this is not fully implemented but is included for compatibility.
             Defaults to `False`.
@@ -70,7 +69,7 @@ class Repo:
     push_path: str = ""
     pull_path: str = ""
     short_name: str = ""
-    legacy_transplant: bool = False
+    use_revision_worker: bool = False
     approval_required: bool = False
     commit_flags: list[tuple[str, str]] = field(default_factory=list)
     config_override: dict = field(default_factory=dict)
@@ -174,6 +173,7 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_1,
             product_details_url="http://product-details.test/1.0/firefox_versions.json",
         ),
+        # A generic repo, similar in behaviour to mozilla-central.
         "first-repo": Repo(
             tree="first-repo",
             url="http://hg.test/first-repo",
@@ -181,11 +181,13 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_1,
             commit_flags=[DONTBUILD],
         ),
+        # Similar to first-repo, but uses revision worker.
         "second-repo": Repo(
             tree="second-repo",
             url="http://hg.test/second-repo",
+            push_path="ssh://autoland.hg//repos/second-repo",
             access_group=SCM_LEVEL_1,
-            legacy_transplant=True,
+            use_revision_worker=True,
         ),
         "third-repo": Repo(
             tree="third-repo",
@@ -202,7 +204,6 @@ REPO_CONFIG = {
             url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
             access_group=SCM_LEVEL_1,
             approval_required=True,
-            legacy_transplant=True,
         ),
     },
     "devsvcdev": {

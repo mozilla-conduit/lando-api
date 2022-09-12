@@ -82,7 +82,7 @@ def get_project_phid(project_slug, phabricator, allow_empty_result=True):
     )
 
     if project is None:
-        logger.warning(f"Could not find a project phid", extra=dict(slug=project_slug))
+        logger.warning("Could not find a project phid", extra=dict(slug=project_slug))
         return None
 
     return phabricator.expect(project, "phid")
