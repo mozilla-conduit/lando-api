@@ -32,8 +32,8 @@ def serialize_hunk(hunk: list) -> dict:
     prev_op = " "
     old_eof_newline, new_eof_newline = True, True
     corpus = []
-    olds = [l[0] for l in hunk if l[0] is not None]
-    news = [l[1] for l in hunk if l[1] is not None]
+    olds = [line[0] for line in hunk if line[0] is not None]
+    news = [line[1] for line in hunk if line[1] is not None]
     add_lines, del_lines = 0, 0
     for (old, new, line) in hunk:
         line = line.decode("utf-8")

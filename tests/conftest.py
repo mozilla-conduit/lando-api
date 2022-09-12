@@ -12,17 +12,16 @@ from types import SimpleNamespace
 import redis
 import requests
 import sqlalchemy
-import boto3
 import flask.testing
 import pytest
 import requests_mock
 from flask import current_app
-from moto import mock_s3
 from pytest_flask.plugin import JSONResponse
 
 from landoapi.app import construct_app, load_config, SUBSYSTEMS
 from landoapi.cache import cache, cache_subsystem
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
+from landoapi.models.revisions import Revision
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -201,6 +200,7 @@ def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     # We need the TESTING setting turned on to get tracebacks when testing API
     # endpoints with the TestClient.
     config["TESTING"] = True
+    config["CACHE_DISABLED"] = True
     app = construct_app(config)
     flask_app = app.app
     flask_app.test_client_class = JSONClient
@@ -226,18 +226,6 @@ def db(app):
         yield _db
         _db.session.remove()
         _db.drop_all()
-
-
-@pytest.fixture
-def s3(docker_env_vars):
-    """Provide s3 mocked connection."""
-    bucket = os.getenv("PATCH_BUCKET_NAME")
-    with mock_s3():
-        s3 = boto3.resource("s3")
-        # We need to create the bucket since this is all in Moto's
-        # 'virtual' AWS account
-        s3.create_bucket(Bucket=bucket)
-        yield s3
 
 
 @pytest.fixture
@@ -275,14 +263,12 @@ def mocked_repo_config(mock_repo_config):
                     url="http://hg.test",
                     access_group=SCM_LEVEL_3,
                     approval_required=False,
-                    legacy_transplant=True,
                 ),
                 "mozilla-uplift": Repo(
                     tree="mozilla-uplift",
                     url="http://hg.test/uplift",
                     access_group=SCM_LEVEL_3,
                     approval_required=True,
-                    legacy_transplant=True,
                 ),
                 "mozilla-new": Repo(
                     tree="mozilla-new",
@@ -464,3 +450,39 @@ def codefreeze_datetime(request_mocker):
             return dates[f"{date_string}"]
 
     return Mockdatetime
+
+
+@pytest.fixture
+def revision_from_api(phabdouble):
+    """Gets revision from the Phabricator API, given a revision.
+
+    This is useful since phabdouble.revision returns a different object than when
+    calling differential.revision.search.
+    """
+    phab = phabdouble.get_phabricator_client()
+
+    def _get(revision):
+        return phab.single(
+            phab.call_conduit(
+                "differential.revision.search",
+                constraints={"phids": [revision["phid"]]},
+            ),
+            "data",
+        )
+
+    return _get
+
+
+@pytest.fixture
+def create_revision():
+    """A fixture that creates and stores a revision."""
+
+    def _revision(patch, number=None, landing_job=None, **kwargs):
+        number = number or Revision.query.value
+        revision = Revision(revision_id=number, diff_id=number, **kwargs)
+        revision.store_patch_hash(patch.encode("utf-8"))
+        with revision.patch_cache_path.open("wb") as f:
+            f.write(patch.encode("utf-8"))
+        return revision
+
+    return _revision

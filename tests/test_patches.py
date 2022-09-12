@@ -1,10 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-
 import pytest
-
-from landoapi import patches
 
 SIMPLE_PATCH = """
 # HG changeset patch
@@ -34,21 +31,8 @@ EMPTY = ""
 LONG_LINE = "LOOOOOOONG" * 20000
 
 
-@pytest.mark.parametrize(
-    "contents", (SIMPLE_PATCH, UNICODE_CHARACTERS, EMPTY, LONG_LINE)
-)
-def test_upload_download(s3, contents):
-    url = patches.upload(
-        1, 1, contents, "landoapi.test.bucket", aws_access_key=None, aws_secret_key=None
-    )
-    patch = s3.Object("landoapi.test.bucket", patches.name(1, 1))
-    patch = patch.get()["Body"].read().decode("utf-8")
-
-    assert patch == contents
-    assert url == patches.url("landoapi.test.bucket", patches.name(1, 1))
-
-    # Now use download to fetch the buffer.
-    buf = patches.download(
-        1, 1, "landoapi.test.bucket", aws_access_key=None, aws_secret_key=None
-    )
-    assert buf.getvalue().decode("utf-8") == contents
+@pytest.mark.xfail
+def test_patch_cache():
+    # TODO: test revision.get_patch, revision.patch_cache_path, revision.patch
+    # with the above patches as parameters.
+    raise AssertionError()

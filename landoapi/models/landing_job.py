@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
 
 from landoapi.models.base import Base
+from landoapi.models.revisions import RevisionStatus
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class LandingJobStatus(enum.Enum):
     column of `LandingJob`.
     """
 
-    # Initial creation state.
+    # Ready to be picked up state.
     SUBMITTED = "SUBMITTED"
 
     # Actively being processed.
@@ -74,30 +75,17 @@ class LandingJob(Base):
     # ordered, the resulting column will have the same order
     # as the definition order of the enum. This can be relied
     # on for comparisons or things like queries with ORDER BY.
-    status = db.Column(
-        db.Enum(LandingJobStatus), nullable=False, default=LandingJobStatus.SUBMITTED
+    status = db.Column(db.Enum(LandingJobStatus), nullable=True, default=None)
+
+    # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
+    revision_to_diff_id = db.Column(JSONB, nullable=True)
+    revision_order = db.Column(JSONB, nullable=True)
+
+    revisions = db.relationship(
+        "RevisionLandingJob",
+        back_populates="landing_job",
+        order_by="RevisionLandingJob.index",
     )
-
-    # JSON object mapping string revision id of the form "<int>" (used because
-    # json keys may not be integers) to integer diff id. This is used to
-    # record the diff id used with each revision and make searching for
-    # Transplants that match a set of revisions easy (such as those
-    # in a stack).
-    # e.g.
-    #     {
-    #         "1001": 1221,
-    #         "1002": 1246,
-    #         "1003": 1412
-    #     }
-    revision_to_diff_id = db.Column(JSONB, nullable=False)
-
-    # JSON array of string revision ids of the form "<int>" (used to match
-    # the string type of revision_to_diff_id keys) listing the order
-    # of the revisions in the request from most ancestral to most
-    # descendant.
-    # e.g.
-    #     ["1001", "1002", "1003"]
-    revision_order = db.Column(JSONB, nullable=False)
 
     # Text describing errors when status != LANDED.
     error = db.Column(db.Text(), default="")
@@ -138,15 +126,12 @@ class LandingJob(Base):
 
     @property
     def landing_path(self):
-        return [(int(r), self.revision_to_diff_id[r]) for r in self.revision_order]
+        return [r.diff_id for r in self.revisions]
 
     @property
     def head_revision(self):
         """Human-readable representation of the branch head's Phabricator revision ID."""
-        assert (
-            self.revision_order
-        ), "head_revision should never be called without setting self.revision_order!"
-        return "D" + self.revision_order[-1]
+        return f"D{self.revisions[-1].revision_id}"
 
     @classmethod
     def revisions_query(cls, revisions):
@@ -197,6 +182,11 @@ class LandingJob(Base):
 
         return q
 
+    def has_non_ready_revisions(self):
+        set(r.status for r in self.get_revisions()).intersection(
+            RevisionStatus.NON_READY_STATES
+        )
+
     def transition_status(self, action, commit=False, db=None, **kwargs):
         """Change the status and other applicable fields according to actions.
 
@@ -240,6 +230,9 @@ class LandingJob(Base):
 
         self.status = actions[action]["status"]
 
+        if action == LandingJobAction.CANCEL:
+            self.ready_revisions()
+
         if action in (LandingJobAction.FAIL, LandingJobAction.DEFER):
             self.error = kwargs["message"]
 
@@ -249,14 +242,30 @@ class LandingJob(Base):
         if commit:
             db.session.commit()
 
+    def fail_revisions(self):
+        for revision in self.get_revisions():
+            revision.fail()
+
+    def land_revisions(self):
+        for revision in self.get_revisions():
+            revision.land()
+
+    def ready_revisions(self):
+        for revision in self.get_revisions():
+            revision.ready()
+
+    def get_revisions(self):
+        return [r.revision for r in self.revisions]
+
     def serialize(self):
         """Return a JSON compatible dictionary."""
         return {
             "id": self.id,
             "status": self.status.value,
+            "duration_seconds": self.duration_seconds,
             "landing_path": [
-                {"revision_id": "D{}".format(r), "diff_id": self.revision_to_diff_id[r]}
-                for r in self.revision_order
+                {"revision_id": f"D{r.revision_id}", "diff_id": r.diff_id}
+                for r in self.get_revisions()
             ],
             "error_breakdown": self.error_breakdown,
             "details": (

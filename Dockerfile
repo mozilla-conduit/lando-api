@@ -50,8 +50,13 @@ RUN cd / && pip install --no-cache /app
 ENV PYTHONPATH /app
 RUN chown -R app:app /app
 
-# Create repos directory for transplanting in landing-worker
+# Create repos directory for landing-worker and revision worker.
 RUN mkdir /repos
+RUN chown -R app:app /repos
+
+# Create patches directory to cache patches.
+RUN mkdir /patches
+RUN chown -R app:app /patches
 
 # Run as a non-privileged user
 USER app

@@ -10,6 +10,7 @@ from flask import g
 from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.models import SecApprovalRequest
+from landoapi.models.revisions import Revision
 from landoapi.projects import get_secure_project_phid
 from landoapi.revisions import revision_is_secure
 from landoapi.secapproval import send_sanitized_commit_message_for_review
@@ -90,3 +91,15 @@ def request_sec_approval(data=None):
     db.session.commit()
 
     return {}, 200
+
+
+def get_stack_hashes(revision_id):
+    """
+    Given a revision, returns revision stack hashes.
+
+    A stack hash is used to detect a change in a revision.
+    """
+    revision = Revision.query.filter(Revision.id == revision_id).one_or_none()
+    if revision:
+        return revision.stack_hashes, 200
+    return {}, 404

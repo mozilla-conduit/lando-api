@@ -13,9 +13,8 @@ from landoapi import auth
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
-from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.patches import upload
+from landoapi.models.revisions import Revision, RevisionStatus, RevisionLandingJob
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -46,7 +45,7 @@ from landoapi.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.storage import db
+from landoapi.storage import db, _lock_table_for
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
     TransplantAssessment,
@@ -55,7 +54,6 @@ from landoapi.transplants import (
     convert_path_id_to_phid,
     get_blocker_checks,
 )
-from landoapi.transplant_client import TransplantClient, TransplantError
 from landoapi.uplift import (
     get_release_managers,
 )
@@ -128,7 +126,7 @@ def _find_stack_from_landing_path(phab, landing_path):
     # TODO: This assumes that all revisions and related objects in the stack
     # have uniform view permissions for the requesting user. Some revisions
     # being restricted could cause this to fail.
-    return build_stack_graph(phab, phab.expect(revision, "phid"))
+    return build_stack_graph(revision)
 
 
 def _assess_transplant_request(phab, landing_path):
@@ -198,29 +196,6 @@ def _assess_transplant_request(phab, landing_path):
         get_testing_policy_phid(phab),
     )
     return (assessment, to_land, landing_repo, stack_data)
-
-
-def _lock_table_for(
-    db_session, mode="SHARE ROW EXCLUSIVE MODE", table=None, model=None
-):
-    """Locks a given table in the given database with the given mode.
-
-    Args:
-        db_session (SQLAlchemy.db.session): the database session to use
-        mode (str): the lock mode to apply to the table when locking
-        model (SQLAlchemy.db.model): a model to fetch the table name from
-        table (str): a string representing the table name in the database
-
-    Raises:
-        TypeError: if either both model and table arguments are missing or provided
-    """
-    if table is not None and model is not None:
-        raise TypeError("Only one of table or model should be provided")
-    if table is None and model is None:
-        raise TypeError("Missing table or model argument")
-
-    query = f"LOCK TABLE {model.__table__.name} IN {mode};"
-    db.session.execute(query)
 
 
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
@@ -315,8 +290,7 @@ def post(data):
         for member in release_managers["attachments"]["members"]["members"]
     }
 
-    # Build the patches to land.
-    patch_urls = []
+    lando_revisions = []
     for revision, diff in to_land:
         reviewers = get_collated_reviewers(revision)
         accepted_reviewers = reviewers_for_commit_message(
@@ -348,27 +322,39 @@ def post(data):
         author_name, author_email = select_diff_author(diff)
         timestamp = int(datetime.now().timestamp())
 
-        # Construct the patch that will be sent to transplant.
-        raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
-        patch = build_patch_for_revision(
-            raw_diff, author_name, author_email, commit_message, timestamp
-        )
+        with db.session.begin_nested():
+            _lock_table_for(db.session, model=LandingJob)
+            lando_revision = Revision.query.filter(
+                Revision.revision_id == revision["id"],
+                Revision.diff_id == diff["id"],
+            ).one_or_none()
+            if not lando_revision:
+                # Create a new revision, but trigger an error on the landing job.
+                lando_revision = Revision(
+                    revision_id=revision["id"], diff_id=diff["id"]
+                )
+                db.session.add(lando_revision)
 
-        # Upload the patch to S3
-        patch_url = upload(
-            revision["id"],
-            diff["id"],
-            patch,
-            current_app.config["PATCH_BUCKET_NAME"],
-            aws_access_key=current_app.config["AWS_ACCESS_KEY"],
-            aws_secret_key=current_app.config["AWS_SECRET_KEY"],
-            endpoint_url=current_app.config["S3_ENDPOINT_URL"],
-        )
-        patch_urls.append(patch_url)
+            patch_data = {
+                "author_name": author_name,
+                "author_email": author_email,
+                "commit_message": commit_message,
+                "timestamp": timestamp,
+            }
+
+            if lando_revision.patch_data != patch_data:
+                logger.info("Patch data stale, updating...")
+                lando_revision.clear_patch_cache()
+                lando_revision.patch_data = patch_data
+            db.session.commit()
+
+        # Construct the patch, and store the hash.
+        raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
+        patch = build_patch_for_revision(raw_diff, **lando_revision.patch_data)
+        lando_revision.store_patch_hash(patch.encode("utf-8"))
+        lando_revisions.append(lando_revision)
 
     ldap_username = g.auth0_user.email
-    revision_to_diff_id = {str(r["id"]): d["id"] for r, d in to_land}
-    revision_order = [str(r["id"]) for r in revisions]
     stack_ids = [r["id"] for r in stack_data.revisions.values()]
 
     submitted_assessment = TransplantAssessment(
@@ -377,105 +363,49 @@ def post(data):
         )
     )
 
-    if not landing_repo.legacy_transplant:
-        with db.session.begin_nested():
-            _lock_table_for(db.session, model=LandingJob)
-            if (
-                LandingJob.revisions_query(stack_ids)
-                .filter(
-                    LandingJob.status.in_(
-                        [LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS]
-                    )
+    with db.session.begin_nested():
+        _lock_table_for(db.session, model=LandingJob)
+        if (
+            LandingJob.revisions_query(stack_ids)
+            .filter(
+                LandingJob.status.in_(
+                    [LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS]
                 )
-                .count()
-                != 0
-            ):
-                submitted_assessment.raise_if_blocked_or_unacknowledged(None)
-
-            # Trigger a local transplant
-            job = LandingJob(
-                status=LandingJobStatus.SUBMITTED,
-                requester_email=ldap_username,
-                repository_name=landing_repo.short_name,
-                repository_url=landing_repo.url,
-                revision_to_diff_id=revision_to_diff_id,
-                revision_order=revision_order,
             )
+            .count()
+            != 0
+        ):
+            submitted_assessment.raise_if_blocked_or_unacknowledged(None)
 
-            db.session.add(job)
-
-        db.session.commit()
-        logger.info("New landing job {job.id} created for {landing_repo.tree} repo")
-        job_id = job.id
-    else:
-        trans = TransplantClient(
-            current_app.config["TRANSPLANT_URL"],
-            current_app.config["TRANSPLANT_USERNAME"],
-            current_app.config["TRANSPLANT_PASSWORD"],
+        # Trigger a local transplant
+        job = LandingJob(
+            status=None,
+            requester_email=ldap_username,
+            repository_name=landing_repo.short_name,
+            repository_url=landing_repo.url,
         )
 
-        # We pass the revision id of the base of our landing path to
-        # transplant in rev as it must be unique until the request
-        # has been serviced. While this doesn't use Autoland Transplant
-        # to enforce not requesting from the same stack again, Lando
-        # ensures this itself.
-        root_revision_id = to_land[0][0]["id"]
+        db.session.add(job)
 
-        try:
-            # WARNING: Entering critical section, do not add additional
-            # code unless absolutely necessary. Acquires a lock on the
-            # transplants table which gives exclusive write access and
-            # prevents readers who are entering this critical section.
-            # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
-            # for more details on the specifics of the lock mode.
-            with db.session.begin_nested():
-                _lock_table_for(db.session, model=Transplant)
-                if (
-                    Transplant.revisions_query(stack_ids)
-                    .filter_by(status=TransplantStatus.submitted)
-                    .first()
-                    is not None
-                ):
-                    submitted_assessment.raise_if_blocked_or_unacknowledged(None)
+    # Commit to get job ID.
+    db.session.commit()
 
-                transplant_request_id = trans.land(
-                    revision_id=root_revision_id,
-                    ldap_username=ldap_username,
-                    patch_urls=patch_urls,
-                    tree=landing_repo.tree,
-                    pingback=current_app.config["PINGBACK_URL"],
-                    push_bookmark=landing_repo.push_bookmark,
-                )
-                transplant = Transplant(
-                    request_id=transplant_request_id,
-                    revision_to_diff_id=revision_to_diff_id,
-                    revision_order=revision_order,
-                    requester_email=ldap_username,
-                    tree=landing_repo.tree,
-                    repository_url=landing_repo.url,
-                    status=TransplantStatus.submitted,
-                )
-                db.session.add(transplant)
-        except TransplantError:
-            logger.exception(
-                "error creating transplant", extra={"landing_path": str(landing_path)}
+    for index, revision in enumerate(lando_revisions):
+        # Iterate over all revisions and add the landing job + index.
+        revision.status = RevisionStatus.QUEUED
+        db.session.add(
+            RevisionLandingJob(
+                index=index, landing_job_id=job.id, revision_id=revision.id
             )
-            return problem(
-                502,
-                "Transplant not created",
-                "The requested landing_path is valid, but transplant failed."
-                "Please retry your request at a later time.",
-                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502",
-            )
-
-        # Transaction succeeded, commit the session.
+        )
+        logger.debug(f"{revision} updated with {job} and index {index}.")
         db.session.commit()
 
-        logger.info(
-            "transplant created",
-            extra={"landing_path": str(landing_path), "transplant_id": transplant.id},
-        )
-        job_id = transplant.id
+    # Submit landing job.
+    job.status = LandingJobStatus.SUBMITTED
+    db.session.commit()
+
+    logger.info(f"New landing job {job.id} created for {landing_repo.tree} repo")
 
     # Asynchronously remove the checkin project from any of the landing
     # revisions that had it.
@@ -491,20 +421,18 @@ def post(data):
             pass
 
     # Note, this response content is not being used anywhere.
-    return {"id": job_id}, 202
+    return {"id": job.id}, 202
 
 
 @require_phabricator_api_key(optional=True)
 def get_list(stack_revision_id):
     """Return a list of Transplant objects"""
     revision_id = revision_id_to_int(stack_revision_id)
+    revision = Revision.query.filter(Revision.revision_id == revision_id).one_or_none()
 
-    phab = g.phabricator
-    revision = phab.call_conduit(
-        "differential.revision.search", constraints={"ids": [revision_id]}
-    )
-    revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
+        # TODO: Try again with Phabricator perhaps, or update the message to include
+        # a blurb about the revisions not having been picked up yet from Phabricator.
         return problem(
             404,
             "Revision not found",
@@ -512,33 +440,34 @@ def get_list(stack_revision_id):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    # TODO: This assumes that all revisions and related objects in the stack
-    # have uniform view permissions for the requesting user. Some revisions
-    # being restricted could cause this to fail.
-    nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
-    revision_phids = list(nodes)
-    revs = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": revision_phids},
-        limit=len(revision_phids),
-    )
+    # Discover all revisions in the stack.
+    stacks = [r.linear_stack for r in revision.linear_stack]
+    stack = set()
+    for s in stacks:
+        stack.update(s)
 
-    # Return both transplants and landing jobs, since for repos that were switched
-    # both or either of these could be populated.
+    # revision_ids here is Phabricator revision IDs, since we track the original
+    # reference to predecessors in this way.
+    revision_ids = set()
+    for revision in stack:
+        revision_ids.update(revision.data.get("predecessor", set()))
+    revision_ids.update(set(r.revision_id for r in stack))
 
-    rev_ids = [phab.expect(r, "id") for r in phab.expect(revs, "data")]
-
-    transplants = Transplant.revisions_query(rev_ids).all()
-    landing_jobs = LandingJob.revisions_query(rev_ids).all()
-
-    if transplants and landing_jobs:
-        logger.warning(
-            "Both {} transplants and {} landing jobs found for this revision".format(
-                str(len(transplants)), str(len(landing_jobs))
-            )
+    # Now convert IDs to Lando revision IDs.
+    revisions = list(
+        zip(
+            *Revision.query.with_entities(Revision.id)
+            .filter(Revision.revision_id.in_(revision_ids))
+            .distinct()
+            .all()
         )
+    )[0]
 
-    return (
-        [t.serialize() for t in transplants] + [j.serialize() for j in landing_jobs],
-        200,
+    rljs = RevisionLandingJob.query.filter(
+        RevisionLandingJob.revision_id.in_(revisions)
+    ).all()
+    jobs = LandingJob.query.filter(
+        LandingJob.id.in_([rlj.landing_job_id for rlj in rljs])
     )
+
+    return [job.serialize() for job in jobs], 200

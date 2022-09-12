@@ -20,6 +20,7 @@ ENV PYTHONUNBUFFERED=1
 ENV FLASK_RUN_PORT=9000
 ENV FLASK_RUN_HOST=0.0.0.0
 ENV FLASK_DEBUG=1
+ENV HTTP_ALLOWED=1
 
 ENTRYPOINT ["lando-cli"]
 CMD ["run"]
@@ -48,8 +49,13 @@ RUN cd / && pip install --no-cache /app
 ENV PYTHONPATH /app
 RUN chown -R app:app /app
 
+# Create repos directory for landing worker and revision worker.
 RUN mkdir /repos
 RUN chown -R app:app /repos
+
+# Create patches directory to store cached patches.
+RUN mkdir /patches
+RUN chown -R app:app /patches
 
 # Run as a non-privileged user
 USER app

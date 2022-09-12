@@ -62,8 +62,7 @@ def put(landing_job_id, data):
         )
 
     if landing_job.status in (LandingJobStatus.SUBMITTED, LandingJobStatus.DEFERRED):
-        landing_job.transition_status(LandingJobAction.CANCEL)
-        db.session.commit()
+        landing_job.transition_status(LandingJobAction.CANCEL, commit=True, db=db)
         return {"id": landing_job.id}, 200
     else:
         raise ProblemException(
