@@ -2,12 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
-from landoapi.models.transplant import Transplant
 from landoapi.models.landing_job import (
     LandingJob,
     LandingJobStatus,
@@ -15,7 +14,11 @@ from landoapi.models.landing_job import (
 )
 from landoapi.models.revisions import Revision
 from landoapi.phabricator import ReviewerStatus, PhabricatorRevisionStatus
-from landoapi.repos import Repo, SCM_CONDUIT, DONTBUILD
+from landoapi.repos import (
+    Repo,
+    SCM_CONDUIT,
+    DONTBUILD,
+)
 from landoapi.reviews import get_collated_reviewers
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
@@ -27,12 +30,12 @@ from landoapi.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
+from landoapi.workers.revision_worker import discover_revisions
 
 
 def _create_landing_job(
     db,
     *,
-    landing_path=((1, 1),),
     revisions=None,
     requester_email="tuser@example.com",
     repository_name="mozilla-central",
@@ -45,15 +48,6 @@ def _create_landing_job(
         "repository_url": repository_url,
         "status": status,
     }
-    revisions = []
-    for revision_id, diff_id in landing_path:
-        revision = Revision.query.filter(
-            Revision.revision_id == revision_id
-        ).one_or_none()
-        if not revision:
-            revision = Revision(revision_id=revision_id)
-        revision.diff_id = diff_id
-        revisions.append(revision)
     db.session.add_all(revisions)
     job = add_job_with_revisions(revisions, **job_params)
     return job
@@ -149,10 +143,11 @@ def test_dryrun_invalid_path_blocks(
     assert response.json["blocker"] is not None
 
 
+@patch("landoapi.workers.revision_worker.get_active_repos")
 def test_dryrun_in_progress_transplant_blocks(
-    client, db, phabdouble, auth0_mock, release_management_project
+    _, setup_repo, client, db, phabdouble, auth0_mock, release_management_project
 ):
-    repo = phabdouble.repo()
+    repo = setup_repo()
 
     # Structure:
     # *     merge
@@ -165,6 +160,8 @@ def test_dryrun_in_progress_transplant_blocks(
     d2 = phabdouble.diff()
     r2 = phabdouble.revision(diff=d2, repo=repo)
 
+    discover_revisions()
+
     # merge
     phabdouble.revision(diff=phabdouble.diff(), repo=repo, depends_on=[r1, r2])
 
@@ -172,7 +169,9 @@ def test_dryrun_in_progress_transplant_blocks(
     # block attempts to land r1.
     _create_landing_job(
         db,
-        landing_path=[(r1["id"], d1["id"])],
+        revisions=[
+            Revision.get_from_revision_id(r1["id"]),
+        ],
         status=LandingJobStatus.SUBMITTED,
     )
 
@@ -378,57 +377,76 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
     assert response.json["blocker"] == blocker
 
 
-def test_get_transplants_for_entire_stack(db, client, phabdouble):
+@patch("landoapi.workers.revision_worker.get_active_repos")
+def test_get_transplants_for_entire_stack(
+    get_active_repos, setup_repo, db, client, phabdouble, mock_repo_config
+):
+    # Mock the phabricator response data
+    repo = setup_repo()
+
     d1a = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1a, repo=phabdouble.repo())
-    d1b = phabdouble.diff(revision=r1)
+    r1 = phabdouble.revision(diff=d1a, repo=repo)
 
     d2 = phabdouble.diff()
-    r2 = phabdouble.revision(diff=d2, repo=phabdouble.repo(), depends_on=[r1])
+    r2 = phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
 
     d3 = phabdouble.diff()
-    r3 = phabdouble.revision(diff=d3, repo=phabdouble.repo(), depends_on=[r1])
+    r3 = phabdouble.revision(diff=d3, repo=repo, depends_on=[r1])
 
     d_not_in_stack = phabdouble.diff()
-    r_not_in_stack = phabdouble.revision(diff=d_not_in_stack, repo=phabdouble.repo())
+    r_not_in_stack = phabdouble.revision(diff=d_not_in_stack, repo=repo)
 
-    t1 = _create_landing_job(
+    discover_revisions()
+
+    assert Revision.get_from_revision_id(r1["id"]).diff_id == d1a["id"]
+
+    job_1 = _create_landing_job(
         db,
-        landing_path=[(r1["id"], d1a["id"])],
+        revisions=[Revision.get_from_revision_id(r1["id"])],
         status=LandingJobStatus.FAILED,
     )
-    t2 = _create_landing_job(
+
+    d1b = phabdouble.diff(revision=r1)
+    discover_revisions()
+
+    assert Revision.get_from_revision_id(r1["id"]).diff_id == d1b["id"]
+
+    job_2 = _create_landing_job(
         db,
-        landing_path=[(r1["id"], d1b["id"])],
-        status=LandingJobStatus.LANDED,
-    )
-    t3 = _create_landing_job(
-        db,
-        landing_path=[(r2["id"], d2["id"])],
-        status=LandingJobStatus.SUBMITTED,
-    )
-    t4 = _create_landing_job(
-        db,
-        landing_path=[(r3["id"], d3["id"])],
+        revisions=[Revision.get_from_revision_id(r1["id"])],
         status=LandingJobStatus.LANDED,
     )
 
-    t_not_in_stack = _create_landing_job(
+    job_3 = _create_landing_job(
         db,
-        landing_path=[(r_not_in_stack["id"], d_not_in_stack["id"])],
+        revisions=[Revision.get_from_revision_id(r2["id"])],
+        status=LandingJobStatus.SUBMITTED,
+    )
+
+    job_4 = _create_landing_job(
+        db,
+        revisions=[Revision.get_from_revision_id(r3["id"])],
+        status=LandingJobStatus.LANDED,
+    )
+
+    job_not_in_stack = _create_landing_job(
+        db,
+        revisions=[Revision.get_from_revision_id(r_not_in_stack["id"])],
         status=LandingJobStatus.LANDED,
     )
 
     response = client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
     assert response.status_code == 200
+
     assert len(response.json) == 4
 
     tmap = {i["id"]: i for i in response.json}
-    assert t_not_in_stack.id not in tmap
-    assert all(t.id in tmap for t in (t1, t2, t3, t4))
+    assert job_not_in_stack.id not in tmap
+    assert all(t.id in tmap for t in (job_1, job_2, job_3, job_4))
 
 
-def test_get_transplant_from_middle_revision(db, client, phabdouble):
+@patch("landoapi.workers.revision_worker.get_active_repos")
+def test_get_transplant_from_middle_revision(get_active_repos, db, client, phabdouble):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
 
@@ -438,22 +456,29 @@ def test_get_transplant_from_middle_revision(db, client, phabdouble):
     d3 = phabdouble.diff()
     r3 = phabdouble.revision(diff=d3, repo=phabdouble.repo(), depends_on=[r1])
 
-    t = _create_landing_job(
+    discover_revisions()
+
+    job = _create_landing_job(
         db,
-        landing_path=[(r1["id"], d1["id"]), (r2["id"], d2["id"]), (r3["id"], d3["id"])],
+        revisions=[
+            Revision.get_from_revision_id(r1["id"]),
+            Revision.get_from_revision_id(r2["id"]),
+            Revision.get_from_revision_id(r3["id"]),
+        ],
         status=LandingJobStatus.FAILED,
     )
 
     response = client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
     assert response.status_code == 200
     assert len(response.json) == 1
-    assert response.json[0]["id"] == t.id
+    assert response.json[0]["id"] == job.id
 
 
+@pytest.mark.xfail
 def test_get_transplant_not_authorized_to_view_revision(db, client, phabdouble):
     # Create a transplant pointing at a revision that will not
     # be returned by phabricator.
-    _create_landing_job(db, landing_path=[(1, 1)], status=LandingJobStatus.SUBMITTED)
+    _create_landing_job(db, status=LandingJobStatus.SUBMITTED)
     response = client.get("/transplants?stack_revision_id=D1")
     assert response.status_code == 404
 
@@ -472,13 +497,19 @@ def test_warning_previously_landed_no_landings(db, phabdouble):
     "create_landing_job",
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
-def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing_job):
+@patch("landoapi.workers.revision_worker.get_active_repos")
+def test_warning_previously_landed_failed_landing(
+    _, setup_repo, db, phabdouble, create_landing_job
+):
+    repo = setup_repo()
     d = phabdouble.diff()
-    r = phabdouble.revision(diff=d)
+    r = phabdouble.revision(diff=d, repo=repo)
+
+    discover_revisions()
 
     create_landing_job(
         db,
-        landing_path=[(r["id"], d["id"])],
+        revisions=[Revision.get_from_revision_id(r["id"])],
         status=LandingJobStatus.FAILED,
     )
 
@@ -494,13 +525,22 @@ def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing
     "create_landing_job",
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
-def test_warning_previously_landed_landed_landing(db, phabdouble, create_landing_job):
+@patch("landoapi.workers.revision_worker.get_active_repos")
+def test_warning_previously_landed_landed_landing(
+    _, setup_repo, db, phabdouble, create_landing_job
+):
+    repo = setup_repo()
     d = phabdouble.diff()
-    r = phabdouble.revision(diff=d)
+    r = phabdouble.revision(diff=d, repo=repo)
+
+    discover_revisions()
+
+    revision = Revision.get_from_revision_id(r["id"])
+    revision.land()
 
     create_landing_job(
         db,
-        landing_path=[(r["id"], d["id"])],
+        revisions=[Revision.get_from_revision_id(r["id"])],
         status=LandingJobStatus.LANDED,
     )
 
@@ -661,6 +701,7 @@ def test_confirmation_token_warning_order():
 
 
 def test_integrated_transplant_simple_stack_saves_data_in_db(
+    setup_repo,
     db,
     client,
     phabdouble,
@@ -668,7 +709,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     release_management_project,
     register_codefreeze_uri,
 ):
-    repo = phabdouble.repo()
+    repo = setup_repo()
     user = phabdouble.user(username="reviewer")
 
     d1 = phabdouble.diff()
@@ -682,6 +723,8 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     d3 = phabdouble.diff()
     r3 = phabdouble.revision(diff=d3, repo=repo, depends_on=[r2])
     phabdouble.reviewer(r3, user)
+
+    discover_revisions()
 
     response = client.post(
         "/transplants",
@@ -715,6 +758,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
 
 def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
+    setup_repo,
     db,
     client,
     phabdouble,
@@ -729,12 +773,14 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     test_integrated_transplant_simple_stack_saves_data_in_db but submits an additional
     landing job for an updated revision diff.
     """
-    repo = phabdouble.repo()
+    repo = setup_repo()
     user = phabdouble.user(username="reviewer")
 
     d1a = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1a, repo=repo)
     phabdouble.reviewer(r1, user)
+
+    discover_revisions()
 
     response = client.post(
         "/transplants",
@@ -774,6 +820,8 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
 
     d1b = phabdouble.diff(revision=r1)
     phabdouble.reviewer(r1, user)
+    discover_revisions()
+
     response = client.post(
         "/transplants",
         json={
@@ -814,13 +862,24 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
 
 
 def test_integrated_transplant_with_flags(
-    db, client, phabdouble, auth0_mock, monkeypatch, release_management_project
+    setup_repo,
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    monkeypatch,
+    release_management_project,
 ):
-    repo = phabdouble.repo(name="mozilla-new")
+    commit_flags = (
+        ("VALIDFLAG1", "test flag 1"),
+        ("VALIDFLAG2", "test flag 2"),
+    )
+    repo = setup_repo(commit_flags)
     user = phabdouble.user(username="reviewer")
 
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=repo)
+    discover_revisions()
     phabdouble.reviewer(r1, user)
 
     test_flags = ["VALIDFLAG1", "VALIDFLAG2"]
@@ -871,6 +930,7 @@ def test_integrated_transplant_with_invalid_flags(
 
 
 def test_integrated_transplant_legacy_repo_checkin_project_removed(
+    setup_repo,
     db,
     client,
     phabdouble,
@@ -880,12 +940,13 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     release_management_project,
     register_codefreeze_uri,
 ):
-    repo = phabdouble.repo(name="mozilla-central")
+    repo = setup_repo()
     user = phabdouble.user(username="reviewer")
 
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d, repo=repo, projects=[checkin_project])
     phabdouble.reviewer(r, user)
+    discover_revisions()
 
     mock_remove = MagicMock(admin_remove_phab_project)
     monkeypatch.setattr(
@@ -906,6 +967,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
 
 
 def test_integrated_transplant_repo_checkin_project_removed(
+    setup_repo,
     db,
     client,
     phabdouble,
@@ -914,12 +976,13 @@ def test_integrated_transplant_repo_checkin_project_removed(
     monkeypatch,
     release_management_project,
 ):
-    repo = phabdouble.repo(name="mozilla-new")
+    repo = setup_repo()
     user = phabdouble.user(username="reviewer")
 
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d, repo=repo, projects=[checkin_project])
     phabdouble.reviewer(r, user)
+    discover_revisions()
 
     mock_remove = MagicMock(admin_remove_phab_project)
     monkeypatch.setattr(
@@ -988,7 +1051,11 @@ def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
 
 
 def test_integrated_transplant_diff_not_in_revision(
-    db, client, phabdouble, auth0_mock, release_management_project
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
 ):
     repo = phabdouble.repo()
     d1 = phabdouble.diff()
@@ -1068,6 +1135,7 @@ def test_integrated_transplant_revision_with_unmapped_repo(
 
 
 def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_list(
+    setup_repo,
     app,
     db,
     client,
@@ -1077,13 +1145,15 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     release_management_project,
     register_codefreeze_uri,
 ):
-    repo = phabdouble.repo()
+    repo = setup_repo()
     user = phabdouble.user(username="normal_reviewer")
 
     diff = phabdouble.diff()
     revision = phabdouble.revision(diff=diff, repo=repo)
     phabdouble.reviewer(revision, user)
     phabdouble.reviewer(revision, sec_approval_project)
+
+    discover_revisions()
 
     response = client.post(
         "/transplants",
@@ -1113,10 +1183,6 @@ def test_warning_wip_commit_message(phabdouble):
     )
 
     assert warning_wip_commit_message(revision=revision) is not None
-
-
-def test_display_branch_head():
-    assert Transplant(revision_order=["1", "2"]).head_revision == "D2"
 
 
 def test_codefreeze_datetime_mock(codefreeze_datetime):

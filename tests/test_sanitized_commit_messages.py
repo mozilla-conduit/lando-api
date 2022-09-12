@@ -7,6 +7,7 @@ from landoapi.models.revisions import Revision
 from landoapi.phabricator import PhabricatorClient
 from landoapi.revisions import find_title_and_summary_for_landing
 from landoapi.secapproval import SECURE_COMMENT_TEMPLATE, CommentParseError
+from landoapi.workers.revision_worker import discover_revisions
 
 
 @pytest.fixture(autouse=True)
@@ -79,6 +80,7 @@ def test_integrated_empty_commit_message_is_an_error(
 def test_integrated_secure_stack_has_alternate_commit_message(
     db,
     client,
+    setup_repo,
     phabdouble,
     mock_repo_config,
     secure_project,
@@ -99,6 +101,7 @@ def test_integrated_secure_stack_has_alternate_commit_message(
         monkeypatch,
         phabdouble,
         secure_project,
+        setup_repo(),
     )
 
     # Request the revision from Lando. It should have our new title and summary.
@@ -137,6 +140,7 @@ def test_integrated_secure_stack_without_sec_approval_does_not_use_secure_messag
 def test_integrated_sec_approval_transplant_uses_alternate_message(
     app,
     db,
+    setup_repo,
     client,
     phabdouble,
     auth0_mock,
@@ -158,7 +162,9 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
         monkeypatch,
         phabdouble,
         secure_project,
+        setup_repo(),
     )
+    discover_revisions()
 
     # Get our list of warnings so we can get the confirmation token, acknowledge them,
     # and land the request.
@@ -205,6 +211,7 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
 def test_integrated_sec_approval_problem_halts_landing(
     app,
     db,
+    setup_repo,
     client,
     phabdouble,
     auth0_mock,
@@ -227,6 +234,7 @@ def test_integrated_sec_approval_problem_halts_landing(
         monkeypatch,
         phabdouble,
         secure_project,
+        setup_repo(),
         sec_approval_comment_body=mangled_request_comment,
     )
 
@@ -295,7 +303,7 @@ def test_find_title_and_summary_for_landing_of_secure_revision_without_sec_appro
 
 
 def test_find_title_and_summary_for_landing_of_secure_rev_with_sec_approval(
-    db, client, monkeypatch, authed_headers, phabdouble, secure_project
+    db, client, setup_repo, monkeypatch, authed_headers, phabdouble, secure_project
 ):
     sanitized_title = "my secure commit title"
     revision_title = "original insecure title"
@@ -309,6 +317,7 @@ def test_find_title_and_summary_for_landing_of_secure_rev_with_sec_approval(
         monkeypatch,
         phabdouble,
         secure_project,
+        setup_repo(),
     )
     revision = phabdouble.api_object_for(revision)
 
@@ -328,6 +337,7 @@ def _make_sec_approval_request(
     monkeypatch,
     phabdouble,
     secure_project,
+    repo,
     sec_approval_comment_body=None,
 ):
     diff = phabdouble.diff()
@@ -342,7 +352,7 @@ def _make_sec_approval_request(
     # Build a secure revision.
     secure_revision = phabdouble.revision(
         diff=diff,
-        repo=phabdouble.repo(),
+        repo=repo,
         projects=[secure_project],
         title=revision_title,
     )

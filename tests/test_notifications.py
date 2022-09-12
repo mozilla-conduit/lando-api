@@ -96,7 +96,7 @@ def test_notify_user_of_landing_failure(
     job.revisions.append(Revision())
     notify_user_of_landing_failure(
         job.requester_email,
-        job.head_revision,
+        "D1234",
         job.error,
         job.id,
     )

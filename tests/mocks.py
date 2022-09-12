@@ -1045,6 +1045,7 @@ class PhabricatorDouble:
             revision["stackGraph"] = get_stack(revision["phid"], self)
             items.append(revision)
 
+        # TODO: add repo constraints to test feature flag.
         if constraints and "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]
 

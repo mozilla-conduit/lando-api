@@ -45,7 +45,7 @@ LIST = r"[;,\/\\]\s*"
 IRC_NICK = r"[a-zA-Z0-9\-\_.]*[a-zA-Z0-9\-\_]+"
 
 # fmt: off
-REVIEWERS_RE = re.compile(  # noqa: E131
+REVIEWERS_RE = re.compile(
     r"([\s\(\.\[;,])"                   # before "r" delimiter
     + r"(" + SPECIFIER + r")"           # flag
     + r"("                              # capture all reviewers
@@ -209,3 +209,6 @@ def bug_list_to_commit_string(bug_ids: Iterable[str]) -> str:
         return "No bug"
 
     return f"Bug {', '.join(sorted(set(bug_ids)))}"
+
+
+# flake8: noqa: E131

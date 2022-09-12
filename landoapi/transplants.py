@@ -14,7 +14,12 @@ from flask import current_app
 
 from landoapi.repos import Repo, get_repos_for_env
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.models.revisions import DiffWarning, DiffWarningStatus
+from landoapi.models.revisions import (
+    DiffWarning,
+    DiffWarningStatus,
+    Revision,
+    RevisionStatus,
+)
 from landoapi.phabricator import (
     PhabricatorClient,
     ReviewerStatus,
@@ -376,6 +381,38 @@ def warning_unresolved_comments(*, phab, revision, **kwargs):
         return "Revision has unresolved comments."
 
 
+@RevisionWarningCheck(10, "Revision has revision worker warnings.", True)
+def warning_revision_worker(*, phab, revision, repo, **kwargs):
+    """Check for any warnings based on revision worker."""
+    revision_id = revision["id"]
+    diff_id = revision["fields"]["diffID"]
+
+    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    repo = supported_repos[repo["fields"]["shortName"]]
+    if not repo.use_revision_worker:
+        return
+
+    lando_revision = Revision.query.filter(
+        Revision.revision_id == revision_id
+    ).one_or_none()
+    message = ""
+    if not lando_revision:
+        message = "No lando revision found."
+    elif diff_id and lando_revision.diff_id and int(diff_id) != lando_revision.diff_id:
+        message = "Lando has not checked the latest diff yet."
+    elif lando_revision.status == RevisionStatus.QUEUED:
+        message = "Revision is queued for landing, please wait."
+    elif lando_revision.status == RevisionStatus.LANDED:
+        message = "Revision has already landed. Please wait until it is closed."
+    elif lando_revision.status == RevisionStatus.LANDING:
+        message = "Revision is landing."
+    elif lando_revision.status == RevisionStatus.PROBLEM:
+        message = lando_revision.data.get("error", "An unknown error has occurred.")
+
+    if message:
+        return [{"message": message}]
+
+
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return (
@@ -423,6 +460,7 @@ def check_landing_warnings(
         warning_wip_commit_message,
         warning_code_freeze,
         warning_unresolved_comments,
+        warning_revision_worker,
     ],
 ):
     assessment = TransplantAssessment()

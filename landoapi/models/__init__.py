@@ -3,11 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from landoapi.models.landing_job import LandingJob
-from landoapi.models.revisions import Revision
 from landoapi.models.secapproval import SecApprovalRequest
 from landoapi.models.transplant import Transplant
 from landoapi.models.configuration import ConfigurationVariable
-from landoapi.models.revisions import DiffWarning
+from landoapi.models.revisions import DiffWarning, Revision
 
 __all__ = [
     "LandingJob",
