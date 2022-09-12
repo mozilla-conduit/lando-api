@@ -1,12 +1,12 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import copy
 from contextlib import contextmanager
+from pathlib import Path
 import configparser
+import copy
 import logging
 import os
-from pathlib import Path
 import shlex
 import shutil
 import tempfile
@@ -519,3 +519,13 @@ class HgRepo:
 
         with checkout_file_path.open() as f:
             return f.read()
+
+    def has_incoming(self, source: str) -> bool:
+        """Check if there are any incoming changes from the remote repo."""
+        try:
+            self.run_hg(["incoming", source, "--limit", "1"])
+        except hglib.error.CommandError as e:
+            if b"no changes found" not in e.out:
+                logger.error(e)
+            return False
+        return True

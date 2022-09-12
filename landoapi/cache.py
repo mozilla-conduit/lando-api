@@ -26,12 +26,14 @@ class CacheSubsystem(Subsystem):
 
     def init_app(self, app):
         super().init_app(app)
-
         host = self.flask_app.config.get("CACHE_REDIS_HOST")
-        if not host:
+        if self.flask_app.config.get("CACHE_DISABLED"):
             # Default to not caching for testing.
-            logger.warning("Cache initialized in null mode, caching disabled.")
-            cache_config = {"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True}
+            logger.warning("Cache initialized in null mode.")
+            cache_config = {"CACHE_TYPE": "NullCache"}
+        elif not host:
+            logger.warning("Cache initialized in filesystem mode.")
+            cache_config = {"CACHE_TYPE": "FileSystemCache", "CACHE_DIR": "/tmp/cache"}
         else:
             cache_config = {"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": host}
             config_keys = ("CACHE_REDIS_PORT", "CACHE_REDIS_PASSWORD", "CACHE_REDIS_DB")

@@ -19,17 +19,16 @@ from landoapi.phabricator import (
     RevisionStatus,
 )
 
+from landoapi.models.revisions import Revision, RevisionStatus as RV
+
 logger = logging.getLogger(__name__)
 
 
-def build_stack_graph(
-    phab: PhabricatorClient, revision_phid: str
-) -> Tuple[Set[str], Set[Tuple[str, str]]]:
+def build_stack_graph(revision: dict) -> Tuple[Set[str], Set[Tuple[str, str]]]:
     """Return a graph representation of a revision stack.
 
     Args:
-        phab: A landoapi.phabricator.PhabricatorClient.
-        revision_phid: String PHID of a revision in the stack.
+        revision: A dictionary containing Phabricator revision data.
 
     Returns:
         A tuple of (nodes, edges). `nodes` is a set of strings
@@ -38,13 +37,6 @@ def build_stack_graph(
         between two nodes. `child` and `parent` are also string
         PHIDs.
     """
-    result = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": [revision_phid]},
-        limit=1,
-    )
-
-    revision = PhabricatorClient.single(result, "data")
     stack_graph = PhabricatorClient.expect(revision, "fields", "stackGraph")
     phids = set(stack_graph.keys())
     edges = set()
@@ -190,6 +182,24 @@ def calculate_landable_subgraphs(
 
         if repo not in landable_repos:
             block(phid, "Repository is not supported by Lando.")
+
+        # Check for any blockers in Lando.
+        lando_revision = Revision.query.filter(
+            Revision.revision_id == revision["id"]
+        ).one_or_none()
+        if not lando_revision:
+            # TODO: check repo to see if it supports revision worker.
+            continue
+        elif lando_revision.status == RV.QUEUED:
+            block(phid, "Revision is queued for landing, please wait.")
+        elif lando_revision.status == RV.LANDED:
+            block(phid, "Revision has already landed. Please wait until it is closed.")
+        elif lando_revision.status == RV.LANDING:
+            block(phid, "Revision is landing.")
+        elif lando_revision.status == RV.PROBLEM:
+            block(
+                phid, lando_revision.data.get("error", "An unknown error has occurred.")
+            )
 
     # We only want to consider paths starting from the open revisions
     # do grab the status for all revisions.

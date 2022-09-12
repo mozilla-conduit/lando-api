@@ -42,7 +42,7 @@ LIST = r"[;,\/\\]\s*"
 IRC_NICK = r"[a-zA-Z0-9\-\_.]*[a-zA-Z0-9\-\_]+"
 
 # fmt: off
-REVIEWERS_RE = re.compile(  # noqa: E131
+REVIEWERS_RE = re.compile(
     r"([\s\(\.\[;,])"                   # before "r" delimiter
     + r"(" + SPECIFIER + r")"           # flag
     + r"("                              # capture all reviewers
@@ -198,3 +198,6 @@ def split_title_and_summary(msg: str) -> Tuple[str, str]:
     tail = parts[1:]
     summary = "\n".join(tail).strip()
     return title, summary
+
+
+# flake8: noqa: E131

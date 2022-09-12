@@ -14,9 +14,6 @@ import click
 import connexion
 from flask.cli import FlaskGroup
 
-from landoapi import (
-    patches,
-)
 from landoapi.models.configuration import (
     ConfigurationVariable,
     ConfigurationKey,
@@ -58,18 +55,6 @@ def cli():
     """Lando API cli."""
 
 
-@cli.command()
-def init_s3():
-    """Initialize fake S3 bucket for development purposes."""
-    # Create a fake S3 bucket, ie for moto.
-    s3 = patches.create_s3(
-        aws_access_key=os.environ["AWS_ACCESS_KEY"],
-        aws_secret_key=os.environ["AWS_SECRET_KEY"],
-        endpoint_url=os.environ["S3_ENDPOINT_URL"],
-    )
-    s3.create_bucket(Bucket=os.environ["PATCH_BUCKET_NAME"])
-
-
 @cli.command(context_settings=dict(ignore_unknown_options=True))
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def worker(celery_arguments):
@@ -84,18 +69,62 @@ def worker(celery_arguments):
     celery.worker_main((sys.argv[0],) + celery_arguments)
 
 
-@cli.command(name="landing-worker")
-def landing_worker():
+@cli.command(name="start-landing-worker")
+def start_landing_worker():
     from landoapi.app import auth0_subsystem, lando_ui_subsystem
+    from landoapi.workers.landing_worker import LandingWorker
 
     exclusions = [auth0_subsystem, lando_ui_subsystem]
     for system in get_subsystems(exclude=exclusions):
         system.ensure_ready()
 
-    from landoapi.landing_worker import LandingWorker
+    ConfigurationVariable.set(LandingWorker.STOP_KEY, VariableType.BOOL, "0")
 
     worker = LandingWorker()
     worker.start()
+
+
+@cli.command(name="stop-landing-worker")
+def stop_landing_worker():
+    from landoapi.workers.landing_worker import LandingWorker
+    from landoapi.storage import db_subsystem
+
+    db_subsystem.ensure_ready()
+    ConfigurationVariable.set(LandingWorker.STOP_KEY, VariableType.BOOL, "1")
+
+
+@cli.command(name="start-revision-worker")
+@click.argument("role")
+def start_revision_worker(role):
+    from landoapi.app import auth0_subsystem, lando_ui_subsystem
+    from landoapi.workers.revision_worker import RevisionWorker, Supervisor, Processor
+
+    roles = {
+        "processor": Processor,
+        "supervisor": Supervisor,
+    }
+
+    if role not in roles:
+        raise ValueError(f"Unknown worker role specified ({role}).")
+
+    exclusions = [auth0_subsystem, lando_ui_subsystem]
+    for system in get_subsystems(exclude=exclusions):
+        system.ensure_ready()
+
+    ConfigurationVariable.set(RevisionWorker.STOP_KEY, VariableType.BOOL, "0")
+
+    worker = roles[role]()
+    worker.start()
+
+
+@cli.command(name="stop-revision-worker")
+def stop_revision_worker():
+    """Stops all revision workers (supervisor and processors)."""
+    from landoapi.workers.revision_worker import RevisionWorker
+    from landoapi.storage import db_subsystem
+
+    db_subsystem.ensure_ready()
+    RevisionWorker.stop()
 
 
 @cli.command(name="run-pre-deploy-sequence")

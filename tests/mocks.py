@@ -60,7 +60,7 @@ def validate_hunk(hunk):
     assert isinstance(hunk["corpus"], str)
     lines = hunk["corpus"].splitlines()
     assert len(lines) > 0
-    assert all([l[0] in (" ", "-", "+") for l in lines])
+    assert all([line[0] in (" ", "-", "+") for line in lines])
 
     return True
 
@@ -235,6 +235,30 @@ class PhabricatorDouble:
     @staticmethod
     def get_phabricator_client():
         return PhabricatorClient("https://localhost", "DOESNT-MATTER")
+
+    def update_revision_dependencies(self, phid: str, depends_on: list[str]):
+        """Updates edges of `phid` so they match `depends_on`."""
+        # Remove all previous edges related to this revision.
+        def philter(edge):
+            return phid not in (edge["sourcePHID"], edge["destinationPHID"])
+
+        self._edges = list(filter(philter, self._edges))
+
+        for rev in depends_on:
+            self._edges.append(
+                {
+                    "edgeType": "revision.parent",
+                    "sourcePHID": phid,
+                    "destinationPHID": rev["phid"],
+                }
+            )
+            self._edges.append(
+                {
+                    "edgeType": "revision.child",
+                    "sourcePHID": rev["phid"],
+                    "destinationPHID": phid,
+                }
+            )
 
     def revision(
         self,
@@ -953,6 +977,7 @@ class PhabricatorDouble:
                     },
                     "repositoryPHID": i["repositoryPHID"],
                     "diffPHID": diffs[-1]["phid"],
+                    "diffID": diffs[-1]["id"],
                     "summary": i["summary"],
                     "dateCreated": i["dateCreated"],
                     "dateModified": i["dateModified"],
@@ -1000,6 +1025,7 @@ class PhabricatorDouble:
             r["stack_graph"] = get_stack(r["phid"], self)
             items.append(r)
 
+        # TODO: add repo constraints to test feature flag.
         if constraints and "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]
 
