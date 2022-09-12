@@ -328,18 +328,16 @@ def warning_code_freeze(*, repo, **kwargs):
     if not freeze_date_str or not merge_date_str:
         return
 
-    # The code freeze dates generally correspond to PST work days.
-    utc_offset = "-0800"
     today = datetime.now(tz=timezone.utc)
     freeze_date = datetime.strptime(
-        f"{freeze_date_str} {utc_offset}",
+        f"{freeze_date_str} {DiffWarning.code_freeze_offset}",
         "%Y-%m-%d %z",
     ).replace(tzinfo=timezone.utc)
     if today < freeze_date:
         return
 
     merge_date = datetime.strptime(
-        f"{merge_date_str} {utc_offset}",
+        f"{merge_date_str} {DiffWarning.code_freeze_offset}",
         "%Y-%m-%d %z",
     ).replace(tzinfo=timezone.utc)
 

@@ -189,10 +189,14 @@ def test_dryrun_codefreeze_warn(
         headers=auth0_mock.mock_headers,
     )
 
-    assert 200 == response.status_code
-    assert "application/json" == response.content_type
-    assert response.json["warnings"]
-    assert response.json["warnings"][0]["id"] == 8
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert response.json[
+        "warnings"
+    ], "warnings should not be empty for a repo under code freeze"
+    assert (
+        response.json["warnings"][0]["id"] == 8
+    ), "the warning ID should match the ID for warning_code_freeze"
     assert response.json["confirmation_token"] is not None
 
 
@@ -242,8 +246,8 @@ def test_dryrun_outside_codefreeze(
         headers=auth0_mock.mock_headers,
     )
 
-    assert 200 == response.status_code
-    assert "application/json" == response.content_type
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
     assert not response.json["warnings"]
 
 
