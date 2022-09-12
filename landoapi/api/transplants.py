@@ -364,7 +364,7 @@ def post(phab: PhabricatorClient, data: dict):
         }
 
         raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
-        lando_revision.set_patch(raw_diff, patch_data)
+        lando_revision.set_patch(raw_diff, patch_data, final=True)
         db.session.commit()
         lando_revisions.append(lando_revision)
 
@@ -445,11 +445,9 @@ def get_list(phab: PhabricatorClient, stack_revision_id: str):
         limit=len(revision_phids),
     )
 
-    # Return both transplants and landing jobs, since for repos that were switched
-    # both or either of these could be populated.
-
     rev_ids = [phab.expect(r, "id") for r in phab.expect(revs, "data")]
 
+    # Find landing jobs based on related revisions or legacy revision_to_diff_id field.
     landing_jobs = LandingJob.revisions_query(rev_ids).all()
 
     return [job.serialize() for job in landing_jobs], 200

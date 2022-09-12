@@ -25,16 +25,22 @@ def test_build_stack_graph_single_node(phabdouble):
 
 
 def test_build_stack_graph_two_nodes(phabdouble):
-    r1 = phabdouble.revision()
-    r2 = phabdouble.revision(depends_on=[r1])
+    _r1 = phabdouble.revision()
+    _r2 = phabdouble.revision(depends_on=[_r1])
 
-    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
-    assert nodes == {r1["phid"], r2["phid"]}
+    r1 = phabdouble.api_object_for(_r1)
+    r2 = phabdouble.api_object_for(_r2)
+
+    assert r1["phid"] == _r1["phid"]
+    assert r2["phid"] == _r2["phid"]
+
+    nodes, edges = build_stack_graph(r1)
+    assert nodes == {_r1["phid"], _r2["phid"]}
     assert len(edges) == 1
-    assert edges == {(r2["phid"], r1["phid"])}
+    assert edges == {(_r2["phid"], _r1["phid"])}
 
     # Building from either revision should result in same graph.
-    nodes2, edges2 = build_stack_graph(phabdouble.api_object_for(r2))
+    nodes2, edges2 = build_stack_graph(r2)
     assert nodes2 == nodes
     assert edges2 == edges
 
@@ -279,7 +285,7 @@ def test_request_extended_revision_data_raises_value_error(phabdouble):
     assert e.value.args[0] == "Mismatch in size of returned data."
 
 
-def test_calculate_landable_subgraphs_no_edges_open(phabdouble):
+def test_calculate_landable_subgraphs_no_edges_open(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -292,7 +298,7 @@ def test_calculate_landable_subgraphs_no_edges_open(phabdouble):
     assert landable[0] == [revision["phid"]]
 
 
-def test_calculate_landable_subgraphs_no_edges_closed(phabdouble):
+def test_calculate_landable_subgraphs_no_edges_closed(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -306,7 +312,7 @@ def test_calculate_landable_subgraphs_no_edges_closed(phabdouble):
     assert not landable
 
 
-def test_calculate_landable_subgraphs_closed_root(phabdouble):
+def test_calculate_landable_subgraphs_closed_root(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -320,7 +326,7 @@ def test_calculate_landable_subgraphs_closed_root(phabdouble):
     assert landable == [[r2["phid"]]]
 
 
-def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble):
+def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -341,7 +347,7 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble):
     assert landable == [[r1["phid"], r2["phid"], r4["phid"]]]
 
 
-def test_calculate_landable_subgraphs_stops_multiple_repo_paths(phabdouble):
+def test_calculate_landable_subgraphs_stops_multiple_repo_paths(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -361,7 +367,7 @@ def test_calculate_landable_subgraphs_stops_multiple_repo_paths(phabdouble):
     assert landable == [[r1["phid"], r2["phid"]]]
 
 
-def test_calculate_landable_subgraphs_allows_distinct_repo_paths(phabdouble):
+def test_calculate_landable_subgraphs_allows_distinct_repo_paths(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -387,7 +393,7 @@ def test_calculate_landable_subgraphs_allows_distinct_repo_paths(phabdouble):
     assert [r3["phid"], r4["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_different_repo_parents(phabdouble):
+def test_calculate_landable_subgraphs_different_repo_parents(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -411,7 +417,7 @@ def test_calculate_landable_subgraphs_different_repo_parents(phabdouble):
     assert [r2["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble):
+def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
@@ -434,7 +440,7 @@ def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble):
     assert [r2["phid"], r3["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble):
+def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -471,7 +477,7 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble):
     assert [r1["phid"], r6["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_complex_graph(phabdouble):
+def test_calculate_landable_subgraphs_complex_graph(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repoA = phabdouble.repo(name="repoA")
@@ -554,7 +560,7 @@ def test_calculate_landable_subgraphs_complex_graph(phabdouble):
     assert [rB1["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_extra_check(phabdouble):
+def test_calculate_landable_subgraphs_extra_check(phabdouble, db):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -790,3 +796,23 @@ def test_revisionstack_stack():
         "Iterating over the stack from the root to a non-tip node should "
         "result in only the path from root to `head` as the response."
     )
+
+
+def test_get_stacks(phabdouble):
+    from landoapi.workers.revision_worker import get_stacks
+
+    r1a = phabdouble.revision()
+    r2a = phabdouble.revision(depends_on=[r1a])
+    r3a = phabdouble.revision(depends_on=[r2a])
+
+    r1b = phabdouble.revision()
+    r2b = phabdouble.revision(depends_on=[r1b])
+    r3b = phabdouble.revision(depends_on=[r2b])
+
+    result = phabdouble.call_conduit("differential.revision.search")
+    input_revisions = {r["phid"]: r for r in result["data"]}
+    test = get_stacks(input_revisions)
+
+    assert len(test) == 2
+    assert set(test[0].nodes) == {r1a["phid"], r2a["phid"], r3a["phid"]}
+    assert set(test[1].nodes) == {r1b["phid"], r2b["phid"], r3b["phid"]}

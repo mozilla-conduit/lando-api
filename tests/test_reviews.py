@@ -70,7 +70,9 @@ def test_collate_reviewer_attachments_n_reviewers(phabdouble, n_reviewers):
 
 
 def test_sec_approval_is_filtered_from_commit_message_reviewer_list(
-    phabdouble, secure_project, sec_approval_project
+    phabdouble,
+    secure_project,
+    sec_approval_project,
 ):
     revision = phabdouble.revision(projects=[secure_project])
     user = phabdouble.user(username="normal_reviewer")
@@ -95,7 +97,9 @@ def test_sec_approval_is_filtered_from_commit_message_reviewer_list(
 
 
 def test_approvals_for_commit_message(
-    phabdouble, sec_approval_project, release_management_project
+    phabdouble,
+    sec_approval_project,
+    release_management_project,
 ):
     revision = phabdouble.revision()
     user = phabdouble.user(username="normal_reviewer")

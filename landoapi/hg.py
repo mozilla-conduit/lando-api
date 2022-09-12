@@ -649,3 +649,13 @@ class HgRepo:
 
         with checkout_file_path.open() as f:
             return f.read()
+
+    def has_incoming(self, source: str) -> bool:
+        """Check if there are any incoming changes from the remote repo."""
+        try:
+            self.run_hg(["incoming", source, "--limit", "1"])
+        except hglib.error.CommandError as e:
+            if b"no changes found" not in e.out:
+                logger.error(e)
+            return False
+        return True

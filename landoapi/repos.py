@@ -51,6 +51,8 @@ class Repo:
             from a remote Mercurial repository. Defaults to `url`.
         short_name (str): The Phabricator short name field for this repo, if different
             from the `tree`. Defaults to `tree`.
+        use_revision_worker (bool): When set to `True`, enables Revision Worker
+            functionality for this repo. Defaults to `False`.
         approval_required (bool): Whether approval is required or not for given repo.
             Note that this is not fully implemented but is included for compatibility.
             Defaults to `False`.
@@ -69,6 +71,7 @@ class Repo:
     push_path: str = ""
     pull_path: str = ""
     short_name: str = ""
+    use_revision_worker: bool = False
     approval_required: bool = False
     milestone_tracking_flag_template: str = ""
     autoformat_enabled: bool = False
@@ -164,6 +167,7 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_1,
             product_details_url="http://product-details.test/1.0/firefox_versions.json",
         ),
+        # A generic repo, similar in behaviour to mozilla-central.
         "first-repo": Repo(
             tree="first-repo",
             url="http://hg.test/first-repo",
@@ -171,10 +175,13 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_1,
             commit_flags=[DONTBUILD],
         ),
+        # Similar to first-repo, but uses revision worker.
         "second-repo": Repo(
             tree="second-repo",
             url="http://hg.test/second-repo",
+            push_path="ssh://autoland.hg//repos/second-repo",
             access_group=SCM_LEVEL_1,
+            use_revision_worker=True,
         ),
         "third-repo": Repo(
             tree="third-repo",
@@ -199,6 +206,7 @@ REPO_CONFIG = {
             tree="test-repo",
             url="https://hg.mozilla.org/conduit-testing/test-repo",
             access_group=SCM_CONDUIT,
+            use_revision_worker=True,
         ),
         "m-c": Repo(
             tree="m-c",
@@ -209,6 +217,7 @@ REPO_CONFIG = {
             milestone_tracking_flag_template="cf_status_firefox{milestone}",
             product_details_url="https://raw.githubusercontent.com/mozilla-conduit"
             "/suite/main/docker/product-details/1.0/firefox_versions.json",
+            use_revision_worker=True,
         ),
         "vct": Repo(
             tree="vct",

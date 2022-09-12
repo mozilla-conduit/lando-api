@@ -23,6 +23,7 @@ from typing import (
 )
 
 import requests
+from flask import current_app
 
 from landoapi.systems import Subsystem
 
@@ -389,6 +390,42 @@ class PhabricatorSubsystem(Subsystem):
             return "PhabricatorAPIException: {!s}".format(exc)
 
         return True
+
+
+def get_phab_client() -> PhabricatorClient:
+    """Initialize PhabricatorClient with credentials and return it."""
+    phab = PhabricatorClient(
+        current_app.config["PHABRICATOR_URL"],
+        current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
+    )
+    return phab
+
+
+def call_conduit(method: str, **kwargs) -> dict:
+    """Helper method to fetch client and use it to send data to conduit API."""
+    phab = get_phab_client()
+    try:
+        result = phab.call_conduit(method, **kwargs)
+    except PhabricatorAPIException as e:
+        logger.error(e)
+        # TODO: raise or return error here.
+        return
+    return result
+
+
+def get_conduit_data(method: str, **kwargs) -> dict:
+    """Helper method to fetch multiple pages of data."""
+    data = []
+    result = call_conduit(method, **kwargs)
+    if not result:
+        return data
+
+    data += result["data"]
+    while result and result["cursor"] and result["cursor"]["after"]:
+        result = call_conduit(method, after=result["cursor"]["after"], **kwargs)
+        if result and "data" in result:
+            data += result["data"]
+    return data
 
 
 phabricator_subsystem = PhabricatorSubsystem()

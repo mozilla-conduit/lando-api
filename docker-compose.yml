@@ -111,7 +111,7 @@ services:
       - smtp
   lando-api.landing-worker:
     image: lando-api
-    command: ["landing-worker"]
+    command: ["start-landing-worker"]
     environment:
       - ENV=localdev
       - DATABASE_URL=postgresql://postgres:password@lando-api.db/lando_api_dev
