@@ -10,7 +10,7 @@ from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.phabricator import ReviewerStatus, RevisionStatus
-from landoapi.repos import Repo, SCM_LEVEL_3
+from landoapi.repos import Repo, SCM_LEVEL_3, SCM_CONDUIT, DONTBUILD
 from landoapi.reviews import get_collated_reviewers
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplant_client import TransplantClient
@@ -141,6 +141,114 @@ def test_dryrun_reviewers_warns(client, db, phabdouble, auth0_mock):
     assert response.json["warnings"]
     assert response.json["warnings"][0]["id"] == 0
     assert response.json["confirmation_token"] is not None
+
+
+def test_dryrun_codefreeze_warn(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    codefreeze_datetime,
+    monkeypatch,
+    request_mocker,
+):
+    product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
+    request_mocker.register_uri(
+        "GET",
+        product_details,
+        json={
+            "NEXT_SOFTFREEZE_DATE": "two_days_ago",
+            "NEXT_MERGE_DATE": "tomorrow",
+        },
+    )
+    monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
+    mc_repo = Repo(
+        tree="mozilla-conduit",
+        url="https://hg.test/mozilla-conduit",
+        access_group=SCM_CONDUIT,
+        commit_flags=[DONTBUILD],
+        product_details_url=product_details,
+    )
+    mc_mock = MagicMock()
+    mc_mock.return_value = {"mozilla-central": mc_repo}
+    monkeypatch.setattr("landoapi.transplants.get_repos_for_env", mc_mock)
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    phabdouble.reviewer(
+        r1, phabdouble.user(username="reviewer"), status=ReviewerStatus.ACCEPTED
+    )
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert response.json[
+        "warnings"
+    ], "warnings should not be empty for a repo under code freeze"
+    assert (
+        response.json["warnings"][0]["id"] == 8
+    ), "the warning ID should match the ID for warning_code_freeze"
+    assert response.json["confirmation_token"] is not None
+
+
+def test_dryrun_outside_codefreeze(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    codefreeze_datetime,
+    monkeypatch,
+    request_mocker,
+):
+    product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
+    request_mocker.register_uri(
+        "GET",
+        product_details,
+        json={
+            "NEXT_SOFTFREEZE_DATE": "four_weeks_from_today",
+            "NEXT_MERGE_DATE": "five_weeks_from_today",
+        },
+    )
+    monkeypatch.setattr("landoapi.transplants.datetime", codefreeze_datetime())
+    mc_repo = Repo(
+        tree="mozilla-conduit",
+        url="https://hg.test/mozilla-conduit",
+        access_group=SCM_CONDUIT,
+        commit_flags=[DONTBUILD],
+        product_details_url=product_details,
+    )
+    mc_mock = MagicMock()
+    mc_mock.return_value = {"mozilla-central": mc_repo}
+    monkeypatch.setattr("landoapi.transplants.get_repos_for_env", mc_mock)
+
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    phabdouble.reviewer(
+        r1, phabdouble.user(username="reviewer"), status=ReviewerStatus.ACCEPTED
+    )
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert not response.json["warnings"]
 
 
 @pytest.mark.parametrize(
@@ -462,7 +570,14 @@ def test_confirmation_token_warning_order():
 
 
 def test_integrated_transplant_simple_stack_saves_data_in_db(
-    db, client, phabdouble, transfactory, s3, auth0_mock, release_management_project
+    db,
+    client,
+    phabdouble,
+    transfactory,
+    s3,
+    auth0_mock,
+    release_management_project,
+    register_codefreeze_uri,
 ):
     repo = phabdouble.repo()
     user = phabdouble.user(username="reviewer")
@@ -580,6 +695,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     checkin_project,
     monkeypatch,
     release_management_project,
+    register_codefreeze_uri,
 ):
     repo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
@@ -678,6 +794,7 @@ def test_integrated_push_bookmark_sent_when_supported_repo(
     get_phab_client,
     mock_repo_config,
     release_management_project,
+    register_codefreeze_uri,
 ):
     # Mock the repo to have a push bookmark.
     mock_repo_config(
@@ -741,6 +858,7 @@ def test_integrated_transplant_error_responds_with_502(
     auth0_mock,
     mock_error_method,
     release_management_project,
+    register_codefreeze_uri,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -874,6 +992,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     transfactory,
     sec_approval_project,
     release_management_project,
+    register_codefreeze_uri,
 ):
     repo = phabdouble.repo()
     user = phabdouble.user(username="normal_reviewer")

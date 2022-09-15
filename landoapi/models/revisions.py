@@ -51,6 +51,11 @@ class DiffWarning(Base):
     # The "type" of warning. This is mainly to group warnings when querying the API.
     group = db.Column(db.Enum(DiffWarningGroup), nullable=False)
 
+    # The code freeze dates generally correspond to PST work days.
+    @property
+    def code_freeze_offset(self) -> str:
+        return "-0800"
+
     def serialize(self):
         """Return a JSON serializable dictionary."""
         return {

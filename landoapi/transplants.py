@@ -6,10 +6,13 @@ import hashlib
 import json
 import logging
 from collections import namedtuple
+from datetime import datetime, timezone
 
+import requests
 from connexion import ProblemException
+from flask import current_app
 
-from landoapi.repos import Repo
+from landoapi.repos import Repo, get_repos_for_env
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
@@ -301,6 +304,54 @@ def warning_wip_commit_message(*, revision, **kwargs):
         return "This revision is marked as a WIP. Please remove `WIP:` before landing."
 
 
+@RevisionWarningCheck(8, "Repository is under a soft code freeze.", True)
+def warning_code_freeze(*, repo, **kwargs):
+    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+    try:
+        repo_details = supported_repos[repo["fields"]["shortName"]]
+    except KeyError:
+        return
+
+    if not repo_details.product_details_url:
+        # Repo does not have a product details URL.
+        return
+
+    try:
+        product_details = requests.get(repo_details.product_details_url).json()
+    except requests.exceptions.RequestException as e:
+        logger.exception(e)
+        return [{"message": "Could not retrieve repository's code freeze status."}]
+
+    freeze_date_str = product_details.get("NEXT_SOFTFREEZE_DATE")
+    merge_date_str = product_details.get("NEXT_MERGE_DATE")
+    # If the JSON doesn't have these keys, this warning isn't applicable
+    if not freeze_date_str or not merge_date_str:
+        return
+
+    today = datetime.now(tz=timezone.utc)
+    freeze_date = datetime.strptime(
+        f"{freeze_date_str} {DiffWarning.code_freeze_offset}",
+        "%Y-%m-%d %z",
+    ).replace(tzinfo=timezone.utc)
+    if today < freeze_date:
+        return
+
+    merge_date = datetime.strptime(
+        f"{merge_date_str} {DiffWarning.code_freeze_offset}",
+        "%Y-%m-%d %z",
+    ).replace(tzinfo=timezone.utc)
+
+    if freeze_date <= today <= merge_date:
+        return [
+            {
+                "message": (
+                    f"Repository is under a soft code freeze "
+                    f"(ends {merge_date_str})."
+                )
+            }
+        ]
+
+
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return (
@@ -345,6 +396,7 @@ def check_landing_warnings(
         warning_revision_missing_testing_tag,
         warning_diff_warning,
         warning_wip_commit_message,
+        warning_code_freeze,
     ],
 ):
     assessment = TransplantAssessment()

@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,6 +23,7 @@ from pytest_flask.plugin import JSONResponse
 from landoapi.app import construct_app, load_config, SUBSYSTEMS
 from landoapi.cache import cache, cache_subsystem
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
+from landoapi.models.revisions import DiffWarning
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -428,3 +430,38 @@ def hg_clone(hg_server, tmpdir):
     clone_dir = tmpdir.join("hg_clone")
     subprocess.run(["hg", "clone", hg_server, clone_dir.strpath], check=True)
     return clone_dir
+
+
+@pytest.fixture
+def register_codefreeze_uri(request_mocker):
+    request_mocker.register_uri(
+        "GET",
+        "https://product-details.mozilla.org/1.0/firefox_versions.json",
+        json={
+            "NEXT_SOFTFREEZE_DATE": "2122-01-01",
+            "NEXT_MERGE_DATE": "2122-01-01",
+        },
+    )
+
+
+@pytest.fixture
+def codefreeze_datetime(request_mocker):
+    utc_offset = DiffWarning.code_freeze_offset
+    dates = {
+        "today": datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc),
+        f"two_days_ago {utc_offset}": datetime(2000, 1, 3, 0, 0, 0),
+        f"tomorrow {utc_offset}": datetime(2000, 1, 6, 0, 0, 0),
+        f"four_weeks_from_today {utc_offset}": datetime(2000, 2, 3, 0, 0, 0),
+        f"five_weeks_from_today {utc_offset}": datetime(2000, 2, 10, 0, 0, 0),
+    }
+
+    class Mockdatetime:
+        @classmethod
+        def now(cls, tz):
+            return dates["today"]
+
+        @classmethod
+        def strptime(cls, date_string, fmt):
+            return dates[f"{date_string}"]
+
+    return Mockdatetime

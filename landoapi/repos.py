@@ -59,6 +59,8 @@ class Repo:
         config_override (dict): Parameters to override when loading the Mercurial
             configuration. The keys and values map directly to configuration keys and
             values. Defaults to `None`.
+        product_details_url (str): The URL which contains product-related information
+            relevant to the repo. Defaults to an empty string.
     """
 
     tree: str
@@ -72,6 +74,7 @@ class Repo:
     approval_required: bool = False
     commit_flags: list[tuple[str, str]] = field(default_factory=list)
     config_override: dict = field(default_factory=dict)
+    product_details_url: str = ""
 
     def __post_init__(self):
         """Set defaults based on initial values.
@@ -166,7 +169,10 @@ REPO_CONFIG = {
     "default": {},
     "localdev": {
         "test-repo": Repo(
-            tree="test-repo", url="http://hg.test/test-repo", access_group=SCM_LEVEL_1
+            tree="test-repo",
+            url="http://hg.test/test-repo",
+            access_group=SCM_LEVEL_1,
+            product_details_url="http://product-details.test/1.0/firefox_versions.json",
         ),
         "first-repo": Repo(
             tree="first-repo",
@@ -212,6 +218,8 @@ REPO_CONFIG = {
             commit_flags=[DONTBUILD],
             config_override={"fix.black:command": "black -- -"},
             approval_required=True,
+            product_details_url="https://raw.githubusercontent.com/mozilla-conduit"
+            "/suite/main/docker/product-details/1.0/firefox_versions.json",
         ),
         "vct": Repo(
             tree="vct",
@@ -260,6 +268,8 @@ REPO_CONFIG = {
             short_name="mozilla-central",
             commit_flags=[DONTBUILD],
             config_override={"fix.black:command": "black -- -"},
+            product_details_url="https://product-details.mozilla.org"
+            "/1.0/firefox_versions.json",
         ),
         "comm-central": Repo(
             tree="comm-central",
