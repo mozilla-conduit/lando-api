@@ -72,31 +72,6 @@ def get_conduit_data(method, **kwargs):
     return data
 
 
-def get_stack_dependencies(revisions):
-    """Fetch and parse a list of dependencies based on provided revisions.
-
-    Returns an dictionary with r["id"] as keys, and stack list.
-    """
-    phids_to_revision_ids = {r["phid"]: r["id"] for r in revisions}
-    phids = list(phids_to_revision_ids.keys())
-    edges = get_conduit_data(
-        "edge.search", sourcePHIDs=phids, types=["revision.parent"]
-    )
-
-    # Each edge result has a sourcePHID and a destinationPHID.
-    # sourcePHID is the revision that has a dependent, and destinationPHID is the
-    # dependent revision itself, when edgeType is "revision.parent". Therefore,
-    # this object provides us with the "dependent" revision for a given revision.
-
-    revision_to_dependent = {}
-
-    for edge in edges:
-        revision = phids_to_revision_ids[edge["sourcePHID"]]
-        dependent = phids_to_revision_ids[edge["destinationPHID"]]
-        revision_to_dependent[revision] = dependent
-    return revision_to_dependent
-
-
 def get_active_repos():
     repos = [
         repo for repo in repo_clone_subsystem.repos.values() if repo.use_revision_worker
@@ -186,7 +161,7 @@ def get_phab_revisions(statuses=None):
             "diff_phid": r["fields"]["diffPHID"],
             "repo_phid": r["fields"]["repositoryPHID"],
             "phid": r["phid"],
-            "depends_on": r["fields"]["stackGraph"][r["id"]],
+            "predecessor": r["fields"]["stackGraph"][r["id"]],
         }
         for r in revisions
         if r["fields"]["diffPHID"] and r["fields"]["repositoryPHID"]
@@ -271,30 +246,30 @@ def discover_revisions():
             for key, value in phab_revision.items():
                 if key == "phids":
                     lando_revision.update_data(**value)
-                elif key == "depends_on":
+                elif key == "predecessor":
                     dependency_queue.append(lando_revision)
-                    lando_revision.update_data(depends_on=value)
+                    lando_revision.update_data(predecessor=value)
                 else:
                     setattr(lando_revision, key, value)
             lando_revision.status = RS.READY_FOR_PREPROCESSING
-            if lando_revision.dependents and not new:
-                for dependent in lando_revision.dependents:
-                    dependent.status = RS.STALE
+            if lando_revision.successors and not new:
+                for successor in lando_revision.successors:
+                    successor.status = RS.STALE
     db.session.commit()
 
     # Resolve dependency chain.
     for revision in dependency_queue:
-        if revision.data["depends_on"]:
-            if len(revision.data["depends_on"]) == 1:
-                depends_on_revision = Revision.query.filter(
-                    Revision.revision_id == revision.data["depends_on"][0]
+        if revision.data["predecessor"]:
+            if len(revision.data["predecessor"]) == 1:
+                predecessor_revision = Revision.query.filter(
+                    Revision.revision_id == revision.data["predecessor"][0]
                 ).one()
-                revision.depends_on_id = depends_on_revision.id
-            if len(revision.data["depends_on"]) > 1:
+                revision.predecessor_id = predecessor_revision.id
+            if len(revision.data["predecessor"]) > 1:
                 revision.status = RS.PROBLEM
                 revision.update_data(error="Revision has more than one predecessor.")
         else:
-            revision.depends_on = None
+            revision.predecessor = None
     db.session.commit()
 
 
@@ -497,17 +472,17 @@ class RevisionWorker(Worker):
     def _process_patch(self, revision: Revision, hgrepo: HgRepo):
         errors = []
         try:
-            if revision.dependons:
-                for dependon in revision.dependons:
-                    if dependon.status == RS.PROBLEM:
-                        errors.append(f"Dependon {dependon} has a problem.")
+            if revision.predecessors:
+                for predecessor in revision.predecessors:
+                    if predecessor.status == RS.PROBLEM:
+                        errors.append(f"Predecessor {predecessor} has a problem.")
                         break
-                    hgrepo.apply_patch(io.BytesIO(dependon.patch.encode("utf-8")))
+                    hgrepo.apply_patch(io.BytesIO(predecessor.patch.encode("utf-8")))
             hgrepo.apply_patch(io.BytesIO(revision.patch.encode("utf-8")))
         except Exception as e:
             # Possible merge conflict
             logger.exception(e)
-            errors.append(f"Problem detected in dependon ({e})")
+            errors.append(f"Problem detected in predecessor ({e})")
         return errors
 
     def _get_repo_objects(self, repo_name: str):

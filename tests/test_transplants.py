@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
@@ -844,7 +843,7 @@ def test_integrated_push_bookmark_sent_when_supported_repo(
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=repo)
     phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
-    patch_url = patches.url("landoapi.test.bucket", patches.name(r1["id"], d1["id"]))
+    patch_url = None
 
     tsclient = MagicMock(spec=TransplantClient)
     tsclient().land.return_value = 1

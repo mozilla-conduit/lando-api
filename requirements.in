@@ -8,7 +8,6 @@ connexion==2.13.0
 datadog==0.44.0
 flake8-bugbear==19.3.0
 flake8==3.7.7
-matplotlib==3.5.3
 mercurial==6.1.1
 moto==4.0.1
 mots==0.3.0.dev0

@@ -198,8 +198,7 @@ def calculate_landable_subgraphs(
             Revision.revision_id == revision["id"]
         ).one_or_none()
         if not lando_revision:
-            pass
-            # block(phid, f"Revision {revision['id']} has not been preprocessed yet.")
+            continue
         elif lando_revision.status == RV.QUEUED:
             block(phid, "Revision is queued for landing, please wait.")
         elif lando_revision.status == RV.LANDED:

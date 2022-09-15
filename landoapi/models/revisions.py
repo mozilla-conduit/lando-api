@@ -10,19 +10,26 @@ Phabricator diff that is associated with a particular revision.
 """
 
 from datetime import datetime
+from pathlib import Path
 import enum
 import hashlib
+import io
 import json
 import logging
-
 
 from sqlalchemy.dialects.postgresql.json import JSONB
 
 from landoapi.models.base import Base
-from landoapi.patches import calculate_patch_hash
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_patch_hash(patch: bytes) -> str:
+    """Given a patch, calculate the sha1 hash and return the hex digest."""
+    with io.BytesIO() as stream:
+        stream.write(patch)
+        return hashlib.sha1(stream.getvalue()).hexdigest()
 
 
 @enum.unique
@@ -92,6 +99,8 @@ class RevisionLandingJob(db.Model):
 
 
 class Revision(Base):
+    PATCH_DIRECTORY = Path("/patches")
+
     # revision_id and diff_id map to Phabricator IDs (integers).
     revision_id = db.Column(db.Integer, nullable=False, unique=True)
     diff_id = db.Column(db.Integer, nullable=False)
@@ -116,11 +125,11 @@ class Revision(Base):
 
     landing_jobs = db.relationship("RevisionLandingJob", back_populates="revision")
 
-    depends_on_id = db.Column(db.Integer, db.ForeignKey("revision.id"), nullable=True)
-    depends_on = db.relationship(
-        "Revision", back_populates="dependent", remote_side="Revision.id", uselist=False
+    predecessor_id = db.Column(db.Integer, db.ForeignKey("revision.id"), nullable=True)
+    predecessor = db.relationship(
+        "Revision", back_populates="successor", remote_side="Revision.id", uselist=False
     )
-    dependent = db.relationship("Revision", uselist=False)
+    successor = db.relationship("Revision", uselist=False)
 
     @classmethod
     def get_from_revision_id(cls, revision_id):
@@ -136,7 +145,7 @@ class Revision(Base):
         # TODO: possibly add another a status hash, which hashes the sequence of
         # statuses. In that case, we can be more specific when detecting a change as
         # some revisions may have an updated timestamp but no meaningful change.
-        stack = [r for r in (self.dependons + self.dependents)]
+        stack = [r for r in (self.predecessors + self.successors)]
         diffs = " ".join([str(r.diff_id) for r in stack]).encode("utf-8")
         timestamps = " ".join([r.updated_at.isoformat() for r in stack]).encode("utf-8")
         diffs_hash = hashlib.sha1(diffs).hexdigest()
@@ -144,35 +153,35 @@ class Revision(Base):
         return {"diffs": diffs_hash, "timestamps": timestamps_hash}
 
     @property
-    def dependents(self):
-        """Return the current revision and all dependents."""
+    def successors(self):
+        """Return the current revision and all successors."""
         # TODO: rename this to "next sequence".
-        dependents = [self]
-        if not self.dependent:
-            return dependents
+        successors = [self]
+        if not self.successor:
+            return successors
 
         revision = self
-        while revision.dependent:
-            dependents.append(revision.dependent)
-            revision = revision.dependent
-        return dependents
+        while revision.successor:
+            successors.append(revision.successor)
+            revision = revision.successor
+        return successors
 
     @property
-    def dependons(self):
+    def predecessors(self):
         """Return all revisions that this revision depends on."""
         # TODO: rename this to "previous sequence".
-        if not self.depends_on:
+        if not self.predecessor:
             return []
 
-        dependons = []
+        predecessors = []
         revision = self
-        while revision.depends_on:
-            if revision.depends_on.status == RevisionStatus.LANDED:
+        while revision.predecessor:
+            if revision.predecessor.status == RevisionStatus.LANDED:
                 break
-            dependons.append(revision.depends_on)
-            revision = revision.depends_on
-        dependons.reverse()
-        return dependons
+            predecessors.append(revision.predecessor)
+            revision = revision.predecessor
+        predecessors.reverse()
+        return predecessors
 
     def get_patch(self):
         from landoapi.hgexports import build_patch_for_revision
@@ -195,21 +204,18 @@ class Revision(Base):
 
     @property
     def patch_cache_path(self):
-        from pathlib import Path
-
-        patch_directory = Path("/patches")
-        file_path = patch_directory / f"{self.revision_id}_{self.diff_id}.diff"
+        file_path = self.PATCH_DIRECTORY / f"{self.revision_id}_{self.diff_id}.diff"
         return file_path
 
     @property
     def patch(self):
         file_path = self.patch_cache_path
         if file_path.exists() and file_path.is_file():
-            with file_path.open("rb") as f:
-                return f.read().decode("utf-8")
+            with file_path.open("r") as f:
+                return f.read()
         patch = self.get_patch()
-        with file_path.open("wb") as f:
-            f.write(patch.encode("utf-8"))
+        with file_path.open("w") as f:
+            f.write(patch)
         return patch
 
     def __repr__(self):
@@ -240,8 +246,8 @@ class Revision(Base):
 
     def change_triggered(self, changes):
         """Check if any of the changes should trigger a status change."""
-        keys = ("repo_name", "repo_callsign", "diff_id", "depends_on")
-        data_keys = ("depends_on",)
+        keys = ("repo_name", "repo_callsign", "diff_id", "predecessor")
+        data_keys = ("predecessor",)
         for key in keys:
             if key in data_keys:
                 if self.data.get(key, None) != changes.get(key, None):
