@@ -6,6 +6,7 @@ import re
 from connexion import ProblemException
 
 REVISION_ID_RE = re.compile(r"^D(?P<id>[1-9][0-9]*)$")
+VALID_EMAIL_RE = re.compile(r"[^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+")
 
 
 def revision_id_to_int(revision_id: str) -> int:
@@ -35,3 +36,8 @@ def parse_landing_path(landing_path: list[dict]) -> list[tuple[int, int]]:
             f"The provided landing_path was malformed.\n{str(e)}",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
+
+
+def is_valid_email(email: str) -> bool:
+    """Given a string, determines if it is a valid email."""
+    return VALID_EMAIL_RE.match(email) is not None

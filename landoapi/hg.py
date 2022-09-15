@@ -12,11 +12,12 @@ import shutil
 import tempfile
 import uuid
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import hglib
 
 from landoapi.hgexports import PatchHelper
+from landoapi.validation import is_valid_email
 
 logger = logging.getLogger(__name__)
 
@@ -353,9 +354,12 @@ class HgRepo:
             # --landing_system is provided by the set_landing_system hgext.
             date = patch_helper.header("Date")
             user = patch_helper.header("User")
-
             if not user:
                 raise ValueError("Missing `User` header!")
+
+            email = self.extract_email_from_username(user)
+            if not is_valid_email(email):
+                raise ValueError("Invalid email configured for Mercurial user!")
 
             if not date:
                 raise ValueError("Missing `Date` header!")
@@ -519,3 +523,9 @@ class HgRepo:
 
         with checkout_file_path.open() as f:
             return f.read()
+
+    @staticmethod
+    def extract_email_from_username(username: Union[str, bytes]) -> str:
+        """Extracts an email from a Mercurial username, if it exists.
+        Not guaranteed to return a valid email, make sure to validate."""
+        return str(username).split("<").pop().replace(">", "")
