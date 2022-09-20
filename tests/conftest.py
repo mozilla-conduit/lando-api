@@ -22,8 +22,8 @@ from pytest_flask.plugin import JSONResponse
 
 from landoapi.app import construct_app, load_config, SUBSYSTEMS
 from landoapi.cache import cache, cache_subsystem
-from landoapi.constants import CODE_FREEZE_OFFSET
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
+from landoapi.models.revisions import CODE_FREEZE_OFFSET
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,

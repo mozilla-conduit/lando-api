@@ -1,4 +1,4 @@
-# This Source Code Form is subject to the terms of the Mozilla Publc
+# This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import functools
@@ -12,10 +12,9 @@ import requests
 from connexion import ProblemException
 from flask import current_app
 
-from landoapi.constants import CODE_FREEZE_OFFSET
 from landoapi.repos import Repo, get_repos_for_env
 from landoapi.models.transplant import Transplant, TransplantStatus
-from landoapi.models.revisions import DiffWarning, DiffWarningStatus
+from landoapi.models.revisions import DiffWarning, DiffWarningStatus, CODE_FREEZE_OFFSET
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (

@@ -19,6 +19,9 @@ from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
 
+# The code freeze dates generally correspond to PST work days.
+CODE_FREEZE_OFFSET = "-0800"
+
 
 @enum.unique
 class DiffWarningStatus(enum.Enum):
