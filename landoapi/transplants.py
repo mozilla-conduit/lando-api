@@ -12,6 +12,7 @@ import requests
 from connexion import ProblemException
 from flask import current_app
 
+from landoapi.constants import CODE_FREEZE_OFFSET
 from landoapi.repos import Repo, get_repos_for_env
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
@@ -330,14 +331,14 @@ def warning_code_freeze(*, repo, **kwargs):
 
     today = datetime.now(tz=timezone.utc)
     freeze_date = datetime.strptime(
-        f"{freeze_date_str} {DiffWarning.code_freeze_offset}",
+        f"{freeze_date_str} {CODE_FREEZE_OFFSET}",
         "%Y-%m-%d %z",
     ).replace(tzinfo=timezone.utc)
     if today < freeze_date:
         return
 
     merge_date = datetime.strptime(
-        f"{merge_date_str} {DiffWarning.code_freeze_offset}",
+        f"{merge_date_str} {CODE_FREEZE_OFFSET}",
         "%Y-%m-%d %z",
     ).replace(tzinfo=timezone.utc)
 
