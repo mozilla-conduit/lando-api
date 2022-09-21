@@ -1,4 +1,4 @@
-Flask-Caching==1.10.1
+Flask-Caching==2.0.2
 Flask-Migrate==3.1.0
 Flask==2.1.1
 black==22.3.0
