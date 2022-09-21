@@ -14,7 +14,7 @@ from flask import current_app
 
 from landoapi.repos import Repo, get_repos_for_env
 from landoapi.models.transplant import Transplant, TransplantStatus
-from landoapi.models.revisions import DiffWarning, DiffWarningStatus, CODE_FREEZE_OFFSET
+from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (
@@ -40,6 +40,9 @@ RevisionWarning = namedtuple(
     ("i", "display", "revision_id", "details", "articulated"),
     defaults=(None, None, None, None, False),
 )
+
+# The code freeze dates generally correspond to PST work days.
+CODE_FREEZE_OFFSET = "-0800"
 
 
 def tokens_are_equal(t1, t2):

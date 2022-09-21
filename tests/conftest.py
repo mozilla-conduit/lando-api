@@ -23,7 +23,6 @@ from pytest_flask.plugin import JSONResponse
 from landoapi.app import construct_app, load_config, SUBSYSTEMS
 from landoapi.cache import cache, cache_subsystem
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
-from landoapi.models.revisions import CODE_FREEZE_OFFSET
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -34,7 +33,7 @@ from landoapi.projects import (
 from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.storage import db as _db, db_subsystem
 from landoapi.tasks import celery
-from landoapi.transplants import tokens_are_equal
+from landoapi.transplants import tokens_are_equal, CODE_FREEZE_OFFSET
 
 from tests.factories import TransResponseFactory
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
