@@ -9,7 +9,6 @@ from flask import current_app, g
 
 from landoapi import auth
 from landoapi.phabricator import PhabricatorClient
-from landoapi.projects import get_relman_group_phid
 from landoapi.repos import get_repos_for_env
 from landoapi.transplants import convert_path_id_to_phid
 from landoapi.uplift import (
@@ -90,19 +89,6 @@ def create(data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    # Get the `#release-managers` group PHID for requesting review.
-    relman_phid = get_relman_group_phid(phab)
-    if not relman_phid:
-        return problem(
-            500,
-            "#release-managers group not found.",
-            (
-                "The RelMan review group could not be found. This is a server-side "
-                "issue, please file a bug."
-            ),
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-        )
-
     landing_path = convert_path_id_to_phid(landing_path, revision_data)
     commit_stack = []
     for rev_id, _diff_id in landing_path:
@@ -124,7 +110,6 @@ def create(data):
                 revision,
                 diff,
                 parent_phid,
-                relman_phid,
                 target_repository,
             )
             commit_stack.append(rev)
