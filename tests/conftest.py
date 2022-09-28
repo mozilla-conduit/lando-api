@@ -23,7 +23,6 @@ from pytest_flask.plugin import JSONResponse
 from landoapi.app import construct_app, load_config, SUBSYSTEMS
 from landoapi.cache import cache, cache_subsystem
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
-from landoapi.models.revisions import DiffWarning
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -34,7 +33,7 @@ from landoapi.projects import (
 from landoapi.repos import Repo, SCM_LEVEL_3
 from landoapi.storage import db as _db, db_subsystem
 from landoapi.tasks import celery
-from landoapi.transplants import tokens_are_equal
+from landoapi.transplants import tokens_are_equal, CODE_FREEZE_OFFSET
 
 from tests.factories import TransResponseFactory
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
@@ -446,7 +445,7 @@ def register_codefreeze_uri(request_mocker):
 
 @pytest.fixture
 def codefreeze_datetime(request_mocker):
-    utc_offset = DiffWarning.code_freeze_offset
+    utc_offset = CODE_FREEZE_OFFSET
     dates = {
         "today": datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc),
         f"two_days_ago {utc_offset}": datetime(2000, 1, 3, 0, 0, 0),
