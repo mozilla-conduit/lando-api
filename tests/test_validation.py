@@ -23,8 +23,25 @@ def test_convertion_failure_integer():
 
 
 def test_is_valid_email():
-    invalid_email = "Test User"
-    valid_email = "test@mozilla.com"
+    invalid_emails = [
+        "Test User",
+        "test <test>",
+        "test <test@test>",
+        "test@",
+        "-@...",
+        "test@mozilla.",
+        "test@.com",
+    ]
+    valid_emails = [
+        "test@test.com",
+        "test-email@test.com",
+        "test_email@test.com",
+        "test@test-domain.com",
+        "test.name@test.co.uk",
+        "colombia@test.co",
+        "iceland@test.is",
+        "deutsch@test.de",
+    ]
 
-    assert not is_valid_email(invalid_email)
-    assert is_valid_email(valid_email)
+    assert True not in [is_valid_email(value) for value in invalid_emails]
+    assert False not in [is_valid_email(value) for value in valid_emails]

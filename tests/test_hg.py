@@ -290,3 +290,22 @@ def test_hgrepo_request_user(hg_clone):
         assert REQUEST_USER_ENV_VAR in os.environ
         assert os.environ[REQUEST_USER_ENV_VAR] == "test@example.com"
     assert REQUEST_USER_ENV_VAR not in os.environ
+
+
+def test_extract_email(hg_clone):
+    repo = HgRepo(hg_clone.strpath)
+
+    # Empty username
+    assert repo.extract_email_from_username("") == ""
+
+    # Username without email
+    assert repo.extract_email_from_username("test user") == ""
+
+    # Username with email
+    assert (
+        repo.extract_email_from_username("test user <test@email.com>")
+        == "test@email.com"
+    )
+
+    # Username with invalid email
+    assert repo.extract_email_from_username("test <test@test>") == "test@test"

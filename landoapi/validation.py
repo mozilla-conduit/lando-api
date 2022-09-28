@@ -6,7 +6,6 @@ import re
 from connexion import ProblemException
 
 REVISION_ID_RE = re.compile(r"^D(?P<id>[1-9][0-9]*)$")
-VALID_EMAIL_RE = re.compile(r"[^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+")
 
 
 def revision_id_to_int(revision_id: str) -> int:
@@ -39,5 +38,20 @@ def parse_landing_path(landing_path: list[dict]) -> list[tuple[int, int]]:
 
 
 def is_valid_email(email: str) -> bool:
-    """Given a string, determines if it is a valid email."""
-    return VALID_EMAIL_RE.match(email) is not None
+    """Given a string, determines if it is a valid email.
+
+    For the prefix, it will check for alphanumeric characters and acceptable
+    special characters (.-_), but still ensure an alphanumeric comes before
+    the @ symbol.
+
+    For the suffix, it will check for an alphanumeric subdomain and accept hyphens.
+    It then checks the TLD to make sure it only contains alphabet characters with
+    a minimum length of two.
+
+    Pattern modified from:
+    https://stackabuse.com/python-validate-email-address-with-regular-expressions-regex
+    """
+    accepted_email_re = re.compile(
+        r"([A-Za-z\d\-_.])*[A-Za-z\d]+@[A-Za-z\d\-]+(\.[A-Z|a-z]{2,})+"
+    )
+    return accepted_email_re.match(email) is not None
