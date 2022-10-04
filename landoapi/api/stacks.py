@@ -9,7 +9,7 @@ from flask import current_app, g
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.models.revisions import Revision
-from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
+from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     get_sec_approval_project_phid,
     get_secure_project_phid,
@@ -70,12 +70,7 @@ def get(revision_id):
     if revision is None:
         return not_found_problem
 
-    try:
-        nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
-    except PhabricatorAPIException:
-        # If a revision within the stack causes an API exception, treat the whole stack
-        # as not found.
-        return not_found_problem
+    nodes, edges = build_stack_graph(revision)
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))

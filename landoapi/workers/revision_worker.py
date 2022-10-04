@@ -318,7 +318,7 @@ class RevisionWorker(Worker):
 
     @property
     def throttle_delay(self):
-        return ConfigurationVariable.get(self.THROTTLE_KEY, 1)
+        return ConfigurationVariable.get(self.THROTTLE_KEY, 3)
 
     def throttle(self):
         time.sleep(self.throttle_delay)
@@ -339,7 +339,7 @@ class RevisionWorker(Worker):
         """
         The number of revisions that this worker will fetch for processing per batch.
         """
-        return ConfigurationVariable.get(self.CAPACITY_KEY, 1)
+        return ConfigurationVariable.get(self.CAPACITY_KEY, 2)
 
     def loop(self):
         """Run the event loop for the revision worker."""
@@ -450,39 +450,22 @@ class RevisionWorker(Worker):
         self,
         revision: Revision,
         hgrepo: HgRepo,
-        mots_directory: Directory | None = None,
+        mots_directory: Directory,
     ):
-        # Try getting mots config file and load the directory.
-
-        if mots_directory:
-            # This means, we have loaded a previous directory with an existing
-            # configuration - we should just reload the same config with the new
-            # files.
-            mots_directory.load(full_paths=True)
-        else:
-            mots_directory = self._get_mots_directory(hgrepo.path)
-
-        if mots_directory:
-            mots_directory.load()
-            paths = parse_diff(revision.patch)
-            return mots_directory.query(*paths), mots_directory
-        else:
-            return None, None
+        paths = parse_diff(revision.patch)
+        return mots_directory.query(*paths)
 
     def _process_patch(self, revision: Revision, hgrepo: HgRepo):
+        """Run through all predecessors before applying revision patch."""
         errors = []
-        try:
-            if revision.predecessors:
-                for predecessor in revision.predecessors:
-                    if predecessor.status == RS.PROBLEM:
-                        errors.append(f"Predecessor {predecessor} has a problem.")
-                        break
-                    hgrepo.apply_patch(io.BytesIO(predecessor.patch.encode("utf-8")))
-            hgrepo.apply_patch(io.BytesIO(revision.patch.encode("utf-8")))
-        except Exception as e:
-            # Possible merge conflict
-            logger.exception(e)
-            errors.append(f"Problem detected in predecessor ({e})")
+        for r in revision.predecessors + [revision]:
+            try:
+                hgrepo.apply_patch(io.BytesIO(r.patch.encode("utf-8")))
+            except Exception as e:
+                # Something is wrong (e.g. merge conflict). Log and break.
+                logger.error(e)
+                errors.append(f"Problem detected in {r} ({e})")
+                break
         return errors
 
     def _get_repo_objects(self, repo_name: str):

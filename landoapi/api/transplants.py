@@ -126,7 +126,7 @@ def _find_stack_from_landing_path(phab, landing_path):
     # TODO: This assumes that all revisions and related objects in the stack
     # have uniform view permissions for the requesting user. Some revisions
     # being restricted could cause this to fail.
-    return build_stack_graph(phab, phab.expect(revision, "phid"))
+    return build_stack_graph(revision)
 
 
 def _assess_transplant_request(phab, landing_path):
@@ -418,12 +418,8 @@ def post(data):
 def get_list(stack_revision_id):
     """Return a list of Transplant objects"""
     revision_id = revision_id_to_int(stack_revision_id)
+    revision = Revision.query.filter(Revision.revision_id == revision_id).one_or_none()
 
-    phab = g.phabricator
-    revision = phab.call_conduit(
-        "differential.revision.search", constraints={"ids": [revision_id]}
-    )
-    revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:
         return problem(
             404,
@@ -432,22 +428,28 @@ def get_list(stack_revision_id):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    # TODO: This assumes that all revisions and related objects in the stack
-    # have uniform view permissions for the requesting user. Some revisions
-    # being restricted could cause this to fail.
-    nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
-    revision_phids = list(nodes)
-    revs = phab.call_conduit(
-        "differential.revision.search",
-        constraints={"phids": revision_phids},
-        limit=len(revision_phids),
-    )
-    rev_ids = [phab.expect(r, "id") for r in phab.expect(revs, "data")]
-    revisions = Revision.query.filter(Revision.revision_id.in_(rev_ids)).values(
-        Revision.id
-    )
-    revisions = [r[0] for r in revisions]
-    logger.info(revisions)
+    # Discover all revisions in the stack.
+    stacks = [r.linear_stack for r in revision.linear_stack]
+    stack = set()
+    for s in stacks:
+        stack.update(s)
+
+    # revision_ids here is Phabricator revision IDs, since we track the original
+    # reference to predecessors in this way.
+    revision_ids = set()
+    for revision in stack:
+        revision_ids.update(revision.data.get("predecessor", set()))
+    revision_ids.update(set(r.revision_id for r in stack))
+
+    # Now convert IDs to Lando revision IDs.
+    revisions = list(
+        zip(
+            *Revision.query.with_entities(Revision.id)
+            .filter(Revision.revision_id.in_(revision_ids))
+            .distinct()
+            .all()
+        )
+    )[0]
 
     rljs = RevisionLandingJob.query.filter(
         RevisionLandingJob.revision_id.in_(revisions)

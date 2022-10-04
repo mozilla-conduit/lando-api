@@ -155,7 +155,6 @@ class Revision(Base):
     @property
     def successors(self):
         """Return the current revision and all successors."""
-        # TODO: rename this to "next sequence".
         successors = [self]
         if not self.successor:
             return successors
@@ -168,20 +167,30 @@ class Revision(Base):
 
     @property
     def predecessors(self):
+        return self.get_predecessors()
+
+    def get_predecessors(self, include_landed=False):
         """Return all revisions that this revision depends on."""
-        # TODO: rename this to "previous sequence".
         if not self.predecessor:
             return []
 
         predecessors = []
         revision = self
         while revision.predecessor:
-            if revision.predecessor.status == RevisionStatus.LANDED:
+            if (
+                not include_landed
+                and revision.predecessor.status == RevisionStatus.LANDED
+            ):
                 break
             predecessors.append(revision.predecessor)
             revision = revision.predecessor
         predecessors.reverse()
         return predecessors
+
+    @property
+    def linear_stack(self):
+        """Return a list of all successors and predecessors if linear."""
+        return self.get_predecessors(include_landed=True) + self.successors
 
     def get_patch(self):
         from landoapi.hgexports import build_patch_for_revision
@@ -264,6 +273,11 @@ class Revision(Base):
     def land(self):
         """Clear relevant fields on revision when a landing job fails."""
         self.status = RevisionStatus.LANDED
+        db.session.commit()
+
+    def ready(self):
+        """Clear relevant fields on revision when a landing job fails."""
+        self.status = RevisionStatus.READY
         db.session.commit()
 
     def update_data(self, **params):

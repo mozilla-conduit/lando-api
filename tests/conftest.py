@@ -200,6 +200,7 @@ def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     # We need the TESTING setting turned on to get tracebacks when testing API
     # endpoints with the TestClient.
     config["TESTING"] = True
+    config["CACHE_DISABLED"] = True
     app = construct_app(config)
     flask_app = app.app
     flask_app.test_client_class = JSONClient
@@ -449,3 +450,24 @@ def codefreeze_datetime(request_mocker):
             return dates[f"{date_string}"]
 
     return Mockdatetime
+
+
+@pytest.fixture
+def revision_from_api(phabdouble):
+    """Gets revision from the Phabricator API, given a revision.
+
+    This is useful since phabdouble.revision returns a different object than when
+    calling differential.revision.search.
+    """
+    phab = phabdouble.get_phabricator_client()
+
+    def _get(revision):
+        return phab.single(
+            phab.call_conduit(
+                "differential.revision.search",
+                constraints={"phids": [revision["phid"]]},
+            ),
+            "data",
+        )
+
+    return _get

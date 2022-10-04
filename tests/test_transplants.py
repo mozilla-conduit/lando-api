@@ -367,10 +367,6 @@ def test_get_transplants_for_entire_stack(
     response = client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
     assert response.status_code == 200
 
-    # There is an edge case causing this test to fail. It is when a revision is updated
-    # after a landing attempt fails. We need to check that the landing jobs that are created
-    # are all associated with the right number of revisions. I.e. 1 revision,
-    # 2 diffs -> 2 landing jobs
     assert len(response.json) == 4
 
     tmap = {i["id"]: i for i in response.json}

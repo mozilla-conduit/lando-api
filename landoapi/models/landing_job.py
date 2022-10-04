@@ -235,6 +235,9 @@ class LandingJob(Base):
 
         self.status = actions[action]["status"]
 
+        if action == LandingJobAction.CANCEL:
+            self.ready_revisions()
+
         if action in (LandingJobAction.FAIL, LandingJobAction.DEFER):
             self.error = kwargs["message"]
 
@@ -252,6 +255,10 @@ class LandingJob(Base):
         for revision in self.get_revisions():
             revision.land()
 
+    def ready_revisions(self):
+        for revision in self.get_revisions():
+            revision.ready()
+
     def get_revisions(self):
         return [r.revision for r in self.revisions]
 
@@ -260,6 +267,7 @@ class LandingJob(Base):
         return {
             "id": self.id,
             "status": self.status.value,
+            "duration_seconds": self.duration_seconds,
             "landing_path": [
                 {"revision_id": f"D{r.revision_id}", "diff_id": r.diff_id}
                 for r in self.get_revisions()

@@ -118,6 +118,7 @@ def get_uplift_repositories(phab: PhabricatorClient) -> list:
     return repos
 
 
+@cache.cached(timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
 def get_release_managers(phab: PhabricatorClient) -> dict:
     """Load the release-managers group details from Phabricator"""
     groups = phab.call_conduit(
