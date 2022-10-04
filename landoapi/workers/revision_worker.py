@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import io
 import logging
-import time
 from pathlib import Path
 from itertools import chain
 
@@ -15,13 +14,12 @@ from mots.config import FileConfig, validate
 from mots.directory import Directory, QueryResult
 
 from landoapi.hg import HgRepo
-from landoapi.models.configuration import ConfigurationVariable
 from landoapi.models.revisions import Revision
 from landoapi.models.revisions import RevisionStatus as RS
 from landoapi.phabricator import PhabricatorAPIException, PhabricatorClient
 from landoapi.repos import repo_clone_subsystem
 from landoapi.storage import db, _lock_table_for
-from landoapi.workers import Worker
+from landoapi.workers import RevisionWorker
 
 logger = logging.getLogger(__name__)
 
@@ -297,72 +295,30 @@ def mark_stale_revisions():
     db.session.commit()
 
 
-class RevisionWorker(Worker):
+class Supervisor(RevisionWorker):
     """A worker that pre-processes revisions.
 
     This worker continuously synchronises revisions with the remote Phabricator API
     and runs all applicable checks and processes on each revision, if needed.
     """
 
-    # DB configuration.
-    PAUSE_KEY = "REVISION_WORKER_PAUSED"
-    STOP_KEY = "REVISION_WORKER_STOPPED"
-    CAPACITY_KEY = "REVISION_WORKER_CAPACITY"
-    THROTTLE_KEY = "REVISION_WORKER_THROTTLE_SECONDS"
+    def loop(self):
+        """Run the event loop for the revision worker."""
+        self.throttle()
+        mark_stale_revisions()
+        discover_revisions()
 
-    # Environment configuration.
-    IS_MAIN_KEY = "REVISION_WORKER_IS_MAIN"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(with_ssh=False, *args, **kwargs)
+class Processor(RevisionWorker):
+    """A worker that pre-processes revisions.
 
-    @property
-    def throttle_delay(self):
-        return ConfigurationVariable.get(self.THROTTLE_KEY, 3)
-
-    def throttle(self):
-        time.sleep(self.throttle_delay)
-
-    @property
-    def is_main(self):
-        """
-        Whether this worker is the main worker.
-
-        In case there are multiple workers running, this should ensure that only
-        one worker is discovering new revisions, and the rest are processing them.
-        """
-
-        return current_app.config[self.IS_MAIN_KEY]
-
-    @property
-    def capacity(self):
-        """
-        The number of revisions that this worker will fetch for processing per batch.
-        """
-        return ConfigurationVariable.get(self.CAPACITY_KEY, 2)
+    This worker continuously synchronises revisions with the remote Phabricator API
+    and runs all applicable checks and processes on each revision, if needed.
+    """
 
     def loop(self):
         """Run the event loop for the revision worker."""
-
-        logger.debug(
-            f"{len(self.applicable_repos)} applicable repos: {self.applicable_repos}"
-        )
-
-        logger.info(
-            f"Capacity: {self.capacity}, Throttle: {self.throttle_delay}, Main: {self.is_main}"
-        )
-
         self.throttle()
-
-        if self.is_main:
-            # Detect any revisions that need to be marked as "stale" because of upstream
-            # changes.
-            mark_stale_revisions()
-
-            # Synchronize remote revisions with Lando revisions.
-            discover_revisions()
-
-            return
 
         # Fetch revisions that require pre-processing.
         with db.session.begin_nested():

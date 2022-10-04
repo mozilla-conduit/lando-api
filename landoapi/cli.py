@@ -84,20 +84,6 @@ def start_landing_worker():
     worker.start()
 
 
-@cli.command(name="revision-worker")
-def revision_worker():
-    from landoapi.app import auth0_subsystem, lando_ui_subsystem
-
-    exclusions = [auth0_subsystem, lando_ui_subsystem]
-    for system in get_subsystems(exclude=exclusions):
-        system.ensure_ready()
-
-    from landoapi.workers.revision_worker import RevisionWorker
-
-    worker = RevisionWorker()
-    worker.start()
-
-
 @cli.command(name="stop-landing-worker")
 def stop_landing_worker():
     from landoapi.workers.landing_worker import LandingWorker
@@ -108,21 +94,32 @@ def stop_landing_worker():
 
 
 @cli.command(name="start-revision-worker")
-def start_revision_worker():
+@click.argument("role")
+def start_revision_worker(role):
     from landoapi.app import auth0_subsystem, lando_ui_subsystem
-    from landoapi.workers.revision_worker import RevisionWorker
+    from landoapi.workers.revision_worker import RevisionWorker, Supervisor, Processor
+
+    roles = {
+        "processor": Processor,
+        "supervisor": Supervisor,
+    }
+
+    if role not in roles:
+        raise ValueError(f"Unknown worker role specified ({role}).")
 
     exclusions = [auth0_subsystem, lando_ui_subsystem]
     for system in get_subsystems(exclude=exclusions):
         system.ensure_ready()
 
     ConfigurationVariable.set(RevisionWorker.STOP_KEY, VariableType.BOOL, "0")
-    worker = RevisionWorker()
+
+    worker = roles[role]()
     worker.start()
 
 
 @cli.command(name="stop-revision-worker")
 def stop_revision_worker():
+    """Stops all revision workers (supervisor and processors)."""
     from landoapi.workers.revision_worker import RevisionWorker
     from landoapi.storage import db_subsystem
 

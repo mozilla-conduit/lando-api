@@ -117,3 +117,34 @@ class Worker:
 
     def loop(self, *args, **kwargs):
         raise NotImplementedError()
+
+
+class RevisionWorker(Worker):
+    """A worker that pre-processes revisions.
+
+    This worker continuously synchronises revisions with the remote Phabricator API
+    and runs all applicable checks and processes on each revision, if needed.
+    """
+
+    # DB configuration.
+    PAUSE_KEY = "REVISION_WORKER_PAUSED"
+    STOP_KEY = "REVISION_WORKER_STOPPED"
+    CAPACITY_KEY = "REVISION_WORKER_CAPACITY"
+    THROTTLE_KEY = "REVISION_WORKER_THROTTLE_SECONDS"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(with_ssh=False, *args, **kwargs)
+
+    @property
+    def throttle_delay(self):
+        return ConfigurationVariable.get(self.THROTTLE_KEY, 3)
+
+    def throttle(self):
+        sleep(self.throttle_delay)
+
+    @property
+    def capacity(self):
+        """
+        The number of revisions that this worker will fetch for processing per batch.
+        """
+        return ConfigurationVariable.get(self.CAPACITY_KEY, 2)
