@@ -10,15 +10,20 @@ import re
 from time import sleep
 from landoapi.repos import repo_clone_subsystem
 from landoapi.treestatus import treestatus_subsystem
-from landoapi.models.configuration import ConfigurationVariable
+from landoapi.models.configuration import ConfigurationVariable, VariableType
 
 
 logger = logging.getLogger(__name__)
 
 
 class Worker:
+    THROTTLE_KEY = "WORKER_THROTTLE_SECONDS"
+
     def __init__(self, sleep_seconds=5, with_ssh=True):
         SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+
+        # `sleep_seconds` is how long to sleep for if the worker is paused,
+        # before checking if the worker is still paused.
         self.sleep_seconds = sleep_seconds
 
         # The list of all repos that are enabled for this worker
@@ -93,15 +98,24 @@ class Worker:
         if hasattr(self, "ssh_private_key"):
             self._setup_ssh(self.ssh_private_key)
 
-    def _start(self, *args, **kwargs):
+    def _start(self, max_loops=None, *args, **kwargs):
+        loops = 0
         while self._running:
+            if max_loops is not None and loops >= max_loops:
+                break
             while self._paused:
-                self.sleep(self.sleep_seconds)
+                self.throttle(self.sleep_seconds)
             self.loop(*args, **kwargs)
-        logger.info(f"{self} exited.")
+            loops += 1
 
-    def sleep(self, sleep_seconds):
-        sleep(self.sleep_seconds)
+        logger.info(f"{self} exited after {loops} loops.")
+
+    @property
+    def throttle_seconds(self):
+        return ConfigurationVariable.get(self.THROTTLE_KEY, 3)
+
+    def throttle(self, seconds=None):
+        sleep(seconds if seconds is not None else self.throttle_seconds)
 
     def refresh_enabled_repos(self):
         self.enabled_repos = [
@@ -111,9 +125,12 @@ class Worker:
         ]
         logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
-    def start(self):
+    def start(self, max_loops=None):
+        if ConfigurationVariable.get(self.STOP_KEY, False):
+            logger.warning(f"{self.STOP_KEY} set to True, will not start worker.")
+            return
         self._setup()
-        self._start()
+        self._start(max_loops=max_loops)
 
     def loop(self, *args, **kwargs):
         raise NotImplementedError()
@@ -130,17 +147,24 @@ class RevisionWorker(Worker):
     PAUSE_KEY = "REVISION_WORKER_PAUSED"
     STOP_KEY = "REVISION_WORKER_STOPPED"
     CAPACITY_KEY = "REVISION_WORKER_CAPACITY"
-    THROTTLE_KEY = "REVISION_WORKER_THROTTLE_SECONDS"
+
+    @classmethod
+    def pause(cls):
+        """Pause the operation of revision workers."""
+        ConfigurationVariable.set(cls.PAUSE_KEY, VariableType.BOOL, "1")
+
+    @classmethod
+    def resume(cls):
+        """Resume the operation of revision workers."""
+        ConfigurationVariable.set(cls.PAUSE_KEY, VariableType.BOOL, "0")
+
+    @classmethod
+    def stop(cls):
+        """Stop the operation of revision workers (causes worker to exit)."""
+        ConfigurationVariable.set(cls.STOP_KEY, VariableType.BOOL, "1")
 
     def __init__(self, *args, **kwargs):
         super().__init__(with_ssh=False, *args, **kwargs)
-
-    @property
-    def throttle_delay(self):
-        return ConfigurationVariable.get(self.THROTTLE_KEY, 3)
-
-    def throttle(self):
-        sleep(self.throttle_delay)
 
     @property
     def capacity(self):

@@ -70,10 +70,8 @@ def get_conduit_data(method, **kwargs):
     return data
 
 
-def get_active_repos():
-    repos = [
-        repo for repo in repo_clone_subsystem.repos.values() if repo.use_revision_worker
-    ]
+def get_active_repos(repo_config):
+    repos = [repo for repo in repo_config if repo.use_revision_worker]
     repo_phids = get_conduit_data(
         "diffusion.repository.search",
         constraints={"shortNames": [r.short_name for r in repos]},
@@ -93,7 +91,6 @@ def get_stacks(revisions):
     stacks = [r["fields"]["stackGraph"] for r in revisions.values()]
     parsed = [StackGraph(s).reverse() for s in stacks]
 
-    # TODO: use hashes here instead.
     filtered = []
     for stack in parsed:
         if stack not in filtered:
@@ -112,9 +109,13 @@ def get_phab_revisions(statuses=None):
     ]
 
     # Get all revisions with given filters.
+    repo_config = repo_clone_subsystem.repos.values()
     revisions = get_conduit_data(
         "differential.revision.search",
-        constraints={"statuses": statuses, "repositoryPHIDs": get_active_repos()},
+        constraints={
+            "statuses": statuses,
+            "repositoryPHIDs": get_active_repos(repo_config),
+        },
     )
 
     # Translate into a dictionary.
@@ -205,7 +206,9 @@ def get_phab_revisions(statuses=None):
 def parse_diff(diff):
     """Given a diff, extract list of affected files."""
     diff_lines = diff.splitlines()
-    file_diffs = [line.split(" ")[2:] for line in diff_lines if line.startswith("diff")]
+    file_diffs = [
+        line.split(" ")[2:] for line in diff_lines if line.strip().startswith("diff")
+    ]
     file_paths = []
     for file_diff in file_diffs:
         # Parse source/destination paths.

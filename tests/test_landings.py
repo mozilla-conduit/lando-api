@@ -3,30 +3,14 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from unittest import mock
-import pytest
 import textwrap
 
 from landoapi.hg import HgRepo
 from landoapi.workers.landing_worker import LandingWorker
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.models.revisions import Revision, RevisionStatus as RS, RevisionLandingJob
+from landoapi.models.revisions import RevisionStatus as RS, RevisionLandingJob
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.repos import Repo, SCM_LEVEL_3
-
-
-@pytest.fixture
-def create_revision():
-    """A fixture that creates and stores a revision."""
-
-    def _revision(patch, number=None, landing_job=None, **kwargs):
-        number = number or Revision.query.value
-        revision = Revision(revision_id=number, diff_id=number, **kwargs)
-        revision.store_patch_hash(patch.encode("utf-8"))
-        with revision.patch_cache_path.open("wb") as f:
-            f.write(patch.encode("utf-8"))
-        return revision
-
-    return _revision
 
 
 def test_update_landing(db, client):

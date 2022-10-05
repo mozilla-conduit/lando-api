@@ -21,7 +21,7 @@ from pytest_flask.plugin import JSONResponse
 from landoapi.app import construct_app, load_config, SUBSYSTEMS
 from landoapi.cache import cache, cache_subsystem
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
-from landoapi.models.revisions import DiffWarning
+from landoapi.models.revisions import DiffWarning, Revision
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -471,3 +471,18 @@ def revision_from_api(phabdouble):
         )
 
     return _get
+
+
+@pytest.fixture
+def create_revision():
+    """A fixture that creates and stores a revision."""
+
+    def _revision(patch, number=None, landing_job=None, **kwargs):
+        number = number or Revision.query.value
+        revision = Revision(revision_id=number, diff_id=number, **kwargs)
+        revision.store_patch_hash(patch.encode("utf-8"))
+        with revision.patch_cache_path.open("wb") as f:
+            f.write(patch.encode("utf-8"))
+        return revision
+
+    return _revision

@@ -124,7 +124,7 @@ def stop_revision_worker():
     from landoapi.storage import db_subsystem
 
     db_subsystem.ensure_ready()
-    ConfigurationVariable.set(RevisionWorker.STOP_KEY, VariableType.BOOL, "1")
+    RevisionWorker.stop()
 
 
 @cli.command(name="run-pre-deploy-sequence")
