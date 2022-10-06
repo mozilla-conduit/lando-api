@@ -10,21 +10,30 @@ from landoapi.workers.revision_worker import Supervisor, Processor
 
 import pytest
 
+initial_diff = """
+diff --git a/a b/a
+new file mode 100644
+--- /dev/null
++++ b/a
+@@ -0,0 +1,2 @@
++first line
++second line
+diff --git a/b b/b
+new file mode 100644
+--- /dev/null
++++ b/b
+@@ -0,0 +1,1 @@
++first line
+diff --git a/c b/c
+new file mode 100644
+""".strip()
 
-test_diff = """
-# HG changeset patch
-# User Zeid <zeid@mozilla.com>
-# Date 1664985824 14400
-#      Wed Oct 05 12:03:44 2022 -0400
-# Node ID 13f48e0bc7dd18b4a8b9c365ad91554f3d59c559
-# Parent  73335005b10f0bc8ed3778c0798b382c8b0a15ff
-multiple changes
-
+second_diff = """
 diff --git a/a b/a
 --- a/a
 +++ b/a
 @@ -1,2 +1,1 @@
-first line
+ first line
 -second line
 diff --git a/b b/b
 deleted file mode 100644
@@ -34,7 +43,14 @@ deleted file mode 100644
 -first line
 diff --git a/d b/d
 new file mode 100644
- """.strip()
+""".strip()
+
+third_diff = """
+diff --git a/c b/c
+deleted file mode 100644
+diff --git a/d b/d
+deleted file mode 100644
+""".strip()
 
 
 @pytest.fixture
@@ -56,6 +72,33 @@ def repos_dict():
         ),
     }
     return repo_config
+
+
+@pytest.fixture
+def setup_repo(mock_repo_config, phabdouble, app, hg_server):
+    from landoapi.repos import repo_clone_subsystem
+
+    def _setup():
+        mock_repo_config(
+            {
+                "test": {
+                    "repoA": Repo(
+                        tree="mozilla-central",
+                        url=hg_server,
+                        access_group=SCM_LEVEL_3,
+                        push_path=hg_server,
+                        pull_path=hg_server,
+                        use_revision_worker=True,
+                    )
+                }
+            }
+        )
+        repo = phabdouble.repo(name="repoA")
+        app.config["REPOS_TO_LAND"] = "repoA"
+        repo_clone_subsystem.ready()
+        return repo
+
+    return _setup
 
 
 def test_get_active_repos(phabdouble, db, repos_dict):
@@ -104,70 +147,90 @@ def test_get_phab_revisions(phabdouble, db):
 
 def test_parse_diff():
     """The provided patch should yield all filenames modified in the diff."""
-    test = parse_diff(test_diff)
+    test = parse_diff(second_diff)
     assert test == {"a", "b", "d"}
 
 
 def test_workers_integration(
     app,
     db,
-    mock_repo_config,
-    hg_server,
-    hg_clone,
-    treestatusdouble,
     phabdouble,
-    monkeypatch,
-    create_revision,
+    setup_repo,
 ):
-    from landoapi.repos import repo_clone_subsystem
+    """This test runs through the entire workflow of supervisor + processor workers."""
+    repo = setup_repo()
+    Revision.clear_patch_directory()
 
-    treestatusdouble.open_tree("repoA")
-    mock_repo_config(
-        {
-            "test": {
-                "repoA": Repo(
-                    tree="mozilla-central",
-                    url=hg_server,
-                    access_group=SCM_LEVEL_3,
-                    push_path=hg_server,
-                    pull_path=hg_server,
-                    use_revision_worker=True,
-                )
-            }
-        }
+    r1 = phabdouble.revision(diff=phabdouble.diff(rawdiff=initial_diff), repo=repo)
+    r2 = phabdouble.revision(
+        diff=phabdouble.diff(rawdiff=second_diff), repo=repo, depends_on=[r1]
     )
-
-    # Mock the phabricator response data
-    repo = phabdouble.repo(name="repoA")
-
-    d1 = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1, repo=repo)
-
-    d2 = phabdouble.diff()
-    phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
-
-    d3 = phabdouble.diff()
-    phabdouble.revision(diff=d3, repo=repo)
-
-    app.config["REPOS_TO_LAND"] = "repoA"
-    repo_clone_subsystem.ready()
+    r3 = phabdouble.revision(
+        diff=phabdouble.diff(rawdiff=third_diff), repo=repo, depends_on=[r2]
+    )
 
     assert Revision.query.count() == 0
 
-    worker = Supervisor()
-    worker.start(max_loops=1)
+    supervisor = Supervisor()
+    supervisor.start(max_loops=1)
 
     revisions = Revision.query.all()
     assert len(revisions) == 3
     assert set(r.status for r in revisions) == {RS.READY_FOR_PREPROCESSING}
 
+    revision_1 = Revision.query.filter(Revision.revision_id == r1["id"]).one()
+    revision_2 = Revision.query.filter(Revision.revision_id == r2["id"]).one()
+    revision_3 = Revision.query.filter(Revision.revision_id == r3["id"]).one()
+
+    # Check that all the patches are correct.
+    assert "\n".join(revision_1.patch.splitlines()[6:]) == initial_diff
+    assert "\n".join(revision_2.patch.splitlines()[6:]) == second_diff
+    assert "\n".join(revision_3.patch.splitlines()[6:]) == third_diff
+
+    # Check that stack is correct
+    assert revision_1.predecessor == None
+    assert revision_2.predecessor == revision_1
+    assert revision_3.predecessor == revision_2
+
+    assert revision_3.predecessors == [revision_1, revision_2]
+    assert revision_2.predecessors == [revision_1]
+
+    assert revision_1.linear_stack == revision_2.linear_stack
+    assert revision_2.linear_stack == revision_3.linear_stack
+    assert revision_3.linear_stack == [revision_1, revision_2, revision_3]
+
     ConfigurationVariable.set(Processor.CAPACITY_KEY, VariableType.INT, "3")
+    ConfigurationVariable.set(Processor.THROTTLE_KEY, VariableType.INT, "0")
 
-    worker = Processor()
-    worker.start(max_loops=1)
+    processor = Processor()
+    processor.start(max_loops=1)
 
-    # TODO: add more tests here for:
-    # - updating stack configuration (i.e. ensure that revisions are updated downstream)
-    # - updating diffs and ensuring the patch cache is updated correctly
-    # - integrating with the landing worker and seeing this workflow to the end
-    # - mots preprocessing/querying
+    revisions = Revision.query.all()
+    assert len(revisions) == 3
+    assert set(r.status for r in revisions) == {RS.READY}
+
+    # Update revision 2 with a new diff.
+    phabdouble.diff(rawdiff=second_diff, revision=r2)
+
+    # We expect revisions 2 and 3 to be marked as stale.
+    supervisor.start(max_loops=1)
+    revision_1 = Revision.query.filter(Revision.revision_id == r1["id"]).one()
+    revision_2 = Revision.query.filter(Revision.revision_id == r2["id"]).one()
+    revision_3 = Revision.query.filter(Revision.revision_id == r3["id"]).one()
+    assert revision_1.status == RS.READY
+    assert revision_2.status == RS.STALE
+    assert revision_3.status == RS.STALE
+
+    # After processing we expect everything to be back to ready state.
+    processor.start(max_loops=1)
+
+    revision_1 = Revision.query.filter(Revision.revision_id == r1["id"]).one()
+    revision_2 = Revision.query.filter(Revision.revision_id == r2["id"]).one()
+    revision_3 = Revision.query.filter(Revision.revision_id == r3["id"]).one()
+    assert revision_1.status == RS.READY
+    assert revision_2.status == RS.READY
+    assert revision_3.status == RS.READY
+
+    # TODO: add landing worker workflow to the test
+    # TODO: add same test but with mots functionality
+    # TODO: update stack layout and reprocess

@@ -135,6 +135,13 @@ class Revision(Base):
     def get_from_revision_id(cls, revision_id):
         return cls.query.filter(Revision.revision_id == revision_id).one()
 
+    @classmethod
+    def clear_patch_directory(cls):
+        """Remove patch directory contents."""
+        files = cls.PATCH_DIRECTORY.glob("*")
+        for file in files:
+            file.unlink()
+
     @property
     def stack_hashes(self):
         """Return a dictionary with diff and timestamp hashes.
