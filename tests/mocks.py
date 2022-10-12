@@ -236,6 +236,30 @@ class PhabricatorDouble:
     def get_phabricator_client():
         return PhabricatorClient("https://localhost", "DOESNT-MATTER")
 
+    def update_revision_dependencies(self, phid: str, depends_on: list[str]):
+        """Updates edges of `phid` so they match `depends_on`."""
+        # Remove all previous edges related to this revision.
+        def philter(edge):
+            return phid not in (edge["sourcePHID"], edge["destinationPHID"])
+
+        self._edges = list(filter(philter, self._edges))
+
+        for rev in depends_on:
+            self._edges.append(
+                {
+                    "edgeType": "revision.parent",
+                    "sourcePHID": phid,
+                    "destinationPHID": rev["phid"],
+                }
+            )
+            self._edges.append(
+                {
+                    "edgeType": "revision.child",
+                    "sourcePHID": rev["phid"],
+                    "destinationPHID": phid,
+                }
+            )
+
     def revision(
         self,
         *,
