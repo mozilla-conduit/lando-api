@@ -85,7 +85,7 @@ class LandingWorker(Worker):
 
         if self.last_job_finished is False:
             logger.info("Last job did not complete, sleeping.")
-            self.sleep(self.sleep_seconds)
+            self.throttle(self.sleep_seconds)
             self.refresh_enabled_repos()
 
         job = LandingJob.next_job_for_update_query(
@@ -93,7 +93,7 @@ class LandingWorker(Worker):
         ).first()
 
         if job is None:
-            self.sleep(self.sleep_seconds)
+            self.throttle(self.sleep_seconds)
             return
 
         with job_processing(job, db):
