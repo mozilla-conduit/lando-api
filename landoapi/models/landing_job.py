@@ -29,10 +29,7 @@ class LandingJobStatus(enum.Enum):
     column of `LandingJob`.
     """
 
-    # Initial state.
-    CREATED = "CREATED"
-
-    # Ready state.
+    # Ready to be picked up state.
     SUBMITTED = "SUBMITTED"
 
     # Actively being processed.
@@ -78,9 +75,7 @@ class LandingJob(Base):
     # ordered, the resulting column will have the same order
     # as the definition order of the enum. This can be relied
     # on for comparisons or things like queries with ORDER BY.
-    status = db.Column(
-        db.Enum(LandingJobStatus), nullable=False, default=LandingJobStatus.SUBMITTED
-    )
+    status = db.Column(db.Enum(LandingJobStatus), nullable=True, default=None)
 
     # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
     revision_to_diff_id = db.Column(JSONB, nullable=True)

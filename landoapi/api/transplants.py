@@ -369,7 +369,7 @@ def post(data):
 
         # Trigger a local transplant
         job = LandingJob(
-            status=LandingJobStatus.CREATED,
+            status=None,
             requester_email=ldap_username,
             repository_name=landing_repo.short_name,
             repository_url=landing_repo.url,

@@ -271,7 +271,6 @@ def test_workers_integration(
     # The next few steps mimic what the transplant API endpoint does.
     # Create a landing job to try and land these revisions.
     job = LandingJob(
-        status=LandingJobStatus.CREATED,
         requester_email="test@example.com",
         repository_name="repoA",
     )

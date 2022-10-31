@@ -1,8 +1,8 @@
-"""revision-worker-changes
+"""revision worker changes
 
-Revision ID: 9083afb011cd
+Revision ID: 21e4c5897491
 Revises: 7883d80258fb
-Create Date: 2022-09-09 16:32:36.880524
+Create Date: 2022-10-31 18:10:50.215984
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "9083afb011cd"
+revision = "21e4c5897491"
 down_revision = "7883d80258fb"
 branch_labels = None
 depends_on = None
@@ -53,9 +53,9 @@ def upgrade():
         sa.Column(
             "patch_data", postgresql.JSONB(astext_type=sa.Text()), nullable=False
         ),
-        sa.Column("depends_on_id", sa.Integer(), nullable=True),
+        sa.Column("predecessor_id", sa.Integer(), nullable=True),
         sa.ForeignKeyConstraint(
-            ["depends_on_id"],
+            ["predecessor_id"],
             ["revision.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -78,6 +78,20 @@ def upgrade():
     )
     op.alter_column(
         "landing_job",
+        "status",
+        existing_type=postgresql.ENUM(
+            "SUBMITTED",
+            "IN_PROGRESS",
+            "DEFERRED",
+            "FAILED",
+            "LANDED",
+            "CANCELLED",
+            name="landingjobstatus",
+        ),
+        nullable=True,
+    )
+    op.alter_column(
+        "landing_job",
         "revision_to_diff_id",
         existing_type=postgresql.JSONB(astext_type=sa.Text()),
         nullable=True,
@@ -88,10 +102,6 @@ def upgrade():
         existing_type=postgresql.JSONB(astext_type=sa.Text()),
         nullable=True,
     )
-
-    # Manually added because of lack of proper handling of enums in alembic.
-    op.execute("ALTER TYPE landingjobstatus ADD VALUE 'CREATED'")
-
     # ### end Alembic commands ###
 
 
@@ -107,6 +117,20 @@ def downgrade():
         "landing_job",
         "revision_to_diff_id",
         existing_type=postgresql.JSONB(astext_type=sa.Text()),
+        nullable=False,
+    )
+    op.alter_column(
+        "landing_job",
+        "status",
+        existing_type=postgresql.ENUM(
+            "SUBMITTED",
+            "IN_PROGRESS",
+            "DEFERRED",
+            "FAILED",
+            "LANDED",
+            "CANCELLED",
+            name="landingjobstatus",
+        ),
         nullable=False,
     )
     op.drop_table("revision_landing_job")

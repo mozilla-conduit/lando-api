@@ -1055,7 +1055,7 @@ def _create_landing_job(
     requester_email="tuser@example.com",
     repository_name="mozilla-central",
     repository_url="http://hg.test",
-    status=LandingJobStatus.CREATED,
+    status=None,
 ):
     job = LandingJob(
         requester_email=requester_email,
