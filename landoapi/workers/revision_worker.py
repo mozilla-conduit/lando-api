@@ -64,7 +64,7 @@ def get_conduit_data(method, **kwargs):
         return data
 
     data += result["data"]
-    while result["cursor"]["after"]:
+    while result and result["cursor"] and result["cursor"]["after"]:
         result = call_conduit(method, after=result["cursor"]["after"], **kwargs)
         if result and "data" in result:
             data += result["data"]
