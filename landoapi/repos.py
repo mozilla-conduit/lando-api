@@ -211,6 +211,7 @@ REPO_CONFIG = {
             tree="test-repo",
             url="https://hg.mozilla.org/conduit-testing/test-repo",
             access_group=SCM_CONDUIT,
+            use_revision_worker=True,
         ),
         "m-c": Repo(
             tree="m-c",
@@ -228,6 +229,7 @@ REPO_CONFIG = {
             access_group=SCM_CONDUIT,
             push_bookmark="@",
             config_override={"fix.black:command": "black -- -"},
+            use_revision_worker=True,
         ),
     },
     "devsvcprod": {
