@@ -421,6 +421,8 @@ def get_list(stack_revision_id):
     revision = Revision.query.filter(Revision.revision_id == revision_id).one_or_none()
 
     if revision is None:
+        # TODO: Try again with Phabricator perhaps, or update the message to include
+        # a blurb about the revisions not having been picked up yet from Phabricator.
         return problem(
             404,
             "Revision not found",
