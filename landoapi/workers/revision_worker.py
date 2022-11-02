@@ -158,6 +158,7 @@ def get_phab_revisions(statuses=None):
     revisions = [
         {
             "revision_id": r["id"],
+            "diff_id": r["fields"]["diffID"],
             "diff_phid": r["fields"]["diffPHID"],
             "repo_phid": r["fields"]["repositoryPHID"],
             "phid": r["phid"],
@@ -166,12 +167,6 @@ def get_phab_revisions(statuses=None):
         for r in revisions
         if r["fields"]["diffPHID"] and r["fields"]["repositoryPHID"]
     ]
-
-    diff_phids = [r["diff_phid"] for r in revisions]
-    diff_ids = get_conduit_data(
-        "differential.diff.search", constraints={"phids": diff_phids}
-    )
-    diff_map = {d["phid"]: d["id"] for d in diff_ids}
 
     repo_phids = [r["repo_phid"] for r in revisions]
     repo_ids = get_conduit_data(
@@ -186,7 +181,6 @@ def get_phab_revisions(statuses=None):
     }
 
     for r in revisions:
-        r["diff_id"] = diff_map[r["diff_phid"]]
         r.update(repo_map[r["repo_phid"]])
         r["phids"] = {
             "repo_phid": r["repo_phid"],

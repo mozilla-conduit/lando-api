@@ -977,6 +977,7 @@ class PhabricatorDouble:
                     },
                     "repositoryPHID": i["repositoryPHID"],
                     "diffPHID": diffs[-1]["phid"],
+                    "diffID": diffs[-1]["id"],
                     "summary": i["summary"],
                     "dateCreated": i["dateCreated"],
                     "dateModified": i["dateModified"],
