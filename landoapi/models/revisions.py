@@ -262,13 +262,19 @@ class Revision(Base):
 
     def change_triggered(self, changes):
         """Check if any of the changes should trigger a status change."""
-        keys = ("repo_name", "repo_callsign", "diff_id", "predecessor")
+        keys = ("repo_name", "repo_callsign", "diff_id")
         data_keys = ("predecessor",)
         for key in keys:
-            if key in data_keys:
-                if self.data.get(key, None) != changes.get(key, None):
-                    return True
-            elif getattr(self, key, None) != changes.get(key, None):
+            old = getattr(self, key, None)
+            new = changes.get(key, None)
+            if str(old) != str(new):
+                logger.info(f"Change detected in {self} ({key}) {old} vs {new}")
+                return True
+        for key in data_keys:
+            old = self.data.get(key, None)
+            new = changes.get(key, None)
+            if str(old) != str(new):
+                logger.info(f"Change detected in {self} ({key}) {old} vs {new}")
                 return True
         return False
 
@@ -301,8 +307,12 @@ class Revision(Base):
         db.session.commit()
 
     def verify_patch_hash(self, patch):
+        logger.info(f"Verifying hash for {self}.")
         patch_hash = calculate_patch_hash(patch)
-        return self.patch_hash == patch_hash
+        if self.patch_hash != patch_hash:
+            logger.error(f"Hash discrepancy: {self.patch_hash} vs. {patch_hash}.")
+            return False
+        return True
 
     def serialize(self):
         return {

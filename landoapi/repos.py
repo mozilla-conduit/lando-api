@@ -222,6 +222,7 @@ REPO_CONFIG = {
             approval_required=True,
             product_details_url="https://raw.githubusercontent.com/mozilla-conduit"
             "/suite/main/docker/product-details/1.0/firefox_versions.json",
+            use_revision_worker=True,
         ),
         "vct": Repo(
             tree="vct",
@@ -229,7 +230,6 @@ REPO_CONFIG = {
             access_group=SCM_CONDUIT,
             push_bookmark="@",
             config_override={"fix.black:command": "black -- -"},
-            use_revision_worker=True,
         ),
     },
     "devsvcprod": {

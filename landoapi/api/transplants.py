@@ -322,21 +322,31 @@ def post(data):
         author_name, author_email = select_diff_author(diff)
         timestamp = int(datetime.now().timestamp())
 
-        patch_data = {
-            "author_name": author_name,
-            "author_email": author_email,
-            "commit_message": commit_message,
-            "timestamp": timestamp,
-        }
-        lando_revision = Revision.get_or_create(
-            revision["id"],
-            diff["id"],
-        )
-        if lando_revision.patch_data != patch_data:
-            logger.info("Patch data stale, updating...")
-            lando_revision.clear_patch_cache()
-            lando_revision.patch_data = patch_data
-        db.session.commit()
+        with db.session.begin_nested():
+            _lock_table_for(db.session, model=LandingJob)
+            lando_revision = Revision.query.filter(
+                Revision.revision_id == revision["id"],
+                Revision.diff_id == diff["id"],
+            ).one_or_none()
+            if not lando_revision:
+                # Create a new revision, but trigger an error on the landing job.
+                lando_revision = Revision(
+                    revision_id=revision["id"], diff_id=diff["id"]
+                )
+                db.session.add(lando_revision)
+
+            patch_data = {
+                "author_name": author_name,
+                "author_email": author_email,
+                "commit_message": commit_message,
+                "timestamp": timestamp,
+            }
+
+            if lando_revision.patch_data != patch_data:
+                logger.info("Patch data stale, updating...")
+                lando_revision.clear_patch_cache()
+                lando_revision.patch_data = patch_data
+            db.session.commit()
 
         # Construct the patch, and store the hash.
         raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
