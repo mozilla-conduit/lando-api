@@ -1,12 +1,14 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+from __future__ import annotations
 import copy
 from contextlib import contextmanager
 import configparser
 import logging
 import os
 from pathlib import Path
+from re import search
 import shlex
 import shutil
 import tempfile
@@ -17,6 +19,7 @@ from typing import List, Optional
 import hglib
 
 from landoapi.hgexports import PatchHelper
+from landoapi.validation import is_valid_email
 
 logger = logging.getLogger(__name__)
 
@@ -353,9 +356,14 @@ class HgRepo:
             # --landing_system is provided by the set_landing_system hgext.
             date = patch_helper.header("Date")
             user = patch_helper.header("User")
-
             if not user:
                 raise ValueError("Missing `User` header!")
+
+            email = self.extract_email_from_username(user)
+            if not is_valid_email(email):
+                raise ValueError(
+                    f"Invalid email ({email}) configured for Mercurial user!"
+                )
 
             if not date:
                 raise ValueError("Missing `Date` header!")
@@ -519,3 +527,16 @@ class HgRepo:
 
         with checkout_file_path.open() as f:
             return f.read()
+
+    @staticmethod
+    def extract_email_from_username(username: str | bytes) -> str:
+        """Extracts an email from a Mercurial username, if it exists.
+
+        Not guaranteed to return a valid email, make sure to validate."""
+        email = search(r"<.*?>", str(username))
+        if email:
+            return email.group(0).replace("<", "").replace(">", "")
+
+        # If there is no value between angle brackets in the string,
+        # then there is no Mercurial email configured
+        return ""

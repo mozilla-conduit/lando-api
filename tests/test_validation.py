@@ -4,7 +4,7 @@
 import pytest
 from connexion import ProblemException
 
-from landoapi.validation import revision_id_to_int
+from landoapi.validation import revision_id_to_int, is_valid_email
 
 
 def test_convertion_success():
@@ -20,3 +20,28 @@ def test_convertion_failure_string(id):
 def test_convertion_failure_integer():
     with pytest.raises(TypeError):
         revision_id_to_int(123)
+
+
+def test_is_valid_email():
+    invalid_emails = [
+        "Test User",
+        "test <test>",
+        "test <test@test>",
+        "test@",
+        "-@...",
+        "test@mozilla.",
+        "test@.com",
+    ]
+    valid_emails = [
+        "test@test.com",
+        "test-email@test.com",
+        "test_email@test.com",
+        "test@test-domain.com",
+        "test.name@test.co.uk",
+        "colombia@test.co",
+        "iceland@test.is",
+        "deutsch@test.de",
+    ]
+
+    assert True not in [is_valid_email(value) for value in invalid_emails]
+    assert False not in [is_valid_email(value) for value in valid_emails]

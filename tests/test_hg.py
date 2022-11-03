@@ -173,6 +173,37 @@ diff --git a/test.txt b/test.txt
 +adding another line
 """.strip()
 
+PATCH_NO_EMAIL = b"""
+# HG changeset patch
+# User Test User
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip()
+
+
+PATCH_INVALID_EMAIL = b"""
+# HG changeset patch
+# User Test User <test@example>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip()
+
 
 def test_integrated_hgrepo_apply_patch(hg_clone):
     repo = HgRepo(hg_clone.strpath)
@@ -185,6 +216,14 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
     # Patches with conflicts should raise a proper PatchConflict exception.
     with pytest.raises(PatchConflict), repo.for_pull():
         repo.apply_patch(io.BytesIO(PATCH_WITH_CONFLICT))
+
+    # Mercurial users with invalid emails raise an error
+    with pytest.raises(ValueError), repo.for_pull():
+        repo.apply_patch(io.BytesIO(PATCH_INVALID_EMAIL))
+
+    # Mercurial users with no email configured raise an error
+    with pytest.raises(ValueError), repo.for_pull():
+        repo.apply_patch(io.BytesIO(PATCH_NO_EMAIL))
 
     with repo.for_pull():
         repo.apply_patch(io.BytesIO(PATCH_NORMAL))
@@ -251,3 +290,22 @@ def test_hgrepo_request_user(hg_clone):
         assert REQUEST_USER_ENV_VAR in os.environ
         assert os.environ[REQUEST_USER_ENV_VAR] == "test@example.com"
     assert REQUEST_USER_ENV_VAR not in os.environ
+
+
+def test_extract_email(hg_clone):
+    repo = HgRepo(hg_clone.strpath)
+
+    # Empty username
+    assert repo.extract_email_from_username("") == ""
+
+    # Username without email
+    assert repo.extract_email_from_username("test user") == ""
+
+    # Username with email
+    assert (
+        repo.extract_email_from_username("test user <test@email.com>")
+        == "test@email.com"
+    )
+
+    # Username with invalid email
+    assert repo.extract_email_from_username("test <test@test>") == "test@test"
