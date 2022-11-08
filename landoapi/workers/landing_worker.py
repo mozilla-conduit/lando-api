@@ -317,19 +317,28 @@ class LandingWorker(Worker):
                     job.fail_revisions()
                     db.session.commit()
                     return True
+                except NoDiffStartLine as e:
+                    message = (
+                        "Lando encountered a malformed patch, please try again. "
+                        "If this error persists please file a bug: "
+                        "Patch without a diff start line."
+                    )
+                    logger.error(message)
+                    job.transition_status(
+                        LandingJobAction.FAIL,
+                        message=message + f"\n{e}",
+                        commit=True,
+                        db=db,
+                    )
+                    job.fail_revisions()
+                    db.session.commit()
+                    self.notify_user_of_landing_failure(job)
+                    return True
                 except Exception as e:
-                    # verify below line
-                    if e is NoDiffStartLine:
-                        message = (
-                            "Lando encountered a malformed patch, please try again. "
-                            "If this error persists please file a bug: "
-                            "Patch without a diff start line."
-                        )
-                    else:
-                        message = (
-                            f"Aborting, could not apply patch buffer for "
-                            f"{revision.revision_id}, {revision.diff_id}."
-                        )
+                    message = (
+                        f"Aborting, could not apply patch buffer for "
+                        f"{revision.revision_id}, {revision.diff_id}."
+                    )
                     logger.exception(message)
                     job.transition_status(
                         LandingJobAction.FAIL,

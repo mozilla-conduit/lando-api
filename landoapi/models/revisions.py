@@ -69,7 +69,7 @@ class RevisionStatus(enum.Enum):
     # Ready means revision worker is finished and this revision can be queued to land.
     READY = "READY"
 
-    # Below four statuses are describe the landing state.
+    # Below four statuses describe the landing state.
     QUEUED = "QUEUED"
     LANDING = "LANDING"
     LANDED = "LANDED"
@@ -81,6 +81,7 @@ class RevisionStatus(enum.Enum):
     @classmethod
     @property
     def LANDING_STATES(cls):
+        """States where the revision is in process of landing."""
         return (cls.QUEUED, cls.LANDING, cls.LANDED)
 
     @classmethod

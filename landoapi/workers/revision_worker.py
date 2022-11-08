@@ -281,7 +281,7 @@ def mark_stale_revisions():
         )
         # checkout repo, pull & update
         with hgrepo.for_pull():
-            if hgrepo.incoming(repo.pull_path):
+            if hgrepo.has_incoming(repo.pull_path):
                 hgrepo.update_repo(repo.pull_path)
                 logger.info(f"Incoming changes detected in {repo_name}.")
                 revisions = Revision.query.filter(
@@ -340,9 +340,7 @@ class Processor(RevisionWorker):
 
         # NOTE: The revisions will be processed according to their dependencies
         # at the time of fetching. If dependencies change, they will be
-        # re-process on the next iteration.
-
-        messages = []
+        # re-processed on the next iteration.
 
         logger.info(f"Found {revisions.all()} to process.")
         for revision in revisions:
@@ -354,21 +352,22 @@ class Processor(RevisionWorker):
 
             try:
                 warnings, errors = self.process(revision)
-                if errors:
-                    logger.info(f"Errors detected on revision {revision}")
-                    revision.status = RS.PROBLEM
-                    revision.update_data(error="".join(errors))
-                else:
-                    revision.status = RS.READY
-                    logger.info(f"No problems detected on revision {revision}")
-                db.session.commit()
             except Exception as e:
                 logger.info(f"Exception encountered while processing {revision}")
                 revision.status = RS.PROBLEM
                 revision.update_data(error="".join(e.args))
-                messages += e.args
                 logger.exception(e)
                 db.session.commit()
+                continue
+
+            if errors:
+                logger.info(f"Errors detected on revision {revision}")
+                revision.status = RS.PROBLEM
+                revision.update_data(error="".join(errors))
+            else:
+                revision.status = RS.READY
+                logger.info(f"No problems detected on revision {revision}")
+            db.session.commit()
 
     def _mots_validate(self, mots_directory, query_result):
         warnings = []
