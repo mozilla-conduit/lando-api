@@ -203,7 +203,6 @@ def create_uplift_revision(
     source_revision: dict,
     source_diff: dict,
     parent_phid: Optional[str],
-    relman_phid: str,
     target_repository: dict,
 ) -> dict[str, str]:
     """Create a new revision on a repository, cloning a diff from another repo.
@@ -278,11 +277,6 @@ def create_uplift_revision(
         # Copy title & summary from source revision.
         {"type": "title", "value": phab.expect(source_revision, "fields", "title")},
         {"type": "summary", "value": summary},
-        # Set release managers as reviewers.
-        {
-            "type": "reviewers.add",
-            "value": [f"blocking({relman_phid})"],
-        },
         # Copy Bugzilla id.
         {
             "type": "bugzilla.bug-id",

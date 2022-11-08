@@ -1,4 +1,4 @@
-# This Source Code Form is subject to the terms of the Mozilla Publc
+# This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import functools
@@ -40,6 +40,9 @@ RevisionWarning = namedtuple(
     ("i", "display", "revision_id", "details", "articulated"),
     defaults=(None, None, None, None, False),
 )
+
+# The code freeze dates generally correspond to PST work days.
+CODE_FREEZE_OFFSET = "-0800"
 
 
 def tokens_are_equal(t1, t2):
@@ -330,14 +333,14 @@ def warning_code_freeze(*, repo, **kwargs):
 
     today = datetime.now(tz=timezone.utc)
     freeze_date = datetime.strptime(
-        f"{freeze_date_str} {DiffWarning.code_freeze_offset}",
+        f"{freeze_date_str} {CODE_FREEZE_OFFSET}",
         "%Y-%m-%d %z",
     ).replace(tzinfo=timezone.utc)
     if today < freeze_date:
         return
 
     merge_date = datetime.strptime(
-        f"{merge_date_str} {DiffWarning.code_freeze_offset}",
+        f"{merge_date_str} {CODE_FREEZE_OFFSET}",
         "%Y-%m-%d %z",
     ).replace(tzinfo=timezone.utc)
 

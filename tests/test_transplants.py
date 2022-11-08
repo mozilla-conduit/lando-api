@@ -1,8 +1,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import os
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
+import os
 
 import pytest
 
@@ -1076,3 +1077,9 @@ def _create_landing_job(
     job.status = LandingJobStatus.SUBMITTED
     db.session.commit()
     return job
+
+
+def test_codefreeze_datetime_mock(codefreeze_datetime):
+    dt = codefreeze_datetime()
+    assert dt.now(tz=timezone.utc) == datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc)
+    assert dt.strptime("tomorrow -0800", fmt="") == datetime(2000, 1, 6, 0, 0, 0)
