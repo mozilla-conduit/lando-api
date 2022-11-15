@@ -232,6 +232,28 @@ REPO_CONFIG = {
             config_override={"fix.black:command": "black -- -"},
         ),
     },
+    "devsvcbeta": {
+        "version-control-tools": Repo(
+            tree="version-control-tools",
+            url="https://hg.mozilla.org/hgcustom/version-control-tools",
+            access_group=SCM_VERSIONCONTROL,
+            push_bookmark="@",
+            use_revision_worker=True,
+        ),
+        "comm-central": Repo(
+            tree="comm-central",
+            url="https://hg.mozilla.org/comm-central",
+            access_group=SCM_LEVEL_3,
+            commit_flags=[DONTBUILD],
+            use_revision_worker=True,
+        ),
+        "mozilla-build": Repo(
+            tree="mozilla-build",
+            url="https://hg.mozilla.org/mozilla-build",
+            access_group=SCM_LEVEL_3,
+            use_revision_worker=True,
+        ),
+    },
     "devsvcprod": {
         "phabricator-qa-stage": Repo(
             tree="phabricator-qa-stage",
