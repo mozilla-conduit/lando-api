@@ -44,17 +44,8 @@ paths:
               - $ref: '#/definitions/Error'
   /stats:
     get:
-      operationId: landoapi.api.landing_jobs.get_stats
-      description: Return various statistics about landing jobs.
-      parameters:
-        - name: start_date
-          in: query
-          type: string
-          format: date
-        - name: end_date
-          in: query
-          type: string
-          format: date
+      operationId: landoapi.api.get_stats
+      description: Return various statistics about landing jobs and revisions.
       responses:
         200:
           description: OK
