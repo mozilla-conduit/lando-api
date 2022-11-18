@@ -229,6 +229,13 @@ REPO_CONFIG = {
             config_override={"fix.black:command": "black -- -"},
         ),
     },
+    "devsvcstage": {
+        "test-repo-clone": Repo(
+            tree="test-repo-clone",
+            url="https://hg.mozilla.org/conduit-testing/test-repo-clone",
+            access_group=SCM_CONDUIT,
+        ),
+    },
     "devsvcprod": {
         "phabricator-qa-stage": Repo(
             tree="phabricator-qa-stage",
