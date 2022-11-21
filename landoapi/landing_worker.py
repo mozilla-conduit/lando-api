@@ -75,7 +75,7 @@ def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
 
 
 class LandingWorker:
-    def __init__(self, sleep_seconds=5):
+    def __init__(self, sleep_seconds: float = 5.0):
         SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
         self.sleep_seconds = sleep_seconds
