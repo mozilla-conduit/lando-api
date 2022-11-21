@@ -392,7 +392,6 @@ class HgRepo:
         Changes made by code formatters are applied to the working directory and
         are not committed into version control.
         """
-        # Run linters.
         return self.run_mach_command(["lint", "--fix", "--outgoing"])
 
     def run_mach_bootstrap(self) -> str:
