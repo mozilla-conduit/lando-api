@@ -10,7 +10,7 @@ CMD ["uwsgi"]
 ENV PYTHONUNBUFFERED=1
 
 # Set the MozBuild state path for `mach` autoformatting.
-# Avoids any prompts in output.
+# Avoids any prompts in output during `mach bootstrap`.
 ENV MOZBUILD_STATE_PATH /app/.mozbuild
 
 # uWSGI configuration
