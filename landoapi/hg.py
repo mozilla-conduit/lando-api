@@ -450,7 +450,7 @@ class HgRepo:
     def format_stack_amend(self) -> Optional[List[str]]:
         """Amend the top commit in the patch stack with changes from formatting."""
         try:
-            # Create a new commit, using `--no-edit` to keep the existing commit message.
+            # Amend the current commit, using `--no-edit` to keep the existing commit message.
             self.run_hg(["commit", "--amend", "--no-edit", "--landing_system", "lando"])
 
             return [self.get_current_node().decode("utf-8")]
