@@ -456,7 +456,7 @@ class HgRepo:
         except hglib.error.CommandError as exc:
             if exc.out.strip() == b"nothing changed":
                 # If nothing changed after formatting we can just return.
-                return None
+                return
 
             raise exc
 
@@ -482,7 +482,7 @@ class HgRepo:
         except hglib.error.CommandError as exc:
             if exc.out.strip() == b"nothing changed":
                 # If nothing changed after formatting we can just return.
-                return None
+                return
 
             raise exc
 
