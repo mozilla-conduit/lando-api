@@ -2,16 +2,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import copy
-from contextlib import contextmanager
 import configparser
 import logging
 import os
-from pathlib import Path
 import shlex
 import shutil
+import subprocess
 import tempfile
 import uuid
 
+from contextlib import contextmanager
+from pathlib import Path
 from typing import List, Optional
 
 import hglib
@@ -101,21 +102,21 @@ class PatchConflict(PatchApplicationFailure):
     )
 
 
-def check_fix_output_for_replacements(fix_output: List[bytes]) -> Optional[List[str]]:
-    """Parses `hg fix` output.
+class AutoformattingException(Exception):
+    """Exception when autoformatting fails to format a patch stack."""
 
-    Returns:
-        A list of changeset hashes, or None if no changesets are changed.
-    """
-    for line in fix_output:
-        if not line.startswith(b"REPLACEMENTS: "):
-            continue
+    pass
 
-        replacements_list = line.split(b"REPLACEMENTS: ", maxsplit=1)[-1].split(b",")
 
-        return [element.decode("latin-1") for element in replacements_list]
+AUTOFORMAT_COMMIT_MESSAGE = """
+No bug: apply code formatting via Lando
 
-    return None
+# ignore-this-changeset
+
+Output from `mach lint`:
+
+{output}
+""".strip()
 
 
 class HgRepo:
@@ -136,10 +137,6 @@ class HgRepo:
         "extensions.strip": "",
         "extensions.rebase": "",
         "extensions.set_landing_system": "/app/hgext/set_landing_system.py",
-        # Turn on fix extension for autoformatting, set to abort on failure
-        "extensions.fix": "",
-        "fix.failure": "abort",
-        "hooks.postfix": "python:/app/hgext/postfix_hook.py:postfix_hook",
     }
 
     def __init__(self, path, config=None):
@@ -151,6 +148,13 @@ class HgRepo:
 
         if config:
             self.config.update(config)
+
+    @property
+    def mach_path(self) -> Optional[Path]:
+        """Return the `Path` to `mach`, if it exists."""
+        mach_path = Path(self.path) / "mach"
+        if mach_path.exists():
+            return mach_path
 
     def _config_to_list(self):
         return ["{}={}".format(k, v) for k, v in self.config.items() if v is not None]
@@ -280,7 +284,7 @@ class HgRepo:
         except hglib.error.CommandError:
             pass
         try:
-            self.run_hg(["purge", "--all"])
+            self.run_hg(["purge"])
         except hglib.error.CommandError:
             pass
 
@@ -368,56 +372,166 @@ class HgRepo:
                 + ["--logfile", f_msg.name]
             )
 
-    def format(self) -> Optional[List[str]]:
-        """Run `hg fix` to format the currently checked-out stack, reading
-        fileset patterns for each formatter from the `.lando.ini` file in-tree."""
-        # Avoid attempting to autoformat without `.lando.ini` in-tree.
-        lando_config_path = Path(self.path) / ".lando.ini"
-        if not lando_config_path.exists():
+    def read_lando_config(self) -> Optional[configparser.ConfigParser]:
+        """Attempt to read the `.lando.ini` file."""
+        try:
+            lando_ini_contents = self.read_checkout_file(".lando.ini")
+        except ValueError:
             return None
 
         # ConfigParser will use `:` as a delimeter unless told otherwise.
         # We set our keys as `formatter:pattern` so specify `=` as the delimiters.
         parser = configparser.ConfigParser(delimiters="=")
-        with lando_config_path.open() as f:
-            parser.read_file(f)
+        parser.read_string(lando_ini_contents)
 
-        # If the file doesn't have a `fix` section, exit early.
-        if not parser.has_section("fix"):
-            return None
+        return parser
 
-        fix_hg_command = []
-        for key, value in parser.items("fix"):
-            if not key.endswith(":pattern"):
-                continue
+    def run_code_formatters(self) -> str:
+        """Run automated code formatters, returning the output of the process.
 
-            fix_hg_command += ["--config", f"fix.{key}={value}"]
+        Changes made by code formatters are applied to the working directory and
+        are not committed into version control.
+        """
+        return self.run_mach_command(["lint", "--fix", "--outgoing"])
 
-        # Exit if we didn't find any patterns.
-        if not fix_hg_command:
-            return None
-
-        # Run the formatters.
-        fix_hg_command += ["fix", "-r", "stack()"]
-        fix_output = self.run_hg(fix_hg_command).splitlines()
-
-        # Update the working directory to the latest change.
-        self.run_hg(["update", "-C", "-r", "tip"])
-
-        # Exit if no revisions were reformatted.
-        pre_formatting_hashes = check_fix_output_for_replacements(fix_output)
-        if not pre_formatting_hashes:
-            return None
-
-        post_formatting_hashes = (
-            self.run_hg(["log", "-r", "stack()", "-T", "{node}\n"])
-            .decode("utf-8")
-            .splitlines()[len(pre_formatting_hashes) - 1 :]
+    def run_mach_bootstrap(self) -> str:
+        """Run `mach bootstrap` to configure the system for code formatting."""
+        return self.run_mach_command(
+            [
+                "bootstrap",
+                "--no-system-changes",
+                "--application-choice",
+                "browser",
+            ]
         )
 
-        logger.info(f"revisions were reformatted: {', '.join(post_formatting_hashes)}")
+    def run_mach_command(self, args: List[str]) -> str:
+        """Run a command using the local `mach`, raising if it is missing."""
+        if not self.mach_path:
+            raise Exception("No `mach` found in local repo!")
 
-        return post_formatting_hashes
+        # Convert to `str` here so we can log the mach path.
+        command_args = [str(self.mach_path)] + args
+
+        try:
+            logger.info("running mach command", extra={"command": command_args})
+
+            output = subprocess.run(
+                command_args,
+                capture_output=True,
+                check=True,
+                cwd=self.path,
+                encoding="utf-8",
+                universal_newlines=True,
+            )
+
+            logger.info(
+                "output from mach command",
+                extra={
+                    "output": output.stdout,
+                },
+            )
+
+            return output.stdout
+
+        except subprocess.CalledProcessError as exc:
+            logger.exception(
+                "Failed to run mach command",
+                extra={
+                    "command": command_args,
+                    "err": exc.stderr,
+                    "output": exc.stdout,
+                },
+            )
+
+            raise exc
+
+    def format_stack_amend(self) -> Optional[List[str]]:
+        """Amend the top commit in the patch stack with changes from formatting."""
+        try:
+            # Amend the current commit, using `--no-edit` to keep the existing commit message.
+            self.run_hg(["commit", "--amend", "--no-edit", "--landing_system", "lando"])
+
+            return [self.get_current_node().decode("utf-8")]
+        except hglib.error.CommandError as exc:
+            if exc.out.strip() == b"nothing changed":
+                # If nothing changed after formatting we can just return.
+                return
+
+            raise exc
+
+    def format_stack_tip(self, autoformat_output: str) -> Optional[List[str]]:
+        """Add an autoformat commit to the top of the patch stack.
+
+        Return the commit hash of the autoformat commit as a `str`,
+        or return `None` if autoformatting made no changes.
+        """
+        try:
+            # Create a new commit.
+            self.run_hg(
+                ["commit"]
+                + [
+                    "--message",
+                    AUTOFORMAT_COMMIT_MESSAGE.format(output=autoformat_output),
+                ]
+                + ["--landing_system", "lando"]
+            )
+
+            return [self.get_current_node().decode("utf-8")]
+
+        except hglib.error.CommandError as exc:
+            if exc.out.strip() == b"nothing changed":
+                # If nothing changed after formatting we can just return.
+                return
+
+            raise exc
+
+    def format_stack(self, stack_size: int) -> Optional[List[str]]:
+        """Format the patch stack for landing.
+
+        Return a list of `str` commit hashes where autoformatting was applied,
+        or `None` if autoformatting was skipped. Raise `AutoformattingException`
+        if autoformatting failed for the current job.
+        """
+        # Disable autoformatting if `.lando.ini` is missing or not enabled.
+        landoini_config = self.read_lando_config()
+        if (
+            not landoini_config
+            or not landoini_config.has_section("autoformat")
+            or not landoini_config.getboolean("autoformat", "enabled")
+        ):
+            return None
+
+        # If `mach` is not at the root of the repo, we can't autoformat.
+        if not self.mach_path:
+            logger.info("No `./mach` in the repo - skipping autoformat.")
+            return None
+
+        try:
+            output = self.run_code_formatters()
+        except subprocess.CalledProcessError as exc:
+            logger.warning("Failed to run automated code formatters.")
+            logger.exception(exc)
+
+            raise AutoformattingException(
+                "Failed to run automated code formatters."
+            ) from exc
+
+        try:
+            # When the stack is just a single commit, amend changes into it.
+            if stack_size == 1:
+                return self.format_stack_amend()
+
+            # If the stack is more than a single commit, create an autoformat commit.
+            return self.format_stack_tip(output)
+
+        except HgException as exc:
+            logger.warning("Failed to create an autoformat commit.")
+            logger.exception(exc)
+
+            raise AutoformattingException(
+                "Failed to apply code formatting changes to the repo."
+            ) from exc
 
     def push(self, target, bookmark=None):
         if not os.getenv(REQUEST_USER_ENV_VAR):
@@ -471,6 +585,10 @@ class HgRepo:
 
         assert len(cset) == 12, cset
         return cset
+
+    def get_current_node(self) -> bytes:
+        """Return the currently checked out node."""
+        return self.run_hg(["identify", "-r", ".", "-i"])
 
     def update_from_upstream(self, source, remote_rev):
         # Pull and update to remote tip.

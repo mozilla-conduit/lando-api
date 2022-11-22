@@ -2,12 +2,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import io
+
 import pytest
 import textwrap
 import unittest.mock as mock
 
 from landoapi import patches
-from landoapi.hg import HgRepo
+from landoapi.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
 from landoapi.landing_worker import LandingWorker
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.transplant import Transplant, TransplantStatus
@@ -166,6 +168,27 @@ diff --git a/test.txt b/test.txt
 +adding one more line
 """.strip()
 
+PATCH_NORMAL_3 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+deleted file mode 100644
+--- a/test.txt
++++ /dev/null
+@@ -1,1 +0,0 @@
+-TEST
+diff --git a/blah.txt b/blah.txt
+new file mode 100644
+--- /dev/null
++++ b/blah.txt
+@@ -0,0 +1,1 @@
++TEST
+""".strip()
+
 PATCH_PUSH_LOSER = r"""
 # HG changeset patch
 # User Test User <test@example.com>
@@ -182,7 +205,7 @@ diff --git a/test.txt b/test.txt
 +adding one more line again
 """.strip()
 
-PATCH_FORMATTING_PATTERN = r"""
+PATCH_FORMATTING_PATTERN_PASS = r"""
 # HG changeset patch
 # User Test User <test@example.com>
 # Date 0 0
@@ -191,12 +214,82 @@ PATCH_FORMATTING_PATTERN = r"""
 add formatting config
 
 diff --git a/.lando.ini b/.lando.ini
+new file mode 100644
 --- /dev/null
 +++ b/.lando.ini
 @@ -0,0 +1,3 @@
-+[fix]
-+fakefmt:pattern = set:**.txt
-+fail:pattern = set:**.txt
++[autoformat]
++enabled = True
++
+diff --git a/mach b/mach
+new file mode 100755
+--- /dev/null
++++ b/mach
+@@ -0,0 +1,30 @@
++#!/usr/bin/env python3
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++# Fake formatter that rewrites text to mOcKiNg cAse
++
++import pathlib
++import sys
++
++HERE = pathlib.Path(__file__).resolve().parent
++
++def split_chars(string) -> list:
++    return [char for char in string]
++
++
++if __name__ == "__main__":
++    testtxt = HERE / "test.txt"
++    if not testtxt.exists():
++        sys.exit(0)
++    with testtxt.open() as f:
++        stdin_content = f.read()
++    stdout_content = []
++
++    for i, word in enumerate(split_chars(stdin_content)):
++        stdout_content.append(word.upper() if i % 2 == 0 else word.lower())
++
++    with testtxt.open("w") as f:
++        f.write("".join(stdout_content))
++    sys.exit(0)
+
+""".strip()
+
+PATCH_FORMATTING_PATTERN_FAIL = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add formatting config
+
+diff --git a/.lando.ini b/.lando.ini
+new file mode 100644
+--- /dev/null
++++ b/.lando.ini
+@@ -0,0 +1,3 @@
++[autoformat]
++enabled = True
++
+diff --git a/mach b/mach
+new file mode 100755
+--- /dev/null
++++ b/mach
+@@ -0,0 +1,9 @@
++#!/usr/bin/env python3
++# This Source Code Form is subject to the terms of the Mozilla Public
++# License, v. 2.0. If a copy of the MPL was not distributed with this
++# file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++# Fake formatter that fails to run.
++import sys
++sys.exit("MACH FAILED")
++
+
 """.strip()
 
 PATCH_FORMATTED_1 = r"""
@@ -446,28 +539,28 @@ def test_format_patch_success_unchanged(
     upload_patch,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
+    tree = "mozilla-central"
     treestatus = treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    treestatusdouble.open_tree(tree)
     repo = Repo(
-        tree="mozilla-central",
+        tree=tree,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
         access_group=SCM_LEVEL_3,
-        config_override={"fix.fakefmt:command": "cat"},
+        autoformat_enabled=True,
     )
 
     hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
 
-    upload_patch(1, patch=PATCH_FORMATTING_PATTERN)
-    upload_patch(2, patch=PATCH_FORMATTED_1)
-    upload_patch(3, patch=PATCH_FORMATTED_2)
+    upload_patch(1, patch=PATCH_FORMATTING_PATTERN_PASS)
+    upload_patch(2, patch=PATCH_NORMAL_3)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
-        repository_name="mozilla-central",
-        revision_to_diff_id={"1": 1, "2": 2, "3": 3},
-        revision_order=["1", "2", "3"],
+        repository_name=tree,
+        revision_to_diff_id={"1": 1, "2": 2},
+        revision_order=["1", "2"],
         attempts=1,
     )
 
@@ -484,13 +577,15 @@ def test_format_patch_success_unchanged(
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
-    assert job.formatted_replacements is None
     assert (
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
+    assert (
+        job.formatted_replacements is None
+    ), "Autoformat making no changes should leave `formatted_replacements` empty."
 
 
-def test_format_patch_success_changed(
+def test_format_single_success_changed(
     app,
     db,
     s3,
@@ -501,32 +596,118 @@ def test_format_patch_success_changed(
     monkeypatch,
     upload_patch,
 ):
-    """Tests automated formatting happy path where formatters made
-    changes before landing.
-    """
+    """Test formatting a single commit via amending."""
+    tree = "mozilla-central"
     treestatus = treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    treestatusdouble.open_tree(tree)
     repo = Repo(
-        tree="mozilla-central",
+        tree=tree,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
         access_group=SCM_LEVEL_3,
-        config_override={
-            "fix.fakefmt:command": "python /app/tests/fake_formatter.py",
-            "fix.fakefmt:linerange": "--lines={first}:{last}",
-        },
+        autoformat_enabled=True,
+    )
+
+    # Push the `mach` formatting patch.
+    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+    with hgrepo.for_push("test@example.com"):
+        hgrepo.apply_patch(io.BytesIO(PATCH_FORMATTING_PATTERN_PASS.encode("utf-8")))
+        hgrepo.push(repo.push_path)
+        pre_landing_tip = hgrepo.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
+            "utf-8"
+        )
+
+    # Upload a patch for formatting.
+    upload_patch(2, patch=PATCH_FORMATTED_1)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name=tree,
+        revision_to_diff_id={"2": 2},
+        revision_order=["2"],
+        attempts=1,
+    )
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    assert worker.run_job(
+        job, repo, hgrepo, treestatus, "landoapi.test.bucket"
+    ), "`run_job` should return `True` on a successful run."
+    assert (
+        job.status == LandingJobStatus.LANDED
+    ), "Successful landing should set `LANDED` status."
+    assert (
+        mock_trigger_update.call_count == 1
+    ), "Successful landing should trigger Phab repo update."
+
+    with hgrepo.for_push(job.requester_email):
+        repo_root = hgrepo.run_hg(["root"]).decode("utf-8").strip()
+
+        # Get the commit message.
+        desc = hgrepo.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+
+        # Get the content of the file after autoformatting.
+        tip_content = hgrepo.run_hg(
+            ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
+        )
+
+        # Get the hash behind the tip commit.
+        hash_behind_current_tip = hgrepo.run_hg(
+            ["log", "-r", "tip^", "-T", "{node}"]
+        ).decode("utf-8")
+
+    assert tip_content == TESTTXT_FORMATTED_1, "`test.txt` is incorrect in base commit."
+
+    assert (
+        desc == "add another file for formatting 1"
+    ), "Autoformat via amend should not change commit message."
+
+    assert (
+        hash_behind_current_tip == pre_landing_tip
+    ), "Autoformat via amending should only land a single commit."
+
+
+def test_format_stack_success_changed(
+    app,
+    db,
+    s3,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    monkeypatch,
+    upload_patch,
+):
+    """Test formatting a stack via an autoformat tip commit."""
+    tree = "mozilla-central"
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree(tree)
+    repo = Repo(
+        tree=tree,
+        url=hg_server,
+        push_path=hg_server,
+        pull_path=hg_server,
+        access_group=SCM_LEVEL_3,
+        autoformat_enabled=True,
     )
 
     hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
 
-    upload_patch(1, patch=PATCH_FORMATTING_PATTERN)
+    upload_patch(1, patch=PATCH_FORMATTING_PATTERN_PASS)
     upload_patch(2, patch=PATCH_FORMATTED_1)
     upload_patch(3, patch=PATCH_FORMATTED_2)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
-        repository_name="mozilla-central",
+        repository_name=tree,
         revision_to_diff_id={"1": 1, "2": 2, "3": 3},
         revision_order=["1", "2", "3"],
         attempts=1,
@@ -541,12 +722,6 @@ def test_format_patch_success_changed(
         mock_trigger_update,
     )
 
-    # The landed commit hashes affected by autoformat
-    formatted_replacements = [
-        "12be32a8a3ff283e0836b82be959fbd024cf271b",
-        "15b05c609cf43b49e7360eaea4de938158d18c6a",
-    ]
-
     assert worker.run_job(
         job, repo, hgrepo, treestatus, "landoapi.test.bucket"
     ), "`run_job` should return `True` on a successful run."
@@ -554,40 +729,31 @@ def test_format_patch_success_changed(
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
     assert (
-        job.formatted_replacements == formatted_replacements
-    ), "Did not correctly save hashes of formatted revisions"
-    assert (
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
     with hgrepo.for_push(job.requester_email):
-        # Get repo root since `-R` does not change relative directory, so
-        # we would need to pass the absolute path to `test.txt`
         repo_root = hgrepo.run_hg(["root"]).decode("utf-8").strip()
 
-        # Get the content of `test.txt`
-        rev2_content = hgrepo.run_hg(
-            ["cat", "--cwd", repo_root, "-r", "tip^", "test.txt"]
-        )
+        # Get the commit message.
+        desc = hgrepo.run_hg(["log", "-r", "tip", "-T", "{desc}"]).decode("utf-8")
+
+        # Get the content of the file after autoformatting.
         rev3_content = hgrepo.run_hg(
             ["cat", "--cwd", repo_root, "-r", "tip", "test.txt"]
         )
 
-        # Get the commit hashes
-        nodes = (
-            hgrepo.run_hg(["log", "-r", "tip^::tip", "-T", "{node}\n"])
-            .decode("utf-8")
-            .splitlines()
-        )
+    assert (
+        rev3_content == TESTTXT_FORMATTED_2
+    ), "`test.txt` is incorrect in base commit."
 
     assert (
-        rev2_content == TESTTXT_FORMATTED_1
-    ), "`test.txt` is incorrect in base commit."
-    assert rev3_content == TESTTXT_FORMATTED_2, "`test.txt` is incorrect in tip commit."
+        "# ignore-this-changeset" in desc
+    ), "Commit message for autoformat commit should contain `# ignore-this-changeset`."
 
-    assert all(
-        replacement in nodes for replacement in job.formatted_replacements
-    ), "Values in `formatted_replacements` field should be in the landed hashes."
+    assert (
+        desc == AUTOFORMAT_COMMIT_MESSAGE.format(output="").strip()
+    ), "Autoformat commit has incorrect commit message."
 
 
 def test_format_patch_fail(
@@ -602,29 +768,27 @@ def test_format_patch_fail(
     upload_patch,
 ):
     """Tests automated formatting failures before landing."""
+    tree = "mozilla-central"
     treestatus = treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    treestatusdouble.open_tree(tree)
     repo = Repo(
-        tree="mozilla-central",
+        tree=tree,
         access_group=SCM_LEVEL_3,
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
-        config_override={
-            # Force failure by setting a formatter that returns exit code 1
-            "fix.fail:command": "exit 1"
-        },
+        autoformat_enabled=True,
     )
 
     hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
 
-    upload_patch(1, patch=PATCH_FORMATTING_PATTERN)
+    upload_patch(1, patch=PATCH_FORMATTING_PATTERN_FAIL)
     upload_patch(2)
     upload_patch(3)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
-        repository_name="mozilla-central",
+        repository_name=tree,
         revision_to_diff_id={"1": 1, "2": 2, "3": 3},
         revision_order=["1", "2", "3"],
         attempts=1,
@@ -644,6 +808,9 @@ def test_format_patch_fail(
     assert (
         job.status == LandingJobStatus.FAILED
     ), "Failed autoformatting should set `FAILED` job status."
+    assert (
+        "Lando failed to format your patch" in job.error
+    ), "Error message is not set to show autoformat caused landing failure."
     assert (
         mock_notify.call_count == 1
     ), "User should be notified their landing was unsuccessful due to autoformat."
@@ -669,10 +836,7 @@ def test_format_patch_no_landoini(
         url=hg_server,
         push_path=hg_server,
         pull_path=hg_server,
-        config_override={
-            # If the `.lando.ini` file existed, this formatter would run and fail
-            "fix.fail:command": "exit 1"
-        },
+        autoformat_enabled=True,
     )
 
     hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
