@@ -748,6 +748,10 @@ def test_format_stack_success_changed(
     ), "`test.txt` is incorrect in base commit."
 
     assert (
+        "# ignore-this-changeset" in desc
+    ), "Commit message for autoformat commit should contain `# ignore-this-changeset`."
+
+    assert (
         desc == AUTOFORMAT_COMMIT_MESSAGE.format(output="").strip()
     ), "Autoformat commit has incorrect commit message."
 
