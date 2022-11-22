@@ -509,7 +509,15 @@ class HgRepo:
 
         try:
             output = self.run_code_formatters()
+        except subprocess.CalledProcessError as exc:
+            logger.warning("Failed to run automated code formatters.")
+            logger.exception(exc)
 
+            raise AutoformattingException(
+                "Failed to run automated code formatters."
+            ) from exc
+
+        try:
             # When the stack is just a single commit, amend changes into it.
             if stack_size == 1:
                 return self.format_stack_amend()
@@ -517,12 +525,12 @@ class HgRepo:
             # If the stack is more than a single commit, create an autoformat commit.
             return self.format_stack_tip(output)
 
-        except (HgException, subprocess.CalledProcessError) as exc:
+        except HgException as exc:
             logger.warning("Failed to create an autoformat commit.")
             logger.exception(exc)
 
             raise AutoformattingException(
-                "Failed to enforce code style guidelines."
+                "Failed to apply code formatting changes to the repo."
             ) from exc
 
     def push(self, target, bookmark=None):
