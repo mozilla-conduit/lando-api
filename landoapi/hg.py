@@ -112,10 +112,6 @@ AUTOFORMAT_COMMIT_MESSAGE = """
 No bug: apply code formatting via Lando
 
 # ignore-this-changeset
-
-Output from `mach lint`:
-
-{output}
 """.strip()
 
 
@@ -456,11 +452,11 @@ class HgRepo:
         except hglib.error.CommandError as exc:
             if exc.out.strip() == b"nothing changed":
                 # If nothing changed after formatting we can just return.
-                return
+                return None
 
             raise exc
 
-    def format_stack_tip(self, autoformat_output: str) -> Optional[List[str]]:
+    def format_stack_tip(self) -> Optional[List[str]]:
         """Add an autoformat commit to the top of the patch stack.
 
         Return the commit hash of the autoformat commit as a `str`,
@@ -472,7 +468,7 @@ class HgRepo:
                 ["commit"]
                 + [
                     "--message",
-                    AUTOFORMAT_COMMIT_MESSAGE.format(output=autoformat_output),
+                    AUTOFORMAT_COMMIT_MESSAGE,
                 ]
                 + ["--landing_system", "lando"]
             )
@@ -508,7 +504,7 @@ class HgRepo:
             return None
 
         try:
-            output = self.run_code_formatters()
+            self.run_code_formatters()
         except subprocess.CalledProcessError as exc:
             logger.warning("Failed to run automated code formatters.")
             logger.exception(exc)
@@ -523,7 +519,7 @@ class HgRepo:
                 return self.format_stack_amend()
 
             # If the stack is more than a single commit, create an autoformat commit.
-            return self.format_stack_tip(output)
+            return self.format_stack_tip()
 
         except HgException as exc:
             logger.warning("Failed to create an autoformat commit.")

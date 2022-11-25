@@ -752,7 +752,7 @@ def test_format_stack_success_changed(
     ), "Commit message for autoformat commit should contain `# ignore-this-changeset`."
 
     assert (
-        desc == AUTOFORMAT_COMMIT_MESSAGE.format(output="").strip()
+        desc == AUTOFORMAT_COMMIT_MESSAGE
     ), "Autoformat commit has incorrect commit message."
 
 
