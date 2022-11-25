@@ -53,7 +53,7 @@ def delete(pk):
     if not warning:
         return problem(
             400,
-            "DiffWarning does not exist"
+            "DiffWarning does not exist",
             f"DiffWarning with primary key {pk} does not exist",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
