@@ -502,13 +502,18 @@ def get_blocker_checks(
     ]
 
 
-def convert_path_id_to_phid(path, stack_data):
+def convert_path_id_to_phid(
+    landing_path: list[tuple[int, int]], stack_data: RevisionData
+) -> list[tuple[str, int]]:
+    """Convert a landing path list into a mapping of PHIDs to `int` diff IDs."""
     mapping = {
         PhabricatorClient.expect(r, "id"): PhabricatorClient.expect(r, "phid")
         for r in stack_data.revisions.values()
     }
     try:
-        mapped = [(mapping[r], d) for r, d in path]
+        mapped = [
+            (mapping[revision_id], diff_id) for revision_id, diff_id in landing_path
+        ]
     except IndexError:
         raise ProblemException(
             400,

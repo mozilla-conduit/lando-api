@@ -33,7 +33,7 @@ from landoapi.uplift import (
 logger = logging.getLogger(__name__)
 
 
-def gather_involved_phids(revision):
+def gather_involved_phids(revision: dict) -> set[str]:
     """Return the set of Phobject phids involved in a revision.
 
     At the time of writing Users and Projects are the type of Phobjects
@@ -118,7 +118,7 @@ def select_diff_author(diff):
     return authors[0][0] if authors else (None, None)
 
 
-def get_bugzilla_bug(revision):
+def get_bugzilla_bug(revision: dict) -> Optional[int]:
     bug = PhabricatorClient.expect(revision, "fields").get("bugzilla.bug-id")
     return int(bug) if bug else None
 
