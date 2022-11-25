@@ -8,6 +8,8 @@ import hmac
 import logging
 import os
 
+from collections.abc import Iterable
+
 from typing import (
     Callable,
     Optional,
@@ -354,7 +356,7 @@ class require_auth0:
     accessed using flask.g.auth0_user.
     """
 
-    def __init__(self, scopes: Optional[tuple[str]] = None, userinfo: bool = False):
+    def __init__(self, scopes: Optional[Iterable[str]] = None, userinfo: bool = False):
         assert scopes is not None, (
             "`scopes` must be provided. If this endpoint truly does not "
             "require any scopes, explicilty pass an empty tuple `()`"
