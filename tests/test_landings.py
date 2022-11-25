@@ -298,7 +298,7 @@ PATCH_FORMATTED_1 = r"""
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
-add another file for formatting 1
+bug 123: add another file for formatting 1
 
 diff --git a/test.txt b/test.txt
 --- a/test.txt
@@ -667,7 +667,7 @@ def test_format_single_success_changed(
     assert tip_content == TESTTXT_FORMATTED_1, "`test.txt` is incorrect in base commit."
 
     assert (
-        desc == "add another file for formatting 1"
+        desc == "bug 123: add another file for formatting 1"
     ), "Autoformat via amend should not change commit message."
 
     assert (
@@ -751,8 +751,8 @@ def test_format_stack_success_changed(
         "# ignore-this-changeset" in desc
     ), "Commit message for autoformat commit should contain `# ignore-this-changeset`."
 
-    assert (
-        desc == AUTOFORMAT_COMMIT_MESSAGE
+    assert desc == AUTOFORMAT_COMMIT_MESSAGE.format(
+        bugs="Bug 123"
     ), "Autoformat commit has incorrect commit message."
 
 

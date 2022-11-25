@@ -23,7 +23,6 @@ from flask import current_app
 
 from landoapi import bmo
 from landoapi.cache import cache, DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-from landoapi.commit_message import parse_bugs
 from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.projects import RELMAN_PROJECT_SLUG
@@ -361,12 +360,9 @@ def create_uplift_bug_update_payload(
 def update_bugs_for_uplift(
     repo_name: str,
     milestone_file_contents: str,
-    changeset_titles: list[str],
+    bug_ids: list[str],
 ):
     """Update Bugzilla bugs for uplift."""
-    # Parse bug numbers from commits in the stack.
-    bug_ids = [str(bug) for title in changeset_titles for bug in parse_bugs(title)]
-
     if not bug_ids:
         raise ValueError("No bugs found in uplift landing.")
 

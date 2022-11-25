@@ -16,6 +16,7 @@ import kombu
 from flask import current_app
 
 from landoapi import patches
+from landoapi.commit_message import parse_bugs
 from landoapi.hg import (
     AutoformattingException,
     HgRepo,
@@ -451,10 +452,22 @@ class LandingWorker:
                     self.notify_user_of_landing_failure(job)
                     return True
 
+            # Get the changeset titles for the stack.
+            changeset_titles = (
+                hgrepo.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
+                .decode("utf-8")
+                .splitlines()
+            )
+
+            # Parse bug numbers from commits in the stack.
+            bug_ids = [
+                str(bug) for title in changeset_titles for bug in parse_bugs(title)
+            ]
+
             # Run automated code formatters if enabled.
             if repo.autoformat_enabled:
                 try:
-                    replacements = hgrepo.format_stack(len(patch_bufs))
+                    replacements = hgrepo.format_stack(len(patch_bufs), bug_ids)
 
                     # If autoformatting added any changesets, note those in the job.
                     if replacements:
@@ -478,14 +491,6 @@ class LandingWorker:
             # Get the changeset hash of the first node.
             commit_id = hgrepo.run_hg(["log", "-r", ".", "-T", "{node}"]).decode(
                 "utf-8"
-            )
-
-            # Get the changeset titles for the stack. We do this here since the
-            # changesets will not be part of the `stack()` revset after pushing.
-            changeset_titles = (
-                hgrepo.run_hg(["log", "-r", "stack()", "-T", "{desc|firstline}\n"])
-                .decode("utf-8")
-                .splitlines()
             )
 
             try:
@@ -533,7 +538,7 @@ class LandingWorker:
                 update_bugs_for_uplift(
                     repo.short_name,
                     hgrepo.read_checkout_file("config/milestone.txt"),
-                    changeset_titles,
+                    bug_ids,
                 )
             except Exception as e:
                 # The changesets will have gone through even if updating the bugs fails. Notify
