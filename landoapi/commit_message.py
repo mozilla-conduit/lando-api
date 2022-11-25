@@ -200,7 +200,7 @@ def split_title_and_summary(msg: str) -> Tuple[str, str]:
     return title, summary
 
 
-def bug_list_to_commit_string(bug_ids: List[str]):
+def bug_list_to_commit_string(bug_ids: List[str]) -> str:
     """Convert a list of `str` bug IDs to a string for a commit message."""
     if not bug_ids:
         return "No bug"
