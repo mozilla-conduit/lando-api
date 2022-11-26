@@ -32,6 +32,7 @@ from landoapi.repos import (
 )
 from landoapi.stacks import (
     RevisionData,
+    RevisionStack,
     build_stack_graph,
     request_extended_revision_data,
 )
@@ -129,7 +130,7 @@ def get_release_managers(phab: PhabricatorClient) -> dict:
 
 def get_uplift_conduit_state(
     phab: PhabricatorClient, revision_id: int, target_repository_name: str
-) -> Tuple[RevisionData, dict]:
+) -> Tuple[RevisionData, RevisionStack, dict]:
     """Queries Conduit for repository and stack information about the requested uplift.
 
     Gathers information about:
@@ -155,7 +156,7 @@ def get_uplift_conduit_state(
         raise ValueError(f"No revision found with id {revision_id}")
 
     try:
-        nodes, _ = build_stack_graph(phab, phab.expect(revision, "phid"))
+        nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
     except PhabricatorAPIException as e:
         # If a revision within the stack causes an API exception, treat the whole stack
         # as not found.
@@ -171,7 +172,9 @@ def get_uplift_conduit_state(
             f"Cannot create uplift for stack > {MAX_UPLIFT_STACK_SIZE} revisions."
         )
 
-    return stack_data, target_repo
+    stack = RevisionStack(set(stack_data.revisions.keys()), edges)
+
+    return stack_data, stack, target_repo
 
 
 def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> Repo:

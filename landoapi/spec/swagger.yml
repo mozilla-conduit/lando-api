@@ -391,13 +391,16 @@ paths:
           schema:
             type: object
             required:
-              - landing_path 
+              - revision_id
               - repository
             properties:
               repository:
                 type: string
-              landing_path:
-                $ref: '#/definitions/LandingPath'
+              revision_id:
+                type: string
+                description: |
+                  The ID of a revision in the form of 'D{number}', e.g.
+                  'D12345'.
       responses:
         201:
           description: OK

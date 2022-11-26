@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 from collections import namedtuple
+from collections.abc import Iterator
 from typing import (
     Callable,
     Iterable,
@@ -141,6 +142,25 @@ class RevisionStack:
         for child, parent in self.edges:
             self.children[parent].add(child)
             self.parents[child].add(parent)
+
+    def base_revisions(self) -> Iterator[str]:
+        """Return the set of base revisions in the stack."""
+        return (node for node in self.nodes if not self.parents[node])
+
+    def iter_stack_from_base(self) -> Iterator[str]:
+        """Iterate over the revisions in the stack starting from the base."""
+        revision = next(self.base_revisions())
+
+        while True:
+            yield revision
+
+            # When there are no children, this will raise `StopIteration`,
+            # which is what we expect `iter_stack_from_base` to raise on
+            # completion as well.
+            try:
+                revision = next(iter(self.children[revision]))
+            except StopIteration:
+                return
 
 
 def calculate_landable_subgraphs(
