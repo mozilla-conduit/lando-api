@@ -5,7 +5,7 @@ import logging
 import urllib.parse
 
 from connexion import problem
-from flask import current_app, g
+from flask import current_app
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
@@ -53,17 +53,16 @@ not_found_problem = problem(
 
 
 @require_phabricator_api_key(optional=True)
-def get(revision_id):
+def get(phab: PhabricatorClient, revision_id: str):
     """Get the stack a revision is part of.
 
     Args:
         revision_id: (string) ID of the revision in 'D{number}' format
     """
-    revision_id = revision_id_to_int(revision_id)
+    revision_id_int = revision_id_to_int(revision_id)
 
-    phab = g.phabricator
     revision = phab.call_conduit(
-        "differential.revision.search", constraints={"ids": [revision_id]}
+        "differential.revision.search", constraints={"ids": [revision_id_int]}
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:

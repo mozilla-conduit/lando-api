@@ -274,13 +274,13 @@ def warning_revision_secure(*, revision, secure_project_phid, **kwargs):
 
 @RevisionWarningCheck(5, "Revision is missing a Testing Policy Project Tag.")
 def warning_revision_missing_testing_tag(
-    *, revision, testing_tag_project_phids, testing_policy_phid, **kwargs
+    *, revision, repo, testing_tag_project_phids, testing_policy_phid, **kwargs
 ):
     if not testing_tag_project_phids:
         return None
 
     if not revision_needs_testing_tag(
-        revision, testing_tag_project_phids, testing_policy_phid
+        revision, repo, testing_tag_project_phids, testing_policy_phid
     ):
         return None
 

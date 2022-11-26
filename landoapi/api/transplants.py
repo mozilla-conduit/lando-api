@@ -225,8 +225,7 @@ def _lock_table_for(
 
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
-def dryrun(data):
-    phab = g.phabricator
+def dryrun(phab: PhabricatorClient, data: dict):
     landing_path = _parse_transplant_request(data)["landing_path"]
     assessment, *_ = _assess_transplant_request(phab, landing_path)
     return assessment.to_dict()
@@ -234,9 +233,7 @@ def dryrun(data):
 
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
-def post(data):
-    phab = g.phabricator
-
+def post(phab: PhabricatorClient, data: dict):
     parsed_transplant_request = _parse_transplant_request(data)
     confirmation_token = parsed_transplant_request["confirmation_token"]
     flags = parsed_transplant_request["flags"]
@@ -495,13 +492,12 @@ def post(data):
 
 
 @require_phabricator_api_key(optional=True)
-def get_list(stack_revision_id):
+def get_list(phab: PhabricatorClient, stack_revision_id: str):
     """Return a list of Transplant objects"""
-    revision_id = revision_id_to_int(stack_revision_id)
+    revision_id_int = revision_id_to_int(stack_revision_id)
 
-    phab = g.phabricator
     revision = phab.call_conduit(
-        "differential.revision.search", constraints={"ids": [revision_id]}
+        "differential.revision.search", constraints={"ids": [revision_id_int]}
     )
     revision = phab.single(revision, "data", none_when_empty=True)
     if revision is None:

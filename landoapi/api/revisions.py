@@ -5,11 +5,11 @@
 import logging
 
 from connexion import problem
-from flask import g
 
 from landoapi import auth
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.models import SecApprovalRequest
+from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import get_secure_project_phid
 from landoapi.revisions import revision_is_secure
 from landoapi.secapproval import send_sanitized_commit_message_for_review
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 @auth.require_auth0(scopes=("lando",))
 @require_phabricator_api_key(optional=False)
-def request_sec_approval(data=None):
+def request_sec_approval(phab: PhabricatorClient, data: dict):
     """Update a Revision with a sanitized commit message.
 
     Kicks off the sec-approval process.
@@ -33,8 +33,6 @@ def request_sec_approval(data=None):
             message. e.g. D1234.
         sanitized_message: The sanitized commit message.
     """
-    phab = g.phabricator
-
     revision_id = revision_id_to_int(data["revision_id"])
     alt_message = data["sanitized_message"]
 

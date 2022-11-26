@@ -4,7 +4,7 @@
 import functools
 
 from connexion import problem, request
-from flask import current_app, g
+from flask import current_app
 
 from landoapi.phabricator import PhabricatorClient
 
@@ -23,7 +23,7 @@ class require_phabricator_api_key:
     will be used. If an API key is provided it will still be verified.
 
     Decorated functions may assume X-Phabricator-API-Key header is present,
-    contains a valid phabricator API key and flask.g.phabricator is a
+    contains a valid phabricator API key and the first argument is a
     PhabricatorClient using this API Key.
     """
 
@@ -46,11 +46,11 @@ class require_phabricator_api_key:
                     type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
                 )
 
-            g.phabricator = PhabricatorClient(
+            phab = PhabricatorClient(
                 current_app.config["PHABRICATOR_URL"],
                 api_key or current_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"],
             )
-            if api_key is not None and not g.phabricator.verify_api_token():
+            if api_key is not None and not phab.verify_api_token():
                 return problem(
                     403,
                     "X-Phabricator-API-Key Invalid",
@@ -58,6 +58,6 @@ class require_phabricator_api_key:
                     type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
                 )
 
-            return f(*args, **kwargs)
+            return f(phab, *args, **kwargs)
 
         return wrapped

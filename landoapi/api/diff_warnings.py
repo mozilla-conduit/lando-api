@@ -14,6 +14,7 @@ import logging
 from connexion import problem
 
 from landoapi.decorators import require_phabricator_api_key
+from landoapi.phabricator import PhabricatorClient
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.storage import db
 
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 @require_phabricator_api_key()
-def post(data):
+def post(phab: PhabricatorClient, data: dict):
     """Create a new `DiffWarning` based on provided revision and diff IDs.
 
     Args:
@@ -47,7 +48,7 @@ def post(data):
 
 
 @require_phabricator_api_key()
-def delete(pk):
+def delete(phab: PhabricatorClient, pk: str):
     """Archive a `DiffWarning` based on provided pk."""
     warning = DiffWarning.query.get(pk)
     if not warning:
@@ -63,7 +64,7 @@ def delete(pk):
 
 
 @require_phabricator_api_key()
-def get(revision_id, diff_id, group):
+def get(phab: PhabricatorClient, revision_id: str, diff_id: str, group: str):
     """Return a list of active revision diff warnings, if any."""
     warnings = DiffWarning.query.filter(
         DiffWarning.revision_id == revision_id,

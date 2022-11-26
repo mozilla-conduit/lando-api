@@ -5,7 +5,7 @@
 import logging
 
 from connexion import problem
-from flask import current_app, g
+from flask import current_app
 
 from landoapi import auth
 from landoapi.phabricator import PhabricatorClient
@@ -24,9 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 @require_phabricator_api_key(optional=True)
-def get():
+def get(phab: PhabricatorClient):
     """Return the list of valid uplift repositories."""
-    phab: PhabricatorClient = g.phabricator
     repos = [
         phab.expect(repo, "fields", "name") for repo in get_uplift_repositories(phab)
     ]
@@ -36,12 +35,11 @@ def get():
 
 @require_phabricator_api_key(optional=False)
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
-def create(data):
+def create(phab: PhabricatorClient, data: dict):
     """Create new uplift requests for requested repository & revision"""
     repo_name = data["repository"]
     landing_path_ids = parse_landing_path(data["landing_path"])
     tip_revision_id = landing_path_ids[-1][0]
-    phab: PhabricatorClient = g.phabricator
 
     # Validate repository.
     all_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
