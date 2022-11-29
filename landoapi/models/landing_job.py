@@ -6,6 +6,10 @@ import enum
 import logging
 import os
 
+from typing import Optional
+
+import flask_sqlalchemy
+
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
 
@@ -197,7 +201,13 @@ class LandingJob(Base):
 
         return q
 
-    def transition_status(self, action, commit=False, db=None, **kwargs):
+    def transition_status(
+        self,
+        action: str,
+        commit: bool = False,
+        db: Optional[flask_sqlalchemy.SQLAlchemy] = None,
+        **kwargs,
+    ):
         """Change the status and other applicable fields according to actions.
 
         Args:

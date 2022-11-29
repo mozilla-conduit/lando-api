@@ -105,7 +105,14 @@ class PatchConflict(PatchApplicationFailure):
 class AutoformattingException(Exception):
     """Exception when autoformatting fails to format a patch stack."""
 
-    pass
+    def __init__(self, *args: object, details: Optional[str] = None) -> None:
+        super().__init__(*args)
+
+        self._details = details
+
+    def details(self) -> str:
+        """Return error details for display."""
+        return self._details if self._details else str(self)
 
 
 AUTOFORMAT_COMMIT_MESSAGE = """
@@ -510,8 +517,9 @@ class HgRepo:
             logger.exception(exc)
 
             raise AutoformattingException(
-                "Failed to run automated code formatters."
-            ) from exc
+                "Failed to run automated code formatters.",
+                details=exc.stdout,
+            )
 
         try:
             # When the stack is just a single commit, amend changes into it.
@@ -526,8 +534,9 @@ class HgRepo:
             logger.exception(exc)
 
             raise AutoformattingException(
-                "Failed to apply code formatting changes to the repo."
-            ) from exc
+                "Failed to apply code formatting changes to the repo.",
+                details=exc.stdout,
+            )
 
     def push(self, target, bookmark=None):
         if not os.getenv(REQUEST_USER_ENV_VAR):
