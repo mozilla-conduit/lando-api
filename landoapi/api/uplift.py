@@ -39,8 +39,8 @@ def get():
 def create(data):
     """Create new uplift requests for requested repository & revision"""
     repo_name = data["repository"]
-    landing_path = parse_landing_path(data["landing_path"])
-    tip_revision_id = landing_path[-1][0]
+    landing_path_ids = parse_landing_path(data["landing_path"])
+    tip_revision_id = landing_path_ids[-1][0]
     phab: PhabricatorClient = g.phabricator
 
     # Validate repository.
@@ -89,9 +89,9 @@ def create(data):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    landing_path = convert_path_id_to_phid(landing_path, revision_data)
+    landing_path_phids = convert_path_id_to_phid(landing_path_ids, revision_data)
     commit_stack = []
-    for rev_id, _diff_id in landing_path:
+    for rev_id, _diff_id in landing_path_phids:
         # Get the relevant revision.
         revision = revision_data.revisions[rev_id]
 
