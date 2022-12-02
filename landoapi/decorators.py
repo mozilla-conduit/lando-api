@@ -22,9 +22,9 @@ class require_phabricator_api_key:
     If the optional parameter is True and no API key is provided, a default key
     will be used. If an API key is provided it will still be verified.
 
-    Decorated functions may assume X-Phabricator-API-Key header is present,
-    contains a valid phabricator API key and the first argument is a
-    PhabricatorClient using this API Key.
+    Decorated functions may assume X-Phabricator-API-Key header is present and
+    contains a valid phabricator API key. If `provide_client=True`, the first
+    argument is a PhabricatorClient using this API Key.
     """
 
     def __init__(self, optional: bool = False, provide_client: bool = True):
