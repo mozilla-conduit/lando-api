@@ -27,8 +27,9 @@ class require_phabricator_api_key:
     PhabricatorClient using this API Key.
     """
 
-    def __init__(self, optional=False):
+    def __init__(self, optional: bool = False, provide_client: bool = True):
         self.optional = optional
+        self.provide_client = provide_client
 
     def __call__(self, f):
         @functools.wraps(f)
@@ -58,6 +59,9 @@ class require_phabricator_api_key:
                     type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
                 )
 
-            return f(phab, *args, **kwargs)
+            if self.provide_client:
+                return f(phab, *args, **kwargs)
+            else:
+                return f(*args, **kwargs)
 
         return wrapped
