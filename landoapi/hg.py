@@ -17,6 +17,7 @@ from typing import List, Optional
 
 import hglib
 
+from landoapi.commit_message import bug_list_to_commit_string
 from landoapi.hgexports import PatchHelper
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ class AutoformattingException(Exception):
 
 
 AUTOFORMAT_COMMIT_MESSAGE = """
-No bug: apply code formatting via Lando
+{bugs}: apply code formatting via Lando
 
 # ignore-this-changeset
 """.strip()
@@ -463,19 +464,21 @@ class HgRepo:
 
             raise exc
 
-    def format_stack_tip(self) -> Optional[List[str]]:
+    def format_stack_tip(self, bug_ids: List[str]) -> Optional[List[str]]:
         """Add an autoformat commit to the top of the patch stack.
 
         Return the commit hash of the autoformat commit as a `str`,
         or return `None` if autoformatting made no changes.
         """
+        bug_string = bug_list_to_commit_string(bug_ids)
+
         try:
             # Create a new commit.
             self.run_hg(
                 ["commit"]
                 + [
                     "--message",
-                    AUTOFORMAT_COMMIT_MESSAGE,
+                    AUTOFORMAT_COMMIT_MESSAGE.format(bugs=bug_string),
                 ]
                 + ["--landing_system", "lando"]
             )
@@ -489,7 +492,7 @@ class HgRepo:
 
             raise exc
 
-    def format_stack(self, stack_size: int) -> Optional[List[str]]:
+    def format_stack(self, stack_size: int, bug_ids: List[str]) -> Optional[List[str]]:
         """Format the patch stack for landing.
 
         Return a list of `str` commit hashes where autoformatting was applied,
@@ -527,7 +530,7 @@ class HgRepo:
                 return self.format_stack_amend()
 
             # If the stack is more than a single commit, create an autoformat commit.
-            return self.format_stack_tip()
+            return self.format_stack_tip(bug_ids)
 
         except HgException as exc:
             logger.warning("Failed to create an autoformat commit.")

@@ -3,7 +3,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import pytest
 
-from landoapi.commit_message import format_commit_message, split_title_and_summary
+from landoapi.commit_message import (
+    bug_list_to_commit_string,
+    format_commit_message,
+    split_title_and_summary,
+)
 
 COMMIT_MESSAGE = """
 Bug 1 - A title. r=reviewer_one,reviewer.two
@@ -194,3 +198,15 @@ def test_relman_reviews_become_approvals():
         "Original Revision: http://phabricator.test/D1\n\n"
         "Differential Revision: http://phabricator.test/D123",
     )
+
+
+def test_bug_list_to_commit_string():
+    assert (
+        bug_list_to_commit_string([]) == "No bug"
+    ), "Empty input should return `No bug`"
+    assert (
+        bug_list_to_commit_string(["123"]) == "Bug 123"
+    ), "Single bug should return with `bug` and number."
+    assert (
+        bug_list_to_commit_string(["123", "456"]) == "Bug 123, 456"
+    ), "Multiple bugs should return comma separated list."
