@@ -1,7 +1,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import flask
 import pytest
 
 from connexion.lifecycle import ConnexionResponse
@@ -10,8 +9,10 @@ from landoapi.decorators import require_phabricator_api_key
 from landoapi.phabricator import PhabricatorClient
 
 
-def noop(*args, **kwargs):
-    return ConnexionResponse(status_code=200)
+def noop(phab, *args, **kwargs):
+    response = ConnexionResponse(status_code=200)
+    response.body = phab
+    return response
 
 
 @pytest.mark.parametrize(
@@ -37,8 +38,8 @@ def test_require_phabricator_api_key(monkeypatch, app, optional, valid_key, stat
     with app.test_request_context("/", headers=headers):
         resp = require_phabricator_api_key(optional=optional)(noop)()
         if status == 200:
-            assert isinstance(flask.g.phabricator, PhabricatorClient)
+            assert isinstance(resp.body, PhabricatorClient)
         if valid_key:
-            assert flask.g.phabricator.api_token == "custom-key"
+            assert resp.body.api_token == "custom-key"
 
     assert resp.status_code == status

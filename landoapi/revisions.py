@@ -9,8 +9,6 @@ from typing import (
     Optional,
 )
 
-from flask import g
-
 from landoapi.models import SecApprovalRequest
 from landoapi.reviews import get_collated_reviewers
 from landoapi.phabricator import (
@@ -196,27 +194,11 @@ def revision_is_secure(revision, secure_project_phid):
     return secure_project_phid in revision_project_tags
 
 
-def get_phabricator_repo(repo_phid):
-    """Fetch a repo using the Phabricator API.
-
-    Args:
-        repo_phid (str): The PHID of the repo to fetch.
-
-    Returns:
-        dict: A dictionary representing the details of the repo.
-    """
-    repos = g.phabricator.call_conduit(
-        "diffusion.repository.search",
-        constraints={"phids": [repo_phid]},
-        attachments={"projects": True},
-        limit=1,
-    )
-    repo = g.phabricator.single(repos, "data")
-    return repo
-
-
 def revision_needs_testing_tag(
-    revision, testing_tag_project_phids, testing_policy_phid
+    revision: dict,
+    repo: dict,
+    testing_tag_project_phids: list[str],
+    testing_policy_phid: str,
 ):
     """Does the given revision contain the appropriate testing tag?
 
@@ -232,9 +214,6 @@ def revision_needs_testing_tag(
     Returns:
         bool: True if the revision needs a testing policy tag, else False.
     """
-    repo_phid = revision["fields"]["repositoryPHID"]
-    repo = get_phabricator_repo(repo_phid)
-
     # Check if the repo has a testing-policy tag.
     if testing_policy_phid in repo["attachments"]["projects"]["projectPHIDs"]:
         # Check if the revision contains one of the testing policy tags.

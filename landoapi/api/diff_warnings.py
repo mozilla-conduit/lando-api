@@ -20,8 +20,8 @@ from landoapi.storage import db
 logger = logging.getLogger(__name__)
 
 
-@require_phabricator_api_key()
-def post(data):
+@require_phabricator_api_key(provide_client=False)
+def post(data: dict):
     """Create a new `DiffWarning` based on provided revision and diff IDs.
 
     Args:
@@ -46,8 +46,8 @@ def post(data):
     return warning.serialize(), 201
 
 
-@require_phabricator_api_key()
-def delete(pk):
+@require_phabricator_api_key(provide_client=False)
+def delete(pk: str):
     """Archive a `DiffWarning` based on provided pk."""
     warning = DiffWarning.query.get(pk)
     if not warning:
@@ -62,8 +62,8 @@ def delete(pk):
     return warning.serialize(), 200
 
 
-@require_phabricator_api_key()
-def get(revision_id, diff_id, group):
+@require_phabricator_api_key(provide_client=False)
+def get(revision_id: str, diff_id: str, group: str):
     """Return a list of active revision diff warnings, if any."""
     warnings = DiffWarning.query.filter(
         DiffWarning.revision_id == revision_id,
