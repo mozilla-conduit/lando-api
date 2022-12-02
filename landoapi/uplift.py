@@ -97,7 +97,7 @@ def parse_milestone_version(milestone_contents: str) -> Version:
         ) from e
 
 
-def get_uplift_request_form(revision) -> Optional[str]:
+def get_uplift_request_form(revision: dict) -> Optional[str]:
     """Return the content of the uplift request form or `None` if missing."""
     bug = PhabricatorClient.expect(revision, "fields").get("uplift.request")
     return bug

@@ -184,7 +184,7 @@ def test_split_title_and_summary(message, title, summary):
 def test_relman_reviews_become_approvals():
     commit_message = format_commit_message(
         "A title r?#release-managers!",
-        "1",
+        1,
         [],
         ["ryanvm"],
         ("A summary.\n" "\n" "Original Revision: http://phabricator.test/D1"),

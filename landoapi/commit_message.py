@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Add revision data to commit message."""
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 REVISION_URL_TEMPLATE = "Differential Revision: {url}"
 
@@ -67,7 +67,7 @@ METADATA_RE = re.compile("^MozReview-Commit-ID: ")
 
 def format_commit_message(
     title: str,
-    bug: str,
+    bug: Optional[int],
     reviewers: List[str],
     approvals: List[str],
     summary: str,
