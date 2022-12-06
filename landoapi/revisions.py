@@ -84,7 +84,7 @@ def serialize_diff(diff):
     }
 
 
-def serialize_status(revision):
+def serialize_status(revision: dict) -> dict:
     status_value = PhabricatorClient.expect(revision, "fields", "status", "value")
     status = RevisionStatus.from_status(status_value)
 
@@ -105,7 +105,7 @@ def serialize_status(revision):
     }
 
 
-def select_diff_author(diff):
+def select_diff_author(diff: dict) -> tuple[Optional[str], Optional[str]]:
     commits = PhabricatorClient.expect(diff, "attachments", "commits", "commits")
     if not commits:
         return None, None
@@ -121,7 +121,7 @@ def get_bugzilla_bug(revision: dict) -> Optional[int]:
     return int(bug) if bug else None
 
 
-def check_diff_author_is_known(*, diff, **kwargs):
+def check_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
     author_name, author_email = select_diff_author(diff)
     if author_name and author_email:
         return None

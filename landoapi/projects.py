@@ -57,7 +57,9 @@ def project_search(phabricator, project_phids):
     return result_list_to_phid_dict(phabricator.expect(projects, "data"))
 
 
-def get_project_phid(project_slug, phabricator, allow_empty_result=True):
+def get_project_phid(
+    project_slug: str, phabricator: PhabricatorClient, allow_empty_result: bool = True
+) -> Optional[str]:
     """Looks up a project's PHID.
 
     Args:

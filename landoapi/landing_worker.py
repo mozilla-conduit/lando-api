@@ -439,8 +439,7 @@ class LandingWorker:
                     return True
                 except Exception as e:
                     message = (
-                        f"Aborting, could not apply patch buffer for {revision_id}, "
-                        f"{diff_id}."
+                        f"Aborting, could not apply patch buffer for {revision_id}."
                     )
                     logger.exception(message)
                     job.transition_status(

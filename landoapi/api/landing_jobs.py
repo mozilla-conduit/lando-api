@@ -85,23 +85,30 @@ def get_stats(start_date: str = "", end_date: str = "") -> dict:
         Some meta data and the aggregated statistics.
     """
     if not start_date:
-        start_date = datetime.now()
+        start_date_datetime = datetime.now()
     else:
-        start_date = datetime.fromisoformat(start_date)
+        start_date_datetime = datetime.fromisoformat(start_date)
 
     if not end_date:
-        end_date = datetime.now()
+        end_date_datetime = datetime.now()
     else:
-        end_date = datetime.fromisoformat(end_date)
+        end_date_datetime = datetime.fromisoformat(end_date)
 
-    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    start_date_datetime = start_date_datetime.replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    end_date_datetime = end_date_datetime.replace(
+        hour=23, minute=59, second=59, microsecond=999999
+    )
 
-    if start_date > end_date:
+    if start_date_datetime > end_date_datetime:
         raise ProblemException(
             400,
             "start_date must be on or before end_date.",
-            f"start_date provided: {start_date}, end_date provided: {end_date}.",
+            (
+                f"start_date provided: {start_date_datetime}, "
+                f"end_date provided: {end_date_datetime}."
+            ),
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
@@ -115,8 +122,8 @@ def get_stats(start_date: str = "", end_date: str = "") -> dict:
         )
         .filter(
             LandingJob.status == LandingJobStatus.LANDED,
-            LandingJob.created_at <= end_date,
-            LandingJob.created_at >= start_date,
+            LandingJob.created_at <= end_date_datetime,
+            LandingJob.created_at >= start_date_datetime,
         )
         .group_by("day")
     )

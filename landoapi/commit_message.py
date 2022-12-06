@@ -72,7 +72,7 @@ def format_commit_message(
     approvals: List[str],
     summary: str,
     revision_url: str,
-    flags: List[str] = None,
+    flags: Optional[List[str]] = None,
 ) -> Tuple[str, str]:
     """
     Creates a default format commit message using revision metadata.
