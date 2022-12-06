@@ -96,6 +96,20 @@ def get_release_managers(phab: PhabricatorClient) -> dict:
     return phab.single(groups, "data")
 
 
+def get_revisions_without_bugs(
+    phab: PhabricatorClient, revisions: dict[str, dict]
+) -> set[str]:
+    """Return revisions in the stack without an associated bug number."""
+    missing_bugs = set()
+    for phid, revision in revisions.items():
+        bug_id = phab.expect(revision, "fields", "bugzilla.bug-id")
+
+        if not bug_id:
+            missing_bugs.add(phid)
+
+    return missing_bugs
+
+
 def get_uplift_conduit_state(
     phab: PhabricatorClient, revision_id: int, target_repository_name: str
 ) -> Tuple[RevisionData, RevisionStack, dict]:
@@ -138,6 +152,13 @@ def get_uplift_conduit_state(
     if len(stack_data.revisions) > MAX_UPLIFT_STACK_SIZE:
         raise ValueError(
             f"Cannot create uplift for stack > {MAX_UPLIFT_STACK_SIZE} revisions."
+        )
+
+    missing_bugs = get_revisions_without_bugs(phab, stack_data.revisions)
+    if missing_bugs:
+        missing = ", ".join(missing_bugs)
+        raise ValueError(
+            f"Every uplifted patch must have an associated bug ID: {missing} do not."
         )
 
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)

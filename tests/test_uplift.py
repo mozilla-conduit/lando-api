@@ -8,11 +8,17 @@ from packaging.version import (
     Version,
 )
 
-from landoapi.phabricator import PhabricatorClient
-from landoapi.stacks import build_stack_graph
+from landoapi.phabricator import (
+    PhabricatorClient,
+    result_list_to_phid_dict,
+)
+from landoapi.stacks import (
+    build_stack_graph,
+)
 from landoapi.uplift import (
     add_original_revision_line_if_needed,
     create_uplift_bug_update_payload,
+    get_revisions_without_bugs,
     parse_milestone_version,
 )
 
@@ -335,3 +341,27 @@ def test_add_original_revision_line_if_needed():
         add_original_revision_line_if_needed(summary_with_original, uri)
         == summary_with_original
     ), "Passing summary with `Original Revision` should return the input."
+
+
+def test_get_revisions_without_bugs(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+
+    rev1 = phabdouble.revision(bug_id=123)
+    revs = phabdouble.differential_revision_search(
+        constraints={"phids": [rev1["phid"]]},
+    )
+    revisions = result_list_to_phid_dict(phab.expect(revs, "data"))
+
+    assert (
+        get_revisions_without_bugs(phab, revisions) == set()
+    ), "Empty set should be returned if all revisions have bugs."
+
+    rev2 = phabdouble.revision()
+    revs = phabdouble.differential_revision_search(
+        constraints={"phids": [rev1["phid"], rev2["phid"]]},
+    )
+    revisions = result_list_to_phid_dict(phab.expect(revs, "data"))
+
+    assert get_revisions_without_bugs(phab, revisions) == {
+        rev2["phid"]
+    }, "Revision without associated bug should be returned."
