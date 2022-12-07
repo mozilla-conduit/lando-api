@@ -110,8 +110,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     }
 
     revisions_response = []
-    for _phid, revision in stack_data.revisions.items():
-        revision_phid = PhabricatorClient.expect(revision, "phid")
+    for revision_phid, revision in stack_data.revisions.items():
         fields = PhabricatorClient.expect(revision, "fields")
         diff_phid = PhabricatorClient.expect(fields, "diffPHID")
         repo_phid = PhabricatorClient.expect(fields, "repositoryPHID")
