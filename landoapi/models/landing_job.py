@@ -203,7 +203,7 @@ class LandingJob(Base):
 
     def transition_status(
         self,
-        action: str,
+        action: LandingJobAction,
         commit: bool = False,
         db: Optional[flask_sqlalchemy.SQLAlchemy] = None,
         **kwargs,
@@ -211,7 +211,7 @@ class LandingJob(Base):
         """Change the status and other applicable fields according to actions.
 
         Args:
-            action (str): the action to take, e.g. "land" or "fail"
+            action (LandingJobAction): the action to take, e.g. "land" or "fail"
             commit (bool): whether to commit the changes to the database or not
             db (SQLAlchemy.db): the database to commit to
             **kwargs:

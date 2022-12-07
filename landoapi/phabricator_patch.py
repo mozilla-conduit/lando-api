@@ -29,6 +29,7 @@ class ChangeKind(enum.Enum):
 
 
 def serialize_hunk(hunk: list) -> dict:
+    """Convert a list of diff hunks into a dict representation."""
     prev_op = " "
     old_eof_newline, new_eof_newline = True, True
     corpus = []
@@ -74,11 +75,11 @@ def unix_file_mode(value: int) -> str:
     return "{:06o}".format(value)
 
 
-def serialize_patched_file(f: dict, public_node: str) -> dict:
-
+def serialize_patched_file(diff: dict, public_node: str) -> dict:
+    """Convert a patch diff from `rs-parsepatch` format to Phabricator format."""
     # Detect binary or test (not images)
     metadata = {}
-    if f["binary"] is True:
+    if diff["binary"] is True:
         # We cannot detect the mime type from a file in the patch
         # So no support for image file type
         file_type = FileType.BINARY
@@ -93,50 +94,50 @@ def serialize_patched_file(f: dict, public_node: str) -> dict:
 
     # Detect change kind
     old_path = None
-    if f["new"] is True:
+    if diff["new"] is True:
         change_kind = ChangeKind.ADD
-    elif f["deleted"] is True:
+    elif diff["deleted"] is True:
         change_kind = ChangeKind.DELETE
-        old_path = f["filename"]
-    elif f["copied_from"] is not None:
+        old_path = diff["filename"]
+    elif diff["copied_from"] is not None:
         change_kind = ChangeKind.COPY_HERE
-        old_path = f["copied_from"]
-    elif f["renamed_from"] is not None:
+        old_path = diff["copied_from"]
+    elif diff["renamed_from"] is not None:
         change_kind = ChangeKind.MOVE_HERE
-        old_path = f["renamed_from"]
+        old_path = diff["renamed_from"]
     else:
         change_kind = ChangeKind.CHANGE
-        old_path = f["filename"]
+        old_path = diff["filename"]
 
     # File modes
     old_props = (
-        {"unix:filemode": unix_file_mode(f["modes"]["old"])}
-        if "old" in f["modes"]
+        {"unix:filemode": unix_file_mode(diff["modes"]["old"])}
+        if "old" in diff["modes"]
         else {}
     )
     new_props = (
-        {"unix:filemode": unix_file_mode(f["modes"]["new"])}
-        if "new" in f["modes"]
+        {"unix:filemode": unix_file_mode(diff["modes"]["new"])}
+        if "new" in diff["modes"]
         else {}
     )
 
     return {
         "metadata": metadata,
         "oldPath": old_path,
-        "currentPath": f["filename"],
+        "currentPath": diff["filename"],
         "awayPaths": [old_path]
         if change_kind in (ChangeKind.COPY_HERE, ChangeKind.MOVE_HERE)
         else [],
         "commitHash": public_node,
         "type": change_kind.value,
         "fileType": file_type.value,
-        "hunks": [serialize_hunk(hunk) for hunk in f["hunks"]],
+        "hunks": [serialize_hunk(hunk) for hunk in diff["hunks"]],
         "oldProperties": old_props,
         "newProperties": new_props,
     }
 
 
-def patch_to_changes(patch_content: str, public_node: str) -> list:
+def patch_to_changes(patch_content: str, public_node: str) -> list[dict]:
     """Build a list of Phabricator changes from a raw diff"""
     patch = rs_parsepatch.get_diffs(patch_content, hunks=True)
-    return [serialize_patched_file(f, public_node) for f in patch]
+    return [serialize_patched_file(diff, public_node) for diff in patch]
