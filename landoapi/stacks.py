@@ -154,9 +154,6 @@ class RevisionStack:
         while True:
             yield revision
 
-            # When there are no children, this will raise `StopIteration`,
-            # which is what we expect `iter_stack_from_base` to raise on
-            # completion as well.
             try:
                 revision = next(iter(self.children[revision]))
             except StopIteration:
