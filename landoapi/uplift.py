@@ -4,7 +4,6 @@
 
 import json
 import logging
-import re
 import time
 
 from packaging.version import (
@@ -43,46 +42,15 @@ logger = logging.getLogger(__name__)
 # Maximum number of revisions allowable in a stack to be auto-uplifted.
 MAX_UPLIFT_STACK_SIZE = 5
 
-ARC_DIFF_REV_RE = re.compile(
-    r"^\s*Differential Revision:\s*(?P<phab_url>https?://.+)/D(?P<rev>\d+)\s*$",
-    flags=re.MULTILINE,
-)
-ORIGINAL_DIFF_REV_RE = re.compile(
-    r"^\s*Original Revision:\s*(?P<phab_url>https?://.+)/D(?P<rev>\d+)\s*$",
-    flags=re.MULTILINE,
-)
-
-
-def move_drev_to_original(body: str) -> str:
-    """Handle moving the `Differential Revision` line.
-
-    Moves the `Differential Revision` line to `Original Revision`, if a link
-    to the original revision does not already exist. If the `Original Revision`
-    line does exist, scrub the `Differential Revision` line.
-
-    Args:
-        body: `str` text of the commit message.
-
-    Returns:
-        New commit message body text as `str`.
-    """
-    differential_revision = ARC_DIFF_REV_RE.search(body)
-    original_revision = ORIGINAL_DIFF_REV_RE.search(body)
-
-    # If both match, we already have an `Original Revision` line.
-    if differential_revision and original_revision:
-        return body
-
-    def repl(match):
-        phab_url = match.group("phab_url")
-        rev = match.group("rev")
-        return f"\nOriginal Revision: {phab_url}/D{rev}"
-
-    # Update the commit message.
-    return ARC_DIFF_REV_RE.sub(repl, body)
-
-
 UPLIFT_BUG_UPDATE_RETRIES = 3
+
+
+def add_original_revision_line_if_needed(summary: str, uri: str) -> str:
+    """Return the summary with `Original Revision` added."""
+    if any(line.startswith("Original Revision:") for line in summary.splitlines()):
+        return summary
+
+    return f"{summary}\n\nOriginal Revision: {uri}"
 
 
 def parse_milestone_version(milestone_contents: str) -> Version:
@@ -269,9 +237,13 @@ def create_uplift_revision(
         ),
     )
 
-    # Update `Differential Revision` to `Original Revision`.
     summary = str(phab.expect(source_revision, "fields", "summary"))
-    summary = move_drev_to_original(summary)
+
+    # Add a link to the original revision if one isn't already present.
+    # One may already be present if this revision is being uplift to a
+    # second train.
+    uri = str(phab.expect(source_revision, "fields", "uri"))
+    summary = add_original_revision_line_if_needed(summary, uri)
 
     transactions = [
         {"type": "update", "value": new_diff_phid},
