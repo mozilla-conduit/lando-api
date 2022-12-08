@@ -353,7 +353,7 @@ def test_get_revisions_without_bugs(phabdouble):
     revisions = result_list_to_phid_dict(phab.expect(revs, "data"))
 
     assert (
-        get_revisions_without_bugs(phab, revisions) == set()
+        get_revisions_without_bugs(phab, revisions.values()) == set()
     ), "Empty set should be returned if all revisions have bugs."
 
     rev2 = phabdouble.revision()
@@ -362,6 +362,6 @@ def test_get_revisions_without_bugs(phabdouble):
     )
     revisions = result_list_to_phid_dict(phab.expect(revs, "data"))
 
-    assert get_revisions_without_bugs(phab, revisions) == {
-        rev2["phid"]
+    assert get_revisions_without_bugs(phab, revisions.values()) == {
+        rev2["id"]
     }, "Revision without associated bug should be returned."
