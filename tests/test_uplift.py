@@ -11,8 +11,8 @@ from packaging.version import (
 from landoapi.phabricator import PhabricatorClient
 from landoapi.stacks import build_stack_graph
 from landoapi.uplift import (
+    add_original_revision_line_if_needed,
     create_uplift_bug_update_payload,
-    move_drev_to_original,
     parse_milestone_version,
 )
 
@@ -61,35 +61,6 @@ def test_parse_milestone_version():
     bad_milestone_contents = "blahblahblah"
     with pytest.raises(ValueError, match=bad_milestone_contents):
         parse_milestone_version(bad_milestone_contents)
-
-
-def test_move_drev_to_original():
-    # Ensure `Differential Revision` is moved to `Original`.
-    commit_message = (
-        "bug 1: title r?reviewer\n"
-        "\n"
-        "Differential Revision: http://phabricator.test/D1"
-    )
-    expected = (
-        "bug 1: title r?reviewer\n\nOriginal Revision: http://phabricator.test/D1"
-    )
-    message = move_drev_to_original(commit_message)
-    assert (
-        message == expected
-    ), "`Differential Revision` not re-written to `Original Revision` on uplift."
-
-    # Ensure `Original` and `Differential` in commit message is left unchanged.
-    commit_message = (
-        "bug 1: title r?reviewer\n"
-        "\n"
-        "Original Revision: http://phabricator.test/D1\n"
-        "\n"
-        "Differential Revision: http://phabricator.test/D2"
-    )
-    message = move_drev_to_original(commit_message)
-    assert (
-        message == commit_message
-    ), "Commit message should not have changed when original revision already present."
 
 
 @pytest.mark.xfail
@@ -343,3 +314,24 @@ def test_create_uplift_bug_update_payload():
     assert (
         "cf_status_firefox100" not in payload
     ), "Status should not have been set with `leave-open` keyword on bug."
+
+
+def test_add_original_revision_line_if_needed():
+    uri = "http://phabricator.test/D123"
+
+    summary_no_original = "Bug 123: test summary r?sheehan"
+    summary_with_original = (
+        "Bug 123: test summary r?sheehan\n"
+        "\n"
+        "Original Revision: http://phabricator.test/D123"
+    )
+
+    assert (
+        add_original_revision_line_if_needed(summary_no_original, uri)
+        == summary_with_original
+    ), "Passing summary without `Original Revision` should return with line added."
+
+    assert (
+        add_original_revision_line_if_needed(summary_with_original, uri)
+        == summary_with_original
+    ), "Passing summary with `Original Revision` should return the input."
