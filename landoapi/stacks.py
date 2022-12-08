@@ -146,7 +146,7 @@ class RevisionStack:
     def base_revisions(self) -> Iterator[str]:
         """Iterate over the set of base revisions in the stack.
 
-        For example in this stack:
+        For example in this stack, where A has no children:
         A
         |\
         B C
