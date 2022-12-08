@@ -10,15 +10,14 @@ from flask import current_app
 from landoapi import auth
 from landoapi.phabricator import PhabricatorClient
 from landoapi.repos import get_repos_for_env
-from landoapi.transplants import convert_path_id_to_phid
 from landoapi.uplift import (
     create_uplift_revision,
     get_local_uplift_repo,
     get_uplift_conduit_state,
     get_uplift_repositories,
 )
-from landoapi.validation import parse_landing_path
 from landoapi.decorators import require_phabricator_api_key
+from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +37,7 @@ def get(phab: PhabricatorClient):
 def create(phab: PhabricatorClient, data: dict):
     """Create new uplift requests for requested repository & revision"""
     repo_name = data["repository"]
-    landing_path_ids = parse_landing_path(data["landing_path"])
-    tip_revision_id = landing_path_ids[-1][0]
+    revision_id = revision_id_to_int(data["revision_id"])
 
     # Validate repository.
     all_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
@@ -64,13 +62,13 @@ def create(phab: PhabricatorClient, data: dict):
         logger.info(
             "Checking approval state",
             extra={
-                "revision": tip_revision_id,
+                "revision": revision_id,
                 "target_repository": repo_name,
             },
         )
-        revision_data, target_repository = get_uplift_conduit_state(
+        revision_data, revision_stack, target_repository = get_uplift_conduit_state(
             phab,
-            revision_id=tip_revision_id,
+            revision_id=revision_id,
             target_repository_name=repo_name,
         )
         local_repo = get_local_uplift_repo(phab, target_repository)
@@ -87,11 +85,10 @@ def create(phab: PhabricatorClient, data: dict):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    landing_path_phids = convert_path_id_to_phid(landing_path_ids, revision_data)
     commit_stack = []
-    for rev_id, _diff_id in landing_path_phids:
-        # Get the relevant revision.
-        revision = revision_data.revisions[rev_id]
+    for phid in revision_stack.iter_stack_from_base():
+        # Get the revision.
+        revision = revision_data.revisions[phid]
 
         # Get the relevant diff.
         diff_phid = phab.expect(revision, "fields", "diffPHID")
@@ -115,7 +112,7 @@ def create(phab: PhabricatorClient, data: dict):
             logger.error(
                 "Failed to create an uplift request",
                 extra={
-                    "revision": tip_revision_id,
+                    "revision": revision_id,
                     "repository": repository,
                     "error": str(e),
                 },

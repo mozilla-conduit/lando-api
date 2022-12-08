@@ -5,6 +5,7 @@
 from landoapi.phabricator import RevisionStatus
 from landoapi.repos import get_repos_for_env
 from landoapi.stacks import (
+    RevisionStack,
     build_stack_graph,
     calculate_landable_subgraphs,
     get_landable_repos_for_revision_data,
@@ -670,3 +671,20 @@ def test_integrated_stack_has_revision_security_status(
     revisions = {r["phid"]: r for r in response.json["revisions"]}
     assert not revisions[public_revision["phid"]]["is_secure"]
     assert revisions[secure_revision["phid"]]["is_secure"]
+
+
+def test_revisionstack():
+    nodes = ["123", "456", "789"]
+    edges = [("123", "456"), ("456", "789")]
+
+    stack = RevisionStack(nodes, edges)
+
+    assert list(stack.base_revisions()) == [
+        "789"
+    ], "Node `789` should be the base revision."
+
+    assert list(stack.iter_stack_from_base()) == [
+        "789",
+        "456",
+        "123",
+    ], "Iterating over the stack from the base should result in the expected order."
