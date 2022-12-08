@@ -10,7 +10,6 @@ from packaging.version import (
 
 from landoapi.phabricator import (
     PhabricatorClient,
-    result_list_to_phid_dict,
 )
 from landoapi.stacks import (
     build_stack_graph,
@@ -350,18 +349,18 @@ def test_get_revisions_without_bugs(phabdouble):
     revs = phabdouble.differential_revision_search(
         constraints={"phids": [rev1["phid"]]},
     )
-    revisions = result_list_to_phid_dict(phab.expect(revs, "data"))
+    revisions = phab.expect(revs, "data")
 
     assert (
-        get_revisions_without_bugs(phab, revisions.values()) == set()
+        get_revisions_without_bugs(phab, revisions) == set()
     ), "Empty set should be returned if all revisions have bugs."
 
     rev2 = phabdouble.revision()
     revs = phabdouble.differential_revision_search(
         constraints={"phids": [rev1["phid"], rev2["phid"]]},
     )
-    revisions = result_list_to_phid_dict(phab.expect(revs, "data"))
+    revisions = phab.expect(revs, "data")
 
-    assert get_revisions_without_bugs(phab, revisions.values()) == {
+    assert get_revisions_without_bugs(phab, revisions) == {
         rev2["id"]
     }, "Revision without associated bug should be returned."
