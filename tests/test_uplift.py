@@ -11,7 +11,7 @@ from packaging.version import (
 from landoapi.phabricator import PhabricatorClient
 from landoapi.stacks import build_stack_graph
 from landoapi.uplift import (
-    add_original_revision_line,
+    add_original_revision_line_if_needed,
     create_uplift_bug_update_payload,
     parse_milestone_version,
 )
@@ -316,7 +316,7 @@ def test_create_uplift_bug_update_payload():
     ), "Status should not have been set with `leave-open` keyword on bug."
 
 
-def test_add_original_revision_line():
+def test_add_original_revision_line_if_needed():
     uri = "http://phabricator.test/D123"
 
     summary_no_original = "Bug 123: test summary r?sheehan"
@@ -327,9 +327,11 @@ def test_add_original_revision_line():
     )
 
     assert (
-        add_original_revision_line(summary_no_original, uri) == summary_with_original
+        add_original_revision_line_if_needed(summary_no_original, uri)
+        == summary_with_original
     ), "Passing summary without `Original Revision` should return with line added."
 
     assert (
-        add_original_revision_line(summary_with_original, uri) == summary_with_original
+        add_original_revision_line_if_needed(summary_with_original, uri)
+        == summary_with_original
     ), "Passing summary with `Original Revision` should return the input."

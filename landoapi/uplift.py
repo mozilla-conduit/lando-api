@@ -44,7 +44,7 @@ MAX_UPLIFT_STACK_SIZE = 5
 UPLIFT_BUG_UPDATE_RETRIES = 3
 
 
-def add_original_revision_line(summary: str, uri: str) -> str:
+def add_original_revision_line_if_needed(summary: str, uri: str) -> str:
     """Return the summary with `Original Revision` added."""
     if any(line.startswith("Original Revision:") for line in summary.splitlines()):
         return summary
@@ -240,7 +240,7 @@ def create_uplift_revision(
     # One may already be present if this revision is being uplift to a
     # second train.
     uri = str(phab.expect(source_revision, "fields", "uri"))
-    summary = add_original_revision_line(summary, uri)
+    summary = add_original_revision_line_if_needed(summary, uri)
 
     transactions = [
         {"type": "update", "value": new_diff_phid},
