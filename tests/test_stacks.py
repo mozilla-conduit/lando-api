@@ -251,6 +251,21 @@ def test_request_extended_revision_data_stacked_revisions(phabdouble):
     assert repo["phid"] in data.repositories
 
 
+def test_request_extended_revision_data_repo_has_projects(phabdouble, secure_project):
+    phab = phabdouble.get_phabricator_client()
+
+    repo = phabdouble.repo(projects=[secure_project])
+
+    diff1 = phabdouble.diff(repo=repo)
+    r1 = phabdouble.revision(diff=diff1, repo=repo)
+
+    data = request_extended_revision_data(phab, [r1["phid"]])
+
+    assert all(
+        "projects" in repo["attachments"] for repo in data.repositories.values()
+    ), "`request_extended_revision_data` should return repos with `projects` attachment."
+
+
 def test_calculate_landable_subgraphs_no_edges_open(phabdouble):
     phab = phabdouble.get_phabricator_client()
 

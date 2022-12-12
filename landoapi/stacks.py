@@ -121,6 +121,7 @@ def request_extended_revision_data(
     if repo_phids:
         repos = phab.call_conduit(
             "diffusion.repository.search",
+            attachments={"projects": True},
             constraints={"phids": [phid for phid in repo_phids]},
             limit=len(repo_phids),
         )
