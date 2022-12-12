@@ -1242,7 +1242,11 @@ class PhabricatorDouble:
                         "policy": i["policy"],
                         "defaultBranch": i["defaultBranch"],
                     },
-                    "attachments": {},
+                    "attachments": {
+                        attachment: i["attachments"][attachment]
+                        for attachment, value in attachments.items()
+                        if value is True and attachment in i["attachments"]
+                    },
                 }
             )
 
