@@ -273,7 +273,7 @@ def test_calculate_landable_subgraphs_no_edges_open(phabdouble):
     revision = phabdouble.revision(repo=repo)
     ext_data = request_extended_revision_data(phab, [revision["phid"]])
 
-    landable, _ = calculate_landable_subgraphs(ext_data, [], {repo["phid"]})
+    landable, _ = calculate_landable_subgraphs(ext_data, set(), {repo["phid"]})
 
     assert len(landable) == 1
     assert landable[0] == [revision["phid"]]
@@ -286,7 +286,7 @@ def test_calculate_landable_subgraphs_no_edges_closed(phabdouble):
     revision = phabdouble.revision(repo=repo, status=RevisionStatus.PUBLISHED)
     ext_data = request_extended_revision_data(phab, [revision["phid"]])
 
-    landable, _ = calculate_landable_subgraphs(ext_data, [], {repo["phid"]})
+    landable, _ = calculate_landable_subgraphs(ext_data, set(), {repo["phid"]})
 
     assert not landable
 
@@ -689,8 +689,8 @@ def test_integrated_stack_has_revision_security_status(
 
 
 def test_revisionstack():
-    nodes = ["123", "456", "789"]
-    edges = [("123", "456"), ("456", "789")]
+    nodes = {"123", "456", "789"}
+    edges = {("123", "456"), ("456", "789")}
 
     stack = RevisionStack(nodes, edges)
 
