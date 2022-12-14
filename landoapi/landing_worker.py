@@ -476,7 +476,7 @@ class LandingWorker:
                     message = (
                         "Lando failed to format your patch for conformity with our "
                         "formatting policy. Please see the details below.\n\n"
-                        f"{exc.details}"
+                        f"{exc.details()}"
                     )
 
                     logger.exception(message)

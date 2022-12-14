@@ -26,7 +26,8 @@ logger = logging.getLogger(__name__)
 def get(phab: PhabricatorClient):
     """Return the list of valid uplift repositories."""
     repos = [
-        phab.expect(repo, "fields", "name") for repo in get_uplift_repositories(phab)
+        phab.expect(repo, "fields", "shortName")
+        for repo in get_uplift_repositories(phab)
     ]
 
     return {"repos": repos}, 201
