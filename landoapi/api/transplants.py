@@ -20,11 +20,11 @@ from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
+    get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
     get_testing_tag_project_phids,
     get_testing_policy_phid,
-    get_relman_group_phid,
     project_search,
 )
 from landoapi.repos import get_repos_for_env
@@ -56,9 +56,6 @@ from landoapi.transplants import (
     get_blocker_checks,
 )
 from landoapi.transplant_client import TransplantClient, TransplantError
-from landoapi.uplift import (
-    get_release_managers,
-)
 from landoapi.users import user_search
 from landoapi.validation import (
     revision_id_to_int,
@@ -131,7 +128,7 @@ def _find_stack_from_landing_path(phab, landing_path):
     return build_stack_graph(phab, phab.expect(revision, "phid"))
 
 
-def _assess_transplant_request(phab, landing_path):
+def _assess_transplant_request(phab, landing_path, relman_group_phid):
     nodes, edges = _find_stack_from_landing_path(phab, landing_path)
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
     landing_path = convert_path_id_to_phid(landing_path, stack_data)
@@ -141,7 +138,7 @@ def _assess_transplant_request(phab, landing_path):
 
     other_checks = get_blocker_checks(
         repositories=supported_repos,
-        relman_group_phid=get_relman_group_phid(phab),
+        relman_group_phid=relman_group_phid,
         stack_data=stack_data,
     )
 
@@ -227,7 +224,13 @@ def _lock_table_for(
 @require_phabricator_api_key(optional=True)
 def dryrun(phab: PhabricatorClient, data: dict):
     landing_path = _parse_transplant_request(data)["landing_path"]
-    assessment, *_ = _assess_transplant_request(phab, landing_path)
+
+    release_managers = get_release_managers(phab)
+    if not release_managers:
+        raise Exception("Could not find `#release-managers` project on Phabricator.")
+
+    relman_group_phid = phab.expect(release_managers, "phid")
+    assessment, *_ = _assess_transplant_request(phab, landing_path, relman_group_phid)
     return assessment.to_dict()
 
 
@@ -247,8 +250,11 @@ def post(phab: PhabricatorClient, data: dict):
             "flags": flags,
         },
     )
+    release_managers = get_release_managers(phab)
+    relman_group_phid = phab.expect(release_managers, "phid")
+
     assessment, to_land, landing_repo, stack_data = _assess_transplant_request(
-        phab, landing_path
+        phab, landing_path, relman_group_phid
     )
 
     assessment.raise_if_blocked_or_unacknowledged(confirmation_token)
@@ -306,7 +312,6 @@ def post(phab: PhabricatorClient, data: dict):
     ]
 
     sec_approval_project_phid = get_sec_approval_project_phid(phab)
-    release_managers = get_release_managers(phab)
     relman_phids = {
         member["phid"]
         for member in release_managers["attachments"]["members"]["members"]

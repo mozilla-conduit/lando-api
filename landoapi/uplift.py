@@ -24,7 +24,6 @@ from landoapi import bmo
 from landoapi.cache import cache, DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
 from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
 from landoapi.phabricator_patch import patch_to_changes
-from landoapi.projects import RELMAN_PROJECT_SLUG
 from landoapi.repos import (
     Repo,
     get_repos_for_env,
@@ -84,16 +83,6 @@ def get_uplift_repositories(phab: PhabricatorClient) -> list:
     repos = phab.expect(repos, "data")
 
     return repos
-
-
-def get_release_managers(phab: PhabricatorClient) -> dict:
-    """Load the release-managers group details from Phabricator"""
-    groups = phab.call_conduit(
-        "project.search",
-        attachments={"members": True},
-        constraints={"slugs": [RELMAN_PROJECT_SLUG]},
-    )
-    return phab.single(groups, "data")
 
 
 def get_revisions_without_bugs(phab: PhabricatorClient, revisions: dict) -> set[str]:
