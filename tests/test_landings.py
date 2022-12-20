@@ -551,7 +551,7 @@ def test_format_patch_success_unchanged(
         autoformat_enabled=True,
     )
 
-    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+    hgrepo = HgRepo(hg_clone.strpath)
 
     upload_patch(1, patch=PATCH_FORMATTING_PATTERN_PASS)
     upload_patch(2, patch=PATCH_NORMAL_3)
@@ -610,7 +610,7 @@ def test_format_single_success_changed(
     )
 
     # Push the `mach` formatting patch.
-    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+    hgrepo = HgRepo(hg_clone.strpath)
     with hgrepo.for_push("test@example.com"):
         hgrepo.apply_patch(io.BytesIO(PATCH_FORMATTING_PATTERN_PASS.encode("utf-8")))
         hgrepo.push(repo.push_path)
@@ -699,7 +699,7 @@ def test_format_stack_success_changed(
         autoformat_enabled=True,
     )
 
-    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+    hgrepo = HgRepo(hg_clone.strpath)
 
     upload_patch(1, patch=PATCH_FORMATTING_PATTERN_PASS)
     upload_patch(2, patch=PATCH_FORMATTED_1)
@@ -780,7 +780,7 @@ def test_format_patch_fail(
         autoformat_enabled=True,
     )
 
-    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+    hgrepo = HgRepo(hg_clone.strpath)
 
     upload_patch(1, patch=PATCH_FORMATTING_PATTERN_FAIL)
     upload_patch(2)
@@ -839,7 +839,7 @@ def test_format_patch_no_landoini(
         autoformat_enabled=True,
     )
 
-    hgrepo = HgRepo(hg_clone.strpath, config=repo.config_override)
+    hgrepo = HgRepo(hg_clone.strpath)
 
     upload_patch(1)
     upload_patch(2)
