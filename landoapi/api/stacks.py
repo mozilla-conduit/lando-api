@@ -91,7 +91,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     )
 
     landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos, other_checks=other_checks
+        stack_data, edges, set(landable_repos), other_checks=other_checks
     )
     uplift_repos = [
         name for name, repo in supported_repos.items() if repo.approval_required
@@ -107,7 +107,11 @@ def get(phab: PhabricatorClient, revision_id: str):
     projects = project_search(phab, involved_phids)
 
     secure_project_phid = get_secure_project_phid(phab)
+
     sec_approval_project_phid = get_sec_approval_project_phid(phab)
+    if not sec_approval_project_phid:
+        raise Exception("Could not find `#sec-approval` project on Phabricator.")
+
     relman_phids = {
         member["phid"]
         for member in release_managers["attachments"]["members"]["members"]
