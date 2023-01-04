@@ -1,9 +1,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from datetime import datetime
 import logging
 import urllib.parse
+
+from datetime import datetime
+from typing import Optional
 
 import kombu
 from connexion import problem, ProblemException
@@ -28,7 +30,10 @@ from landoapi.projects import (
     get_testing_policy_phid,
     project_search,
 )
-from landoapi.repos import get_repos_for_env
+from landoapi.repos import (
+    Repo,
+    get_repos_for_env,
+)
 from landoapi.reviews import (
     approvals_for_commit_message,
     get_collated_reviewers,
@@ -42,6 +47,7 @@ from landoapi.revisions import (
     revision_is_secure,
 )
 from landoapi.stacks import (
+    RevisionData,
     build_stack_graph,
     calculate_landable_subgraphs,
     get_landable_repos_for_revision_data,
@@ -66,7 +72,7 @@ from landoapi.validation import (
 logger = logging.getLogger(__name__)
 
 
-def _parse_transplant_request(data):
+def _parse_transplant_request(data: dict) -> dict:
     """Extract confirmation token, flags, and the landing path from provided data.
 
     Args
@@ -98,7 +104,7 @@ def _parse_transplant_request(data):
     }
 
 
-def _choose_middle_revision_from_path(path):
+def _choose_middle_revision_from_path(path: list[tuple[int, int]]) -> int:
     if not path:
         raise ValueError("path must not be empty")
 
@@ -109,7 +115,9 @@ def _choose_middle_revision_from_path(path):
     return path[len(path) // 2][0]
 
 
-def _find_stack_from_landing_path(phab, landing_path):
+def _find_stack_from_landing_path(
+    phab: PhabricatorClient, landing_path: list[tuple[int, int]]
+) -> tuple[set[str], set[tuple[str, str]]]:
     a_revision_id = _choose_middle_revision_from_path(landing_path)
     revision = phab.call_conduit(
         "differential.revision.search", constraints={"ids": [a_revision_id]}
@@ -129,10 +137,17 @@ def _find_stack_from_landing_path(phab, landing_path):
     return build_stack_graph(phab, phab.expect(revision, "phid"))
 
 
-def _assess_transplant_request(phab, landing_path, relman_group_phid):
+def _assess_transplant_request(
+    phab: PhabricatorClient, landing_path: list[tuple[int, int]], relman_group_phid: str
+) -> tuple[
+    TransplantAssessment,
+    Optional[list[tuple[dict, dict]]],
+    Optional[Repo],
+    Optional[RevisionData],
+]:
     nodes, edges = _find_stack_from_landing_path(phab, landing_path)
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
-    landing_path = convert_path_id_to_phid(landing_path, stack_data)
+    landing_path_phid = convert_path_id_to_phid(landing_path, stack_data)
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
@@ -148,7 +163,7 @@ def _assess_transplant_request(phab, landing_path, relman_group_phid):
     )
 
     assessment = check_landing_blockers(
-        g.auth0_user, landing_path, stack_data, landable, landable_repos
+        g.auth0_user, landing_path_phid, stack_data, landable, landable_repos
     )
     if assessment.blocker is not None:
         return (assessment, None, None, None)
@@ -157,7 +172,7 @@ def _assess_transplant_request(phab, landing_path, relman_group_phid):
     # landable (in the sense that it is a landable_subgraph, with no
     # revisions being blocked). Make this clear by using a different
     # value, and assume it going forward.
-    valid_path = landing_path
+    valid_path = landing_path_phid
 
     # Now that we know this is a valid path we can convert it into a list
     # of (revision, diff) tuples.
