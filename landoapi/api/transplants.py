@@ -15,6 +15,7 @@ from landoapi import auth
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
+from landoapi.models.base import Base
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.patches import upload
@@ -213,24 +214,15 @@ def _assess_transplant_request(
 
 
 def _lock_table_for(
-    db_session, mode="SHARE ROW EXCLUSIVE MODE", table=None, model=None
+    model: Base,
+    mode: str = "SHARE ROW EXCLUSIVE MODE",
 ):
     """Locks a given table in the given database with the given mode.
 
     Args:
-        db_session (SQLAlchemy.db.session): the database session to use
         mode (str): the lock mode to apply to the table when locking
         model (SQLAlchemy.db.model): a model to fetch the table name from
-        table (str): a string representing the table name in the database
-
-    Raises:
-        TypeError: if either both model and table arguments are missing or provided
     """
-    if table is not None and model is not None:
-        raise TypeError("Only one of table or model should be provided")
-    if table is None and model is None:
-        raise TypeError("Missing table or model argument")
-
     query = f"LOCK TABLE {model.__table__.name} IN {mode};"
     db.session.execute(query)
 
@@ -396,7 +388,7 @@ def post(phab: PhabricatorClient, data: dict):
 
     if not landing_repo.legacy_transplant:
         with db.session.begin_nested():
-            _lock_table_for(db.session, model=LandingJob)
+            _lock_table_for(model=LandingJob)
             if (
                 LandingJob.revisions_query(stack_ids)
                 .filter(
@@ -446,7 +438,7 @@ def post(phab: PhabricatorClient, data: dict):
             # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
             # for more details on the specifics of the lock mode.
             with db.session.begin_nested():
-                _lock_table_for(db.session, model=Transplant)
+                _lock_table_for(model=Transplant)
                 if (
                     Transplant.revisions_query(stack_ids)
                     .filter_by(status=TransplantStatus.submitted)
