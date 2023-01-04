@@ -91,7 +91,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     )
 
     landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, set(landable_repos), other_checks=other_checks
+        stack_data, edges, landable_repos, other_checks=other_checks
     )
     uplift_repos = [
         name for name, repo in supported_repos.items() if repo.approval_required

@@ -143,7 +143,7 @@ def _assess_transplant_request(phab, landing_path, relman_group_phid):
     )
 
     landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, set(landable_repos), other_checks=other_checks
+        stack_data, edges, landable_repos, other_checks=other_checks
     )
 
     assessment = check_landing_blockers(
