@@ -1085,3 +1085,65 @@ def test_codefreeze_datetime_mock(codefreeze_datetime):
     dt = codefreeze_datetime()
     assert dt.now(tz=timezone.utc) == datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc)
     assert dt.strptime("tomorrow -0800", fmt="") == datetime(2000, 1, 6, 0, 0, 0)
+
+
+def test_unresolved_comment_warn(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+):
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r1,
+        comments=["this is done"],
+        fields={"isDone": True},
+    )
+    # Function should filter out unrelated transaction types.
+    phabdouble.transaction("dummy", r1)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert not response.json[
+        "warnings"
+    ], "warnings should be empty for a revision without unresolved comments"
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r1,
+        comments=["this is not done"],
+        fields={"isDone": False},
+    )
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert response.json[
+        "warnings"
+    ], "warnings should not be empty for a revision with unresolved comments"
+    assert (
+        response.json["warnings"][0]["id"] == 9
+    ), "the warning ID should match the ID for warning_unresolved_comments"

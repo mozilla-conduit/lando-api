@@ -72,3 +72,17 @@ def get_raw_comments(transaction):
         PhabricatorClient.expect(comment, "content", "raw")
         for comment in PhabricatorClient.expect(transaction, "comments")
     ]
+
+
+def get_inline_comments(phab: PhabricatorClient, object_identifer: str) -> filter:
+    """Returns an iterable of inline comments for the requested object.
+
+    Args:
+        phab: A PhabricatorClient instance.
+        object_identifer: An object identifier (PHID or monogram) whose inline
+            comments we want to fetch.
+    """
+    return filter(
+        lambda transaction: transaction["type"] == "inline",
+        transaction_search(phab, object_identifer),
+    )

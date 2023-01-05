@@ -199,6 +199,7 @@ def _assess_transplant_request(
     }
 
     assessment = check_landing_warnings(
+        phab,
         g.auth0_user,
         to_land,
         repo,

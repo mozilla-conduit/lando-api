@@ -567,7 +567,12 @@ class PhabricatorDouble:
         return project
 
     def transaction(
-        self, transaction_type: str, object: dict, operations=None, comments=None
+        self,
+        transaction_type: str,
+        object: dict,
+        operations=None,
+        comments=None,
+        fields=None,
     ):
         """Return a Phabricator Transaction object.
 
@@ -585,13 +590,15 @@ class PhabricatorDouble:
             comments: Optional list of comment objects this transaction created. Only
                 applies when the transaction type is "comment" or "inline". Structure
                 varies greatly depending on the comment type.
+            fields: Optional dictionary of fields attached to the transaction. Fields
+                vary depending on the transaction type.
 
         """
         # Pull out what type of object we are operating on: DREV? PROJ?
         object_type = object["type"]
         object_phid = object["phid"]
         comments = comments or []
-        fields = {}
+        fields = fields or {}
 
         if operations:
             fields["operations"] = operations
@@ -1357,7 +1364,7 @@ class PhabricatorDouble:
             # type of transaction they are using and make sure it is serialized
             # correctly by this function.
             txn_type = i["type"]
-            if txn_type not in ("comment", "dummy", "reviewers.add"):
+            if txn_type not in ("comment", "dummy", "reviewers.add", "inline"):
                 raise ValueError(
                     "PhabricatorDouble transactions do not have support "
                     'for the "{}" transaction type. '
