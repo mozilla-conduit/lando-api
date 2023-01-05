@@ -3,7 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 from collections import namedtuple
-from collections.abc import Iterator
+from collections.abc import (
+    Container,
+    Iterator,
+)
 from typing import (
     Callable,
     Iterable,
@@ -179,7 +182,7 @@ class RevisionStack:
 def calculate_landable_subgraphs(
     revision_data: RevisionData,
     edges: set[tuple[str, str]],
-    landable_repos: set[str],
+    landable_repos: Container[str],
     *,
     other_checks: Iterable[Callable[[dict, dict, dict], Optional[str]]] = []
 ) -> tuple[list[list[str]], dict[str, str]]:
@@ -191,7 +194,7 @@ def calculate_landable_subgraphs(
         edges: a set of tuples (child, parent) each representing an edge
             between two nodes. `child` and `parent` are also string
             PHIDs.
-        landable_repos: a set of string PHIDs for repositories that
+        landable_repos: a container of string PHIDs for repositories that
             are supported for landing.
         other_checks: An iterable of callables which will be executed
             for each revision to determine if it should be blocked. These

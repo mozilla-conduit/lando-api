@@ -85,6 +85,7 @@ def test_integrated_secure_stack_has_alternate_commit_message(
     authed_headers,
     monkeypatch,
     release_management_project,
+    sec_approval_project,
 ):
     sanitized_title = "my secure commit title"
     revision_title = "my insecure revision title"
@@ -112,7 +113,13 @@ def test_integrated_secure_stack_has_alternate_commit_message(
 
 
 def test_integrated_secure_stack_without_sec_approval_does_not_use_secure_message(
-    db, client, phabdouble, mock_repo_config, secure_project, release_management_project
+    db,
+    client,
+    phabdouble,
+    mock_repo_config,
+    secure_project,
+    release_management_project,
+    sec_approval_project,
 ):
     # Build a plain old secure revision, no sec-approval requests made.
     secure_revision = phabdouble.revision(

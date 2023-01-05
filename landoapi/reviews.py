@@ -56,7 +56,7 @@ ReviewerIdentity = namedtuple("ReviewerIdentity", ("identifier", "full_name"))
 
 
 def reviewer_identity(
-    phid: str, user_search_data: list[dict], project_search_data: list[dict]
+    phid: str, user_search_data: dict, project_search_data: dict
 ) -> ReviewerIdentity:
     if phid in user_search_data:
         return ReviewerIdentity(
@@ -151,7 +151,7 @@ def serialize_reviewers(
 
 
 def reviewers_for_commit_message(
-    reviewers: dict, users: List[dict], projects: List[dict], sec_approval_phid: str
+    reviewers: dict, users: dict, projects: dict, sec_approval_phid: str
 ) -> List[str]:
     """Turn a list of reviewer objects into a list of reviewer names.
 
@@ -159,8 +159,8 @@ def reviewers_for_commit_message(
 
     Args:
         reviewers: Dict of {reviewer_phid: reviewer_data}
-        users: List of Phabricator Users that were involved in the revision.
-        projects: List of Phabricator Projects that were involved in the revision.
+        users: Dict of Phabricator Users that were involved in the revision.
+        projects: Dict of Phabricator Projects that were involved in the revision.
         sec_approval_phid: The PHID string of the sec-approval project.
 
     Returns:

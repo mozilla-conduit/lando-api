@@ -107,7 +107,11 @@ def get(phab: PhabricatorClient, revision_id: str):
     projects = project_search(phab, involved_phids)
 
     secure_project_phid = get_secure_project_phid(phab)
+
     sec_approval_project_phid = get_sec_approval_project_phid(phab)
+    if not sec_approval_project_phid:
+        raise Exception("Could not find `#sec-approval` project on Phabricator.")
+
     relman_phids = {
         member["phid"]
         for member in release_managers["attachments"]["members"]["members"]
