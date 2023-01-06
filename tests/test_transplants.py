@@ -1165,7 +1165,8 @@ def test_unresolved_comment_stack(
     auth0_mock,
     release_management_project,
 ):
-    """Ensure a warning is generated when a revision in the stack has unresolved comments.
+    """
+    Ensure a warning is generated when a revision in the stack has unresolved comments.
 
     This test sets up a stack and adds a transaction to each revision, including
     unresolved comments and a dummy transaction.
