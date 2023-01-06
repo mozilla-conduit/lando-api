@@ -358,10 +358,10 @@ def warning_code_freeze(*, repo, **kwargs):
 
 @RevisionWarningCheck(9, "Revision has unresolved comments.")
 def warning_unresolved_comments(*, phab, revision, **kwargs):
-    if False in [
-        PhabricatorClient.expect(inline, "fields", "isDone")
+    if not all(
+        phab.expect(inline, "fields", "isDone")
         for inline in get_inline_comments(phab, f"D{revision['id']}")
-    ]:
+    ):
         return "Revision has unresolved comments."
 
 

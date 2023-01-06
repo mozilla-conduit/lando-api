@@ -74,7 +74,9 @@ def get_raw_comments(transaction):
     ]
 
 
-def get_inline_comments(phab: PhabricatorClient, object_identifer: str) -> filter:
+def get_inline_comments(
+    phab: PhabricatorClient, object_identifer: str
+) -> Iterator[Transaction]:
     """Returns an iterable of inline comments for the requested object.
 
     Args:
