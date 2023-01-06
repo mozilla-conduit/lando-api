@@ -1094,6 +1094,15 @@ def test_unresolved_comment_warn(
     auth0_mock,
     release_management_project,
 ):
+    """Ensure a warning is generated when a revision has unresolved comments.
+
+    This test sets up a revision and adds a resolved comment and dummy
+    transaction. Sending a request should not generate a warning at this
+    stage.
+
+    Adding an unresolved comment and making the request again should
+    generate a warning.
+    """
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
     phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
@@ -1103,7 +1112,7 @@ def test_unresolved_comment_warn(
         comments=["this is done"],
         fields={"isDone": True},
     )
-    # Function should filter out unrelated transaction types.
+    # get_inline_comments should filter out unrelated transaction types.
     phabdouble.transaction("dummy", r1)
 
     response = client.post(
@@ -1156,6 +1165,12 @@ def test_unresolved_comment_stack(
     auth0_mock,
     release_management_project,
 ):
+    """Ensure a warning is generated when a revision in the stack has unresolved
+    comments.
+
+    This test sets up a stack and adds a transaction to each revision, including
+    unresolved comments and a dummy transaction.
+    """
     repo = phabdouble.repo()
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=repo)
@@ -1190,7 +1205,7 @@ def test_unresolved_comment_stack(
         fields={"isDone": True},
     )
 
-    # Function should filter out unrelated transaction types.
+    # get_inline_comments should filter out unrelated transaction types.
     phabdouble.transaction("dummy", r3)
 
     response = client.post(

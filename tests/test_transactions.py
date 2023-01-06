@@ -83,6 +83,7 @@ def test_get_inline_comments(phabdouble):
         comments=["this is done"],
         fields={"isDone": True},
     )
+    # get_inline_comments should filter out unrelated transaction types.
     phabdouble.transaction("dummy", revision)
     name = f"D{revision['id']}"
 
