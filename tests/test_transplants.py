@@ -1147,3 +1147,69 @@ def test_unresolved_comment_warn(
     assert (
         response.json["warnings"][0]["id"] == 9
     ), "the warning ID should match the ID for warning_unresolved_comments"
+
+
+def test_unresolved_comment_stack(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+):
+    repo = phabdouble.repo()
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=repo)
+    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
+
+    d2 = phabdouble.diff()
+    r2 = phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
+    phabdouble.reviewer(r2, phabdouble.user(username="reviewer"))
+
+    d3 = phabdouble.diff()
+    r3 = phabdouble.revision(diff=d3, repo=repo, depends_on=[r2])
+    phabdouble.reviewer(r3, phabdouble.user(username="reviewer"))
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r1,
+        comments=["this is not done"],
+        fields={"isDone": False},
+    )
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r2,
+        comments=["this is not done"],
+        fields={"isDone": False},
+    )
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r3,
+        comments=["this is done"],
+        fields={"isDone": True},
+    )
+
+    # Function should filter out unrelated transaction types.
+    phabdouble.transaction("dummy", r3)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+                {"revision_id": "D{}".format(r3["id"]), "diff_id": d3["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert response.json[
+        "warnings"
+    ], "warnings should not be empty for a stack with unresolved comments"
+    assert (
+        response.json["warnings"][0]["id"] == 9
+    ), "the warning ID should match the ID for warning_unresolved_comments"
