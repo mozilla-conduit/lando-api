@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from landoapi.transactions import get_raw_comments, transaction_search
+from landoapi.transactions import transaction_search
 
 
 def test_transaction_search_for_all_transactions(phabdouble):
@@ -42,16 +42,6 @@ def test_paginated_transactions_are_fetched_too(phabdouble):
     # Limit the retrieved page size to force multiple API calls.
     transactions = list(transaction_search(phab, revision["phid"], limit=1))
     assert transactions == new_transactions
-
-
-def test_add_comments_to_revision_generates_transactions(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-    comments = ["yes!", "no?", "~wobble~"]
-    revision = phabdouble.revision(comments=[phabdouble.comment(c) for c in comments])
-    transactions = list(transaction_search(phab, revision["phid"]))
-    txn_comments = [get_raw_comments(t).pop() for t in transactions]
-    assert len(transactions) == len(comments)
-    assert txn_comments == comments
 
 
 def test_find_transaction_by_object_name(phabdouble):

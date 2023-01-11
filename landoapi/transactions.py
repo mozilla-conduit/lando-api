@@ -1,8 +1,14 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 """Functions for working with Phabricator transactions."""
-from typing import Iterator, NewType
+
+from typing import (
+    Iterator,
+    NewType,
+    Optional,
+)
 
 from landoapi.phabricator import PhabricatorClient
 
@@ -14,7 +20,10 @@ Comment = NewType("Comment", dict)
 
 
 def transaction_search(
-    phabricator, object_identifier, transaction_phids=None, limit=100
+    phabricator: PhabricatorClient,
+    object_identifier: str,
+    transaction_phids: Optional[list[str]] = None,
+    limit: int = 100,
 ) -> Iterator[Transaction]:
     """Yield the Phabricator transactions related to an object.
 
@@ -58,17 +67,3 @@ def transaction_search(
         if next_page_start is None:
             # This was the last page of results.
             return
-
-
-def get_raw_comments(transaction):
-    """Return a list of 'raw' comment bodies in a Phabricator transaction.
-
-    A single transaction can have multiple comment bodies: e.g. a top-level comment
-    and a couple of inline comments along with it.
-
-    See https://phabricator.services.mozilla.com/conduit/method/transaction.search/.
-    """
-    return [
-        PhabricatorClient.expect(comment, "content", "raw")
-        for comment in PhabricatorClient.expect(transaction, "comments")
-    ]
