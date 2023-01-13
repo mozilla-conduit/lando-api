@@ -67,3 +67,19 @@ def transaction_search(
         if next_page_start is None:
             # This was the last page of results.
             return
+
+
+def get_inline_comments(
+    phab: PhabricatorClient, object_identifer: str
+) -> Iterator[Transaction]:
+    """Returns an iterator of inline comments for the requested object.
+
+    Args:
+        phab: A PhabricatorClient instance.
+        object_identifer: An object identifier (PHID or monogram) whose inline
+            comments we want to fetch.
+    """
+    return filter(
+        lambda transaction: transaction["type"] == "inline",
+        transaction_search(phab, object_identifer),
+    )
