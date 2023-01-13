@@ -1,6 +1,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+from __future__ import annotations
+
 import io
 
 import boto3
@@ -35,24 +38,26 @@ def create_s3(
     return boto3.resource("s3", **s3_kwargs)
 
 
-def name(revision_id, diff_id):
+def name(revision_id: int, diff_id: int) -> str:
+    """Return a patch name given a revision ID and diff ID."""
     return PATCH_NAME_FORMAT.format(revision_id=revision_id, diff_id=diff_id)
 
 
-def url(bucket, name):
+def url(bucket: str, name: str) -> str:
+    """Return a patch S3 URL given an S3 bucket and patch name."""
     return PATCH_URL_FORMAT.format(bucket=bucket, patch_name=name)
 
 
 def upload(
-    revision_id,
-    diff_id,
-    patch,
-    s3_bucket,
+    revision_id: int,
+    diff_id: int,
+    patch: str,
+    s3_bucket: str,
     *,
-    aws_access_key,
-    aws_secret_key,
-    endpoint_url=None
-):
+    aws_access_key: str,
+    aws_secret_key: str,
+    endpoint_url: Optional[str] = None,
+) -> str:
     """Upload a patch to S3 Bucket.
 
     Build the patch contents and upload to S3.
@@ -88,14 +93,14 @@ def upload(
 
 
 def download(
-    revision_id,
-    diff_id,
-    s3_bucket,
+    revision_id: int,
+    diff_id: int,
+    s3_bucket: str,
     *,
-    aws_access_key,
-    aws_secret_key,
-    endpoint_url=None
-):
+    aws_access_key: str,
+    aws_secret_key: str,
+    endpoint_url: Optional[str] = None,
+) -> io.BytesIO:
     """Download a patch from S3 Bucket.
 
     Args:
@@ -127,7 +132,7 @@ def download(
 class PatchesS3Subsystem(Subsystem):
     name = "s3_patch_bucket"
 
-    def healthy(self):
+    def healthy(self) -> bool | str:
         bucket = self.flask_app.config.get("PATCH_BUCKET_NAME")
         if not bucket:
             return "PATCH_BUCKET_NAME not configured"
