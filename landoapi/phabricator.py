@@ -1,14 +1,29 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+from __future__ import annotations
+
 import json
 import logging
 import re
-from datetime import datetime, timezone
+
+from datetime import (
+    datetime,
+    timezone,
+)
+from enum import (
+    Enum,
+    unique,
+)
 from json.decoder import JSONDecodeError
+from typing import (
+    Any,
+    Optional,
+    Iterable,
+)
 
 import requests
-from enum import Enum, unique
 
 from landoapi.systems import Subsystem
 
@@ -36,18 +51,7 @@ class RevisionStatus(Enum):
     UNEXPECTED_STATUS = None
 
     @classmethod
-    def from_deprecated_id(cls, identifier, *, name=None):
-        return {
-            "0": cls.DRAFT if name == "Draft" else cls.NEEDS_REVIEW,
-            "1": cls.NEEDS_REVISION,
-            "2": cls.ACCEPTED,
-            "3": cls.PUBLISHED,
-            "4": cls.ABANDONED,
-            "5": cls.CHANGES_PLANNED,
-        }.get(str(identifier), cls.UNEXPECTED_STATUS)
-
-    @classmethod
-    def from_status(cls, value):
+    def from_status(cls, value: str) -> RevisionStatus:
         try:
             return cls(value)
         except ValueError:
@@ -56,7 +60,7 @@ class RevisionStatus(Enum):
         return cls.UNEXPECTED_STATUS
 
     @classmethod
-    def meta(cls):
+    def meta(cls) -> dict:
         return {
             cls.ABANDONED: {
                 "name": "Abandoned",
@@ -103,19 +107,19 @@ class RevisionStatus(Enum):
         }
 
     @property
-    def deprecated_id(self):
+    def deprecated_id(self) -> str:
         return self.meta().get(self, {}).get("deprecated_id", "")
 
     @property
-    def output_name(self):
+    def output_name(self) -> str:
         return self.meta().get(self, {}).get("name", "")
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self.meta().get(self, {}).get("closed", False)
 
     @property
-    def color(self):
+    def color(self) -> Optional[str]:
         return self.meta().get(self, {}).get("color.ansi")
 
 
@@ -135,7 +139,7 @@ class ReviewerStatus(Enum):
     UNEXPECTED_STATUS = None
 
     @classmethod
-    def from_status(cls, value):
+    def from_status(cls, value: str) -> ReviewerStatus:
         try:
             return cls(value)
         except ValueError:
@@ -143,24 +147,16 @@ class ReviewerStatus(Enum):
 
         return cls.UNEXPECTED_STATUS
 
-    @classmethod
-    def meta(cls):
+    @property
+    def diff_specific(self) -> bool:
         return {
-            cls.ADDED: {"voidable": False, "diff_specific": False},
-            cls.ACCEPTED: {"voidable": True, "diff_specific": True},
-            cls.BLOCKING: {"voidable": False, "diff_specific": False},
-            cls.REJECTED: {"voidable": False, "diff_specific": True},
-            cls.RESIGNED: {"voidable": False, "diff_specific": False},
-            cls.UNEXPECTED_STATUS: {"voidable": False, "diff_specific": False},
-        }
-
-    @property
-    def voidable(self):
-        return self.meta().get(self, {}).get("voidable", False)
-
-    @property
-    def diff_specific(self):
-        return self.meta().get(self, {}).get("diff_specific", False)
+            self.ADDED: False,
+            self.ACCEPTED: True,
+            self.BLOCKING: False,
+            self.REJECTED: True,
+            self.RESIGNED: False,
+            self.UNEXPECTED_STATUS: False,
+        }.get(self, False)
 
 
 class PhabricatorClient:
@@ -173,13 +169,15 @@ class PhabricatorClient:
     underlying exception.
     """
 
-    def __init__(self, url, api_token, *, session=None):
+    def __init__(
+        self, url: str, api_token: str, *, session: Optional[requests.Session] = None
+    ):
         self.url_base = url
         self.api_url = url + "api/" if url[-1] == "/" else url + "/api/"
         self.api_token = api_token
         self.session = session or self.create_session()
 
-    def call_conduit(self, method, **kwargs):
+    def call_conduit(self, method: str, **kwargs) -> Any:
         """Return the result of an RPC call to a conduit method.
 
         Args:
@@ -224,11 +222,13 @@ class PhabricatorClient:
         return response.get("result")
 
     @staticmethod
-    def create_session():
+    def create_session() -> requests.Session:
         return requests.Session()
 
     @classmethod
-    def single(cls, result, *subkeys, none_when_empty=False):
+    def single(
+        cls, result: Any, *subkeys: Iterable[int | str], none_when_empty: bool = False
+    ) -> Optional[Any]:
         """Return the first item of a phabricator result.
 
         Args:
@@ -259,7 +259,7 @@ class PhabricatorClient:
         return result[0] if result else None
 
     @staticmethod
-    def expect(result, *args):
+    def expect(result: Any, *args) -> Any:
         """Return data from a phabricator result.
 
         Args:
@@ -286,7 +286,7 @@ class PhabricatorClient:
         return result
 
     @staticmethod
-    def to_datetime(timestamp):
+    def to_datetime(timestamp: int | str) -> datetime:
         """Return a datetime corresponding to a Phabricator timestamp.
 
         Args:
@@ -298,7 +298,7 @@ class PhabricatorClient:
         """
         return datetime.fromtimestamp(int(timestamp), timezone.utc)
 
-    def verify_api_token(self):
+    def verify_api_token(self) -> bool:
         """Verifies that the api token is valid.
 
         Returns False if Phabricator returns an error code when checking this
@@ -314,13 +314,15 @@ class PhabricatorClient:
 class PhabricatorAPIException(Exception):
     """Exception to be raised when Phabricator returns an error response."""
 
-    def __init__(self, *args, error_code=None, error_info=None):
+    def __init__(
+        self, *args, error_code: Optional[str] = None, error_info: Optional[str] = None
+    ):
         super().__init__(*args)
         self.error_code = error_code
         self.error_info = error_info
 
     @classmethod
-    def raise_if_error(cls, response_body):
+    def raise_if_error(cls, response_body: dict):
         """Raise a PhabricatorAPIException if response_body was an error."""
         if response_body["error_code"]:
             raise cls(
@@ -360,7 +362,7 @@ def result_list_to_phid_dict(
 class PhabricatorSubsystem(Subsystem):
     name = "phabricator"
 
-    def ready(self):
+    def ready(self) -> bool | str:
         unpriv_key = self.flask_app.config["PHABRICATOR_UNPRIVILEGED_API_KEY"]
         priv_key = self.flask_app.config["PHABRICATOR_ADMIN_API_KEY"]
 
@@ -378,7 +380,7 @@ class PhabricatorSubsystem(Subsystem):
 
         return True
 
-    def healthy(self):
+    def healthy(self) -> bool | str:
         try:
             PhabricatorClient(
                 self.flask_app.config["PHABRICATOR_URL"],
