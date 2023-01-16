@@ -306,6 +306,30 @@ REPO_CONFIG = {
             approval_required=True,
             commit_flags=[DONTBUILD],
         ),
+        "release": Repo(
+            tree="mozilla-release",
+            short_name="release",
+            url="https://hg.mozilla.org/releases/mozilla-release",
+            access_group=SCM_ALLOW_DIRECT_PUSH,
+            approval_required=True,
+            commit_flags=[DONTBUILD],
+        ),
+        "esr91": Repo(
+            tree="mozilla-esr91",
+            short_name="esr91",
+            url="https://hg.mozilla.org/releases/mozilla-esr91",
+            access_group=SCM_ALLOW_DIRECT_PUSH,
+            approval_required=True,
+            commit_flags=[DONTBUILD],
+        ),
+        "esr102": Repo(
+            tree="mozilla-esr102",
+            short_name="esr102",
+            url="https://hg.mozilla.org/releases/mozilla-esr102",
+            access_group=SCM_ALLOW_DIRECT_PUSH,
+            approval_required=True,
+            commit_flags=[DONTBUILD],
+        ),
     },
 }
 
