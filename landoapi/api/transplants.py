@@ -1,9 +1,11 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-from datetime import datetime
 import logging
 import urllib.parse
+
+from datetime import datetime
+from typing import Optional
 
 import kombu
 from connexion import problem, ProblemException
@@ -13,6 +15,7 @@ from landoapi import auth
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
+from landoapi.models.base import Base
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.patches import upload
@@ -20,14 +23,17 @@ from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
+    get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
     get_testing_tag_project_phids,
     get_testing_policy_phid,
-    get_relman_group_phid,
     project_search,
 )
-from landoapi.repos import get_repos_for_env
+from landoapi.repos import (
+    Repo,
+    get_repos_for_env,
+)
 from landoapi.reviews import (
     approvals_for_commit_message,
     get_collated_reviewers,
@@ -41,6 +47,7 @@ from landoapi.revisions import (
     revision_is_secure,
 )
 from landoapi.stacks import (
+    RevisionData,
     build_stack_graph,
     calculate_landable_subgraphs,
     get_landable_repos_for_revision_data,
@@ -56,9 +63,6 @@ from landoapi.transplants import (
     get_blocker_checks,
 )
 from landoapi.transplant_client import TransplantClient, TransplantError
-from landoapi.uplift import (
-    get_release_managers,
-)
 from landoapi.users import user_search
 from landoapi.validation import (
     revision_id_to_int,
@@ -68,7 +72,7 @@ from landoapi.validation import (
 logger = logging.getLogger(__name__)
 
 
-def _parse_transplant_request(data):
+def _parse_transplant_request(data: dict) -> dict:
     """Extract confirmation token, flags, and the landing path from provided data.
 
     Args
@@ -100,7 +104,7 @@ def _parse_transplant_request(data):
     }
 
 
-def _choose_middle_revision_from_path(path):
+def _choose_middle_revision_from_path(path: list[tuple[int, int]]) -> int:
     if not path:
         raise ValueError("path must not be empty")
 
@@ -111,7 +115,9 @@ def _choose_middle_revision_from_path(path):
     return path[len(path) // 2][0]
 
 
-def _find_stack_from_landing_path(phab, landing_path):
+def _find_stack_from_landing_path(
+    phab: PhabricatorClient, landing_path: list[tuple[int, int]]
+) -> tuple[set[str], set[tuple[str, str]]]:
     a_revision_id = _choose_middle_revision_from_path(landing_path)
     revision = phab.call_conduit(
         "differential.revision.search", constraints={"ids": [a_revision_id]}
@@ -131,17 +137,24 @@ def _find_stack_from_landing_path(phab, landing_path):
     return build_stack_graph(phab, phab.expect(revision, "phid"))
 
 
-def _assess_transplant_request(phab, landing_path):
+def _assess_transplant_request(
+    phab: PhabricatorClient, landing_path: list[tuple[int, int]], relman_group_phid: str
+) -> tuple[
+    TransplantAssessment,
+    Optional[list[tuple[dict, dict]]],
+    Optional[Repo],
+    Optional[RevisionData],
+]:
     nodes, edges = _find_stack_from_landing_path(phab, landing_path)
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
-    landing_path = convert_path_id_to_phid(landing_path, stack_data)
+    landing_path_phid = convert_path_id_to_phid(landing_path, stack_data)
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     other_checks = get_blocker_checks(
         repositories=supported_repos,
-        relman_group_phid=get_relman_group_phid(phab),
+        relman_group_phid=relman_group_phid,
         stack_data=stack_data,
     )
 
@@ -150,7 +163,7 @@ def _assess_transplant_request(phab, landing_path):
     )
 
     assessment = check_landing_blockers(
-        g.auth0_user, landing_path, stack_data, landable, landable_repos
+        g.auth0_user, landing_path_phid, stack_data, landable, landable_repos
     )
     if assessment.blocker is not None:
         return (assessment, None, None, None)
@@ -159,7 +172,7 @@ def _assess_transplant_request(phab, landing_path):
     # landable (in the sense that it is a landable_subgraph, with no
     # revisions being blocked). Make this clear by using a different
     # value, and assume it going forward.
-    valid_path = landing_path
+    valid_path = landing_path_phid
 
     # Now that we know this is a valid path we can convert it into a list
     # of (revision, diff) tuples.
@@ -186,6 +199,7 @@ def _assess_transplant_request(phab, landing_path):
     }
 
     assessment = check_landing_warnings(
+        phab,
         g.auth0_user,
         to_land,
         repo,
@@ -201,24 +215,15 @@ def _assess_transplant_request(phab, landing_path):
 
 
 def _lock_table_for(
-    db_session, mode="SHARE ROW EXCLUSIVE MODE", table=None, model=None
+    model: Base,
+    mode: str = "SHARE ROW EXCLUSIVE MODE",
 ):
     """Locks a given table in the given database with the given mode.
 
     Args:
-        db_session (SQLAlchemy.db.session): the database session to use
         mode (str): the lock mode to apply to the table when locking
         model (SQLAlchemy.db.model): a model to fetch the table name from
-        table (str): a string representing the table name in the database
-
-    Raises:
-        TypeError: if either both model and table arguments are missing or provided
     """
-    if table is not None and model is not None:
-        raise TypeError("Only one of table or model should be provided")
-    if table is None and model is None:
-        raise TypeError("Missing table or model argument")
-
     query = f"LOCK TABLE {model.__table__.name} IN {mode};"
     db.session.execute(query)
 
@@ -227,7 +232,13 @@ def _lock_table_for(
 @require_phabricator_api_key(optional=True)
 def dryrun(phab: PhabricatorClient, data: dict):
     landing_path = _parse_transplant_request(data)["landing_path"]
-    assessment, *_ = _assess_transplant_request(phab, landing_path)
+
+    release_managers = get_release_managers(phab)
+    if not release_managers:
+        raise Exception("Could not find `#release-managers` project on Phabricator.")
+
+    relman_group_phid = phab.expect(release_managers, "phid")
+    assessment, *_ = _assess_transplant_request(phab, landing_path, relman_group_phid)
     return assessment.to_dict()
 
 
@@ -247,8 +258,11 @@ def post(phab: PhabricatorClient, data: dict):
             "flags": flags,
         },
     )
+    release_managers = get_release_managers(phab)
+    relman_group_phid = phab.expect(release_managers, "phid")
+
     assessment, to_land, landing_repo, stack_data = _assess_transplant_request(
-        phab, landing_path
+        phab, landing_path, relman_group_phid
     )
 
     assessment.raise_if_blocked_or_unacknowledged(confirmation_token)
@@ -306,7 +320,6 @@ def post(phab: PhabricatorClient, data: dict):
     ]
 
     sec_approval_project_phid = get_sec_approval_project_phid(phab)
-    release_managers = get_release_managers(phab)
     relman_phids = {
         member["phid"]
         for member in release_managers["attachments"]["members"]["members"]
@@ -376,7 +389,7 @@ def post(phab: PhabricatorClient, data: dict):
 
     if not landing_repo.legacy_transplant:
         with db.session.begin_nested():
-            _lock_table_for(db.session, model=LandingJob)
+            _lock_table_for(model=LandingJob)
             if (
                 LandingJob.revisions_query(stack_ids)
                 .filter(
@@ -426,7 +439,7 @@ def post(phab: PhabricatorClient, data: dict):
             # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
             # for more details on the specifics of the lock mode.
             with db.session.begin_nested():
-                _lock_table_for(db.session, model=Transplant)
+                _lock_table_for(model=Transplant)
                 if (
                     Transplant.revisions_query(stack_ids)
                     .filter_by(status=TransplantStatus.submitted)

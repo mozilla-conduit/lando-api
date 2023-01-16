@@ -92,7 +92,7 @@ def serialize_status(revision: dict) -> dict:
         logger.warning(
             "Revision had unexpected status",
             extra={
-                "id": PhabricatorClient.expection(revision, "id"),
+                "id": PhabricatorClient.expect(revision, "id"),
                 "value": status_value,
             },
         )

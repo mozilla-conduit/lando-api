@@ -26,7 +26,9 @@ from landoapi.transplants import (
 )
 
 
-def test_dryrun_no_warnings_or_blockers(client, db, phabdouble, auth0_mock):
+def test_dryrun_no_warnings_or_blockers(
+    client, db, phabdouble, auth0_mock, release_management_project
+):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
     phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
@@ -48,7 +50,9 @@ def test_dryrun_no_warnings_or_blockers(client, db, phabdouble, auth0_mock):
     assert response.json == expected_json
 
 
-def test_dryrun_invalid_path_blocks(client, db, phabdouble, auth0_mock):
+def test_dryrun_invalid_path_blocks(
+    client, db, phabdouble, auth0_mock, release_management_project
+):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -74,7 +78,9 @@ def test_dryrun_invalid_path_blocks(client, db, phabdouble, auth0_mock):
     assert response.json["blocker"] is not None
 
 
-def test_dryrun_in_progress_transplant_blocks(client, db, phabdouble, auth0_mock):
+def test_dryrun_in_progress_transplant_blocks(
+    client, db, phabdouble, auth0_mock, release_management_project
+):
     repo = phabdouble.repo()
 
     # Structure:
@@ -120,7 +126,9 @@ def test_dryrun_in_progress_transplant_blocks(client, db, phabdouble, auth0_mock
     )
 
 
-def test_dryrun_reviewers_warns(client, db, phabdouble, auth0_mock):
+def test_dryrun_reviewers_warns(
+    client, db, phabdouble, auth0_mock, release_management_project
+):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
     phabdouble.reviewer(
@@ -152,6 +160,7 @@ def test_dryrun_codefreeze_warn(
     codefreeze_datetime,
     monkeypatch,
     request_mocker,
+    release_management_project,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -209,6 +218,7 @@ def test_dryrun_outside_codefreeze(
     codefreeze_datetime,
     monkeypatch,
     request_mocker,
+    release_management_project,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -270,7 +280,14 @@ def test_dryrun_outside_codefreeze(
     ],
 )
 def test_integrated_dryrun_blocks_for_bad_userinfo(
-    client, db, auth0_mock, phabdouble, userinfo, status, blocker
+    client,
+    db,
+    auth0_mock,
+    phabdouble,
+    userinfo,
+    status,
+    blocker,
+    release_management_project,
 ):
     auth0_mock.userinfo = userinfo
     d1 = phabdouble.diff()
@@ -663,7 +680,7 @@ def test_integrated_transplant_with_flags(
 
 
 def test_integrated_transplant_with_invalid_flags(
-    db, client, phabdouble, s3, auth0_mock, monkeypatch
+    db, client, phabdouble, s3, auth0_mock, monkeypatch, release_management_project
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -761,7 +778,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
 
 
 def test_integrated_transplant_without_auth0_permissions(
-    client, auth0_mock, phabdouble, db
+    client, auth0_mock, phabdouble, db, release_management_project
 ):
     auth0_mock.userinfo = CANNED_USERINFO["NO_CUSTOM_CLAIMS"]
 
@@ -904,7 +921,7 @@ def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
 
 
 def test_integrated_transplant_diff_not_in_revision(
-    db, client, phabdouble, s3, auth0_mock
+    db, client, phabdouble, s3, auth0_mock, release_management_project
 ):
     repo = phabdouble.repo()
     d1 = phabdouble.diff()
@@ -926,7 +943,7 @@ def test_integrated_transplant_diff_not_in_revision(
 
 
 def test_transplant_nonexisting_revision_returns_404(
-    db, client, phabdouble, auth0_mock
+    db, client, phabdouble, auth0_mock, release_management_project
 ):
     response = client.post(
         "/transplants",
@@ -939,7 +956,7 @@ def test_transplant_nonexisting_revision_returns_404(
 
 
 def test_integrated_transplant_revision_with_no_repo(
-    db, client, phabdouble, auth0_mock
+    db, client, phabdouble, auth0_mock, release_management_project
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1)
@@ -961,7 +978,7 @@ def test_integrated_transplant_revision_with_no_repo(
 
 
 def test_integrated_transplant_revision_with_unmapped_repo(
-    db, client, phabdouble, auth0_mock
+    db, client, phabdouble, auth0_mock, release_management_project
 ):
     repo = phabdouble.repo(name="notsupported")
     d1 = phabdouble.diff()
@@ -1068,3 +1085,146 @@ def test_codefreeze_datetime_mock(codefreeze_datetime):
     dt = codefreeze_datetime()
     assert dt.now(tz=timezone.utc) == datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc)
     assert dt.strptime("tomorrow -0800", fmt="") == datetime(2000, 1, 6, 0, 0, 0)
+
+
+def test_unresolved_comment_warn(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+):
+    """Ensure a warning is generated when a revision has unresolved comments.
+
+    This test sets up a revision and adds a resolved comment and dummy
+    transaction. Sending a request should not generate a warning at this
+    stage.
+
+    Adding an unresolved comment and making the request again should
+    generate a warning.
+    """
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r1,
+        comments=["this is done"],
+        fields={"isDone": True},
+    )
+    # get_inline_comments should filter out unrelated transaction types.
+    phabdouble.transaction("dummy", r1)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert not response.json[
+        "warnings"
+    ], "warnings should be empty for a revision without unresolved comments"
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r1,
+        comments=["this is not done"],
+        fields={"isDone": False},
+    )
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert response.json[
+        "warnings"
+    ], "warnings should not be empty for a revision with unresolved comments"
+    assert (
+        response.json["warnings"][0]["id"] == 9
+    ), "the warning ID should match the ID for warning_unresolved_comments"
+
+
+def test_unresolved_comment_stack(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+):
+    """
+    Ensure a warning is generated when a revision in the stack has unresolved comments.
+
+    This test sets up a stack and adds a transaction to each revision, including
+    unresolved comments and a dummy transaction.
+    """
+    repo = phabdouble.repo()
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=repo)
+    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
+
+    d2 = phabdouble.diff()
+    r2 = phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
+    phabdouble.reviewer(r2, phabdouble.user(username="reviewer"))
+
+    d3 = phabdouble.diff()
+    r3 = phabdouble.revision(diff=d3, repo=repo, depends_on=[r2])
+    phabdouble.reviewer(r3, phabdouble.user(username="reviewer"))
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r1,
+        comments=["this is not done"],
+        fields={"isDone": False},
+    )
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r2,
+        comments=["this is not done"],
+        fields={"isDone": False},
+    )
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r3,
+        comments=["this is done"],
+        fields={"isDone": True},
+    )
+
+    # get_inline_comments should filter out unrelated transaction types.
+    phabdouble.transaction("dummy", r3)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+                {"revision_id": "D{}".format(r3["id"]), "diff_id": d3["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert response.json[
+        "warnings"
+    ], "warnings should not be empty for a stack with unresolved comments"
+    assert (
+        response.json["warnings"][0]["id"] == 9
+    ), "the warning ID should match the ID for warning_unresolved_comments"

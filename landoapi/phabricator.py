@@ -334,7 +334,9 @@ class PhabricatorCommunicationException(PhabricatorAPIException):
     """Exception when communicating with Phabricator fails."""
 
 
-def result_list_to_phid_dict(result_list, *, phid_key="phid"):
+def result_list_to_phid_dict(
+    result_list: list[dict], *, phid_key: str = "phid"
+) -> dict[str, dict]:
     """Return a dictionary mapping phid to items from a result list.
 
     Args:

@@ -38,7 +38,7 @@ SEC_APPROVAL_CACHE_KEY = "sec-approval-project-phid"
 # The name of the Phabricator project containing members of the Release
 # Management team, to approve uplift requests
 RELMAN_PROJECT_SLUG = "release-managers"
-RELMAN_CACHE_KEY = "release-managers-project-phid"
+RELMAN_CACHE_KEY = "release-managers-project"
 
 
 def project_search(phabricator, project_phids):
@@ -139,6 +139,11 @@ def get_sec_approval_project_phid(phabricator: PhabricatorClient) -> Optional[st
 
 
 @cache.cached(key_prefix=RELMAN_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
-def get_relman_group_phid(phabricator: PhabricatorClient) -> Optional[str]:
-    """Return a phid for the relman group's project."""
-    return get_project_phid(RELMAN_PROJECT_SLUG, phabricator)
+def get_release_managers(phab: PhabricatorClient) -> dict:
+    """Load the release-managers group details from Phabricator"""
+    groups = phab.call_conduit(
+        "project.search",
+        attachments={"members": True},
+        constraints={"slugs": [RELMAN_PROJECT_SLUG]},
+    )
+    return phab.single(groups, "data")

@@ -27,6 +27,7 @@ from landoapi.revisions import (
 from landoapi.stacks import (
     RevisionData,
 )
+from landoapi.transactions import get_inline_comments
 
 logger = logging.getLogger(__name__)
 
@@ -355,6 +356,15 @@ def warning_code_freeze(*, repo, **kwargs):
         ]
 
 
+@RevisionWarningCheck(9, "Revision has unresolved comments.")
+def warning_unresolved_comments(*, phab, revision, **kwargs):
+    if not all(
+        phab.expect(inline, "fields", "isDone")
+        for inline in get_inline_comments(phab, f"D{revision['id']}")
+    ):
+        return "Revision has unresolved comments."
+
+
 def user_block_no_auth0_email(*, auth0_user, **kwargs):
     """Check the user has a proper auth0 email."""
     return (
@@ -379,6 +389,7 @@ def user_block_scm_level(*, auth0_user, landing_repo, **kwargs):
 
 
 def check_landing_warnings(
+    phab,
     auth0_user,
     to_land,
     repo,
@@ -400,12 +411,14 @@ def check_landing_warnings(
         warning_diff_warning,
         warning_wip_commit_message,
         warning_code_freeze,
+        warning_unresolved_comments,
     ],
 ):
     assessment = TransplantAssessment()
     for revision, diff in to_land:
         for check in revision_warnings:
             result = check(
+                phab=phab,
                 revision=revision,
                 diff=diff,
                 repo=repo,

@@ -56,9 +56,6 @@ class Repo:
             Defaults to `False`.
         commit_flags (list of tuple): A list of supported flags that can be appended to
             the commit message at landing time (e.g. `[("DONTBUILD", "help text")]`).
-        config_override (dict): Parameters to override when loading the Mercurial
-            configuration. The keys and values map directly to configuration keys and
-            values. Defaults to `None`.
         product_details_url (str): The URL which contains product-related information
             relevant to the repo. Defaults to an empty string.
     """
@@ -74,7 +71,6 @@ class Repo:
     approval_required: bool = False
     autoformat_enabled: bool = False
     commit_flags: list[tuple[str, str]] = field(default_factory=list)
-    config_override: dict = field(default_factory=dict)
     product_details_url: str = ""
 
     def __post_init__(self):
@@ -208,7 +204,6 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/conduit-testing/m-c",
             access_group=SCM_CONDUIT,
             commit_flags=[DONTBUILD],
-            config_override={"fix.black:command": "black -- -"},
             approval_required=True,
             product_details_url="https://raw.githubusercontent.com/mozilla-conduit"
             "/suite/main/docker/product-details/1.0/firefox_versions.json",

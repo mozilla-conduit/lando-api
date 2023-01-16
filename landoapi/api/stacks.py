@@ -10,9 +10,9 @@ from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
 from landoapi.projects import (
+    get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
-    get_relman_group_phid,
     project_search,
 )
 from landoapi.repos import get_repos_for_env
@@ -38,7 +38,6 @@ from landoapi.stacks import (
     request_extended_revision_data,
 )
 from landoapi.transplants import get_blocker_checks
-from landoapi.uplift import get_release_managers
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
@@ -79,8 +78,14 @@ def get(phab: PhabricatorClient, revision_id: str):
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
+    release_managers = get_release_managers(phab)
+    if not release_managers:
+        raise Exception("Could not find `#release-managers` project on Phabricator.")
+
+    relman_group_phid = str(phab.expect(release_managers, "phid"))
+
     other_checks = get_blocker_checks(
-        relman_group_phid=get_relman_group_phid(phab),
+        relman_group_phid=relman_group_phid,
         repositories=supported_repos,
         stack_data=stack_data,
     )
@@ -102,8 +107,11 @@ def get(phab: PhabricatorClient, revision_id: str):
     projects = project_search(phab, involved_phids)
 
     secure_project_phid = get_secure_project_phid(phab)
+
     sec_approval_project_phid = get_sec_approval_project_phid(phab)
-    release_managers = get_release_managers(phab)
+    if not sec_approval_project_phid:
+        raise Exception("Could not find `#sec-approval` project on Phabricator.")
+
     relman_phids = {
         member["phid"]
         for member in release_managers["attachments"]["members"]["members"]
