@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from landoapi.transactions import transaction_search
+from landoapi.transactions import transaction_search, get_inline_comments
 
 
 def test_transaction_search_for_all_transactions(phabdouble):
@@ -58,3 +58,19 @@ def test_find_transaction_by_phid(phabdouble):
     txn = phabdouble.transaction("dummy", revision)
     phid = revision["phid"]
     assert list(transaction_search(phab, phid)) == [txn]
+
+
+def test_get_inline_comments(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+    revision = phabdouble.revision()
+    txn = phabdouble.transaction(
+        transaction_type="inline",
+        object=revision,
+        comments=["this is done"],
+        fields={"isDone": True},
+    )
+    # get_inline_comments should filter out unrelated transaction types.
+    phabdouble.transaction("dummy", revision)
+    name = f"D{revision['id']}"
+
+    assert list(get_inline_comments(phab, name)) == [txn]

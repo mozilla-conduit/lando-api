@@ -1085,3 +1085,146 @@ def test_codefreeze_datetime_mock(codefreeze_datetime):
     dt = codefreeze_datetime()
     assert dt.now(tz=timezone.utc) == datetime(2000, 1, 5, 0, 0, 0, tzinfo=timezone.utc)
     assert dt.strptime("tomorrow -0800", fmt="") == datetime(2000, 1, 6, 0, 0, 0)
+
+
+def test_unresolved_comment_warn(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+):
+    """Ensure a warning is generated when a revision has unresolved comments.
+
+    This test sets up a revision and adds a resolved comment and dummy
+    transaction. Sending a request should not generate a warning at this
+    stage.
+
+    Adding an unresolved comment and making the request again should
+    generate a warning.
+    """
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
+    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r1,
+        comments=["this is done"],
+        fields={"isDone": True},
+    )
+    # get_inline_comments should filter out unrelated transaction types.
+    phabdouble.transaction("dummy", r1)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert not response.json[
+        "warnings"
+    ], "warnings should be empty for a revision without unresolved comments"
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r1,
+        comments=["this is not done"],
+        fields={"isDone": False},
+    )
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert response.json[
+        "warnings"
+    ], "warnings should not be empty for a revision with unresolved comments"
+    assert (
+        response.json["warnings"][0]["id"] == 9
+    ), "the warning ID should match the ID for warning_unresolved_comments"
+
+
+def test_unresolved_comment_stack(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+):
+    """
+    Ensure a warning is generated when a revision in the stack has unresolved comments.
+
+    This test sets up a stack and adds a transaction to each revision, including
+    unresolved comments and a dummy transaction.
+    """
+    repo = phabdouble.repo()
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=repo)
+    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
+
+    d2 = phabdouble.diff()
+    r2 = phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
+    phabdouble.reviewer(r2, phabdouble.user(username="reviewer"))
+
+    d3 = phabdouble.diff()
+    r3 = phabdouble.revision(diff=d3, repo=repo, depends_on=[r2])
+    phabdouble.reviewer(r3, phabdouble.user(username="reviewer"))
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r1,
+        comments=["this is not done"],
+        fields={"isDone": False},
+    )
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r2,
+        comments=["this is not done"],
+        fields={"isDone": False},
+    )
+
+    phabdouble.transaction(
+        transaction_type="inline",
+        object=r3,
+        comments=["this is done"],
+        fields={"isDone": True},
+    )
+
+    # get_inline_comments should filter out unrelated transaction types.
+    phabdouble.transaction("dummy", r3)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+                {"revision_id": "D{}".format(r3["id"]), "diff_id": d3["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert response.status_code == 200
+    assert response.content_type == "application/json"
+    assert response.json[
+        "warnings"
+    ], "warnings should not be empty for a stack with unresolved comments"
+    assert (
+        response.json["warnings"][0]["id"] == 9
+    ), "the warning ID should match the ID for warning_unresolved_comments"

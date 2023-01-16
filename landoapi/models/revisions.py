@@ -35,7 +35,7 @@ class DiffWarningGroup(enum.Enum):
 class DiffWarning(Base):
     """Represents a warning message associated with a particular diff and revision."""
 
-    # A Phabricator revision and diff ID (NOTE: revision ID does not inlude a prefix.)
+    # A Phabricator revision and diff ID (NOTE: revision ID does not include a prefix.)
     revision_id = db.Column(db.Integer, nullable=False)
     diff_id = db.Column(db.Integer, nullable=False)
 
