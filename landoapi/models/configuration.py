@@ -4,11 +4,18 @@
 import enum
 import logging
 
+from typing import (
+    Optional,
+    Union,
+)
+
 from landoapi.cache import cache
 from landoapi.models.base import Base
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
+
+ConfigurationValue = Union[bool, int, str]
 
 
 class ConfigurationKey:
@@ -35,7 +42,7 @@ class ConfigurationVariable(Base):
     variable_type = db.Column(db.Enum(VariableType), default=VariableType.STR)
 
     @property
-    def value(self):
+    def value(self) -> ConfigurationValue:
         """The parsed value of `raw_value` based on `variable_type`.
 
         Returns:
@@ -59,9 +66,11 @@ class ConfigurationVariable(Base):
         elif self.variable_type == VariableType.STR:
             return self.raw_value
 
+        raise ValueError("Could not parse raw value for configuration variable.")
+
     @classmethod
     @cache.memoize()
-    def get(cls, key, default):
+    def get(cls, key: str, default: ConfigurationValue) -> ConfigurationValue:
         """Fetch a variable using `key`, return `default` if it does not exist.
 
         Returns: The parsed value of the configuration variable, of type `str`, `int`,
@@ -71,7 +80,9 @@ class ConfigurationVariable(Base):
         return record.value if record else default
 
     @classmethod
-    def set(cls, key, variable_type, raw_value):
+    def set(
+        cls, key: str, variable_type: VariableType, raw_value: ConfigurationValue
+    ) -> Optional[ConfigurationValue]:
         """Set a variable `key` of type `variable_type` and value `raw_value`.
 
         Returns:

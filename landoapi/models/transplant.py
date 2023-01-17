@@ -5,8 +5,11 @@ import datetime
 import enum
 import logging
 
+from typing import Any
+
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
+from sqlalchemy.orm import Query
 
 from landoapi.models.base import Base
 from landoapi.storage import db
@@ -75,7 +78,7 @@ class Transplant(Base):
     # Treestatus tree name the revisions are to land to.
     tree = db.Column(db.String(128))
 
-    def update_from_transplant(self, landed, error="", result=""):
+    def update_from_transplant(self, landed: bool, error: str = "", result: str = ""):
         """Set the status from pingback request."""
         self.error = error
         self.result = result
@@ -87,11 +90,11 @@ class Transplant(Base):
             self.status = TransplantStatus.landed
 
     @property
-    def landing_path(self):
+    def landing_path(self) -> list[tuple[int, int]]:
         return [(int(r), self.revision_to_diff_id[r]) for r in self.revision_order]
 
     @property
-    def head_revision(self):
+    def head_revision(self) -> str:
         """Human-readable representation of the branch head's Phabricator revision ID."""
         assert (
             self.revision_order
@@ -99,11 +102,11 @@ class Transplant(Base):
         return "D" + self.revision_order[-1]
 
     @classmethod
-    def revisions_query(cls, revisions):
+    def revisions_query(cls, revisions: list[str]) -> Query:
         revisions = [str(int(r)) for r in revisions]
         return cls.query.filter(cls.revision_to_diff_id.has_any(array(revisions)))
 
-    def serialize(self):
+    def serialize(self) -> dict[str, Any]:
         """Return a JSON compatible dictionary."""
         return {
             "id": self.id,

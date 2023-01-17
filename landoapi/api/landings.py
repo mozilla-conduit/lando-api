@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 @auth.require_transplant_authentication
-def update(data):
+def update(data: dict):
     """Update landing on pingback from Transplant.
 
     data contains following fields:

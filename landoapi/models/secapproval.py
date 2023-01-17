@@ -32,7 +32,7 @@ class SecApprovalRequest(Base):
     comment_candidates = db.Column(JSONB, nullable=False)
 
     @classmethod
-    def build(cls, revision, transactions):
+    def build(cls, revision: dict, transactions: list[dict]) -> "SecApprovalRequest":
         """Build a `SecApprovalRequest` object for a transaction list.
 
         Args:
@@ -56,7 +56,7 @@ class SecApprovalRequest(Base):
         )
 
     @classmethod
-    def most_recent_request_for_revision(cls, revision) -> "SecApprovalRequest":
+    def most_recent_request_for_revision(cls, revision: dict) -> "SecApprovalRequest":
         """Return the most recent sec-approval request for a Phabricator Revision."""
         return (
             cls.query.filter_by(revision_id=revision["id"])
