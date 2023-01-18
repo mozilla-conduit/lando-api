@@ -13,7 +13,6 @@ from packaging.version import (
 from typing import (
     Any,
     Optional,
-    Tuple,
 )
 
 import requests
@@ -100,7 +99,7 @@ def get_revisions_without_bugs(phab: PhabricatorClient, revisions: dict) -> set[
 
 def get_uplift_conduit_state(
     phab: PhabricatorClient, revision_id: int, target_repository_name: str
-) -> Tuple[RevisionData, RevisionStack, dict]:
+) -> tuple[RevisionData, RevisionStack, dict]:
     """Queries Conduit for repository and stack information about the requested uplift.
 
     Gathers information about:

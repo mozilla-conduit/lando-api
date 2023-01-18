@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 
-from typing import Optional, List
+from typing import Optional
 
 from landoapi.cache import cache, DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
 from landoapi.phabricator import result_list_to_phid_dict, PhabricatorClient
@@ -117,7 +117,7 @@ def get_testing_policy_phid(phabricator: PhabricatorClient) -> Optional[str]:
 )
 def get_testing_tag_project_phids(
     phabricator: PhabricatorClient,
-) -> Optional[List[str]]:
+) -> Optional[list[str]]:
     """Return phids for the testing tag projects."""
     tags = [get_project_phid(slug, phabricator) for slug in TESTING_TAG_PROJ_SLUGS]
     return [t for t in tags if t is not None]
