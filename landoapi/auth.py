@@ -270,7 +270,7 @@ class A0User:
 
     _GROUPS_CLAIM_KEY = "https://sso.mozilla.com/claim/groups"
 
-    def __init__(self, access_token, userinfo):
+    def __init__(self, access_token: str, userinfo: dict):
         self.access_token = access_token
 
         # We should discourage touching userinfo directly
@@ -500,7 +500,7 @@ class require_auth0:
         return self._require_access_token(f)
 
 
-def _not_authorized_problem_exception():
+def _not_authorized_problem_exception() -> ProblemException:
     return ProblemException(
         403,
         "Not Authorized",
