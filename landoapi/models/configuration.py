@@ -15,7 +15,7 @@ from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
 
-ConfigurationValue = Union[bool, int, str]
+ConfigurationValueType = Union[bool, int, str]
 
 
 class ConfigurationKey:
@@ -42,7 +42,7 @@ class ConfigurationVariable(Base):
     variable_type = db.Column(db.Enum(VariableType), default=VariableType.STR)
 
     @property
-    def value(self) -> ConfigurationValue:
+    def value(self) -> ConfigurationValueType:
         """The parsed value of `raw_value` based on `variable_type`.
 
         Returns:
@@ -70,7 +70,7 @@ class ConfigurationVariable(Base):
 
     @classmethod
     @cache.memoize()
-    def get(cls, key: str, default: ConfigurationValue) -> ConfigurationValue:
+    def get(cls, key: str, default: ConfigurationValueType) -> ConfigurationValueType:
         """Fetch a variable using `key`, return `default` if it does not exist.
 
         Returns: The parsed value of the configuration variable, of type `str`, `int`,
@@ -81,8 +81,8 @@ class ConfigurationVariable(Base):
 
     @classmethod
     def set(
-        cls, key: str, variable_type: VariableType, raw_value: ConfigurationValue
-    ) -> Optional[ConfigurationValue]:
+        cls, key: str, variable_type: VariableType, raw_value: ConfigurationValueType
+    ) -> Optional[ConfigurationValueType]:
         """Set a variable `key` of type `variable_type` and value `raw_value`.
 
         Returns:
