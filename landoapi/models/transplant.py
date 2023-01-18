@@ -7,9 +7,10 @@ import logging
 
 from typing import Any
 
+import flask_sqlalchemy
+
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
-from sqlalchemy.orm import Query
 
 from landoapi.models.base import Base
 from landoapi.storage import db
@@ -102,7 +103,7 @@ class Transplant(Base):
         return "D" + self.revision_order[-1]
 
     @classmethod
-    def revisions_query(cls, revisions: list[str]) -> Query:
+    def revisions_query(cls, revisions: list[str]) -> flask_sqlalchemy.BaseQuery:
         revisions = [str(int(r)) for r in revisions]
         return cls.query.filter(cls.revision_to_diff_id.has_any(array(revisions)))
 
