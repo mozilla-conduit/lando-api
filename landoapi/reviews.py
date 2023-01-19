@@ -4,7 +4,6 @@
 
 import logging
 from collections import namedtuple
-from typing import List, Tuple
 
 from landoapi.phabricator import (
     PhabricatorClient,
@@ -152,7 +151,7 @@ def serialize_reviewers(
 
 def reviewers_for_commit_message(
     reviewers: dict, users: dict, projects: dict, sec_approval_phid: str
-) -> List[str]:
+) -> list[str]:
     """Turn a list of reviewer objects into a list of reviewer names.
 
     The list holds reviewers that accepted the revision.
@@ -177,11 +176,11 @@ def reviewers_for_commit_message(
 
 def approvals_for_commit_message(
     reviewers: dict,
-    users: List[dict],
-    projects: List[dict],
-    relman_phids: List[dict],
-    accepted_reviewers: List[str],
-) -> Tuple[List[str], List[str]]:
+    users: list[dict],
+    projects: list[dict],
+    relman_phids: list[dict],
+    accepted_reviewers: list[str],
+) -> tuple[list[str], list[str]]:
     """Turn a list of reviewer objects into a list of approval names.
 
     The list holds release managers that approved the revision, to be re-written as

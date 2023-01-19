@@ -3,7 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Add revision data to commit message."""
 import re
-from typing import List, Optional, Tuple
+
+from typing import (
+    Optional,
+)
 
 REVISION_URL_TEMPLATE = "Differential Revision: {url}"
 
@@ -67,12 +70,12 @@ METADATA_RE = re.compile("^MozReview-Commit-ID: ")
 def format_commit_message(
     title: str,
     bug: Optional[int],
-    reviewers: List[str],
-    approvals: List[str],
+    reviewers: list[str],
+    approvals: list[str],
     summary: str,
     revision_url: str,
-    flags: Optional[List[str]] = None,
-) -> Tuple[str, str]:
+    flags: Optional[list[str]] = None,
+) -> tuple[str, str]:
     """
     Creates a default format commit message using revision metadata.
 
@@ -187,7 +190,7 @@ def replace_reviewers(
         return commit_summary.strip() + "\n" + commit_description
 
 
-def split_title_and_summary(msg: str) -> Tuple[str, str]:
+def split_title_and_summary(msg: str) -> tuple[str, str]:
     """Split a VCS commit message into its title and body.
 
     Returns a tuple of (title, summary) strings. The summary string may be empty.
@@ -199,7 +202,7 @@ def split_title_and_summary(msg: str) -> Tuple[str, str]:
     return title, summary
 
 
-def bug_list_to_commit_string(bug_ids: List[str]) -> str:
+def bug_list_to_commit_string(bug_ids: list[str]) -> str:
     """Convert a list of `str` bug IDs to a string for a commit message."""
     if not bug_ids:
         return "No bug"

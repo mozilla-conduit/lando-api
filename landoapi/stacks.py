@@ -10,10 +10,7 @@ from collections.abc import (
 from typing import (
     Callable,
     Iterable,
-    List,
     Optional,
-    Set,
-    Tuple,
 )
 
 from landoapi.repos import Repo
@@ -28,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def build_stack_graph(
     phab: PhabricatorClient, revision_phid: str
-) -> Tuple[Set[str], Set[Tuple[str, str]]]:
+) -> tuple[set[str], set[tuple[str, str]]]:
     """Return a graph representation of a revision stack.
 
     This function is expensive and can make up to approximately
@@ -83,7 +80,7 @@ RevisionData = namedtuple("RevisionData", ("revisions", "diffs", "repositories")
 
 
 def request_extended_revision_data(
-    phab: PhabricatorClient, revision_phids: List[str]
+    phab: PhabricatorClient, revision_phids: list[str]
 ) -> RevisionData:
     """Return a RevisionData containing extended data for revisions.
 
