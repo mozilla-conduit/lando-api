@@ -13,7 +13,7 @@ import uuid
 
 from contextlib import contextmanager
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import hglib
 
@@ -217,7 +217,7 @@ class HgRepo:
             configs=self._config_to_list(),
         )
 
-    def run_hg(self, args: List[str]) -> bytes:
+    def run_hg(self, args: list[str]) -> bytes:
         correlation_id = str(uuid.uuid4())
         logger.info(
             "running hg command",
@@ -259,7 +259,7 @@ class HgRepo:
 
         return out
 
-    def run_hg_cmds(self, cmds: List[List[str]]) -> bytes:
+    def run_hg_cmds(self, cmds: list[list[str]]) -> bytes:
         last_result = b""
         for cmd in cmds:
             try:
@@ -409,7 +409,7 @@ class HgRepo:
             ]
         )
 
-    def run_mach_command(self, args: List[str]) -> str:
+    def run_mach_command(self, args: list[str]) -> str:
         """Run a command using the local `mach`, raising if it is missing."""
         if not self.mach_path:
             raise Exception("No `mach` found in local repo!")
@@ -450,7 +450,7 @@ class HgRepo:
 
             raise exc
 
-    def format_stack_amend(self) -> Optional[List[str]]:
+    def format_stack_amend(self) -> Optional[list[str]]:
         """Amend the top commit in the patch stack with changes from formatting."""
         try:
             # Amend the current commit, using `--no-edit` to keep the existing commit message.
@@ -464,7 +464,7 @@ class HgRepo:
 
             raise exc
 
-    def format_stack_tip(self, bug_ids: List[str]) -> Optional[List[str]]:
+    def format_stack_tip(self, bug_ids: list[str]) -> Optional[list[str]]:
         """Add an autoformat commit to the top of the patch stack.
 
         Return the commit hash of the autoformat commit as a `str`,
@@ -492,7 +492,7 @@ class HgRepo:
 
             raise exc
 
-    def format_stack(self, stack_size: int, bug_ids: List[str]) -> Optional[List[str]]:
+    def format_stack(self, stack_size: int, bug_ids: list[str]) -> Optional[list[str]]:
         """Format the patch stack for landing.
 
         Return a list of `str` commit hashes where autoformatting was applied,

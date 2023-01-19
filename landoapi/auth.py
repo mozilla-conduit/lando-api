@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import annotations
+
 import functools
 import hashlib
 import hmac
@@ -13,7 +15,6 @@ from collections.abc import Iterable
 from typing import (
     Callable,
     Optional,
-    Union,
 )
 
 import requests
@@ -586,7 +587,7 @@ def require_transplant_authentication(f: Callable) -> Callable:
 class Auth0Subsystem(Subsystem):
     name = "auth0"
 
-    def ready(self) -> Union[bool, str]:
+    def ready(self) -> bool | str:
         domain = self.flask_app.config.get("OIDC_DOMAIN")
         identifier = self.flask_app.config.get("OIDC_IDENTIFIER")
 
@@ -604,7 +605,7 @@ class Auth0Subsystem(Subsystem):
 
         return True
 
-    def healthy(self) -> Union[bool, str]:
+    def healthy(self) -> bool | str:
         try:
             get_jwks()
         except ProblemException as exc:
