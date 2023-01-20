@@ -7,7 +7,6 @@ import sys
 
 from typing import (
     Optional,
-    Type,
 )
 
 import click
@@ -28,7 +27,7 @@ from landoapi.systems import Subsystem
 LINT_PATHS = ("setup.py", "tasks.py", "landoapi", "migrations", "tests")
 
 
-def get_subsystems(exclude: Optional[list[Type[Subsystem]]] = None):
+def get_subsystems(exclude: Optional[list[Subsystem]] = None) -> list[Subsystem]:
     """Get subsystems from the app, excluding those specified in the given parameter.
 
     Args:

@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import annotations
+
 import functools
 import hashlib
 import hmac
@@ -13,7 +15,6 @@ from collections.abc import Iterable
 from typing import (
     Callable,
     Optional,
-    Union,
 )
 
 import requests
@@ -270,7 +271,7 @@ class A0User:
 
     _GROUPS_CLAIM_KEY = "https://sso.mozilla.com/claim/groups"
 
-    def __init__(self, access_token, userinfo):
+    def __init__(self, access_token: str, userinfo: dict):
         self.access_token = access_token
 
         # We should discourage touching userinfo directly
@@ -500,7 +501,7 @@ class require_auth0:
         return self._require_access_token(f)
 
 
-def _not_authorized_problem_exception():
+def _not_authorized_problem_exception() -> ProblemException:
     return ProblemException(
         403,
         "Not Authorized",
@@ -586,7 +587,7 @@ def require_transplant_authentication(f: Callable) -> Callable:
 class Auth0Subsystem(Subsystem):
     name = "auth0"
 
-    def ready(self) -> Union[bool, str]:
+    def ready(self) -> bool | str:
         domain = self.flask_app.config.get("OIDC_DOMAIN")
         identifier = self.flask_app.config.get("OIDC_IDENTIFIER")
 
@@ -604,7 +605,7 @@ class Auth0Subsystem(Subsystem):
 
         return True
 
-    def healthy(self) -> Union[bool, str]:
+    def healthy(self) -> bool | str:
         try:
             get_jwks()
         except ProblemException as exc:
