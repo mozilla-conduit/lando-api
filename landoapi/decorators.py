@@ -3,6 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import functools
 
+from typing import (
+    Callable,
+)
+
 from connexion import problem, request
 from flask import current_app
 
@@ -31,7 +35,7 @@ class require_phabricator_api_key:
         self.optional = optional
         self.provide_client = provide_client
 
-    def __call__(self, f):
+    def __call__(self, f: Callable) -> Callable:
         @functools.wraps(f)
         def wrapped(*args, **kwargs):
             api_key = request.headers.get("X-Phabricator-API-Key")

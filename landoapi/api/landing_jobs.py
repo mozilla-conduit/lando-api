@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
-def put(landing_job_id, data):
+def put(landing_job_id: str, data: dict):
     """Update a landing job.
 
     Checks whether the logged in user is allowed to modify the landing job that is
@@ -24,7 +24,7 @@ def put(landing_job_id, data):
     instance accordingly.
 
     Args:
-        landing_job_id (int): The unique ID of the LandingJob object.
+        landing_job_id (str): The unique ID of the LandingJob object.
         data (dict): A dictionary containing the cleaned data payload from the request.
 
     Raises:

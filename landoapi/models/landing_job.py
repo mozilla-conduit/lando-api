@@ -6,7 +6,11 @@ import enum
 import logging
 import os
 
-from typing import Optional
+from typing import (
+    Any,
+    Optional,
+    Iterable,
+)
 
 import flask_sqlalchemy
 
@@ -141,11 +145,11 @@ class LandingJob(Base):
     formatted_replacements = db.Column(JSONB, nullable=True)
 
     @property
-    def landing_path(self):
+    def landing_path(self) -> list[tuple[int, int]]:
         return [(int(r), self.revision_to_diff_id[r]) for r in self.revision_order]
 
     @property
-    def head_revision(self):
+    def head_revision(self) -> str:
         """Human-readable representation of the branch head's Phabricator revision ID."""
         assert (
             self.revision_order
@@ -153,12 +157,16 @@ class LandingJob(Base):
         return "D" + self.revision_order[-1]
 
     @classmethod
-    def revisions_query(cls, revisions):
+    def revisions_query(cls, revisions: Iterable[str]) -> flask_sqlalchemy.BaseQuery:
         revisions = [str(int(r)) for r in revisions]
         return cls.query.filter(cls.revision_to_diff_id.has_any(array(revisions)))
 
     @classmethod
-    def job_queue_query(cls, repositories=None, grace_seconds=DEFAULT_GRACE_SECONDS):
+    def job_queue_query(
+        cls,
+        repositories: Optional[Iterable[str]] = None,
+        grace_seconds: int = DEFAULT_GRACE_SECONDS,
+    ) -> flask_sqlalchemy.BaseQuery:
         """Return a query which selects the queued jobs.
 
         Args:
@@ -191,15 +199,17 @@ class LandingJob(Base):
         return q
 
     @classmethod
-    def next_job_for_update_query(cls, repositories=None):
+    def next_job_for_update_query(
+        cls, repositories: Optional[str] = None
+    ) -> flask_sqlalchemy.BaseQuery:
         """Return a query which selects the next job and locks the row."""
-        q = cls.job_queue_query(repositories=repositories)
+        query = cls.job_queue_query(repositories=repositories)
 
         # Returned rows should be locked for updating, this ensures the next
         # job can be claimed.
-        q = q.with_for_update()
+        query = query.with_for_update()
 
-        return q
+        return query
 
     def transition_status(
         self,
@@ -259,7 +269,7 @@ class LandingJob(Base):
         if commit:
             db.session.commit()
 
-    def serialize(self):
+    def serialize(self) -> dict[str, Any]:
         """Return a JSON compatible dictionary."""
         return {
             "id": self.id,

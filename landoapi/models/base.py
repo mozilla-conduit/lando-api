@@ -29,7 +29,7 @@ class Base(db.Model):
     )
 
     @declared_attr
-    def __tablename__(self):
+    def __tablename__(self) -> str:
         """Return a snake-case version of the class name as the table name.
 
         To override __tablename__, define this attribute as needed on your
@@ -37,7 +37,7 @@ class Base(db.Model):
         """
         return table_name_re.sub(r"_\1", self.__name__).lower()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return a human-readable representation of the instance.
 
         For example, `<Transplant: 1235>`.

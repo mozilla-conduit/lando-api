@@ -4,14 +4,22 @@
 import enum
 import logging
 
+from typing import (
+    Optional,
+    Union,
+)
+
 from landoapi.cache import cache
 from landoapi.models.base import Base
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
 
+ConfigurationValueType = Union[bool, int, str]
 
-class ConfigurationKey:
+
+@enum.unique
+class ConfigurationKey(enum.Enum):
     """Configuration keys used throughout the system."""
 
     LANDING_WORKER_PAUSED = "LANDING_WORKER_PAUSED"
@@ -35,7 +43,7 @@ class ConfigurationVariable(Base):
     variable_type = db.Column(db.Enum(VariableType), default=VariableType.STR)
 
     @property
-    def value(self):
+    def value(self) -> ConfigurationValueType:
         """The parsed value of `raw_value` based on `variable_type`.
 
         Returns:
@@ -59,19 +67,28 @@ class ConfigurationVariable(Base):
         elif self.variable_type == VariableType.STR:
             return self.raw_value
 
+        raise ValueError("Could not parse raw value for configuration variable.")
+
     @classmethod
     @cache.memoize()
-    def get(cls, key, default):
+    def get(
+        cls, key: ConfigurationKey, default: ConfigurationValueType
+    ) -> ConfigurationValueType:
         """Fetch a variable using `key`, return `default` if it does not exist.
 
         Returns: The parsed value of the configuration variable, of type `str`, `int`,
             or `bool`.
         """
-        record = cls.query.filter(cls.key == key).one_or_none()
+        record = cls.query.filter(cls.key == key.value).one_or_none()
         return record.value if record else default
 
     @classmethod
-    def set(cls, key, variable_type, raw_value):
+    def set(
+        cls,
+        key: ConfigurationKey,
+        variable_type: VariableType,
+        raw_value: ConfigurationValueType,
+    ) -> Optional[ConfigurationValueType]:
         """Set a variable `key` of type `variable_type` and value `raw_value`.
 
         Returns:
@@ -81,29 +98,33 @@ class ConfigurationVariable(Base):
         NOTE: This method will create the variable with the provided `key` if it does
         not exist.
         """
-        record = cls.query.filter(cls.key == key).one_or_none()
+        record = cls.query.filter(cls.key == key.value).one_or_none()
         if (
             record
             and record.variable_type == variable_type
             and record.raw_value == raw_value
         ):
-            logger.info(f"Configuration variable {key} is already set to {raw_value}.")
+            logger.info(
+                f"Configuration variable {key.value} is already set to {raw_value}."
+            )
             return
 
         if not record:
-            logger.info(f"Creating new configuration variable {key}.")
+            logger.info(f"Creating new configuration variable {key.value}.")
             record = cls()
 
         logger.info("Deleting memoized cache for configuration variables.")
         logger.info(
-            f"Configuration variable {key} previously set to {record.raw_value} "
+            f"Configuration variable {key.value} previously set to {record.raw_value} "
             f"({record.value})"
         )
         cache.delete_memoized(cls.get)
         record.variable_type = variable_type
-        record.key = key
+        record.key = key.value
         record.raw_value = raw_value
         db.session.add(record)
         db.session.commit()
-        logger.info(f"Configuration variable {key} set to {raw_value} ({record.value})")
+        logger.info(
+            f"Configuration variable {key.value} set to {raw_value} ({record.value})"
+        )
         return record
