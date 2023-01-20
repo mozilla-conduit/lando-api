@@ -86,8 +86,11 @@ def create(phab: PhabricatorClient, data: dict):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
+    revision_phid = next(
+        rev for rev in revision_data.revisions.values() if rev["id"] == revision_id
+    )
     commit_stack = []
-    for phid in revision_stack.iter_stack_from_base():
+    for phid in revision_stack.iter_stack_from_base(head=revision_phid):
         # Get the revision.
         revision = revision_data.revisions[phid]
 

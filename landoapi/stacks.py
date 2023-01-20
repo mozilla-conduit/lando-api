@@ -13,6 +13,8 @@ from typing import (
     Optional,
 )
 
+import networkx as nx
+
 from landoapi.repos import Repo
 from landoapi.phabricator import (
     PhabricatorClient,
@@ -135,14 +137,13 @@ def request_extended_revision_data(
 
 class RevisionStack:
     def __init__(self, nodes: set[str], edges: set[tuple[str, str]]):
-        self.nodes = nodes
-        self.edges = edges
-
-        self.children = {phid: set() for phid in self.nodes}
-        self.parents = {phid: set() for phid in self.nodes}
-        for child, parent in self.edges:
-            self.children[parent].add(child)
-            self.parents[child].add(parent)
+        self.graph = nx.DiGraph(
+            # Reverse the order of the nodes in the edges set as `networkx`
+            # represents `a -> b` as `(a, b)` but Lando uses `(b, a)`.
+            (successor, predecessor)
+            for predecessor, successor in edges
+        )
+        self.graph.add_nodes_from(nodes)
 
     def base_revisions(self) -> Iterator[str]:
         """Iterate over the set of base revisions in the stack.
@@ -156,24 +157,32 @@ class RevisionStack:
 
         `set(stack.base_revisions()) == {"D", "E"}`.
         """
-        return (node for node in self.nodes if not self.parents[node])
+        return (node for node, degree in self.graph.in_degree if degree == 0)
 
-    def iter_stack_from_base(self) -> Iterator[str]:
+    def iter_stack_from_base(self, head: str) -> Iterator[str]:
         """Iterate over the revisions in the stack starting from the base.
 
-        NOTE: assumes the stack is linear, with one base revision and each
-        subsequent revision having a single child. If there are multiple paths
-        that could be walked in the stack, this function will naively pick one.
+        Walks from one of the root nodes of the graphs to `head`. If multiple
+        root nodes exist, it will select one naively.
         """
-        revision = next(self.base_revisions())
+        base = next(self.base_revisions())
 
-        while True:
-            yield revision
+        if base == head:
+            yield base
+            return
 
-            try:
-                revision = next(iter(self.children[revision]))
-            except StopIteration:
-                return
+        paths = list(nx.all_simple_paths(self.graph, base, head))
+
+        if not paths:
+            raise ValueError(f"Graph has no paths from {base} to {head}.")
+
+        if len(paths) > 1:
+            raise ValueError(f"Graph has multiple paths from {base} to {head}: {paths}")
+
+        path = paths[0]
+
+        for node in path:
+            yield node
 
 
 def calculate_landable_subgraphs(
@@ -181,7 +190,7 @@ def calculate_landable_subgraphs(
     edges: set[tuple[str, str]],
     landable_repos: Container[str],
     *,
-    other_checks: Iterable[Callable[[dict, dict, dict], Optional[str]]] = []
+    other_checks: Iterable[Callable[[dict, dict, dict], Optional[str]]] = [],
 ) -> tuple[list[list[str]], dict[str, str]]:
     """Return a list of landable DAG paths.
 
@@ -261,7 +270,7 @@ def calculate_landable_subgraphs(
     # subgraphs so identify the roots and insantiate a RevisionStack
     # to use its adjacency lists.
     stack = RevisionStack(set(revision_data.revisions.keys()), edges)
-    roots = {phid for phid in stack.nodes if not stack.parents[phid]}
+    roots = set(stack.base_revisions())
 
     # All of the roots may not be open so we need to walk from them
     # and find the first open revision along each path.
@@ -273,17 +282,17 @@ def calculate_landable_subgraphs(
             roots.add(phid)
             continue
 
-        to_process.update(stack.children[phid])
+        to_process.update(stack.graph.successors(phid))
 
     # Because `roots` may no longer contain just true roots of the DAG,
     # a "root" could be the descendent of another. Filter out these "roots".
     to_process = set()
     for root in roots:
-        to_process.update(stack.children[root])
+        to_process.update(stack.graph.successors(root))
     while to_process:
         phid = to_process.pop()
         roots.discard(phid)
-        to_process.update(stack.children[phid])
+        to_process.update(stack.graph.successors(phid))
 
     # Filter out roots that we have blocked already.
     roots = roots - blocked.keys()
@@ -309,7 +318,7 @@ def calculate_landable_subgraphs(
         path = to_process.pop()
 
         valid_children = []
-        for child in stack.children[path[-1]]:
+        for child in stack.graph.successors(path[-1]):
             if statuses[child].closed:
                 continue
 
@@ -335,7 +344,7 @@ def calculate_landable_subgraphs(
     # Do one final pass to set blocked for anything that's not landable and
     # and hasn't already been marked blocked. These are the descendents we
     # never managed to reach walking the landable paths.
-    for phid in stack.nodes - landable - set(blocked.keys()):
+    for phid in set(stack.graph.nodes) - landable - set(blocked.keys()):
         block(phid, "Has an open ancestor revision that is blocked.")
 
     return paths, blocked
@@ -348,14 +357,14 @@ def _blocked_by(
     stack: RevisionStack,
     blocked: dict,
     *,
-    other_checks: Iterable[Callable[[dict, dict, dict], Optional[str]]] = []
+    other_checks: Iterable[Callable[[dict, dict, dict], Optional[str]]] = [],
 ) -> Optional[str]:
     # If this revision has already been marked as blocked just return
     # the reason that was given previously.
     if phid in blocked:
         return blocked[phid]
 
-    parents = stack.parents[phid]
+    parents = stack.graph.predecessors(phid)
     open_parents = {p for p in parents if not statuses[p].closed}
     if len(open_parents) > 1:
         return "Depends on multiple open parents."

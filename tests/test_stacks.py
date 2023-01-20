@@ -704,7 +704,22 @@ def test_integrated_stack_has_revision_security_status(
     assert revisions[secure_revision["phid"]]["is_secure"]
 
 
-def test_revisionstack():
+def test_revisionstack_single():
+    nodes = {"123"}
+    edges = set()
+
+    stack = RevisionStack(nodes, edges)
+
+    assert list(stack.base_revisions()) == [
+        "123"
+    ], "Node `123` should be the base revision."
+
+    assert list(stack.iter_stack_from_base("123")) == [
+        "123",
+    ], "Iterating over the stack from the base should return the revision."
+
+
+def test_revisionstack_stack():
     nodes = {"123", "456", "789"}
     edges = {("123", "456"), ("456", "789")}
 
@@ -714,8 +729,12 @@ def test_revisionstack():
         "789"
     ], "Node `789` should be the base revision."
 
-    assert list(stack.iter_stack_from_base()) == [
-        "789",
-        "456",
-        "123",
-    ], "Iterating over the stack from the base should result in the expected order."
+    assert list(stack.iter_stack_from_base("123")) == ["789", "456", "123"], (
+        "Iterating over the stack from the base to the tip should "
+        "result in the full graph as the response."
+    )
+
+    assert list(stack.iter_stack_from_base("456")) == ["789", "456"], (
+        "Iterating over the stack from the base to a non-tip node should "
+        "result in the full graph as the response."
+    )
