@@ -207,4 +207,4 @@ def bug_list_to_commit_string(bug_ids: list[str]) -> str:
     if not bug_ids:
         return "No bug"
 
-    return f"Bug {', '.join(bug_ids)}"
+    return f"Bug {', '.join(sorted(set(bug_ids)))}"
