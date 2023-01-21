@@ -215,3 +215,6 @@ def test_bug_list_to_commit_string():
     assert (
         bug_list_to_commit_string(["123", "456"]) == "Bug 123, 456"
     ), "Multiple bugs should return comma separated list."
+    assert (
+        bug_list_to_commit_string(["123", "123"]) == "Bug 123"
+    ), "Multiple bugs should be deduplicated."
