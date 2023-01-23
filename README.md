@@ -120,6 +120,16 @@ Access the database server (password is `password`)
     Password for user postgres:
     ```
 
+## Updating Requirements
+
+Requirements are managed with `pip-compile`. To add or update requirements
+in Lando, update `requirements.in` as needed, then run the following
+`docker-compose` recipe:
+
+    ```shell
+    docker-compose run build-requirements
+    ```
+
 ## Useful Links
 
 [Transplant](https://hg.mozilla.org/hgcustom/version-control-tools/file/tip/autoland)
