@@ -736,5 +736,5 @@ def test_revisionstack_stack():
 
     assert list(stack.iter_stack_from_base("456")) == ["789", "456"], (
         "Iterating over the stack from the base to a non-tip node should "
-        "result in the full graph as the response."
+        "result in only the path from base to `head` as the response."
     )
