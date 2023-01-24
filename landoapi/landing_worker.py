@@ -28,7 +28,10 @@ from landoapi.hg import (
     REJECTS_PATH,
 )
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
-from landoapi.models.configuration import ConfigurationVariable
+from landoapi.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+)
 from landoapi.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -48,9 +51,6 @@ from landoapi.uplift import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-LANDING_WORKER_PAUSED = "LANDING_WORKER_PAUSED"
 
 
 @contextmanager
@@ -158,7 +158,7 @@ class LandingWorker:
 
     @property
     def paused(self):
-        return ConfigurationVariable.get(LANDING_WORKER_PAUSED, False)
+        return ConfigurationVariable.get(ConfigurationKey.LANDING_WORKER_PAUSED, False)
 
     def sleep(self, sleep_seconds=None):
         """Sleep for the specified number of seconds."""

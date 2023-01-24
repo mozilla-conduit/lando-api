@@ -116,6 +116,9 @@ def get_uplift_conduit_state(
     )
     target_repo = phab.single(target_repo, "data")
 
+    if not target_repo:
+        raise ValueError(f"Could not find uplift target repo {target_repository_name}")
+
     # Load base revision details from Phabricator
     revision = phab.call_conduit(
         "differential.revision.search", constraints={"ids": [revision_id]}
