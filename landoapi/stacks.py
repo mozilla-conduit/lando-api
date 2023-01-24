@@ -161,25 +161,25 @@ class RevisionStack:
         """
         return (node for node, degree in self.graph.in_degree if degree == 0)
 
-    def iter_stack_from_root(self, head: str) -> Iterator[str]:
+    def iter_stack_from_root(self, dest: str) -> Iterator[str]:
         """Iterate over the revisions in the stack starting from the root.
 
-        Walks from one of the root nodes of the graphs to `head`. If multiple
+        Walks from one of the root nodes of the graphs to `dest`. If multiple
         root nodes exist, it will select one naively.
         """
         root = next(self.root_revisions())
 
-        if root == head:
+        if root == dest:
             yield root
             return
 
-        paths = list(nx.all_simple_paths(self.graph, root, head))
+        paths = list(nx.all_simple_paths(self.graph, root, dest))
 
         if not paths:
-            raise ValueError(f"Graph has no paths from {root} to {head}.")
+            raise ValueError(f"Graph has no paths from {root} to {dest}.")
 
         if len(paths) > 1:
-            raise ValueError(f"Graph has multiple paths from {root} to {head}: {paths}")
+            raise ValueError(f"Graph has multiple paths from {root} to {dest}: {paths}")
 
         path = paths[0]
 
