@@ -710,13 +710,13 @@ def test_revisionstack_single():
 
     stack = RevisionStack(nodes, edges)
 
-    assert list(stack.base_revisions()) == [
+    assert list(stack.root_revisions()) == [
         "123"
-    ], "Node `123` should be the base revision."
+    ], "Node `123` should be the root revision."
 
-    assert list(stack.iter_stack_from_base("123")) == [
+    assert list(stack.iter_stack_from_root("123")) == [
         "123",
-    ], "Iterating over the stack from the base should return the revision."
+    ], "Iterating over the stack from the root should return the revision."
 
 
 def test_revisionstack_stack():
@@ -725,16 +725,16 @@ def test_revisionstack_stack():
 
     stack = RevisionStack(nodes, edges)
 
-    assert list(stack.base_revisions()) == [
+    assert list(stack.root_revisions()) == [
         "789"
-    ], "Node `789` should be the base revision."
+    ], "Node `789` should be the root revision."
 
-    assert list(stack.iter_stack_from_base("123")) == ["789", "456", "123"], (
-        "Iterating over the stack from the base to the tip should "
+    assert list(stack.iter_stack_from_root("123")) == ["789", "456", "123"], (
+        "Iterating over the stack from the root to the tip should "
         "result in the full graph as the response."
     )
 
-    assert list(stack.iter_stack_from_base("456")) == ["789", "456"], (
-        "Iterating over the stack from the base to a non-tip node should "
-        "result in only the path from base to `head` as the response."
+    assert list(stack.iter_stack_from_root("456")) == ["789", "456"], (
+        "Iterating over the stack from the root to a non-tip node should "
+        "result in only the path from root to `head` as the response."
     )

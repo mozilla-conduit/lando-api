@@ -92,7 +92,7 @@ def create(phab: PhabricatorClient, data: dict):
         if rev["id"] == revision_id
     )
     commit_stack = []
-    for phid in revision_stack.iter_stack_from_base(head=revision_phid):
+    for phid in revision_stack.iter_stack_from_root(head=revision_phid):
         # Get the revision.
         revision = revision_data.revisions[phid]
 

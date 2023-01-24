@@ -145,39 +145,41 @@ class RevisionStack:
         )
         self.graph.add_nodes_from(nodes)
 
-    def base_revisions(self) -> Iterator[str]:
-        """Iterate over the set of base revisions in the stack.
+    def root_revisions(self) -> Iterator[str]:
+        """Iterate over the set of root revisions in the stack.
 
-        For example in this stack, where A has no children:
+        A root revision is a revision in a graph with no predecessors.
+
+        For example in this stack, where A has no successors:
         A
         |\
         B C
         | |
         D E
 
-        `set(stack.base_revisions()) == {"D", "E"}`.
+        `set(stack.root_revisions()) == {"D", "E"}`.
         """
         return (node for node, degree in self.graph.in_degree if degree == 0)
 
-    def iter_stack_from_base(self, head: str) -> Iterator[str]:
-        """Iterate over the revisions in the stack starting from the base.
+    def iter_stack_from_root(self, head: str) -> Iterator[str]:
+        """Iterate over the revisions in the stack starting from the root.
 
         Walks from one of the root nodes of the graphs to `head`. If multiple
         root nodes exist, it will select one naively.
         """
-        base = next(self.base_revisions())
+        root = next(self.root_revisions())
 
-        if base == head:
-            yield base
+        if root == head:
+            yield root
             return
 
-        paths = list(nx.all_simple_paths(self.graph, base, head))
+        paths = list(nx.all_simple_paths(self.graph, root, head))
 
         if not paths:
-            raise ValueError(f"Graph has no paths from {base} to {head}.")
+            raise ValueError(f"Graph has no paths from {root} to {head}.")
 
         if len(paths) > 1:
-            raise ValueError(f"Graph has multiple paths from {base} to {head}: {paths}")
+            raise ValueError(f"Graph has multiple paths from {root} to {head}: {paths}")
 
         path = paths[0]
 
@@ -270,7 +272,7 @@ def calculate_landable_subgraphs(
     # subgraphs so identify the roots and insantiate a RevisionStack
     # to use its adjacency lists.
     stack = RevisionStack(set(revision_data.revisions.keys()), edges)
-    roots = set(stack.base_revisions())
+    roots = set(stack.root_revisions())
 
     # All of the roots may not be open so we need to walk from them
     # and find the first open revision along each path.
