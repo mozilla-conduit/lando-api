@@ -267,10 +267,19 @@ def post(phab: PhabricatorClient, data: dict):
 
     assessment.raise_if_blocked_or_unacknowledged(confirmation_token)
 
-    if not all((to_land, landing_repo, stack_data)):
+    if not to_land:
         raise ValueError(
-            "One or more values missing in access transplant request: "
-            f"{to_land}, {landing_repo}, {stack_data}"
+            "Could not retrieve revision information from transplant request."
+        )
+
+    if not landing_repo:
+        raise ValueError(
+            "Could not retrieve landing repo information from transplant request."
+        )
+
+    if not stack_data:
+        raise ValueError(
+            "Could not retrieve stack data information from transplant request."
         )
 
     allowed_flags = [f[0] for f in landing_repo.commit_flags]
