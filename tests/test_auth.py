@@ -291,6 +291,20 @@ def test_user_is_in_groups(userinfo, groups, result):
     assert user.is_in_groups(*groups) == result
 
 
+def test_user_id():
+    token = create_access_token()
+    user = A0User(token, CANNED_USERINFO["STANDARD"])
+    assert user.user_id() == "ad|Example-LDAP|testuser"
+
+    user = A0User(token, {})
+    with pytest.raises(ValueError):
+        user.user_id()
+
+    user = A0User(token, {"blah": "blah"})
+    with pytest.raises(ValueError):
+        user.user_id()
+
+
 @pytest.mark.parametrize(
     "userinfo,expected_email",
     [
@@ -325,6 +339,47 @@ def test_require_scopes_invalid(jwks, app, scopes, token_kwargs, status, title):
 
     assert exc_info.value.status == status
     assert exc_info.value.title == title
+
+
+def test_require_groups_needs_userinfo(app):
+    token = create_access_token(scope="profile")
+    headers = [("Authorization", "Bearer {}".format(token))]
+
+    with app.test_request_context("/", headers=headers):
+        with pytest.raises(AssertionError):
+            require_auth0(groups=("somegroup"), scopes=("profile"), userinfo=False)(
+                noop
+            )()
+
+
+def test_require_groups_present(auth0_mock, app):
+    token = create_access_token(scope="profile")
+    headers = [("Authorization", "Bearer {}".format(token))]
+
+    with app.test_request_context("/", headers=headers):
+        resp = require_auth0(
+            groups=("active_scm_level_1"), scopes=("profile",), userinfo=True
+        )(noop)()
+
+        assert resp.status_code == 200, "User request with correct groups should be OK."
+        assert isinstance(
+            g.auth0_user, A0User
+        ), "User with active groups should be created successfully."
+
+
+def test_require_groups_missing(app):
+    token = create_access_token(scope="profile")
+    headers = [("Authorization", "Bearer {}".format(token))]
+
+    with app.test_request_context("/", headers=headers):
+        with pytest.raises(ProblemException) as exc_info:
+            require_auth0(groups=("somegroup"), scopes=("profile"), userinfo=True)(
+                noop
+            )()
+
+        assert (
+            exc_info.type is ProblemException
+        ), "Missing groups should raise a ProblemException."
 
 
 @pytest.mark.parametrize(

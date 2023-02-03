@@ -23,14 +23,14 @@ def test_dockerflow_version_matches_disk_contents(client, versionfile):
 
 
 def test_heartbeat_returns_200(
-    client, db, phabdouble, request_mocker, redis_cache, s3, jwks, treestatusdouble
+    client, db, phabdouble, request_mocker, redis_cache, s3, jwks
 ):
     request_mocker.get(trans_url(""), status_code=200, text="Welcome to Autoland")
     assert client.get("/__heartbeat__").status_code == 200
 
 
 def test_heartbeat_returns_http_502_if_phabricator_ping_returns_error(
-    client, request_mocker, redis_cache, s3, jwks, treestatusdouble
+    client, request_mocker, redis_cache, s3, jwks
 ):
     error_json = {
         "result": None,

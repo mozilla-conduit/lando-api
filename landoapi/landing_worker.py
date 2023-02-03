@@ -1,6 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -16,6 +17,7 @@ import kombu
 from flask import current_app
 
 from landoapi import patches
+from landoapi import treestatus
 from landoapi.commit_message import parse_bugs
 from landoapi.hg import (
     AutoformattingException,
@@ -42,10 +44,6 @@ from landoapi.repos import (
 )
 from landoapi.storage import db, SQLAlchemy
 from landoapi.tasks import phab_trigger_repo_update
-from landoapi.treestatus import (
-    TreeStatus,
-    treestatus_subsystem,
-)
 from landoapi.uplift import (
     update_bugs_for_uplift,
 )
@@ -168,7 +166,7 @@ class LandingWorker:
         self.enabled_repos = [
             r
             for r in self.applicable_repos
-            if treestatus_subsystem.client.is_open(repo_clone_subsystem.repos[r].tree)
+            if treestatus.is_open(repo_clone_subsystem.repos[r].tree)
         ]
         logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
@@ -227,7 +225,6 @@ class LandingWorker:
                     job,
                     repo,
                     hgrepo,
-                    treestatus_subsystem.client,
                     current_app.config["PATCH_BUCKET_NAME"],
                 )
             logger.info("Finished processing landing job", extra={"id": job.id})
@@ -306,7 +303,6 @@ class LandingWorker:
         job: LandingJob,
         repo: Repo,
         hgrepo: HgRepo,
-        treestatus: TreeStatus,
         patch_bucket: str,
     ) -> bool:
         if not treestatus.is_open(repo.tree):

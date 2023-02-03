@@ -25,7 +25,6 @@ from landoapi.sentry import sentry_subsystem
 from landoapi.smtp import smtp_subsystem
 from landoapi.storage import db_subsystem
 from landoapi.systems import Subsystem
-from landoapi.treestatus import treestatus_subsystem
 from landoapi.ui import lando_ui_subsystem
 from landoapi.version import version
 
@@ -44,7 +43,6 @@ SUBSYSTEMS: list[Subsystem] = [
     patches_s3_subsystem,
     phabricator_subsystem,
     smtp_subsystem,
-    treestatus_subsystem,
     repo_clone_subsystem,
 ]
 
@@ -100,7 +98,6 @@ def load_config() -> dict[str, Any]:
         "TRANSPLANT_API_KEY",
         "TRANSPLANT_URL",
         "TRANSPLANT_USERNAME",
-        "TREESTATUS_URL",
     )
 
     defaults = {
@@ -109,7 +106,6 @@ def load_config() -> dict[str, Any]:
         "MAIL_FROM": "mozphab-prod@mozilla.com",
         "PINGBACK_ENABLED": "n",
         "REPO_CLONES_PATH": "/repos",
-        "TREESTATUS_URL": "https://treestatus.mozilla-releng.net",
     }
 
     for key in config_keys:
