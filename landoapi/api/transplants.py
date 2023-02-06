@@ -258,7 +258,11 @@ def post(phab: PhabricatorClient, data: dict):
             "flags": flags,
         },
     )
+
     release_managers = get_release_managers(phab)
+    if not release_managers:
+        raise Exception("Could not find `#release-managers` project on Phabricator.")
+
     relman_group_phid = phab.expect(release_managers, "phid")
 
     assessment, to_land, landing_repo, stack_data = _assess_transplant_request(
