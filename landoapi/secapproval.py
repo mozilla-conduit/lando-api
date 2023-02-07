@@ -47,7 +47,9 @@ class CommitDescription(NamedTuple):
     sanitized: bool
 
 
-def send_sanitized_commit_message_for_review(revision_phid, message, phabclient):
+def send_sanitized_commit_message_for_review(
+    revision_phid: str, message: str, phab: PhabricatorClient
+) -> list[dict]:
     """Send a sanitized commit message for review by the sec-approval team.
 
     See https://wiki.mozilla.org/Security/Bug_Approval_Process.
@@ -62,8 +64,8 @@ def send_sanitized_commit_message_for_review(revision_phid, message, phabclient)
         sec-approval request.
     """
     comment = SECURE_COMMENT_TEMPLATE.format(message=message)
-    sec_approval_phid = get_sec_approval_project_phid(phabclient)
-    response = phabclient.call_conduit(
+    sec_approval_phid = get_sec_approval_project_phid(phab)
+    response = phab.call_conduit(
         "differential.revision.edit",
         objectIdentifier=revision_phid,
         transactions=[
@@ -86,7 +88,7 @@ def send_sanitized_commit_message_for_review(revision_phid, message, phabclient)
             {"type": "reviewers.add", "value": [f"blocking({sec_approval_phid})"]},
         ],
     )
-    return PhabricatorClient.expect(response, "transactions")
+    return phab.expect(response, "transactions")
 
 
 def search_sec_approval_request_for_comment(
