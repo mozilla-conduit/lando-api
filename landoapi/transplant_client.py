@@ -1,10 +1,15 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+from __future__ import annotations
+
 import json
 import logging
 import os
+
 from random import randint
+from typing import Optional
 
 import requests
 
@@ -17,14 +22,20 @@ logger = logging.getLogger(__name__)
 class TransplantClient:
     """A class to interface with Transplant's API."""
 
-    def __init__(self, transplant_url, username, password):
+    def __init__(self, transplant_url: str, username: str, password: str):
         self.transplant_url = transplant_url
         self.username = username
         self.password = password
 
     def land(
-        self, revision_id, ldap_username, patch_urls, tree, pingback, push_bookmark=""
-    ):
+        self,
+        revision_id: int,
+        ldap_username: str,
+        patch_urls: list[str],
+        tree: str,
+        pingback: str,
+        push_bookmark: str = "",
+    ) -> Optional[int]:
         """Sends a POST request to Transplant API to land a patch
 
         Args:
@@ -107,14 +118,14 @@ class TransplantClient:
     def _submit_landing_request(
         self,
         *,
-        ldap_username,
-        tree,
-        rev,
-        patch_urls,
-        destination,
-        pingback_url,
-        push_bookmark
-    ):
+        ldap_username: str,
+        tree: str,
+        rev: str,
+        patch_urls: list[str],
+        destination: str,
+        pingback_url: str,
+        push_bookmark: str,
+    ) -> requests.Response:
         logger.info(
             "Initiating transplant landing request",
             extra={
@@ -151,7 +162,7 @@ class TransplantClient:
         )
         return response
 
-    def ping(self):
+    def ping(self) -> requests.Response:
         """Make a GET request to Transplant to check connectivity."""
         return requests.get(url=self.transplant_url)
 
@@ -163,7 +174,7 @@ class TransplantError(Exception):
 class TransplantSubsystem(Subsystem):
     name = "transplant"
 
-    def ready(self):
+    def ready(self) -> bool | str:
         # Protect against enabling pingback without proper security. If
         # we're allowing pingbacks but the api key is None or empty abort:
         if self.flask_app.config.get(
@@ -173,7 +184,7 @@ class TransplantSubsystem(Subsystem):
 
         return True
 
-    def healthy(self):
+    def healthy(self) -> bool | str:
         tc = TransplantClient(
             self.flask_app.config.get("TRANSPLANT_URL"),
             self.flask_app.config.get("TRANSPLANT_USERNAME"),

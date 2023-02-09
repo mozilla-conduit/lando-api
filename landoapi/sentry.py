@@ -11,14 +11,14 @@ from landoapi.systems import Subsystem
 logger = logging.getLogger(__name__)
 
 
-def sanitize_headers(headers):
+def sanitize_headers(headers: dict):
     sensitive_keys = ("X-PHABRICATOR-API-KEY",)
     for key in headers:
         if key.upper() in sensitive_keys:
             headers[key] = 10 * "*"
 
 
-def before_send(event, *args):
+def before_send(event: dict, *args) -> dict:
     if "request" in event and "headers" in event["request"]:
         sanitize_headers(event["request"]["headers"])
     return event
