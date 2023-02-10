@@ -369,7 +369,7 @@ class require_auth0:
         @functools.wraps(f)
         def wrapped(*args, **kwargs):
             token_scopes = set(g.access_token_payload.get("scope", "").split())
-            if [scope for scope in self.scopes if scope not in token_scopes]:
+            if any(scope not in token_scopes for scope in self.scopes):
                 raise ProblemException(
                     401,
                     "Missing Scopes",
