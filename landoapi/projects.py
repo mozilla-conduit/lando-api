@@ -41,7 +41,9 @@ RELMAN_PROJECT_SLUG = "release-managers"
 RELMAN_CACHE_KEY = "release-managers-project"
 
 
-def project_search(phabricator, project_phids):
+def project_search(
+    phabricator: PhabricatorClient, project_phids: list[str]
+) -> dict[str, dict]:
     """Return a dictionary mapping phid to project data from a project.search.
 
     Args:
@@ -139,7 +141,7 @@ def get_sec_approval_project_phid(phabricator: PhabricatorClient) -> Optional[st
 
 
 @cache.cached(key_prefix=RELMAN_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
-def get_release_managers(phab: PhabricatorClient) -> dict:
+def get_release_managers(phab: PhabricatorClient) -> Optional[dict]:
     """Load the release-managers group details from Phabricator"""
     groups = phab.call_conduit(
         "project.search",
