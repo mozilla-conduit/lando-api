@@ -5,6 +5,7 @@ import logging
 from collections import Counter
 
 from typing import (
+    Any,
     Callable,
     Optional,
 )
@@ -57,7 +58,7 @@ def gather_involved_phids(revision: dict) -> set[str]:
     return entities
 
 
-def serialize_author(phid, user_search_data):
+def serialize_author(phid: str, user_search_data: dict) -> dict:
     out = {"phid": phid, "username": None, "real_name": None}
     author = user_search_data.get(phid)
     if author is not None:
@@ -67,7 +68,7 @@ def serialize_author(phid, user_search_data):
     return out
 
 
-def serialize_diff(diff):
+def serialize_diff(diff: dict) -> dict[str, Any]:
     author_name, author_email = select_diff_author(diff)
     fields = PhabricatorClient.expect(diff, "fields")
 
@@ -176,7 +177,7 @@ def check_uplift_approval(relman_phid, supported_repos, stack_data) -> Callable:
     return _check
 
 
-def revision_is_secure(revision, secure_project_phid):
+def revision_is_secure(revision: dict, secure_project_phid: str) -> bool:
     """Does the given revision contain security-sensitive data?
 
     Such revisions should be handled according to the Security Bug Approval Process.
@@ -199,7 +200,7 @@ def revision_needs_testing_tag(
     repo: dict,
     testing_tag_project_phids: list[str],
     testing_policy_phid: str,
-):
+) -> bool:
     """Does the given revision contain the appropriate testing tag?
 
     To enable this check for a particular repo, the repo needs to be associated with

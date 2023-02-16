@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import annotations
+
 import logging
 import pathlib
 import urllib
@@ -10,6 +12,7 @@ from dataclasses import (
     dataclass,
     field,
 )
+from typing import Optional
 
 from landoapi.systems import Subsystem
 
@@ -334,7 +337,7 @@ REPO_CONFIG = {
 }
 
 
-def get_repos_for_env(env):
+def get_repos_for_env(env: str) -> dict[str, Repo]:
     if env not in REPO_CONFIG:
         logger.warning("repo config requested for unknown env", extra={"env": env})
         env = "default"
@@ -345,7 +348,7 @@ def get_repos_for_env(env):
 class RepoCloneSubsystem(Subsystem):
     name = "repo_clone"
 
-    def ready(self):
+    def ready(self) -> Optional[bool | str]:
         clones_path = self.flask_app.config["REPO_CLONES_PATH"]
         repo_names = self.flask_app.config["REPOS_TO_LAND"]
 
