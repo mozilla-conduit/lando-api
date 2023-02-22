@@ -8,7 +8,7 @@ from flask import current_app
 
 
 def bmo_bug_endpoint() -> str:
-    """Returns the BMO REST API endpoint url for bugs."""
+    """Returns the BMO uplift endpoint url for bugs."""
     return f"{current_app.config['BUGZILLA_URL']}/lando/uplift"
 
 
