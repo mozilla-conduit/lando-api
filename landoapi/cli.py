@@ -91,7 +91,7 @@ def landing_worker():
     for system in get_subsystems(exclude=exclusions):
         system.ensure_ready()
 
-    from landoapi.landing_worker import LandingWorker
+    from landoapi.workers.landing_worker import LandingWorker
 
     worker = LandingWorker()
     worker.start()
