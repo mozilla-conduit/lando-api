@@ -9,7 +9,7 @@ from flask import current_app
 
 def bmo_bug_endpoint() -> str:
     """Returns the BMO REST API endpoint url for bugs."""
-    return f"{current_app.config['BUGZILLA_URL']}/rest/bug"
+    return f"{current_app.config['BUGZILLA_URL']}/lando/uplift"
 
 
 def bmo_default_headers() -> dict[str, str]:
