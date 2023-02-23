@@ -9,7 +9,7 @@ from flask import current_app
 
 def bmo_uplift_endpoint() -> str:
     """Returns the BMO uplift endpoint url for bugs."""
-    return f"{current_app.config['BUGZILLA_URL']}/lando/uplift"
+    return f"{current_app.config['BUGZILLA_URL']}/rest/lando/uplift"
 
 
 def bmo_default_headers() -> dict[str, str]:
