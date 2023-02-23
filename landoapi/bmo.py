@@ -35,10 +35,8 @@ def update_bug(json: dict) -> requests.Response:
     if "ids" not in json or not json["ids"]:
         raise ValueError("Need bug values to be able to update!")
 
-    first_bug = json["ids"][0]
-
     resp_put = requests.put(
-        f"{bmo_uplift_endpoint()}/{first_bug}", headers=bmo_default_headers(), json=json
+        bmo_uplift_endpoint(), headers=bmo_default_headers(), json=json
     )
     resp_put.raise_for_status()
 
