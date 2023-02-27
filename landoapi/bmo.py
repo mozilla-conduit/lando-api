@@ -7,9 +7,9 @@ import requests
 from flask import current_app
 
 
-def bmo_bug_endpoint() -> str:
-    """Returns the BMO REST API endpoint url for bugs."""
-    return f"{current_app.config['BUGZILLA_URL']}/rest/bug"
+def bmo_uplift_endpoint() -> str:
+    """Returns the BMO uplift endpoint url for bugs."""
+    return f"{current_app.config['BUGZILLA_URL']}/rest/lando/uplift"
 
 
 def bmo_default_headers() -> dict[str, str]:
@@ -23,7 +23,7 @@ def bmo_default_headers() -> dict[str, str]:
 def get_bug(params: dict) -> requests.Response:
     """Retrieve bug information from the BMO REST API endpoint."""
     resp_get = requests.get(
-        bmo_bug_endpoint(), headers=bmo_default_headers(), params=params
+        bmo_uplift_endpoint(), headers=bmo_default_headers(), params=params
     )
     resp_get.raise_for_status()
 
@@ -35,10 +35,8 @@ def update_bug(json: dict) -> requests.Response:
     if "ids" not in json or not json["ids"]:
         raise ValueError("Need bug values to be able to update!")
 
-    first_bug = json["ids"][0]
-
     resp_put = requests.put(
-        f"{bmo_bug_endpoint()}/{first_bug}", headers=bmo_default_headers(), json=json
+        bmo_uplift_endpoint(), headers=bmo_default_headers(), json=json
     )
     resp_put.raise_for_status()
 
