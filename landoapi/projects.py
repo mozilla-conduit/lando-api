@@ -53,15 +53,22 @@ def project_search(
     if not project_phids:
         return {}
 
+    project_phids = list(project_phids)
+    project_phids.sort()
+    cache_key = ",".join(project_phids)
+
+    if cache.has(cache_key):
+        return cache.get(cache_key)
+
     projects = phabricator.call_conduit(
         "project.search", constraints={"phids": project_phids}
     )
-    return result_list_to_phid_dict(phabricator.expect(projects, "data"))
+    result = result_list_to_phid_dict(phabricator.expect(projects, "data"))
+    cache.set(cache_key, result, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
+    return result
 
 
-def get_project_phid(
-    project_slug: str, phabricator: PhabricatorClient, allow_empty_result: bool = True
-) -> Optional[str]:
+def get_project_phid(project_slug, phabricator, allow_empty_result=True):
     """Looks up a project's PHID.
 
     Args:
@@ -77,6 +84,10 @@ def get_project_phid(
     Returns:
         A string with the project's PHID or None if the project isn't found.
     """
+    key = f"PROJECT_{project_slug}"
+    if cache.has(key):
+        return cache.get(key)
+
     project = phabricator.single(
         phabricator.call_conduit(
             "project.search", constraints={"slugs": [project_slug]}
@@ -85,38 +96,26 @@ def get_project_phid(
         none_when_empty=allow_empty_result,
     )
 
-    if project is None:
-        logger.warning(f"Could not find a project phid", extra=dict(slug=project_slug))
-        return None
-
-    return phabricator.expect(project, "phid")
+    value = phabricator.expect(project, "phid") if project else None
+    cache.set(key, value, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
+    return value
 
 
-@cache.cached(key_prefix=SEC_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
 def get_secure_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
     """Return a phid for the project indicating revision security."""
     return get_project_phid(SEC_PROJ_SLUG, phabricator)
 
 
-@cache.cached(
-    key_prefix=CHECKIN_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-)
 def get_checkin_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
     """Return a phid for the project indicating check-in is needed."""
     return get_project_phid(CHECKIN_PROJ_SLUG, phabricator)
 
 
-@cache.cached(
-    key_prefix=TESTING_POLICY_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-)
 def get_testing_policy_phid(phabricator: PhabricatorClient) -> Optional[str]:
     """Return a phid for the project indicating testing policy."""
     return get_project_phid(TESTING_POLICY_PROJ_SLUG, phabricator)
 
 
-@cache.cached(
-    key_prefix=TESTING_TAGS_PROJ_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-)
 def get_testing_tag_project_phids(
     phabricator: PhabricatorClient,
 ) -> Optional[list[str]]:
@@ -125,9 +124,6 @@ def get_testing_tag_project_phids(
     return [t for t in tags if t is not None]
 
 
-@cache.cached(
-    key_prefix=SEC_APPROVAL_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-)
 def get_sec_approval_project_phid(phabricator: PhabricatorClient) -> Optional[str]:
     """Return a phid for the sec-approval group's project.
 
@@ -140,7 +136,6 @@ def get_sec_approval_project_phid(phabricator: PhabricatorClient) -> Optional[st
     return get_project_phid(SEC_APPROVAL_PROJECT_SLUG, phabricator)
 
 
-@cache.cached(key_prefix=RELMAN_CACHE_KEY, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
 def get_release_managers(phab: PhabricatorClient) -> Optional[dict]:
     """Load the release-managers group details from Phabricator"""
     groups = phab.call_conduit(
