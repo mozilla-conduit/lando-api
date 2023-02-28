@@ -464,3 +464,23 @@ def codefreeze_datetime(request_mocker):
             return dates[f"{date_string}"]
 
     return Mockdatetime
+
+
+@pytest.fixture
+def revision_from_api(phabdouble):
+    """Gets revision from the Phabricator API, given a revision.
+    This is useful since phabdouble.revision returns a different object than when
+    calling differential.revision.search.
+    """
+    phab = phabdouble.get_phabricator_client()
+
+    def _get(revision):
+        return phab.single(
+            phab.call_conduit(
+                "differential.revision.search",
+                constraints={"phids": [revision["phid"]]},
+            ),
+            "data",
+        )
+
+    return _get
