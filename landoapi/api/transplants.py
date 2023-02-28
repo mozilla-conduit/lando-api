@@ -15,7 +15,6 @@ from landoapi import auth
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
-from landoapi.models.base import Base
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.patches import upload
@@ -53,7 +52,7 @@ from landoapi.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.storage import db
+from landoapi.storage import db, _lock_table_for
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
     TransplantAssessment,
@@ -212,20 +211,6 @@ def _assess_transplant_request(
         get_testing_policy_phid(phab),
     )
     return (assessment, to_land, landing_repo, stack_data)
-
-
-def _lock_table_for(
-    model: Base,
-    mode: str = "SHARE ROW EXCLUSIVE MODE",
-):
-    """Locks a given table in the given database with the given mode.
-
-    Args:
-        mode (str): the lock mode to apply to the table when locking
-        model (SQLAlchemy.db.model): a model to fetch the table name from
-    """
-    query = f"LOCK TABLE {model.__table__.name} IN {mode};"
-    db.session.execute(query)
 
 
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
