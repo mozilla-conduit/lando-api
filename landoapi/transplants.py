@@ -13,7 +13,7 @@ from connexion import ProblemException
 from flask import current_app
 
 from landoapi.repos import Repo, get_repos_for_env
-from landoapi.models.transplant import Transplant, TransplantStatus
+from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
@@ -211,9 +211,9 @@ def warning_previously_landed(*, revision, diff, **kwargs):
     diff_id = PhabricatorClient.expect(diff, "id")
 
     landed_transplant = (
-        Transplant.revisions_query([revision_id])
-        .filter_by(status=TransplantStatus.landed)
-        .order_by(Transplant.updated_at.desc())
+        LandingJob.revisions_query([revision_id])
+        .filter_by(status=LandingJobStatus.LANDED)
+        .order_by(LandingJob.updated_at.desc())
         .first()
     )
 
@@ -230,7 +230,7 @@ def warning_previously_landed(*, revision, diff, **kwargs):
             is_same_string=("the same" if same else "an older"),
             landed_diff_id=landed_diff_id,
             push_string=("as" if only_revision else "with new tip"),
-            commit_sha=landed_transplant.result,
+            commit_sha=landed_transplant.landed_commit_id,
         )
     )
 
@@ -476,10 +476,10 @@ def check_landing_blockers(
 
     # Check if there is already a landing for something in the stack.
     if (
-        Transplant.revisions_query(
+        LandingJob.revisions_query(
             [PhabricatorClient.expect(r, "id") for r in stack_data.revisions.values()]
         )
-        .filter_by(status=TransplantStatus.submitted)
+        .filter_by(status=LandingJobStatus.SUBMITTED)
         .first()
         is not None
     ):

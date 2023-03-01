@@ -16,7 +16,6 @@ from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
 from landoapi.models.base import Base
-from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.patches import upload
 from landoapi.phabricator import PhabricatorClient
@@ -62,7 +61,6 @@ from landoapi.transplants import (
     convert_path_id_to_phid,
     get_blocker_checks,
 )
-from landoapi.transplant_client import TransplantClient, TransplantError
 from landoapi.users import user_search
 from landoapi.validation import (
     revision_id_to_int,
@@ -386,106 +384,34 @@ def post(phab: PhabricatorClient, data: dict):
             "This stack was submitted for landing by another user at the same time."
         )
     )
-
-    if not landing_repo.legacy_transplant:
-        with db.session.begin_nested():
-            _lock_table_for(model=LandingJob)
-            if (
-                LandingJob.revisions_query(stack_ids)
-                .filter(
-                    LandingJob.status.in_(
-                        [LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS]
-                    )
+    with db.session.begin_nested():
+        _lock_table_for(model=LandingJob)
+        if (
+            LandingJob.revisions_query(stack_ids)
+            .filter(
+                LandingJob.status.in_(
+                    [LandingJobStatus.SUBMITTED, LandingJobStatus.IN_PROGRESS]
                 )
-                .count()
-                != 0
-            ):
-                submitted_assessment.raise_if_blocked_or_unacknowledged(None)
-
-            # Trigger a local transplant
-            job = LandingJob(
-                status=LandingJobStatus.SUBMITTED,
-                requester_email=ldap_username,
-                repository_name=landing_repo.short_name,
-                repository_url=landing_repo.url,
-                revision_to_diff_id=revision_to_diff_id,
-                revision_order=revision_order,
             )
+            .count()
+            != 0
+        ):
+            submitted_assessment.raise_if_blocked_or_unacknowledged(None)
 
-            db.session.add(job)
-
-        db.session.commit()
-        logger.info("New landing job {job.id} created for {landing_repo.tree} repo")
-        job_id = job.id
-    else:
-        trans = TransplantClient(
-            current_app.config["TRANSPLANT_URL"],
-            current_app.config["TRANSPLANT_USERNAME"],
-            current_app.config["TRANSPLANT_PASSWORD"],
+        # Trigger a local transplant
+        job = LandingJob(
+            status=LandingJobStatus.SUBMITTED,
+            requester_email=ldap_username,
+            repository_name=landing_repo.short_name,
+            repository_url=landing_repo.url,
+            revision_to_diff_id=revision_to_diff_id,
+            revision_order=revision_order,
         )
 
-        # We pass the revision id of the base of our landing path to
-        # transplant in rev as it must be unique until the request
-        # has been serviced. While this doesn't use Autoland Transplant
-        # to enforce not requesting from the same stack again, Lando
-        # ensures this itself.
-        root_revision_id = to_land[0][0]["id"]
-
-        try:
-            # WARNING: Entering critical section, do not add additional
-            # code unless absolutely necessary. Acquires a lock on the
-            # transplants table which gives exclusive write access and
-            # prevents readers who are entering this critical section.
-            # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
-            # for more details on the specifics of the lock mode.
-            with db.session.begin_nested():
-                _lock_table_for(model=Transplant)
-                if (
-                    Transplant.revisions_query(stack_ids)
-                    .filter_by(status=TransplantStatus.submitted)
-                    .first()
-                    is not None
-                ):
-                    submitted_assessment.raise_if_blocked_or_unacknowledged(None)
-
-                transplant_request_id = trans.land(
-                    revision_id=root_revision_id,
-                    ldap_username=ldap_username,
-                    patch_urls=patch_urls,
-                    tree=landing_repo.tree,
-                    pingback=current_app.config["PINGBACK_URL"],
-                    push_bookmark=landing_repo.push_bookmark,
-                )
-                transplant = Transplant(
-                    request_id=transplant_request_id,
-                    revision_to_diff_id=revision_to_diff_id,
-                    revision_order=revision_order,
-                    requester_email=ldap_username,
-                    tree=landing_repo.tree,
-                    repository_url=landing_repo.url,
-                    status=TransplantStatus.submitted,
-                )
-                db.session.add(transplant)
-        except TransplantError:
-            logger.exception(
-                "error creating transplant", extra={"landing_path": str(landing_path)}
-            )
-            return problem(
-                502,
-                "Transplant not created",
-                "The requested landing_path is valid, but transplant failed."
-                "Please retry your request at a later time.",
-                type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502",
-            )
-
-        # Transaction succeeded, commit the session.
-        db.session.commit()
-
-        logger.info(
-            "transplant created",
-            extra={"landing_path": str(landing_path), "transplant_id": transplant.id},
-        )
-        job_id = transplant.id
+        db.session.add(job)
+    db.session.commit()
+    logger.info("New landing job {job.id} created for {landing_repo.tree} repo")
+    job_id = job.id
 
     # Asynchronously remove the checkin project from any of the landing
     # revisions that had it.
@@ -500,7 +426,6 @@ def post(phab: PhabricatorClient, data: dict):
             # these changes so it's better to return properly from the request.
             pass
 
-    # Note, this response content is not being used anywhere.
     return {"id": job_id}, 202
 
 
@@ -533,17 +458,6 @@ def get_list(phab: PhabricatorClient, stack_revision_id: str):
 
     rev_ids = [phab.expect(r, "id") for r in phab.expect(revs, "data")]
 
-    transplants = Transplant.revisions_query(rev_ids).all()
     landing_jobs = LandingJob.revisions_query(rev_ids).all()
 
-    if transplants and landing_jobs:
-        logger.warning(
-            "Both {} transplants and {} landing jobs found for this revision".format(
-                str(len(transplants)), str(len(landing_jobs))
-            )
-        )
-
-    return (
-        [t.serialize() for t in transplants] + [j.serialize() for j in landing_jobs],
-        200,
-    )
+    return [job.serialize() for job in landing_jobs], 200

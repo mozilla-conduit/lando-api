@@ -58,9 +58,6 @@ def load_config() -> dict[str, Any]:
         "MAIL_SUPPRESS_SEND": bool(os.getenv("MAIL_SUPPRESS_SEND")),
         "MAIL_USE_SSL": bool(os.getenv("MAIL_USE_SSL")),
         "MAIL_USE_TLS": bool(os.getenv("MAIL_USE_TLS")),
-        "PINGBACK_URL": "{host_url}/landings/update".format(
-            host_url=os.getenv("PINGBACK_HOST_URL")
-        ),
         "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL"),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
         "VERSION": version(),
@@ -88,7 +85,6 @@ def load_config() -> dict[str, Any]:
         "OIDC_DOMAIN",
         "OIDC_IDENTIFIER",
         "PATCH_BUCKET_NAME",
-        "PINGBACK_ENABLED",
         "PHABRICATOR_ADMIN_API_KEY",
         "PHABRICATOR_UNPRIVILEGED_API_KEY",
         "PHABRICATOR_URL",
@@ -107,7 +103,6 @@ def load_config() -> dict[str, Any]:
         "CACHE_REDIS_PORT": 6379,
         "LOG_LEVEL": "INFO",
         "MAIL_FROM": "mozphab-prod@mozilla.com",
-        "PINGBACK_ENABLED": "n",
         "REPO_CLONES_PATH": "/repos",
         "TREESTATUS_URL": "https://treestatus.mozilla-releng.net",
     }
