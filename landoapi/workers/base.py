@@ -98,12 +98,14 @@ class Worker:
 
     @property
     def _paused(self) -> bool:
+        """Return the value of the pause configuration variable."""
         # When the pause variable is True, the worker is temporarily paused. The worker
         # resumes when the key is reset to False.
         return ConfigurationVariable.get(self.PAUSE_KEY, False)
 
     @property
     def _running(self) -> bool:
+        """Return the value of the stop configuration variable."""
         # When the stop variable is True, the worker will exit and will not restart,
         # until the value is changed to False.
         return not ConfigurationVariable.get(self.STOP_KEY, False)
