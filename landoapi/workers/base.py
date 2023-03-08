@@ -104,7 +104,7 @@ class Worker:
 
     @property
     def _running(self) -> bool:
-        # When the stop variable is True, the worker will exist and will not restart,
+        # When the stop variable is True, the worker will exit and will not restart,
         # until the value is changed to False.
         return not ConfigurationVariable.get(self.STOP_KEY, False)
 
