@@ -184,7 +184,7 @@ REPO_CONFIG = {
             access_group=SCM_LEVEL_1,
             push_path="ssh://autoland.hg//repos/third-repo",
             pull_path="http://hg.test/third-repo",
-            autoformat_enabled=True,
+            autoformat_enabled=False,
             approval_required=True,
         ),
         # Approval is required for the uplift dev repo

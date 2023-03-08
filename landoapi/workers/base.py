@@ -19,15 +19,18 @@ logger = logging.getLogger(__name__)
 
 class Worker:
     @property
-    @staticmethod
-    def THROTTLE_KEY() -> int:
+    def THROTTLE_KEY(self) -> int:
         """Return the configuration key that specifies throttle delay."""
         return ConfigurationKey.WORKER_THROTTLE_SECONDS
 
     @property
-    @staticmethod
-    def STOP_KEY() -> ConfigurationKey:
+    def STOP_KEY(self) -> ConfigurationKey:
         """Return the configuration key that prevents the worker from starting."""
+        raise NotImplementedError()
+
+    @property
+    def PAUSE_KEY(self) -> ConfigurationKey:
+        """Return the configuration key that pauses the worker."""
         raise NotImplementedError()
 
     def __init__(self, sleep_seconds: float = 5, with_ssh: bool = True):

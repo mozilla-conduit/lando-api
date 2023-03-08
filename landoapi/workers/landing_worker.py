@@ -70,10 +70,14 @@ def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
 
 class LandingWorker(Worker):
     @property
-    @staticmethod
-    def STOP_KEY() -> str:
+    def STOP_KEY(self) -> str:
         """Return the configuration key that prevents the worker from starting."""
         return ConfigurationKey.LANDING_WORKER_STOPPED
+
+    @property
+    def PAUSE_KEY(self) -> ConfigurationKey:
+        """Return the configuration key that pauses the worker."""
+        return ConfigurationKey.LANDING_WORKER_PAUSED
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -97,7 +101,7 @@ class LandingWorker(Worker):
         if len(self.enabled_repos) != len(self.applicable_repos):
             self.refresh_enabled_repos()
 
-        if not self.last_job_finished:
+        if self.last_job_finished is False:
             logger.info("Last job did not complete, sleeping.")
             self.throttle(self.sleep_seconds)
             self.refresh_enabled_repos()
