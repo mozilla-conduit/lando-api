@@ -10,16 +10,26 @@ import re
 from time import sleep
 from landoapi.repos import repo_clone_subsystem
 from landoapi.treestatus import treestatus_subsystem
-from landoapi.models.configuration import ConfigurationVariable
+from landoapi.models.configuration import ConfigurationVariable, ConfigurationKey
 
 
 logger = logging.getLogger(__name__)
 
 
 class Worker:
-    THROTTLE_KEY = "WORKER_THROTTLE_SECONDS"
+    @property
+    @staticmethod
+    def THROTTLE_KEY():
+        """Return the configuration key that specifies throttle delay."""
+        return ConfigurationKey.WORKER_THROTTLE_SECONDS
 
-    def __init__(self, sleep_seconds=5, with_ssh=True):
+    @property
+    @staticmethod
+    def STOP_KEY():
+        """Return the configuration key that prevents the worker from starting."""
+        raise NotImplementedError()
+
+    def __init__(self, sleep_seconds: float = 5, with_ssh: bool = True):
         SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
 
         # `sleep_seconds` is how long to sleep for if the worker is paused,
@@ -87,23 +97,32 @@ class Worker:
 
     @property
     def _paused(self):
+        # When the pause variable is True, the worker is temporarily paused. The worker
+        # resumes when the key is reset to False.
         return ConfigurationVariable.get(self.PAUSE_KEY, False)
 
     @property
     def _running(self):
-        # When STOP_KEY is False, the worker is running.
+        # When the stop variable is True, the worker will exist and will not restart,
+        # until the value is changed to False.
         return not ConfigurationVariable.get(self.STOP_KEY, False)
 
     def _setup(self):
+        """Perform various setup actions."""
         if hasattr(self, "ssh_private_key"):
+            # Run various ssh configuration commands.
             self._setup_ssh(self.ssh_private_key)
 
     def _start(self, max_loops=None, *args, **kwargs):
+        """Run the main event loop."""
+        # NOTE: The worker will exit when max_loops is reached, or when the stop
+        # variable is changed to True.
         loops = 0
         while self._running:
             if max_loops is not None and loops >= max_loops:
                 break
             while self._paused:
+                # Wait a set number of seconds before checking paused variable again.
                 self.throttle(self.sleep_seconds)
             self.loop(*args, **kwargs)
             loops += 1
@@ -112,12 +131,15 @@ class Worker:
 
     @property
     def throttle_seconds(self):
+        """The duration to pause for when the worker is being throttled."""
         return ConfigurationVariable.get(self.THROTTLE_KEY, 3)
 
     def throttle(self, seconds=None):
+        """Sleep for a given number of seconds."""
         sleep(seconds if seconds is not None else self.throttle_seconds)
 
     def refresh_enabled_repos(self):
+        """Refresh the list of repositories based on treestatus."""
         self.enabled_repos = [
             r
             for r in self.applicable_repos
@@ -126,6 +148,7 @@ class Worker:
         logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
     def start(self, max_loops=None):
+        """Run setup sequence and start the event loop."""
         if ConfigurationVariable.get(self.STOP_KEY, False):
             logger.warning(f"{self.STOP_KEY} set to True, will not start worker.")
             return
@@ -133,4 +156,5 @@ class Worker:
         self._start(max_loops=max_loops)
 
     def loop(self, *args, **kwargs):
+        """The main event loop."""
         raise NotImplementedError()

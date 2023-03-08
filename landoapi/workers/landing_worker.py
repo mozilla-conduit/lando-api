@@ -24,6 +24,7 @@ from landoapi.hg import (
     TreeClosed,
     REJECTS_PATH,
 )
+from landoapi.models.configuration import ConfigurationKey
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
 from landoapi.notifications import (
     notify_user_of_bug_update_failure,
@@ -59,17 +60,21 @@ def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
         job: the job currently being processed
         db: active database session
     """
-    worker.job_processing = True
     start_time = datetime.now()
     try:
         yield
     finally:
-        worker.job_processing = False
         job.duration_seconds = (datetime.now() - start_time).seconds
         db.session.commit()
 
 
 class LandingWorker(Worker):
+    @property
+    @staticmethod
+    def STOP_KEY():
+        """Return the configuration key that prevents the worker from starting."""
+        return ConfigurationKey.LANDING_WORKER_STOPPED
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         config_keys = [
@@ -92,7 +97,7 @@ class LandingWorker(Worker):
         if len(self.enabled_repos) != len(self.applicable_repos):
             self.refresh_enabled_repos()
 
-        if self.last_job_finished is False:
+        if not self.last_job_finished:
             logger.info("Last job did not complete, sleeping.")
             self.throttle(self.sleep_seconds)
             self.refresh_enabled_repos()
@@ -126,7 +131,6 @@ class LandingWorker(Worker):
                 current_app.config["PATCH_BUCKET_NAME"],
             )
             logger.info("Finished processing landing job", extra={"id": job.id})
-        logger.info("Landing worker exited")
 
     @staticmethod
     def notify_user_of_landing_failure(job):
