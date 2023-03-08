@@ -113,7 +113,6 @@ class Worker:
     def _setup(self):
         """Perform various setup actions."""
         if hasattr(self, "ssh_private_key"):
-            # Run various ssh configuration commands.
             self._setup_ssh(self.ssh_private_key)
 
     def _start(self, max_loops=None, *args, **kwargs):
