@@ -71,7 +71,7 @@ def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
 class LandingWorker(Worker):
     @property
     @staticmethod
-    def STOP_KEY():
+    def STOP_KEY() -> str:
         """Return the configuration key that prevents the worker from starting."""
         return ConfigurationKey.LANDING_WORKER_STOPPED
 

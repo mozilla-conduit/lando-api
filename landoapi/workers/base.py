@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """This module contains the abstract repo worker implementation."""
+from __future__ import annotations
 
 import logging
 import os
@@ -19,13 +20,13 @@ logger = logging.getLogger(__name__)
 class Worker:
     @property
     @staticmethod
-    def THROTTLE_KEY():
+    def THROTTLE_KEY() -> int:
         """Return the configuration key that specifies throttle delay."""
         return ConfigurationKey.WORKER_THROTTLE_SECONDS
 
     @property
     @staticmethod
-    def STOP_KEY():
+    def STOP_KEY() -> ConfigurationKey:
         """Return the configuration key that prevents the worker from starting."""
         raise NotImplementedError()
 
@@ -56,7 +57,7 @@ class Worker:
                 logger.warning(f"No {SSH_PRIVATE_KEY_ENV_KEY} present in environment.")
 
     @staticmethod
-    def _setup_ssh(ssh_private_key):
+    def _setup_ssh(ssh_private_key: str):
         """Add a given private ssh key to ssh agent.
 
         SSH keys are needed in order to push to repositories that have an ssh
@@ -96,13 +97,13 @@ class Worker:
         logger.info("Added private SSH key from environment.")
 
     @property
-    def _paused(self):
+    def _paused(self) -> bool:
         # When the pause variable is True, the worker is temporarily paused. The worker
         # resumes when the key is reset to False.
         return ConfigurationVariable.get(self.PAUSE_KEY, False)
 
     @property
-    def _running(self):
+    def _running(self) -> bool:
         # When the stop variable is True, the worker will exist and will not restart,
         # until the value is changed to False.
         return not ConfigurationVariable.get(self.STOP_KEY, False)
@@ -130,11 +131,11 @@ class Worker:
         logger.info(f"{self} exited after {loops} loops.")
 
     @property
-    def throttle_seconds(self):
+    def throttle_seconds(self) -> int:
         """The duration to pause for when the worker is being throttled."""
         return ConfigurationVariable.get(self.THROTTLE_KEY, 3)
 
-    def throttle(self, seconds=None):
+    def throttle(self, seconds: int | None = None):
         """Sleep for a given number of seconds."""
         sleep(seconds if seconds is not None else self.throttle_seconds)
 
