@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class Worker:
+    """A base class for repository workers."""
+
     @property
     def THROTTLE_KEY(self) -> int:
         """Return the configuration key that specifies throttle delay."""
@@ -118,7 +120,7 @@ class Worker:
         if hasattr(self, "ssh_private_key"):
             self._setup_ssh(self.ssh_private_key)
 
-    def _start(self, max_loops=None, *args, **kwargs):
+    def _start(self, max_loops: int | None = None, *args, **kwargs):
         """Run the main event loop."""
         # NOTE: The worker will exit when max_loops is reached, or when the stop
         # variable is changed to True.
@@ -152,7 +154,7 @@ class Worker:
         ]
         logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
-    def start(self, max_loops=None):
+    def start(self, max_loops: int | None = None):
         """Run setup sequence and start the event loop."""
         if ConfigurationVariable.get(self.STOP_KEY, False):
             logger.warning(f"{self.STOP_KEY} set to True, will not start worker.")
