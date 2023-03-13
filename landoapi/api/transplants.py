@@ -52,7 +52,7 @@ from landoapi.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.storage import db, _lock_table_for
+from landoapi.storage import db
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
     TransplantAssessment,
@@ -378,7 +378,8 @@ def post(phab: PhabricatorClient, data: dict):
 
     if not landing_repo.legacy_transplant:
         with db.session.begin_nested():
-            _lock_table_for(model=LandingJob)
+            LandingJob.lock_table()
+            LandingJob
             if (
                 LandingJob.revisions_query(stack_ids)
                 .filter(
@@ -428,7 +429,7 @@ def post(phab: PhabricatorClient, data: dict):
             # See https://www.postgresql.org/docs/9.3/static/explicit-locking.html
             # for more details on the specifics of the lock mode.
             with db.session.begin_nested():
-                _lock_table_for(model=Transplant)
+                Transplant.lock_table()
                 if (
                     Transplant.revisions_query(stack_ids)
                     .filter_by(status=TransplantStatus.submitted)
