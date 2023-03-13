@@ -46,7 +46,7 @@ class Base(db.Model):
 
     @classmethod
     def lock_table(cls, mode: str = "SHARE ROW EXCLUSIVE MODE"):
-        """Locks a given table in the given database with the given mode.
+        """Lock the table for the model with the given mode.
 
         Args:
             mode (str): the lock mode to apply to the table when locking
