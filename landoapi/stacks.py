@@ -46,9 +46,9 @@ def build_stack_graph(revision: dict) -> tuple[set[str], set[tuple[str, str]]]:
     phids = set(stack_graph.keys())
     edges = set()
 
-    for source_node, destination_nodes in stack_graph.items():
-        for predecessor_node in destination_nodes:
-            edges.add((source_node, predecessor_node))
+    for node, predecessors in stack_graph.items():
+        for predecessor in predecessors:
+            edges.add((node, predecessor))
     return phids, edges
 
 

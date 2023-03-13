@@ -3,8 +3,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import hashlib
 import json
-from copy import deepcopy
 from collections import defaultdict
+from copy import deepcopy
 
 from landoapi.phabricator import (
     PhabricatorAPIException,
@@ -97,9 +97,9 @@ def validate_change(change):
     return True
 
 
-def get_stack(_phid, phabdouble):
+def get_stack(phid, phabdouble):
     phids = set()
-    new_phids = {_phid}
+    new_phids = {phid}
     edges = []
 
     # Repeatedly request all related edges, adding connected revisions
@@ -108,10 +108,10 @@ def get_stack(_phid, phabdouble):
     while new_phids:
         phids.update(new_phids)
         edges = [
-            e
-            for e in phabdouble._edges
-            if e["sourcePHID"] in phids
-            and e["edgeType"] in ("revision.parent", "revision.child")
+            edge
+            for edge in phabdouble._edges
+            if edge["sourcePHID"] in phids
+            and edge["edgeType"] in ("revision.parent", "revision.child")
         ]
         new_phids = set()
         for edge in edges:
@@ -129,7 +129,7 @@ def get_stack(_phid, phabdouble):
     }
 
     stack_graph = defaultdict(list)
-    sources = [edge[0] for edge in edges]
+    sources = [source for source, dest in edges]
     for source, dest in edges:
         # Check that destination phid has a corresponding source phid.
         if dest not in sources:
@@ -138,7 +138,7 @@ def get_stack(_phid, phabdouble):
         stack_graph[source].append(dest)
     if not stack_graph:
         # There is only one node, the root node.
-        stack_graph[_phid] = []
+        stack_graph[phid] = []
     return dict(stack_graph)
 
 
@@ -975,7 +975,7 @@ class PhabricatorDouble:
                 "fields": {
                     "title": i["title"],
                     "authorPHID": i["authorPHID"],
-                    "stackGraph": i["stack_graph"],
+                    "stackGraph": i["stackGraph"],
                     "status": {
                         "value": i["status"].value,
                         "name": i["status"].output_name,
@@ -1028,9 +1028,9 @@ class PhabricatorDouble:
             return deepcopy(resp)
 
         items = []
-        for r in self._revisions:
-            r["stack_graph"] = get_stack(r["phid"], self)
-            items.append(r)
+        for revision in self._revisions:
+            revision["stackGraph"] = get_stack(revision["phid"], self)
+            items.append(revision)
 
         if constraints and "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]
