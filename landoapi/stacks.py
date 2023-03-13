@@ -28,10 +28,6 @@ logger = logging.getLogger(__name__)
 def build_stack_graph(revision: dict) -> tuple[set[str], set[tuple[str, str]]]:
     """Return a graph representation of a revision stack.
 
-    This function is expensive and can make up to approximately
-    n/2 calls to phabricator for a linear stack where n is the
-    number of revisions in the stack.
-
     Args:
         revision: A dictionary containing Phabricator revision data.
 
