@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import hashlib
 import json
+from collections import defaultdict
 from copy import deepcopy
 
 from landoapi.phabricator import (
@@ -59,7 +60,7 @@ def validate_hunk(hunk):
     assert isinstance(hunk["corpus"], str)
     lines = hunk["corpus"].splitlines()
     assert len(lines) > 0
-    assert all([l[0] in (" ", "-", "+") for l in lines])
+    assert all([line[0] in (" ", "-", "+") for line in lines])
 
     return True
 
@@ -94,6 +95,51 @@ def validate_change(change):
     assert all(map(validate_hunk, change["hunks"]))
 
     return True
+
+
+def get_stack(phid, phabdouble):
+    phids = set()
+    new_phids = {phid}
+    edges = []
+
+    # Repeatedly request all related edges, adding connected revisions
+    # each time until no new revisions are found.
+    # NOTE: this was adapted from previous implementation of build_stack_graph.
+    while new_phids:
+        phids.update(new_phids)
+        edges = [
+            edge
+            for edge in phabdouble._edges
+            if edge["sourcePHID"] in phids
+            and edge["edgeType"] in ("revision.parent", "revision.child")
+        ]
+        new_phids = set()
+        for edge in edges:
+            new_phids.add(edge["sourcePHID"])
+            new_phids.add(edge["destinationPHID"])
+
+        new_phids = new_phids - phids
+
+    # Treat the stack like a commit DAG, we only care about edges going
+    # from child to parent. This is enough to represent the graph.
+    edges = {
+        (edge["sourcePHID"], edge["destinationPHID"])
+        for edge in edges
+        if edge["edgeType"] == "revision.parent"
+    }
+
+    stack_graph = defaultdict(list)
+    sources = [source for source, dest in edges]
+    for source, dest in edges:
+        # Check that destination phid has a corresponding source phid.
+        if dest not in sources:
+            # We are at a root node.
+            stack_graph[dest] = []
+        stack_graph[source].append(dest)
+    if not stack_graph:
+        # There is only one node, the root node.
+        stack_graph[phid] = []
+    return dict(stack_graph)
 
 
 class PhabricatorDouble:
@@ -189,6 +235,30 @@ class PhabricatorDouble:
     @staticmethod
     def get_phabricator_client():
         return PhabricatorClient("https://localhost", "DOESNT-MATTER")
+
+    def update_revision_dependencies(self, phid: str, depends_on: list[str]):
+        """Updates edges of `phid` so they match `depends_on`."""
+        # Remove all previous edges related to this revision.
+        def philter(edge):
+            return phid not in (edge["sourcePHID"], edge["destinationPHID"])
+
+        self._edges = list(filter(philter, self._edges))
+
+        for rev in depends_on:
+            self._edges.append(
+                {
+                    "edgeType": "revision.parent",
+                    "sourcePHID": phid,
+                    "destinationPHID": rev["phid"],
+                }
+            )
+            self._edges.append(
+                {
+                    "edgeType": "revision.child",
+                    "sourcePHID": rev["phid"],
+                    "destinationPHID": phid,
+                }
+            )
 
     def revision(
         self,
@@ -905,6 +975,7 @@ class PhabricatorDouble:
                 "fields": {
                     "title": i["title"],
                     "authorPHID": i["authorPHID"],
+                    "stackGraph": i["stackGraph"],
                     "status": {
                         "value": i["status"].value,
                         "name": i["status"].output_name,
@@ -913,6 +984,7 @@ class PhabricatorDouble:
                     },
                     "repositoryPHID": i["repositoryPHID"],
                     "diffPHID": diffs[-1]["phid"],
+                    "diffID": diffs[-1]["id"],
                     "summary": i["summary"],
                     "dateCreated": i["dateCreated"],
                     "dateModified": i["dateModified"],
@@ -955,7 +1027,10 @@ class PhabricatorDouble:
 
             return deepcopy(resp)
 
-        items = [r for r in self._revisions]
+        items = []
+        for revision in self._revisions:
+            revision["stackGraph"] = get_stack(revision["phid"], self)
+            items.append(revision)
 
         if constraints and "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]

@@ -129,11 +129,7 @@ def _find_stack_from_landing_path(
             "The stack does not exist or you lack permission to see it.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
-
-    # TODO: This assumes that all revisions and related objects in the stack
-    # have uniform view permissions for the requesting user. Some revisions
-    # being restricted could cause this to fail.
-    return build_stack_graph(phab, phab.expect(revision, "phid"))
+    return build_stack_graph(revision)
 
 
 def _assess_transplant_request(
@@ -510,11 +506,7 @@ def get_list(phab: PhabricatorClient, stack_revision_id: str):
             "The revision does not exist or you lack permission to see it.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
-
-    # TODO: This assumes that all revisions and related objects in the stack
-    # have uniform view permissions for the requesting user. Some revisions
-    # being restricted could cause this to fail.
-    nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
+    nodes, edges = build_stack_graph(revision)
     revision_phids = list(nodes)
     revs = phab.call_conduit(
         "differential.revision.search",

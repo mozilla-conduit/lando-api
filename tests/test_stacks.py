@@ -14,27 +14,25 @@ from landoapi.stacks import (
 
 
 def test_build_stack_graph_single_node(phabdouble):
-    phab = phabdouble.get_phabricator_client()
     revision = phabdouble.revision()
 
-    nodes, edges = build_stack_graph(phab, revision["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(revision))
     assert len(nodes) == 1
     assert nodes.pop() == revision["phid"]
     assert not edges
 
 
 def test_build_stack_graph_two_nodes(phabdouble):
-    phab = phabdouble.get_phabricator_client()
     r1 = phabdouble.revision()
     r2 = phabdouble.revision(depends_on=[r1])
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     assert nodes == {r1["phid"], r2["phid"]}
     assert len(edges) == 1
     assert edges == {(r2["phid"], r1["phid"])}
 
     # Building from either revision should result in same graph.
-    nodes2, edges2 = build_stack_graph(phab, r2["phid"])
+    nodes2, edges2 = build_stack_graph(phabdouble.api_object_for(r2))
     assert nodes2 == nodes
     assert edges2 == edges
 
@@ -51,8 +49,6 @@ def _build_revision_graph(phabdouble, dep_list):
 
 
 def test_build_stack_graph_multi_root_multi_head_multi_path(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-
     # Revision stack to construct:
     # *     revisions[10]
     # | *   revisions[9]
@@ -88,7 +84,7 @@ def test_build_stack_graph_multi_root_multi_head_multi_path(phabdouble):
     )
     # fmt: on
 
-    nodes, edges = build_stack_graph(phab, revisions[0]["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(revisions[0]))
     assert nodes == {r["phid"] for r in revisions}
     assert edges == {
         (revisions[2]["phid"], revisions[1]["phid"]),
@@ -105,14 +101,12 @@ def test_build_stack_graph_multi_root_multi_head_multi_path(phabdouble):
     }
 
     for r in revisions[1:]:
-        nodes2, edges2 = build_stack_graph(phab, r["phid"])
+        nodes2, edges2 = build_stack_graph(phabdouble.api_object_for(r))
         assert nodes2 == nodes
         assert edges2 == edges
 
 
 def test_build_stack_graph_disconnected_revisions_not_included(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-
     revisions = _build_revision_graph(
         phabdouble,
         [
@@ -127,7 +121,7 @@ def test_build_stack_graph_disconnected_revisions_not_included(phabdouble):
     )
 
     # Graph A.
-    nodes, edges = build_stack_graph(phab, revisions[0]["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(revisions[0]))
     assert nodes == {r["phid"] for r in revisions[:3]}
     assert edges == {
         (revisions[1]["phid"], revisions[0]["phid"]),
@@ -135,7 +129,7 @@ def test_build_stack_graph_disconnected_revisions_not_included(phabdouble):
     }
 
     # Graph B.
-    nodes, edges = build_stack_graph(phab, revisions[3]["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(revisions[3]))
     assert nodes == {r["phid"] for r in revisions[3:]}
     assert edges == {(revisions[4]["phid"], revisions[3]["phid"])}
 
@@ -298,7 +292,7 @@ def test_calculate_landable_subgraphs_closed_root(phabdouble):
     r1 = phabdouble.revision(repo=repo, status=RevisionStatus.PUBLISHED)
     r2 = phabdouble.revision(repo=repo, depends_on=[r1])
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(phab, [r1["phid"], r2["phid"]])
 
     landable, _ = calculate_landable_subgraphs(ext_data, edges, {repo["phid"]})
@@ -314,7 +308,7 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble):
     r3 = phabdouble.revision(repo=repo, status=RevisionStatus.PUBLISHED)
     r4 = phabdouble.revision(repo=repo, depends_on=[r2, r3])
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"], r4["phid"]]
     )
@@ -335,7 +329,7 @@ def test_calculate_landable_subgraphs_stops_multiple_repo_paths(phabdouble):
     r2 = phabdouble.revision(repo=repo1, depends_on=[r1])
     r3 = phabdouble.revision(repo=repo2, depends_on=[r2])
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"]]
     )
@@ -359,7 +353,7 @@ def test_calculate_landable_subgraphs_allows_distinct_repo_paths(phabdouble):
 
     r5 = phabdouble.revision(repo=repo1, depends_on=[r2, r4])
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"], r4["phid"], r5["phid"]]
     )
@@ -383,7 +377,7 @@ def test_calculate_landable_subgraphs_different_repo_parents(phabdouble):
 
     r3 = phabdouble.revision(repo=repo2, depends_on=[r1, r2])
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"]]
     )
@@ -407,7 +401,7 @@ def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble):
 
     r3 = phabdouble.revision(repo=repo2, depends_on=[r1, r2])
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"]]
     )
@@ -435,7 +429,7 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble):
 
     r7 = phabdouble.revision(repo=repo, depends_on=[r3, r5, r6])
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab,
         [
@@ -508,7 +502,7 @@ def test_calculate_landable_subgraphs_complex_graph(phabdouble):
     rB3 = phabdouble.revision(repo=repoB, depends_on=[rA10])
     rB4 = phabdouble.revision(repo=repoB, depends_on=[rB2, rB3])
 
-    nodes, edges = build_stack_graph(phab, rA1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(rA1))
     ext_data = request_extended_revision_data(
         phab,
         [
@@ -548,7 +542,7 @@ def test_calculate_landable_subgraphs_extra_check(phabdouble):
     r3 = phabdouble.revision(repo=repo, depends_on=[r2])
     r4 = phabdouble.revision(repo=repo, depends_on=[r3])
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"], r4["phid"]]
     )
@@ -574,7 +568,7 @@ def test_calculate_landable_subgraphs_missing_repo(phabdouble):
     repo1 = phabdouble.repo()
     r1 = phabdouble.revision(repo=None)
 
-    nodes, edges = build_stack_graph(phab, r1["phid"])
+    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     revision_data = request_extended_revision_data(phab, [r1["phid"]])
 
     landable, blocked = calculate_landable_subgraphs(

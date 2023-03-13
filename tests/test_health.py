@@ -64,7 +64,7 @@ def test_cache_unhealthy_configuration():
 
 def test_cache_unhealthy_service(redis_cache, monkeypatch):
     mock_cache = Mock(redis_cache)
-    mock_cache.cache._read_clients.ping.side_effect = redis.TimeoutError
+    mock_cache.cache._read_client.ping.side_effect = redis.TimeoutError
     monkeypatch.setattr("landoapi.cache.cache", mock_cache)
     monkeypatch.setattr("landoapi.cache.RedisCache", type(mock_cache.cache))
 

@@ -23,7 +23,9 @@ class ConfigurationKey(enum.Enum):
     """Configuration keys used throughout the system."""
 
     LANDING_WORKER_PAUSED = "LANDING_WORKER_PAUSED"
+    LANDING_WORKER_STOPPED = "LANDING_WORKER_STOPPED"
     API_IN_MAINTENANCE = "API_IN_MAINTENANCE"
+    WORKER_THROTTLE_SECONDS = "WORKER_THROTTLE_SECONDS"
 
 
 @enum.unique
@@ -114,10 +116,11 @@ class ConfigurationVariable(Base):
             record = cls()
 
         logger.info("Deleting memoized cache for configuration variables.")
-        logger.info(
-            f"Configuration variable {key.value} previously set to {record.raw_value} "
-            f"({record.value})"
-        )
+        if record.raw_value:
+            logger.info(
+                f"Configuration variable {key.value} previously set to {record.raw_value} "
+                f"({record.value})"
+            )
         cache.delete_memoized(cls.get)
         record.variable_type = variable_type
         record.key = key.value

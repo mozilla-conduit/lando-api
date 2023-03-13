@@ -21,7 +21,7 @@ from flask import current_app
 
 from landoapi import bmo
 from landoapi.cache import cache, DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
+from landoapi.phabricator import PhabricatorClient
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.repos import (
     Repo,
@@ -127,15 +127,7 @@ def get_uplift_conduit_state(
     if not revision:
         raise ValueError(f"No revision found with id {revision_id}")
 
-    try:
-        nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
-    except PhabricatorAPIException as e:
-        # If a revision within the stack causes an API exception, treat the whole stack
-        # as not found.
-        logger.exception(
-            f"Phabricator returned an error searching for {revision_id}: {str(e)}"
-        )
-        raise ValueError(f"Missing revision info for stack ending in {revision_id}")
+    nodes, edges = build_stack_graph(revision)
 
     stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
 
