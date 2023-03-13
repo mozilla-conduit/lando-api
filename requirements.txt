@@ -558,16 +558,13 @@ responses==0.20.0 \
     --hash=sha256:18831bc2d72443b67664d98038374a6fa1f27eaaff4dd9a7d7613723416fea3c \
     --hash=sha256:644905bc4fb8a18fa37e3882b2ac05e610fe8c2f967d327eed669e314d94a541
     # via moto
-rs-parsepatch==0.3.6 \
-    --hash=sha256:015603ec35903a0d82e9fbe63b92cd88534d0ebda65db40d754f854afa57d42a \
-    --hash=sha256:2089a42457cc4e758549f6188ae01ae3fe8d3d6293ff6bad128c0e81f52fcfc5 \
-    --hash=sha256:48ef177c582868cf7bac84b9a9b4abbba4178b64912fe302d44b0ed59fb17c9c \
-    --hash=sha256:83f9dc014d8bf173d477ea84aee5b57db7d8fec53b3c9379b38115ea482c56be \
-    --hash=sha256:90b70f22f2408f78d793293c4e7c4c25d3a3381ab3357c27e51d8e4bd2551983 \
-    --hash=sha256:c28dd0396d6c509ce332923fbfb1b29d4fe80aa0a0cc81dd89a38f84bf1d499b \
-    --hash=sha256:ce0fce3f6dec39b4ddec21e9e044ad536683c655abcbd208a42fb658b612fa23 \
-    --hash=sha256:d3d1e72ebb2c2cf22fb6fec85c231ab8e210102283683f2938f757dc805b2340 \
-    --hash=sha256:fe83e61c4df3c359cad18887ad4e2ca1f6cb67d6dd9b475e36172de43b9bfd0d
+rs-parsepatch==0.3.8 \
+    --hash=sha256:216c702503e06faadb339597714f773dba12c22c384c24a0e6385d3917f18a57 \
+    --hash=sha256:23e7fe76c24d2805eac060e7be3945f2bcb685fce912f0fc6369044e21591fe4 \
+    --hash=sha256:4292e99c9928b00bfa8a73d4f2dbb60647646d1cdcba832903ba789c6d08377d \
+    --hash=sha256:b974ce1398fa25b7d0f27cc50c1ebb7c766c1b4dd035fc7bb4209be9ac67f926 \
+    --hash=sha256:cb3e49edb0fc920c8534ec7aab6e2e1d61c96d1c6081961656c2b513e65794da \
+    --hash=sha256:f3890d2ccd258e8df67e91f2af78f2a4786d2fbd2adcb1e11667c5e46ea8b000
     # via -r requirements.in
 rsa==4.9 \
     --hash=sha256:90260d9058e514786967344d0ef75fa8727eed8a7d2e43ce9f4bcf1b536174f7 \
@@ -581,10 +578,6 @@ sentry-sdk[flask]==1.11.1 \
     --hash=sha256:675f6279b6bb1fea09fd61751061f9a90dca3b5929ef631dd50dc8b3aeb245e9 \
     --hash=sha256:8b4ff696c0bdcceb3f70bbb87a57ba84fd3168b1332d493fcd16c137f709578c
     # via -r requirements.in
-setuptools==62.1.0 \
-    --hash=sha256:26ead7d1f93efc0f8c804d9fafafbe4a44b179580a7105754b245155f9af05a8 \
-    --hash=sha256:47c7b0c0f8fc10eec4cf1e71c6fdadf8decaa74ffa087e68cd1c20db7ad6a592
-    # via jsonschema
 six==1.16.0 \
     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926 \
     --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254
@@ -676,3 +669,9 @@ zipp==3.8.0 \
     --hash=sha256:56bf8aadb83c24db6c4b577e13de374ccfb67da2078beba1d037c17980bf43ad \
     --hash=sha256:c4f6e5bbf48e74f7a38e7cc5b0480ff42b0ae5178957d564d18932525d5cf099
     # via importlib-metadata
+
+# The following packages are considered to be unsafe in a requirements file:
+setuptools==62.1.0 \
+    --hash=sha256:26ead7d1f93efc0f8c804d9fafafbe4a44b179580a7105754b245155f9af05a8 \
+    --hash=sha256:47c7b0c0f8fc10eec4cf1e71c6fdadf8decaa74ffa087e68cd1c20db7ad6a592
+    # via jsonschema
