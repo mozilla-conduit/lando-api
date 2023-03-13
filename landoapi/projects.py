@@ -12,9 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 SEC_PROJ_SLUG = "secure-revision"
-SEC_PROJ_CACHE_KEY = "secure-project-phid"
 CHECKIN_PROJ_SLUG = "check-in_needed"
-CHECKIN_PROJ_CACHE_KEY = "checkin-project-phid"
 
 # Testing tag slugs. Revisions need one of these tags to remove the respective warnings.
 TESTING_TAG_PROJ_SLUGS = (
@@ -24,21 +22,17 @@ TESTING_TAG_PROJ_SLUGS = (
     "testing-exception-ui",
     "testing-exception-unchanged",
 )
-TESTING_TAGS_PROJ_CACHE_KEY = "testing-tag-phids"
-
 # A repo with a "testing-policy" project will have testing policy warnings enabled.
 TESTING_POLICY_PROJ_SLUG = "testing-policy"
-TESTING_POLICY_PROJ_CACHE_KEY = "testing-policy-phid"
 
 # The name of the Phabricator project containing members of the Secure
 # Bug Approval Process.
 # See https://wiki.mozilla.org/Security/Bug_Approval_Process.
 SEC_APPROVAL_PROJECT_SLUG = "sec-approval"
-SEC_APPROVAL_CACHE_KEY = "sec-approval-project-phid"
+
 # The name of the Phabricator project containing members of the Release
 # Management team, to approve uplift requests
 RELMAN_PROJECT_SLUG = "release-managers"
-RELMAN_CACHE_KEY = "release-managers-project"
 
 
 def project_search(
@@ -68,7 +62,9 @@ def project_search(
     return result
 
 
-def get_project_phid(project_slug, phabricator, allow_empty_result=True):
+def get_project_phid(
+    project_slug: str, phabricator: PhabricatorClient, allow_empty_result: bool = True
+) -> Optional[str]:
     """Looks up a project's PHID.
 
     Args:
