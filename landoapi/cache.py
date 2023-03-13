@@ -49,7 +49,7 @@ class CacheSubsystem(Subsystem):
         # Dirty, but if this breaks in the future we can instead
         # create our own redis-py client with its own connection
         # pool.
-        redis = cache.cache._read_clients
+        redis = cache.cache._read_client
 
         try:
             redis.ping()
