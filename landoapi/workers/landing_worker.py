@@ -6,14 +6,11 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import datetime
 import logging
-import os
 import re
-import signal
-import subprocess
-import time
+
+from flask import current_app
 
 import kombu
-from flask import current_app
 
 from landoapi import patches
 from landoapi.commit_message import parse_bugs
@@ -27,11 +24,8 @@ from landoapi.hg import (
     TreeClosed,
     REJECTS_PATH,
 )
+from landoapi.models.configuration import ConfigurationKey
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
-from landoapi.models.configuration import (
-    ConfigurationKey,
-    ConfigurationVariable,
-)
 from landoapi.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -49,6 +43,7 @@ from landoapi.treestatus import (
 from landoapi.uplift import (
     update_bugs_for_uplift,
 )
+from landoapi.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 
@@ -65,179 +60,81 @@ def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
         job: the job currently being processed
         db: active database session
     """
-    worker.job_processing = True
     start_time = datetime.now()
     try:
         yield
     finally:
-        worker.job_processing = False
         job.duration_seconds = (datetime.now() - start_time).seconds
         db.session.commit()
 
 
-class LandingWorker:
-    def __init__(self, sleep_seconds: float = 5.0):
-        SSH_PRIVATE_KEY_ENV_KEY = "SSH_PRIVATE_KEY"
+class LandingWorker(Worker):
+    @property
+    def STOP_KEY(self) -> ConfigurationKey:
+        """Return the configuration key that prevents the worker from starting."""
+        return ConfigurationKey.LANDING_WORKER_STOPPED
 
-        self.sleep_seconds = sleep_seconds
+    @property
+    def PAUSE_KEY(self) -> ConfigurationKey:
+        """Return the configuration key that pauses the worker."""
+        return ConfigurationKey.LANDING_WORKER_PAUSED
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         config_keys = [
             "AWS_SECRET_KEY",
             "AWS_ACCESS_KEY",
             "PATCH_BUCKET_NAME",
             "S3_ENDPOINT_URL",
         ]
+
         self.config = {k: current_app.config[k] for k in config_keys}
+        self.last_job_finished = None
+        self.refresh_enabled_repos()
 
-        # The list of all repos that are enabled for this worker
-        self.applicable_repos = (
-            list(repo_clone_subsystem.repos)
-            if hasattr(repo_clone_subsystem, "repos")
-            else []
-        )
-
-        # The list of all repos that have open trees; refreshed when needed via
-        # `self.refresh_enabled_repos`.
-        self.enabled_repos = []
-
-        # This is True when a worker active, and False when it is shut down
-        self.running = False
-
-        # This is True when the worker is busy processing a job
-        self.job_processing = False
-
-        # Fetch ssh private key from the environment. Note that this key should be
-        # stored in standard format including all new lines and new line at the end
-        # of the file.
-        self.ssh_private_key = os.environ.get(SSH_PRIVATE_KEY_ENV_KEY)
-        if not self.ssh_private_key:
-            logger.warning(f"No {SSH_PRIVATE_KEY_ENV_KEY} present in environment.")
-
-        # Catch kill signals so that the worker can initiate shutdown procedure
-        signal.signal(signal.SIGINT, self.exit_gracefully)
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
-
-    @staticmethod
-    def _setup_ssh(ssh_private_key):
-        """Add a given private ssh key to ssh agent.
-
-        SSH keys are needed in order to push to repositories that have an ssh
-        push path.
-
-        The private key should be passed as it is in the key file, including all
-        new line characters and the new line character at the end.
-
-        Args:
-            ssh_private_key (str): A string representing the private SSH key file.
-        """
-        # Set all the correct environment variables
-        agent_process = subprocess.run(
-            ["ssh-agent", "-s"], capture_output=True, universal_newlines=True
-        )
-
-        # This pattern will match keys and values, and ignore everything after the
-        # semicolon. For example, the output of `agent_process` is of the form:
-        #     SSH_AUTH_SOCK=/tmp/ssh-c850kLXXOS5e/agent.120801; export SSH_AUTH_SOCK;
-        #     SSH_AGENT_PID=120802; export SSH_AGENT_PID;
-        #     echo Agent pid 120802;
-        pattern = re.compile("(.+)=([^;]*)")
-        for key, value in pattern.findall(agent_process.stdout):
-            logger.info(f"_setup_ssh: setting {key} to {value}")
-            os.environ[key] = value
-
-        # Add private SSH key to agent
-        # NOTE: ssh-add seems to output everything to stderr, including upon exit 0.
-        add_process = subprocess.run(
-            ["ssh-add", "-"],
-            input=ssh_private_key,
-            capture_output=True,
-            universal_newlines=True,
-        )
-        if add_process.returncode != 0:
-            raise Exception(add_process.stderr)
-        logger.info("Added private SSH key from environment.")
-
-    @property
-    def paused(self):
-        return ConfigurationVariable.get(ConfigurationKey.LANDING_WORKER_PAUSED, False)
-
-    def sleep(self, sleep_seconds=None):
-        """Sleep for the specified number of seconds."""
-        time.sleep(sleep_seconds or self.sleep_seconds)
-
-    def refresh_enabled_repos(self):
-        self.enabled_repos = [
-            r
-            for r in self.applicable_repos
-            if treestatus_subsystem.client.is_open(repo_clone_subsystem.repos[r].tree)
-        ]
-        logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
-
-    def start(self):
-        logger.info("Landing worker starting")
-        logger.info(
+    def loop(self):
+        logger.debug(
             f"{len(self.applicable_repos)} applicable repos: {self.applicable_repos}"
         )
 
-        if self.ssh_private_key:
-            self._setup_ssh(self.ssh_private_key)
+        # Check if any closed trees reopened since the beginning of this iteration
+        if len(self.enabled_repos) != len(self.applicable_repos):
+            self.refresh_enabled_repos()
 
-        self.running = True
+        if self.last_job_finished is False:
+            logger.info("Last job did not complete, sleeping.")
+            self.throttle(self.sleep_seconds)
+            self.refresh_enabled_repos()
 
-        # Initialize state
-        self.refresh_enabled_repos()
-        last_job_finished = True
+        job = LandingJob.next_job_for_update_query(
+            repositories=self.enabled_repos
+        ).first()
 
-        while self.running:
-            if self.paused:
-                logger.info("Landing worker is paused, sleeping...")
-                self.sleep(60)
-                continue
+        if job is None:
+            self.throttle(self.sleep_seconds)
+            return
 
-            # Check if any closed trees reopened since the beginning of this iteration
-            if len(self.enabled_repos) != len(self.applicable_repos):
-                self.refresh_enabled_repos()
+        with job_processing(self, job, db):
+            job.status = LandingJobStatus.IN_PROGRESS
+            job.attempts += 1
 
-            if not last_job_finished:
-                logger.info("Last job did not complete, sleeping.")
-                self.sleep()
-                self.refresh_enabled_repos()
+            # Make sure the status and attempt count are updated in the database
+            db.session.commit()
 
-            job = LandingJob.next_job_for_update_query(
-                repositories=self.enabled_repos
-            ).first()
+            repo = repo_clone_subsystem.repos[job.repository_name]
+            hgrepo = HgRepo(
+                str(repo_clone_subsystem.repo_paths[job.repository_name]),
+            )
 
-            if job is None:
-                self.sleep()
-                continue
-
-            with job_processing(self, job, db):
-                job.status = LandingJobStatus.IN_PROGRESS
-                job.attempts += 1
-
-                # Make sure the status and attempt count are updated in the database
-                db.session.commit()
-
-                repo = repo_clone_subsystem.repos[job.repository_name]
-                hgrepo = HgRepo(
-                    str(repo_clone_subsystem.repo_paths[job.repository_name]),
-                )
-
-                logger.info("Starting landing job", extra={"id": job.id})
-                last_job_finished = self.run_job(
-                    job,
-                    repo,
-                    hgrepo,
-                    treestatus_subsystem.client,
-                    current_app.config["PATCH_BUCKET_NAME"],
-                )
+            logger.info("Starting landing job", extra={"id": job.id})
+            self.last_job_finished = self.run_job(
+                job,
+                repo,
+                hgrepo,
+                treestatus_subsystem.client,
+                current_app.config["PATCH_BUCKET_NAME"],
+            )
             logger.info("Finished processing landing job", extra={"id": job.id})
-        logger.info("Landing worker exited")
-
-    def exit_gracefully(self, *args):
-        logger.info(f"Landing worker exiting gracefully {args}")
-        while self.job_processing:
-            self.sleep()
-        self.running = False
 
     @staticmethod
     def notify_user_of_landing_failure(job):
