@@ -10,7 +10,7 @@ import unittest.mock as mock
 
 from landoapi import patches
 from landoapi.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
-from landoapi.landing_worker import LandingWorker
+from landoapi.workers.landing_worker import LandingWorker
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.repos import Repo, SCM_LEVEL_3
@@ -382,7 +382,7 @@ def test_integrated_execute_job(
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
@@ -463,7 +463,7 @@ def test_failed_landing_job_notification(
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.notify_user_of_landing_failure", mock_notify
+        "landoapi.workers.landing_worker.notify_user_of_landing_failure", mock_notify
     )
 
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
@@ -569,7 +569,7 @@ def test_format_patch_success_unchanged(
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
@@ -634,7 +634,7 @@ def test_format_single_success_changed(
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
@@ -718,7 +718,7 @@ def test_format_stack_success_changed(
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
@@ -799,7 +799,7 @@ def test_format_patch_fail(
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.notify_user_of_landing_failure", mock_notify
+        "landoapi.workers.landing_worker.notify_user_of_landing_failure", mock_notify
     )
 
     assert not worker.run_job(
@@ -857,14 +857,14 @@ def test_format_patch_no_landoini(
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.notify_user_of_landing_failure", mock_notify
+        "landoapi.workers.landing_worker.notify_user_of_landing_failure", mock_notify
     )
 
     assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
