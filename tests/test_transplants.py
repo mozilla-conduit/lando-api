@@ -1,7 +1,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import os
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -9,12 +8,12 @@ import pytest
 
 from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
-from landoapi.models.transplant import Transplant, TransplantStatus
+from landoapi.models.transplant import Transplant
+from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.phabricator import ReviewerStatus, RevisionStatus
-from landoapi.repos import Repo, SCM_LEVEL_3, SCM_CONDUIT, DONTBUILD
+from landoapi.repos import Repo, SCM_CONDUIT, DONTBUILD
 from landoapi.reviews import get_collated_reviewers
 from landoapi.tasks import admin_remove_phab_project
-from landoapi.transplant_client import TransplantClient
 from landoapi.transplants import (
     RevisionWarning,
     TransplantAssessment,
@@ -24,6 +23,29 @@ from landoapi.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
+
+
+def _create_landing_job(
+    db,
+    *,
+    landing_path=((1, 1),),
+    revisions=None,
+    requester_email="tuser@example.com",
+    repository_name="mozilla-central",
+    repository_url="http://hg.test",
+    status=None,
+):
+    job = LandingJob(
+        revision_to_diff_id={str(r_id): d_id for r_id, d_id in landing_path},
+        revision_order=[str(r_id) for r_id, _ in landing_path],
+        requester_email=requester_email,
+        repository_name=repository_name,
+        repository_url=repository_url,
+        status=status,
+    )
+    db.session.add(job)
+    db.session.commit()
+    return job
 
 
 def test_dryrun_no_warnings_or_blockers(
@@ -99,11 +121,10 @@ def test_dryrun_in_progress_transplant_blocks(
 
     # Create am in progress transplant on r2, which should
     # block attempts to land r1.
-    _create_transplant(
+    _create_landing_job(
         db,
-        request_id=1,
         landing_path=[(r1["id"], d1["id"])],
-        status=TransplantStatus.submitted,
+        status=LandingJobStatus.SUBMITTED,
     )
 
     phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
@@ -322,36 +343,31 @@ def test_get_transplants_for_entire_stack(db, client, phabdouble):
     d_not_in_stack = phabdouble.diff()
     r_not_in_stack = phabdouble.revision(diff=d_not_in_stack, repo=phabdouble.repo())
 
-    t1 = _create_transplant(
+    t1 = _create_landing_job(
         db,
-        request_id=1,
         landing_path=[(r1["id"], d1a["id"])],
-        status=TransplantStatus.failed,
+        status=LandingJobStatus.FAILED,
     )
-    t2 = _create_transplant(
+    t2 = _create_landing_job(
         db,
-        request_id=2,
         landing_path=[(r1["id"], d1b["id"])],
-        status=TransplantStatus.landed,
+        status=LandingJobStatus.LANDED,
     )
-    t3 = _create_transplant(
+    t3 = _create_landing_job(
         db,
-        request_id=3,
         landing_path=[(r2["id"], d2["id"])],
-        status=TransplantStatus.submitted,
+        status=LandingJobStatus.SUBMITTED,
     )
-    t4 = _create_transplant(
+    t4 = _create_landing_job(
         db,
-        request_id=4,
         landing_path=[(r3["id"], d3["id"])],
-        status=TransplantStatus.landed,
+        status=LandingJobStatus.LANDED,
     )
 
-    t_not_in_stack = _create_transplant(
+    t_not_in_stack = _create_landing_job(
         db,
-        request_id=5,
         landing_path=[(r_not_in_stack["id"], d_not_in_stack["id"])],
-        status=TransplantStatus.landed,
+        status=LandingJobStatus.LANDED,
     )
 
     response = client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
@@ -373,11 +389,10 @@ def test_get_transplant_from_middle_revision(db, client, phabdouble):
     d3 = phabdouble.diff()
     r3 = phabdouble.revision(diff=d3, repo=phabdouble.repo(), depends_on=[r1])
 
-    t = _create_transplant(
+    t = _create_landing_job(
         db,
-        request_id=1,
         landing_path=[(r1["id"], d1["id"]), (r2["id"], d2["id"]), (r3["id"], d3["id"])],
-        status=TransplantStatus.failed,
+        status=LandingJobStatus.FAILED,
     )
 
     response = client.get("/transplants?stack_revision_id=D{}".format(r2["id"]))
@@ -389,9 +404,7 @@ def test_get_transplant_from_middle_revision(db, client, phabdouble):
 def test_get_transplant_not_authorized_to_view_revision(db, client, phabdouble):
     # Create a transplant pointing at a revision that will not
     # be returned by phabricator.
-    _create_transplant(
-        db, request_id=1, landing_path=[(1, 1)], status=TransplantStatus.submitted
-    )
+    _create_landing_job(db, landing_path=[(1, 1)], status=LandingJobStatus.SUBMITTED)
     response = client.get("/transplants?stack_revision_id=D1")
     assert response.status_code == 404
 
@@ -410,11 +423,10 @@ def test_warning_previously_landed_failed_landing(db, phabdouble):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
-    _create_transplant(
+    _create_landing_job(
         db,
-        request_id=1,
         landing_path=[(r["id"], d["id"])],
-        status=TransplantStatus.failed,
+        status=LandingJobStatus.FAILED,
     )
 
     revision = phabdouble.api_object_for(
@@ -429,11 +441,10 @@ def test_warning_previously_landed_landed_landing(db, phabdouble):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
-    _create_transplant(
+    _create_landing_job(
         db,
-        request_id=1,
         landing_path=[(r["id"], d["id"])],
-        status=TransplantStatus.landed,
+        status=LandingJobStatus.LANDED,
     )
 
     revision = phabdouble.api_object_for(
@@ -591,7 +602,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     db,
     client,
     phabdouble,
-    transfactory,
     s3,
     auth0_mock,
     release_management_project,
@@ -612,9 +622,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     r3 = phabdouble.revision(diff=d3, repo=repo, depends_on=[r2])
     phabdouble.reviewer(r3, user)
 
-    transplant_request_id = 3
-    transfactory.mock_successful_response(transplant_request_id)
-
     response = client.post(
         "/transplants",
         json={
@@ -629,22 +636,21 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     assert response.status_code == 202
     assert response.content_type == "application/json"
     assert "id" in response.json
-    transplant_id = response.json["id"]
+    job_id = response.json["id"]
 
     # Ensure DB access isn't using uncommitted data.
     db.session.close()
 
-    # Get Transplant object by its id
-    transplant = Transplant.query.get(transplant_id)
-    assert transplant.id == transplant_id
-    assert transplant.revision_to_diff_id == {
+    # Get LandingJob object by its id
+    job = LandingJob.query.get(job_id)
+    assert job.id == job_id
+    assert job.revision_to_diff_id == {
         str(r1["id"]): d1["id"],
         str(r2["id"]): d2["id"],
         str(r3["id"]): d3["id"],
     }
-    assert transplant.revision_order == [str(r1["id"]), str(r2["id"]), str(r3["id"])]
-    assert transplant.status == TransplantStatus.submitted
-    assert transplant.request_id == transplant_request_id
+    assert job.revision_order == [str(r1["id"]), str(r2["id"]), str(r3["id"])]
+    assert job.status == LandingJobStatus.SUBMITTED
 
 
 def test_integrated_transplant_with_flags(
@@ -800,101 +806,6 @@ def test_integrated_transplant_without_auth0_permissions(
         "You have insufficient permissions to land. "
         "Level 3 Commit Access is required. See the FAQ for help."
     )
-
-
-def test_integrated_push_bookmark_sent_when_supported_repo(
-    db,
-    client,
-    phabdouble,
-    monkeypatch,
-    s3,
-    auth0_mock,
-    get_phab_client,
-    mock_repo_config,
-    release_management_project,
-    register_codefreeze_uri,
-):
-    # Mock the repo to have a push bookmark.
-    mock_repo_config(
-        {
-            "test": {
-                "mozilla-central": Repo(
-                    tree="mozilla-central",
-                    url="http://hg.test",
-                    access_group=SCM_LEVEL_3,
-                    push_bookmark="@",
-                    legacy_transplant=True,
-                )
-            }
-        }
-    )
-
-    # Mock the phabricator response data
-    repo = phabdouble.repo(name="mozilla-central")
-    d1 = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1, repo=repo)
-    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
-    patch_url = patches.url("landoapi.test.bucket", patches.name(r1["id"], d1["id"]))
-
-    tsclient = MagicMock(spec=TransplantClient)
-    tsclient().land.return_value = 1
-    monkeypatch.setattr("landoapi.api.transplants.TransplantClient", tsclient)
-    client.post(
-        "/transplants",
-        json={
-            "landing_path": [
-                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
-            ]
-        },
-        headers=auth0_mock.mock_headers,
-    )
-    tsclient().land.assert_called_once_with(
-        revision_id=r1["id"],
-        ldap_username="tuser@example.com",
-        patch_urls=[patch_url],
-        tree="mozilla-central",
-        pingback="{}/landings/update".format(os.getenv("PINGBACK_HOST_URL")),
-        push_bookmark="@",
-    )
-
-
-@pytest.mark.parametrize(
-    "mock_error_method",
-    [
-        "mock_http_error_response",
-        "mock_connection_error_response",
-        "mock_malformed_data_response",
-    ],
-)
-def test_integrated_transplant_error_responds_with_502(
-    app,
-    db,
-    client,
-    phabdouble,
-    transfactory,
-    s3,
-    auth0_mock,
-    mock_error_method,
-    release_management_project,
-    register_codefreeze_uri,
-):
-    d1 = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
-    phabdouble.reviewer(r1, phabdouble.user(username="reviewer"))
-    getattr(transfactory, mock_error_method)()
-
-    response = client.post(
-        "/transplants",
-        json={
-            "landing_path": [
-                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]}
-            ]
-        },
-        headers=auth0_mock.mock_headers,
-    )
-
-    assert response.status_code == 502
-    assert response.json["title"] == "Transplant not created"
 
 
 def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
@@ -1055,30 +966,6 @@ def test_warning_wip_commit_message(phabdouble):
 
 def test_display_branch_head():
     assert Transplant(revision_order=["1", "2"]).head_revision == "D2"
-
-
-def _create_transplant(
-    db,
-    *,
-    request_id=1,
-    landing_path=((1, 1),),
-    requester_email="tuser@example.com",
-    tree="mozilla-central",
-    repository_url="http://hg.test",
-    status=TransplantStatus.submitted
-):
-    transplant = Transplant(
-        request_id=request_id,
-        revision_to_diff_id={str(r_id): d_id for r_id, d_id in landing_path},
-        revision_order=[str(r_id) for r_id, _ in landing_path],
-        requester_email=requester_email,
-        tree=tree,
-        repository_url=repository_url,
-        status=status,
-    )
-    db.session.add(transplant)
-    db.session.commit()
-    return transplant
 
 
 def test_codefreeze_datetime_mock(codefreeze_datetime):
