@@ -15,7 +15,6 @@ from landoapi import auth
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.hgexports import build_patch_for_revision
-from landoapi.models.base import Base
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.patches import upload
 from landoapi.phabricator import PhabricatorClient
@@ -208,20 +207,6 @@ def _assess_transplant_request(
     return (assessment, to_land, landing_repo, stack_data)
 
 
-def _lock_table_for(
-    model: Base,
-    mode: str = "SHARE ROW EXCLUSIVE MODE",
-):
-    """Locks a given table in the given database with the given mode.
-
-    Args:
-        mode (str): the lock mode to apply to the table when locking
-        model (SQLAlchemy.db.model): a model to fetch the table name from
-    """
-    query = f"LOCK TABLE {model.__table__.name} IN {mode};"
-    db.session.execute(query)
-
-
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def dryrun(phab: PhabricatorClient, data: dict):
@@ -385,7 +370,7 @@ def post(phab: PhabricatorClient, data: dict):
         )
     )
     with db.session.begin_nested():
-        _lock_table_for(model=LandingJob)
+        LandingJob.lock_table()
         if (
             LandingJob.revisions_query(stack_ids)
             .filter(

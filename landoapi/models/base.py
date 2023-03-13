@@ -43,3 +43,13 @@ class Base(db.Model):
         For example, `<Transplant: 1235>`.
         """
         return f"<{self.__class__.__name__}: {self.id}>"
+
+    @classmethod
+    def lock_table(cls, mode: str = "SHARE ROW EXCLUSIVE MODE"):
+        """Lock the table for the model with the given mode.
+
+        Args:
+            mode (str): the lock mode to apply to the table when locking
+        """
+        query = f"LOCK TABLE {cls.__table__.name} IN {mode};"
+        db.session.execute(query)
