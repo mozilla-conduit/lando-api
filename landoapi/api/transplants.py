@@ -375,7 +375,6 @@ def post(phab: PhabricatorClient, data: dict):
     if not landing_repo.legacy_transplant:
         with db.session.begin_nested():
             LandingJob.lock_table()
-            LandingJob
             if (
                 LandingJob.revisions_query(stack_ids)
                 .filter(
