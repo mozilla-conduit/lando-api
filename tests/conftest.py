@@ -98,8 +98,6 @@ def docker_env_vars(versionfile, monkeypatch):
     monkeypatch.setenv("TRANSPLANT_API_KEY", "someapikey")
     monkeypatch.setenv("TRANSPLANT_USERNAME", "autoland")
     monkeypatch.setenv("TRANSPLANT_PASSWORD", "autoland")
-    monkeypatch.setenv("PINGBACK_ENABLED", "y")
-    monkeypatch.setenv("PINGBACK_HOST_URL", "http://lando-api.test")
     monkeypatch.setenv("PATCH_BUCKET_NAME", "landoapi.test.bucket")
     monkeypatch.delenv("AWS_ACCESS_KEY", raising=False)
     monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
@@ -275,14 +273,12 @@ def mocked_repo_config(mock_repo_config):
                     url="http://hg.test",
                     access_group=SCM_LEVEL_3,
                     approval_required=False,
-                    legacy_transplant=True,
                 ),
                 "mozilla-uplift": Repo(
                     tree="mozilla-uplift",
                     url="http://hg.test/uplift",
                     access_group=SCM_LEVEL_3,
                     approval_required=True,
-                    legacy_transplant=True,
                 ),
                 "mozilla-new": Repo(
                     tree="mozilla-new",

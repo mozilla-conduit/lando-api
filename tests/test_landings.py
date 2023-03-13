@@ -12,7 +12,6 @@ from landoapi import patches
 from landoapi.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
 from landoapi.workers.landing_worker import LandingWorker
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.models.transplant import Transplant, TransplantStatus
 from landoapi.repos import Repo, SCM_LEVEL_3
 
 
@@ -31,110 +30,6 @@ def upload_patch():
         )
 
     return _upload_patch
-
-
-def test_update_landing(db, client):
-    _create_transplant(db, 1, 1, 1, status=TransplantStatus.submitted)
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 1, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "someapikey")],
-    )
-
-    assert response.status_code == 200
-
-    # Ensure DB access isn't using uncommitted data.
-    db.session.close()
-
-    transplant = Transplant.query.get(1)
-    assert transplant.status == TransplantStatus.landed
-
-
-def test_update_landing_bad_request_id(db, client):
-    _create_transplant(db, 1, 1, 1, status=TransplantStatus.submitted)
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 2, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "someapikey")],
-    )
-
-    assert response.status_code == 404
-
-
-def test_update_landing_bad_api_key(db, client):
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 1, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "wrongapikey")],
-    )
-
-    assert response.status_code == 403
-
-
-def test_update_landing_no_api_key(db, client):
-    response = client.post(
-        "/landings/update", json={"request_id": 1, "landed": True, "result": "sha123"}
-    )
-
-    assert response.status_code == 400
-
-
-def test_pingback_disabled(db, client, config):
-    config["PINGBACK_ENABLED"] = "n"
-
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 1, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "someapikey")],
-    )
-
-    assert response.status_code == 403
-
-
-def test_pingback_no_api_key_header(db, client, config):
-    config["PINGBACK_ENABLED"] = "y"
-
-    response = client.post(
-        "/landings/update", json={"request_id": 1, "landed": True, "result": "sha123"}
-    )
-
-    assert response.status_code == 400
-
-
-def test_pingback_incorrect_api_key(db, client, config):
-    config["PINGBACK_ENABLED"] = "y"
-
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 1, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "thisisanincorrectapikey")],
-    )
-
-    assert response.status_code == 403
-
-
-def _create_transplant(
-    db,
-    request_id=1,
-    revision_id=1,
-    diff_id=1,
-    requester_email="tuser@example.com",
-    tree="mozilla-central",
-    repository_url="http://hg.test",
-    status=TransplantStatus.submitted,
-):
-    transplant = Transplant(
-        request_id=request_id,
-        revision_to_diff_id={str(revision_id): diff_id},
-        revision_order=[str(revision_id)],
-        requester_email=requester_email,
-        tree=tree,
-        repository_url=repository_url,
-        status=status,
-    )
-    db.session.add(transplant)
-    db.session.commit()
-    return transplant
 
 
 PATCH_NORMAL_1 = r"""
@@ -363,7 +258,6 @@ def test_integrated_execute_job(
         access_group=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
-        legacy_transplant=False,
     )
     hgrepo = HgRepo(hg_clone.strpath)
     upload_patch(1)
@@ -392,6 +286,56 @@ def test_integrated_execute_job(
     assert (
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
+
+
+def test_integrated_execute_job_with_bookmark(
+    app,
+    db,
+    s3,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    monkeypatch,
+    upload_patch,
+):
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo(
+        tree="mozilla-central",
+        url=hg_server,
+        access_group=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        push_bookmark="@",
+    )
+    hgrepo = HgRepo(hg_clone.strpath)
+    upload_patch(1)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1},
+        revision_order=["1"],
+        attempts=1,
+    )
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    # We don't care about repo update in this test, however if we don't mock
+    # this, the test will fail since there is no celery instance.
+    monkeypatch.setattr(
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock.MagicMock(),
+    )
+
+    hgrepo.push = mock.MagicMock()
+    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert hgrepo.push.call_count == 1
+    assert len(hgrepo.push.call_args) == 2
+    assert len(hgrepo.push.call_args[0]) == 1
+    assert hgrepo.push.call_args[0][0] == hg_server
+    assert hgrepo.push.call_args[1] == {"bookmark": "@"}
 
 
 def test_lose_push_race(
