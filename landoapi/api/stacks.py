@@ -68,7 +68,10 @@ def get(phab: PhabricatorClient, revision_id: str):
         return not_found_problem
 
     nodes, edges = build_stack_graph(revision)
-    stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
+    try:
+        stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
+    except ValueError:
+        return not_found_problem
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)

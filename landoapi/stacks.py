@@ -72,6 +72,10 @@ def request_extended_revision_data(
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
         limit=len(revision_phids),
     )
+
+    if len(revs["data"]) != len(revision_phids):
+        raise ValueError("Mismatch in size of returned data.")
+
     phab.expect(revs, "data", len(revision_phids) - 1)
     revs = result_list_to_phid_dict(phab.expect(revs, "data"))
 

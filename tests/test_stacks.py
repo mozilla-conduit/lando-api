@@ -698,6 +698,43 @@ def test_integrated_stack_has_revision_security_status(
     assert revisions[secure_revision["phid"]]["is_secure"]
 
 
+def test_integrated_stack_response_mismatch_returns_404(
+    db,
+    client,
+    phabdouble,
+    mock_repo_config,
+    release_management_project,
+    sec_approval_project,
+):
+    # If the API response contains a different number of revisions than the
+    # expected number based on the stack graph, a 404 error is expected.
+
+    repo = phabdouble.repo()
+    r1 = phabdouble.revision(repo=repo)
+    r2 = phabdouble.revision(repo=repo, depends_on=[r1])
+
+    response = client.get("/stacks/D{}".format(r1["id"]))
+    assert response.status_code == 200
+    assert len(response.json["edges"]) == 1
+    assert len(response.json["revisions"]) == 2
+
+    # Remove r2 from the response.
+    phabdouble._revisions = [
+        revision for revision in phabdouble._revisions if revision["id"] != r2["id"]
+    ]
+
+    response = client.get("/stacks/D{}".format(r1["id"]))
+    assert response.status_code == 404
+
+    # Remove dependency on r2.
+    phabdouble.update_revision_dependencies(r1["phid"], [])
+
+    response = client.get("/stacks/D{}".format(r1["id"]))
+    assert response.status_code == 200
+    assert len(response.json["edges"]) == 0
+    assert len(response.json["revisions"]) == 1
+
+
 def test_revisionstack_single():
     nodes = {"123"}
     edges = set()
