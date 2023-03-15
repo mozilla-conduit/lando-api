@@ -2,6 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import pytest
+
 from landoapi.phabricator import RevisionStatus
 from landoapi.repos import get_repos_for_env
 from landoapi.stacks import (
@@ -258,6 +260,23 @@ def test_request_extended_revision_data_repo_has_projects(phabdouble, secure_pro
     assert all(
         "projects" in repo["attachments"] for repo in data.repositories.values()
     ), "`request_extended_revision_data` should return repos with `projects` attachment."
+
+
+def test_request_extended_revision_data_raises_value_error(phabdouble):
+    phab = phabdouble.get_phabricator_client()
+
+    repo = phabdouble.repo()
+    r1 = phabdouble.revision(repo=repo)
+    r2 = phabdouble.revision(repo=repo, depends_on=[r1])
+
+    # Remove r2 from the list of revisions, keeping the dependency.
+    phabdouble._revisions = [
+        revision for revision in phabdouble._revisions if revision["id"] != r2["id"]
+    ]
+
+    with pytest.raises(ValueError) as e:
+        request_extended_revision_data(phab, [r1["phid"], r2["phid"]])
+    assert e.value.args[0] == "Mismatch in size of returned data."
 
 
 def test_calculate_landable_subgraphs_no_edges_open(phabdouble):
