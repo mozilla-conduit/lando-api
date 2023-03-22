@@ -148,6 +148,56 @@ class LandingWorker(Worker):
             job.requester_email, job.head_revision, job.error, job.id
         )
 
+    def process_merge_conflict(self, exception, repo, hgrepo, revision_id):
+        failed_paths, reject_paths = self.extract_error_data(str(exception))
+
+        # Find last commits to touch each failed path.
+        failed_path_changesets = [
+            (
+                path,
+                hgrepo.run_hg(
+                    [
+                        "log",
+                        "--cwd",
+                        hgrepo.path,
+                        "--template",
+                        "{node}",
+                        "-l",
+                        "1",
+                        path,
+                    ]
+                ),
+            )
+            for path in failed_paths
+        ]
+
+        breakdown = {
+            "revision_id": revision_id,
+            "content": None,
+            "reject_paths": None,
+        }
+
+        breakdown["failed_paths"] = [
+            {
+                "path": r[0],
+                "url": f"{repo.pull_path}/file/{r[1].decode('utf-8')}/{r[0]}",
+                "changeset_id": r[1].decode("utf-8"),
+            }
+            for r in failed_path_changesets
+        ]
+        breakdown["reject_paths"] = {}
+        for r in reject_paths:
+            reject = {"path": r}
+            try:
+                with open(REJECTS_PATH / hgrepo.path[1:] / r, "r") as f:
+                    reject["content"] = f.read()
+            except Exception as e:
+                logger.exception(e)
+            # Use actual path of file to store reject data, by removing
+            # `.rej` extension.
+            breakdown["reject_paths"][r[:-4]] = reject
+        return breakdown
+
     @staticmethod
     def notify_user_of_bug_update_failure(job, exception):
         """Wrapper around notify_user_of_bug_update_failure for convenience.
@@ -263,54 +313,9 @@ class LandingWorker(Worker):
                 try:
                     hgrepo.apply_patch(patch_buf)
                 except PatchConflict as exc:
-                    failed_paths, reject_paths = self.extract_error_data(str(exc))
-
-                    # Find last commits to touch each failed path.
-                    failed_path_changesets = [
-                        (
-                            path,
-                            hgrepo.run_hg(
-                                [
-                                    "log",
-                                    "--cwd",
-                                    hgrepo.path,
-                                    "--template",
-                                    "{node}",
-                                    "-l",
-                                    "1",
-                                    path,
-                                ]
-                            ),
-                        )
-                        for path in failed_paths
-                    ]
-
-                    breakdown = {
-                        "revision_id": revision_id,
-                        "content": None,
-                        "reject_paths": None,
-                    }
-
-                    breakdown["failed_paths"] = [
-                        {
-                            "path": r[0],
-                            "url": f"{repo.pull_path}/file/{r[1].decode('utf-8')}/{r[0]}",
-                            "changeset_id": r[1].decode("utf-8"),
-                        }
-                        for r in failed_path_changesets
-                    ]
-                    breakdown["reject_paths"] = {}
-                    for r in reject_paths:
-                        reject = {"path": r}
-                        try:
-                            with open(REJECTS_PATH / hgrepo.path[1:] / r, "r") as f:
-                                reject["content"] = f.read()
-                        except Exception as e:
-                            logger.exception(e)
-                        # Use actual path of file to store reject data, by removing
-                        # `.rej` extension.
-                        breakdown["reject_paths"][r[:-4]] = reject
-
+                    breakdown = self.process_merge_conflict(
+                        exc, repo, hgrepo, revision_id
+                    )
                     message = (
                         f"Problem while applying patch in revision {revision_id}:\n\n"
                         f"{str(exc)}"
