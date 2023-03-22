@@ -322,14 +322,18 @@ class LandingWorker(Worker):
                     )
                     self.notify_user_of_landing_failure(job)
                     return True
-                except NoDiffStartLine:
-                    logger.exception("Patch without a diff start line.")
+                except NoDiffStartLine as e:
                     message = (
                         "Lando encountered a malformed patch, please try again. "
-                        "If this error persists please file a bug."
+                        "If this error persists please file a bug: "
+                        "Patch without a diff start line."
                     )
+                    logger.error(message)
                     job.transition_status(
-                        LandingJobAction.FAIL, message=message, commit=True, db=db
+                        LandingJobAction.FAIL,
+                        message=message + f"\n{e}",
+                        commit=True,
+                        db=db,
                     )
                     self.notify_user_of_landing_failure(job)
                     return True
@@ -388,43 +392,37 @@ class LandingWorker(Worker):
                 "utf-8"
             )
 
+            temporary_exceptions = {
+                TreeClosed: f"Tree {repo.tree} is closed - retrying later.",
+                TreeApprovalRequired: f"Tree {repo.tree} requires approval - retrying later.",
+                LostPushRace: f"Lost push race when pushing to {repo.push_path}.",
+            }
+
             try:
                 hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
-            except TreeClosed:
-                job.transition_status(
-                    LandingJobAction.DEFER,
-                    message=f"Tree {repo.tree} is closed - retrying later.",
-                    commit=True,
-                    db=db,
-                )
-                return False
-            except TreeApprovalRequired:
-                job.transition_status(
-                    LandingJobAction.DEFER,
-                    message=f"Tree {repo.tree} requires approval - retrying later.",
-                    commit=True,
-                    db=db,
-                )
-                return False
-            except LostPushRace:
-                logger.info(f"LandingJob {job.id} lost push race, deferring")
-                job.transition_status(
-                    LandingJobAction.DEFER,
-                    message=f"Lost push race when pushing to {repo.push_path}.",
-                    commit=True,
-                    db=db,
-                )
-                return False
             except Exception as e:
-                message = f"Unexpected error while pushing to {repo.push_path}."
-                job.transition_status(
-                    LandingJobAction.FAIL, message=f"{message}\n{e}", commit=True, db=db
+                try_again = e.__class__ in temporary_exceptions
+                message = temporary_exceptions.get(
+                    e.__class__, f"Unexpected error while pushing to {repo.push_path}."
                 )
-                self.notify_user_of_landing_failure(job)
-                return True
 
-        job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
-        db.session.commit()
+                if try_again:
+                    job.transition_status(
+                        LandingJobAction.DEFER, message=message, commit=True, db=db
+                    )
+                else:
+                    job.transition_status(
+                        LandingJobAction.FAIL,
+                        message=f"{message}\n{e}",
+                        commit=True,
+                        db=db,
+                    )
+                    self.notify_user_of_landing_failure(job)
+                return not try_again
+
+        job.transition_status(
+            LandingJobAction.LAND, commit_id=commit_id, commit=True, db=db
+        )
 
         # Extra steps for post-uplift landings.
         if repo.approval_required:
