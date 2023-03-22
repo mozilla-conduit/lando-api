@@ -19,7 +19,7 @@ from landoapi.repos import Repo
 from landoapi.phabricator import (
     PhabricatorClient,
     result_list_to_phid_dict,
-    RevisionStatus,
+    PhabricatorRevisionStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -231,7 +231,7 @@ def calculate_landable_subgraphs(
     # We only want to consider paths starting from the open revisions
     # do grab the status for all revisions.
     statuses = {
-        phid: RevisionStatus.from_status(
+        phid: PhabricatorRevisionStatus.from_status(
             PhabricatorClient.expect(revision, "fields", "status", "value")
         )
         for phid, revision in revision_data.revisions.items()

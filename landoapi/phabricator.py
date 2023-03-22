@@ -33,7 +33,7 @@ PHAB_API_KEY_RE = re.compile(r"^api-.{28}$")
 
 
 @unique
-class RevisionStatus(Enum):
+class PhabricatorRevisionStatus(Enum):
     """Enumeration of statuses a revision may have.
 
     These statuses were exhaustive at the time of creation, but
@@ -51,7 +51,7 @@ class RevisionStatus(Enum):
     UNEXPECTED_STATUS = None
 
     @classmethod
-    def from_status(cls, value: str) -> RevisionStatus:
+    def from_status(cls, value: str) -> PhabricatorRevisionStatus:
         try:
             return cls(value)
         except ValueError:
