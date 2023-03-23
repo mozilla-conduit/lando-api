@@ -206,6 +206,20 @@ class LandingWorker(Worker):
         treestatus: TreeStatus,
         patch_bucket: str,
     ) -> bool:
+        """Run a given LandingJob and return appropriate boolean state.
+
+        Running a landing job goes through the following steps:
+        - Check treestatus.
+        - Update local repo with latest and prepare for import.
+        - Download patch buffers from S3.
+        - Apply each patch to the repo.
+        - Perform additional processes and checks (e.g., code formatting).
+        - Push changes to remote repo.
+
+        Returns:
+            True: The job finished processing and is in a permanent state.
+            False: The job encountered a temporary failure and should be tried again.
+        """
         if not treestatus.is_open(repo.tree):
             job.transition_status(
                 LandingJobAction.DEFER,
@@ -323,24 +337,29 @@ class LandingWorker(Worker):
                     self.notify_user_of_landing_failure(job)
                     return True
                 except NoDiffStartLine:
-                    logger.exception("Patch without a diff start line.")
                     message = (
                         "Lando encountered a malformed patch, please try again. "
-                        "If this error persists please file a bug."
+                        "If this error persists please file a bug: "
+                        "Patch without a diff start line."
                     )
+                    logger.error(message)
                     job.transition_status(
-                        LandingJobAction.FAIL, message=message, commit=True, db=db
+                        LandingJobAction.FAIL,
+                        message=message,
+                        commit=True,
+                        db=db,
                     )
                     self.notify_user_of_landing_failure(job)
                     return True
                 except Exception as e:
                     message = (
                         f"Aborting, could not apply patch buffer for {revision_id}."
+                        f"\n{e}"
                     )
                     logger.exception(message)
                     job.transition_status(
                         LandingJobAction.FAIL,
-                        message=message + f"\n{e}",
+                        message=message,
                         commit=True,
                         db=db,
                     )
@@ -388,43 +407,32 @@ class LandingWorker(Worker):
                 "utf-8"
             )
 
+            repo_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
                 hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
-            except TreeClosed:
-                job.transition_status(
-                    LandingJobAction.DEFER,
-                    message=f"Tree {repo.tree} is closed - retrying later.",
-                    commit=True,
-                    db=db,
+            except (TreeClosed, TreeApprovalRequired, LostPushRace) as e:
+                message = (
+                    f"`Temporary error ({e.__class__}) "
+                    f"encountered while pushing to {repo_info}"
                 )
-                return False
-            except TreeApprovalRequired:
                 job.transition_status(
-                    LandingJobAction.DEFER,
-                    message=f"Tree {repo.tree} requires approval - retrying later.",
-                    commit=True,
-                    db=db,
+                    LandingJobAction.DEFER, message=message, commit=True, db=db
                 )
-                return False
-            except LostPushRace:
-                logger.info(f"LandingJob {job.id} lost push race, deferring")
-                job.transition_status(
-                    LandingJobAction.DEFER,
-                    message=f"Lost push race when pushing to {repo.push_path}.",
-                    commit=True,
-                    db=db,
-                )
-                return False
+                return False  # Try again, this is a temporary failure.
             except Exception as e:
-                message = f"Unexpected error while pushing to {repo.push_path}."
+                message = f"Unexpected error while pushing to {repo.push_path}.\n{e}"
                 job.transition_status(
-                    LandingJobAction.FAIL, message=f"{message}\n{e}", commit=True, db=db
+                    LandingJobAction.FAIL,
+                    message=message,
+                    commit=True,
+                    db=db,
                 )
                 self.notify_user_of_landing_failure(job)
-                return True
+                return True  # Do not try again, this is a permanent failure.
 
-        job.transition_status(LandingJobAction.LAND, commit_id=commit_id)
-        db.session.commit()
+        job.transition_status(
+            LandingJobAction.LAND, commit_id=commit_id, commit=True, db=db
+        )
 
         # Extra steps for post-uplift landings.
         if repo.approval_required:
