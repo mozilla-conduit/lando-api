@@ -149,13 +149,13 @@ class LandingWorker(Worker):
         )
 
     def process_merge_conflict(
-            self,
-            exception: PatchConflict,
-            repo: Repo,
-            hgrepo: HgRepo,
-            revision_id: int,
+        self,
+        exception: PatchConflict,
+        repo: Repo,
+        hgrepo: HgRepo,
+        revision_id: int,
     ):
-        "Extract and parse merge conflict data from exception into a usable format."""
+        "Extract and parse merge conflict data from exception into a usable format." ""
         failed_paths, reject_paths = self.extract_error_data(str(exception))
 
         # Find last commits to touch each failed path.
