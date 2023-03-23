@@ -16,7 +16,7 @@ from landoapi.phabricator import (
     ReviewerStatus,
     PhabricatorAPIException,
     PhabricatorClient,
-    RevisionStatus,
+    PhabricatorRevisionStatus,
 )
 from landoapi.secapproval import (
     CommentParseError,
@@ -87,9 +87,9 @@ def serialize_diff(diff: dict) -> dict[str, Any]:
 
 def serialize_status(revision: dict) -> dict:
     status_value = PhabricatorClient.expect(revision, "fields", "status", "value")
-    status = RevisionStatus.from_status(status_value)
+    status = PhabricatorRevisionStatus.from_status(status_value)
 
-    if status is RevisionStatus.UNEXPECTED_STATUS:
+    if status is PhabricatorRevisionStatus.UNEXPECTED_STATUS:
         logger.warning(
             "Revision had unexpected status",
             extra={
@@ -134,10 +134,10 @@ def check_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
 
 
 def check_author_planned_changes(*, revision, **kwargs):
-    status = RevisionStatus.from_status(
+    status = PhabricatorRevisionStatus.from_status(
         PhabricatorClient.expect(revision, "fields", "status", "value")
     )
-    if status is not RevisionStatus.CHANGES_PLANNED:
+    if status is not PhabricatorRevisionStatus.CHANGES_PLANNED:
         return None
 
     return "The author has indicated they are planning changes to this revision."
