@@ -155,7 +155,7 @@ class LandingWorker(Worker):
             hgrepo: HgRepo,
             revision_id: int,
     ):
-        "Extract and parser merge conflict data from exception into a usable format."""
+        "Extract and parse merge conflict data from exception into a usable format."""
         failed_paths, reject_paths = self.extract_error_data(str(exception))
 
         # Find last commits to touch each failed path.
