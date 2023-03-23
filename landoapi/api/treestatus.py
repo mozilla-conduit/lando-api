@@ -329,13 +329,13 @@ def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
         )
 
     if revert:
-        for chtree in status_change.trees:
-            tree = get_tree_by_name(chtree.tree)
+        for changed_tree in status_change.trees:
+            tree = get_tree_by_name(changed_tree.tree)
             if tree is None:
                 # if there's no tree to update, don't worry about it
                 continue
 
-            last_state = load_last_state(chtree.last_state)
+            last_state = load_last_state(changed_tree.last_state)
             update_tree_status(
                 session,
                 tree.model,
