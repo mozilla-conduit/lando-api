@@ -148,7 +148,14 @@ class LandingWorker(Worker):
             job.requester_email, job.head_revision, job.error, job.id
         )
 
-    def process_merge_conflict(self, exception, repo, hgrepo, revision_id):
+    def process_merge_conflict(
+            self,
+            exception: PatchConflict,
+            repo: Repo,
+            hgrepo: HgRepo,
+            revision_id: int,
+    ):
+        "Extract and parser merge conflict data from exception into a usable format."""
         failed_paths, reject_paths = self.extract_error_data(str(exception))
 
         # Find last commits to touch each failed path.
@@ -179,23 +186,23 @@ class LandingWorker(Worker):
 
         breakdown["failed_paths"] = [
             {
-                "path": r[0],
-                "url": f"{repo.pull_path}/file/{r[1].decode('utf-8')}/{r[0]}",
-                "changeset_id": r[1].decode("utf-8"),
+                "path": path[0],
+                "url": f"{repo.pull_path}/file/{path[1].decode('utf-8')}/{path[0]}",
+                "changeset_id": path[1].decode("utf-8"),
             }
-            for r in failed_path_changesets
+            for path in failed_path_changesets
         ]
         breakdown["reject_paths"] = {}
-        for r in reject_paths:
-            reject = {"path": r}
+        for path in reject_paths:
+            reject = {"path": path}
             try:
-                with open(REJECTS_PATH / hgrepo.path[1:] / r, "r") as f:
+                with open(REJECTS_PATH / hgrepo.path[1:] / path, "r") as f:
                     reject["content"] = f.read()
             except Exception as e:
                 logger.exception(e)
             # Use actual path of file to store reject data, by removing
             # `.rej` extension.
-            breakdown["reject_paths"][r[:-4]] = reject
+            breakdown["reject_paths"][path[:-4]] = reject
         return breakdown
 
     @staticmethod
