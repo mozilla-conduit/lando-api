@@ -535,7 +535,7 @@ def make_tree(tree: str, body: dict):
 @auth.require_auth0(
     groups=(auth.TREESTATUS_ADMIN), scopes=("lando", "profile", "email"), userinfo=True
 )
-def kill_tree(tree: str) -> tuple[str, int]:
+def delete_tree(tree: str) -> tuple[str, int]:
     """Handler for `DELETE /trees/{tree}`."""
     remove_tree_by_name(tree)
     return tree, 200

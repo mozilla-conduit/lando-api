@@ -616,7 +616,7 @@ paths:
           schema:
             type: string
     delete:
-      operationId: landoapi.api.treestatus.kill_tree
+      operationId: landoapi.api.treestatus.delete_tree
       description: Delete a tree.
       parameters:
         - name: tree
