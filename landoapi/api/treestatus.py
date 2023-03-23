@@ -332,7 +332,7 @@ def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
         for changed_tree in status_change.trees:
             tree = get_tree_by_name(changed_tree.tree)
             if tree is None:
-                # if there's no tree to update, don't worry about it
+                # If there's no tree to update we just continue.
                 continue
 
             last_state = load_last_state(changed_tree.last_state)
