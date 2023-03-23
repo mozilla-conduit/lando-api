@@ -55,7 +55,7 @@ class Tree(Base):
     """A Tree that is managed via Treestatus."""
 
     # Name of the tree.
-    tree = db.Column(db.String(32), index=True, unique=True)
+    tree = db.Column(db.String(32), index=True, unique=True, nullable=False)
 
     # The current status of the tree.
     status = db.Column(db.String(64), default="open", nullable=False)
