@@ -104,7 +104,7 @@ def test_get_tree_missing(db):
 
 def test_api_get_trees2(db, client, new_treestatus_tree):
     """API test for `GET /trees2`."""
-    response = client.get("/trees2")
+    response = client.get("/treestatus/trees2")
     assert (
         response.status_code == 200
     ), "`GET /trees2` should return 200 even when no trees are found."
@@ -112,7 +112,7 @@ def test_api_get_trees2(db, client, new_treestatus_tree):
     assert response.json["result"] == [], "Result from Treestatus should be empty."
 
     new_treestatus_tree(tree="mozilla-central")
-    response = client.get("/trees2")
+    response = client.get("/treestatus/trees2")
     assert (
         response.status_code == 200
     ), "`GET /trees2` should return 200 when trees are found."
@@ -137,11 +137,11 @@ def test_api_get_logs(_now_mock, db, client, auth0_mock):
 
     def patch_tree(body):
         """Convenience closure to patch the tree."""
-        client.patch("/trees", headers=auth0_mock.mock_headers, json=body)
+        client.patch("/treestatus/trees", headers=auth0_mock.mock_headers, json=body)
 
     # Create a new tree.
     client.put(
-        "/trees/tree",
+        "/treestatus/trees/tree",
         headers=auth0_mock.mock_headers,
         json={
             "status": "closed",
@@ -222,7 +222,7 @@ def test_api_get_logs(_now_mock, db, client, auth0_mock):
 
     # Check the most recent logs are returned.
     response = client.get(
-        "/trees/tree/logs",
+        "/treestatus/trees/tree/logs",
         headers=auth0_mock.mock_headers,
         json={
             "status": "closed",
@@ -286,7 +286,7 @@ def test_api_get_logs(_now_mock, db, client, auth0_mock):
 
     # Check all results are returned from `logs_all`.
     response = client.get(
-        "/trees/tree/logs_all",
+        "/treestatus/trees/tree/logs_all",
         headers=auth0_mock.mock_headers,
         json={
             "status": "closed",
@@ -375,7 +375,9 @@ def test_api_get_logs(_now_mock, db, client, auth0_mock):
 
 def test_api_delete_trees_unknown(db, client, auth0_mock):
     """API test for `DELETE /trees/{tree}` with an unknown tree."""
-    response = client.delete("/trees/unknowntree", headers=auth0_mock.mock_headers)
+    response = client.delete(
+        "/treestatus/trees/unknowntree", headers=auth0_mock.mock_headers
+    )
     assert (
         response.status_code == 404
     ), "Deleting an unknown tree should return a `404`."
@@ -392,7 +394,9 @@ def test_api_delete_trees_known(db, client, auth0_mock, new_treestatus_tree):
     new_treestatus_tree(tree="mozilla-central")
 
     # Delete the tree
-    response = client.delete("/trees/mozilla-central", headers=auth0_mock.mock_headers)
+    response = client.delete(
+        "/treestatus/trees/mozilla-central", headers=auth0_mock.mock_headers
+    )
     assert (
         response.status_code == 200
     ), "Deleting an unknown tree should return a `200`."
@@ -409,7 +413,7 @@ def test_api_put_trees_name_mismatch(db, client, auth0_mock):
     """API test for `PUT /trees/{tree}` when body and URL name do not match."""
     # Tree name in URL doesn't match body
     response = client.put(
-        "/trees/wrongname",
+        "/treestatus/trees/wrongname",
         headers=auth0_mock.mock_headers,
         json={
             "status": "closed",
@@ -427,7 +431,7 @@ def test_api_put_trees(db, client, auth0_mock):
     """API test for `PUT /trees/{tree}`."""
     # Tree can be added as expected.
     response = client.put(
-        "/trees/tree",
+        "/treestatus/trees/tree",
         headers=auth0_mock.mock_headers,
         json={
             "status": "closed",
@@ -447,7 +451,7 @@ def test_api_put_trees(db, client, auth0_mock):
     }, "Response format should match expected."
 
     # Tree can be retrieved from the API after being added.
-    response = client.get("/trees/tree")
+    response = client.get("/treestatus/trees/tree")
     assert (
         response.status_code == 200
     ), "Retrieving tree after addition should return 200 status code."
@@ -462,7 +466,7 @@ def test_api_put_trees(db, client, auth0_mock):
 
     # Attempt to add a duplicate tree.
     response = client.put(
-        "/trees/tree",
+        "/treestatus/trees/tree",
         headers=auth0_mock.mock_headers,
         json={
             "status": "closed",
@@ -484,7 +488,7 @@ def test_api_put_trees(db, client, auth0_mock):
 
 def test_api_get_trees_single_not_found(db, client):
     """API test for `GET /trees/{tree}` with an unknown tree."""
-    response = client.get("/trees/unknowntree")
+    response = client.get("/treestatus/trees/unknowntree")
     assert (
         response.status_code == 404
     ), "Response code for unknown tree should be `404`."
@@ -500,7 +504,7 @@ def test_api_get_trees_single_exists(db, client, new_treestatus_tree):
     """API test for `GET /trees/{tree}` with a known tree."""
     new_treestatus_tree(tree="mozilla-central")
 
-    response = client.get("/trees/mozilla-central")
+    response = client.get("/treestatus/trees/mozilla-central")
     assert (
         response.status_code == 200
     ), "Response code when a tree is found should be `200`."
@@ -522,7 +526,7 @@ def test_api_patch_trees_unknown_tree(db, client, auth0_mock, new_treestatus_tre
 
     # Pass a tree that doesn't exist.
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={"trees": ["badtree"]},
     )
@@ -536,7 +540,7 @@ def test_api_patch_trees_tags_required(db, client, auth0_mock, new_treestatus_tr
 
     # Tags are required when closing a tree.
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={"status": "closed", "trees": ["autoland", "mozilla-central"]},
     )
@@ -560,7 +564,7 @@ def test_api_patch_trees_remember_required_args(
 
     # Remember == True requires status.
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -581,7 +585,7 @@ def test_api_patch_trees_remember_required_args(
 
     # Remember == True requires reason.
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -602,7 +606,7 @@ def test_api_patch_trees_remember_required_args(
 
     # Remember == True requires tags.
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -634,7 +638,7 @@ def test_api_patch_trees_success_remember(
     new_treestatus_tree(tree="autoland")
 
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -649,7 +653,7 @@ def test_api_patch_trees_success_remember(
     ), "Successful updating of tree statuses should return `204`."
 
     # Ensure the statuses were both updated as expected.
-    response = client.get("/trees")
+    response = client.get("/treestatus/trees")
     assert response.json["result"] == {
         "autoland": {
             "log_id": 2,
@@ -669,7 +673,7 @@ def test_api_patch_trees_success_remember(
         },
     }, "Both trees should have their status updated."
 
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert response.status_code == 200
     assert response.json["result"] == [
         {
@@ -720,7 +724,7 @@ def test_api_patch_trees_success_no_remember(
     new_treestatus_tree(tree="autoland")
 
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "reason": "somereason",
@@ -734,7 +738,7 @@ def test_api_patch_trees_success_no_remember(
     ), "Successful updating of tree statuses should return `204`."
 
     # Ensure the statuses were both updated as expected.
-    response = client.get("/trees")
+    response = client.get("/treestatus/trees")
     assert response.json["result"] == {
         "autoland": {
             "log_id": 2,
@@ -754,7 +758,7 @@ def test_api_patch_trees_success_no_remember(
         },
     }, "Both trees should have their status updated."
 
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert response.status_code == 200
     assert (
         response.json["result"] == []
@@ -763,7 +767,7 @@ def test_api_patch_trees_success_no_remember(
 
 def test_api_get_trees(db, client, new_treestatus_tree):
     """API test for `GET /trees`."""
-    response = client.get("/trees")
+    response = client.get("/treestatus/trees")
     assert (
         response.status_code == 200
     ), "`GET /trees` should return 200 even when no trees are found."
@@ -771,7 +775,7 @@ def test_api_get_trees(db, client, new_treestatus_tree):
     assert response.json["result"] == {}, "Result from Treestatus should be empty."
 
     new_treestatus_tree(tree="mozilla-central")
-    response = client.get("/trees")
+    response = client.get("/treestatus/trees")
     assert (
         response.status_code == 200
     ), "`GET /trees` should return 200 when trees are found."
@@ -800,7 +804,7 @@ def test_api_delete_stack2_restore(
     new_treestatus_tree(tree="autoland")
 
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -813,7 +817,7 @@ def test_api_delete_stack2_restore(
     assert response.status_code == 204, "Response code should be 204."
 
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -824,7 +828,7 @@ def test_api_delete_stack2_restore(
         },
     )
 
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert "result" in response.json, "Response should contain a `result` key."
     assert response.json["result"] == [
         {
@@ -903,10 +907,12 @@ def test_api_delete_stack2_restore(
         },
     ], "Current stack should contain changes."
 
-    response = client.delete("/stack2/restore/2", headers=auth0_mock.mock_headers)
+    response = client.delete(
+        "/treestatus/stack2/restore/2", headers=auth0_mock.mock_headers
+    )
     assert response.status_code == 204
 
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert "result" in response.json, "Response should contain a `result` key."
     assert response.json["result"] == [
         {
@@ -949,7 +955,7 @@ def test_api_delete_stack2_restore(
     ], "Current stack should restore previous stack state."
 
     # Check current tree state.
-    response = client.get("/trees/autoland")
+    response = client.get("/treestatus/trees/autoland")
     assert response.status_code == 200
     assert response.json["result"] == {
         "log_id": 6,
@@ -973,7 +979,7 @@ def test_api_delete_stack2_discard(
     new_treestatus_tree(tree="autoland")
 
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -986,7 +992,7 @@ def test_api_delete_stack2_discard(
     assert response.status_code == 204
 
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -997,7 +1003,7 @@ def test_api_delete_stack2_discard(
         },
     )
 
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert "result" in response.json, "Response should contain a `result` key."
     assert response.json["result"] == [
         {
@@ -1076,10 +1082,12 @@ def test_api_delete_stack2_discard(
         },
     ], "Current stack should contain changes."
 
-    response = client.delete("/stack2/discard/2", headers=auth0_mock.mock_headers)
+    response = client.delete(
+        "/treestatus/stack2/discard/2", headers=auth0_mock.mock_headers
+    )
     assert response.status_code == 204
 
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert "result" in response.json, "Response should contain a `result` key."
     assert response.json["result"] == [
         {
@@ -1121,7 +1129,7 @@ def test_api_delete_stack2_discard(
         },
     ], "Current stack should contain updated changes after discard."
 
-    response = client.get("/trees/autoland")
+    response = client.get("/treestatus/trees/autoland")
     assert response.status_code == 200
     assert response.json["result"] == {
         "log_id": 4,
@@ -1143,7 +1151,7 @@ def test_api_patch_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock)
 
     # Set the tree to open.
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -1157,7 +1165,7 @@ def test_api_patch_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock)
 
     # Set the tree to closed.
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -1170,7 +1178,7 @@ def test_api_patch_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock)
     assert response.status_code == 204
 
     # Get information about the stack.
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert response.status_code == 200
     assert response.json["result"] == [
         {
@@ -1223,14 +1231,14 @@ def test_api_patch_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock)
 
     # Patch the stack.
     response = client.patch(
-        "/stack/1",
+        "/treestatus/stack/1",
         headers=auth0_mock.mock_headers,
         json={"reason": "updated reason", "tags": ["updated tags"]},
     )
     assert response.status_code == 200, "Response should be `200` on successful update."
 
     # Check the stack has been updated.
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert response.status_code == 200
     assert response.json["result"] == [
         {
@@ -1290,7 +1298,7 @@ def test_api_patch_log(_now_mock, client, new_treestatus_tree, auth0_mock):
 
     new_treestatus_tree(tree="autoland")
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -1302,12 +1310,12 @@ def test_api_patch_log(_now_mock, client, new_treestatus_tree, auth0_mock):
     )
     assert response.status_code == 204
 
-    response = client.get("/trees/autoland/logs")
+    response = client.get("/treestatus/trees/autoland/logs")
 
     log_id = response.json["result"][0]["id"]
 
     response = client.patch(
-        f"/log/{log_id}",
+        f"/treestatus/log/{log_id}",
         headers=auth0_mock.mock_headers,
         json={"reason": "new log reason"},
     )
@@ -1316,7 +1324,7 @@ def test_api_patch_log(_now_mock, client, new_treestatus_tree, auth0_mock):
     ), "Response code should be `200` on successful update."
 
     response = client.patch(
-        f"/log/{log_id}",
+        f"/treestatus/log/{log_id}",
         headers=auth0_mock.mock_headers,
         json={"tags": ["new tag 1", "new tag 2"]},
     )
@@ -1324,7 +1332,7 @@ def test_api_patch_log(_now_mock, client, new_treestatus_tree, auth0_mock):
         response.status_code == 200
     ), "Response code should be `200` on successful update."
 
-    response = client.get("/trees/autoland/logs")
+    response = client.get("/treestatus/trees/autoland/logs")
     assert response.status_code == 200
     log_result = response.json["result"][0]
     assert (
@@ -1335,7 +1343,7 @@ def test_api_patch_log(_now_mock, client, new_treestatus_tree, auth0_mock):
         "new tag 2",
     ], "Fetching logs should show updated tags."
 
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert response.status_code == 200
     stack_tree = response.json["result"][0]["trees"][0]["last_state"]
     assert (
@@ -1357,7 +1365,7 @@ def test_api_get_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock):
     new_treestatus_tree(tree="autoland")
 
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -1370,7 +1378,7 @@ def test_api_get_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock):
     assert response.status_code == 204
 
     response = client.patch(
-        "/trees",
+        "/treestatus/trees",
         headers=auth0_mock.mock_headers,
         json={
             "remember": True,
@@ -1381,7 +1389,7 @@ def test_api_get_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock):
         },
     )
 
-    response = client.get("/stack")
+    response = client.get("/treestatus/stack")
     assert response.status_code == 200
     assert "result" in response.json, "Response should contain a `result` key."
     assert response.json["result"] == [

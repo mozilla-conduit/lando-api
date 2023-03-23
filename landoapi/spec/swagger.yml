@@ -424,7 +424,7 @@ paths:
             allOf:
               - $ref: '#/definitions/Error'
 
-  /stack:
+  /treestatus/stack:
     get:
       operationId: landoapi.api.treestatus.get_stack
       description: |
@@ -442,7 +442,7 @@ paths:
                 items:
                   $ref: '#/definitions/StateChange'
 
-  /stack/{id}:
+  /treestatus/stack/{id}:
     patch:
       operationId: landoapi.api.treestatus.update_stack
       description: |
@@ -497,7 +497,7 @@ paths:
           schema:
             type: string
 
-  /stack2/discard/{id}:
+  /treestatus/stack2/discard/{id}:
     delete:
       operationId: landoapi.api.treestatus.discard_change
       description: |
@@ -514,7 +514,7 @@ paths:
           schema:
             type: string
 
-  /stack2/restore/{id}:
+  /treestatus/stack2/restore/{id}:
     delete:
       operationId: landoapi.api.treestatus.restore_change
       description: |
@@ -531,7 +531,7 @@ paths:
           schema:
             type: string
 
-  /trees:
+  /treestatus/trees:
     get:
       operationId: landoapi.api.treestatus.get_trees
       description: Get the status of all trees.
@@ -570,7 +570,7 @@ paths:
           schema:
             type: string
 
-  /trees/{tree}:
+  /treestatus/trees/{tree}:
     get:
       operationId: landoapi.api.treestatus.get_tree
       description: |
@@ -630,7 +630,7 @@ paths:
           schema:
             type: string
 
-  /log/{id}:
+  /treestatus/log/{id}:
     patch:
       operationId: landoapi.api.treestatus.update_log
       description: |
@@ -659,7 +659,7 @@ paths:
           schema:
             type: string
 
-  /trees/{tree}/logs_all:
+  /treestatus/trees/{tree}/logs_all:
     get:
       operationId: landoapi.api.treestatus.get_logs_all
       description: |
@@ -685,7 +685,7 @@ paths:
                 items:
                   $ref: '#/definitions/TreeLog'
 
-  /trees/{tree}/logs:
+  /treestatus/trees/{tree}/logs:
     get:
       operationId: landoapi.api.treestatus.get_logs
       description: |
@@ -711,7 +711,7 @@ paths:
                 items:
                   $ref: '#/definitions/TreeLog'
 
-  /trees2:
+  /treestatus/trees2:
     get:
       operationId: landoapi.api.treestatus.get_trees2
       description: Get the status of all trees.
