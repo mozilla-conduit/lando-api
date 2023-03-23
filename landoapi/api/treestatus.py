@@ -135,7 +135,7 @@ def get_tree_by_name(tree: str) -> Optional[CombinedTree]:
             Log,
             Log.tree == Tree.tree,
         )
-        .order_by(Tree.tree.desc(), Log.when.desc())
+        .order_by(Tree.tree.desc(), Log.created_at.desc())
         .filter(Tree.tree == tree)
     )
 
@@ -213,7 +213,7 @@ def get_combined_trees(trees: Optional[list[Tree]] = None) -> list[CombinedTree]
             Log,
             Log.tree == Tree.tree,
         )
-        .order_by(Tree.tree.desc(), Log.when.desc())
+        .order_by(Tree.tree.desc(), Log.created_at.desc())
     )
 
     if trees:
@@ -258,7 +258,7 @@ def update_tree_status(
             reason = "no change"
         log = Log(
             tree=tree.tree,
-            when=_now(),
+            created_at=_now(),
             who=g.auth0_user.user_id(),
             status=status,
             reason=reason,
@@ -274,7 +274,7 @@ def get_stack() -> list[dict]:
     """Handler for `GET /stack`."""
     return [
         status_change.to_dict()
-        for status_change in StatusChange.query.order_by(StatusChange.when.desc())
+        for status_change in StatusChange.query.order_by(StatusChange.created_at.desc())
     ]
 
 
@@ -464,7 +464,7 @@ def update_trees(body: dict):
         status_change = StatusChange(
             who=g.auth0_user.user_id(),
             reason=body["reason"],
-            when=_now(),
+            created_at=_now(),
             status=body["status"],
         )
 
@@ -594,7 +594,7 @@ def get_logs_for_tree(tree_name: str, limit_logs: bool = True) -> list[dict]:
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    query = session.query(Log).filter_by(tree=tree_name).order_by(Log.when.desc())
+    query = session.query(Log).filter_by(tree=tree_name).order_by(Log.created_at.desc())
     if limit_logs:
         query = query.limit(TREE_SUMMARY_LOG_LIMIT)
 

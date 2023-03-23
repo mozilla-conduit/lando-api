@@ -83,9 +83,6 @@ class Log(Base):
         db.String(64), db.ForeignKey(Tree.tree), nullable=False, index=True
     )
 
-    # The timestamp the log entry was created.
-    when = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
-
     # A string representing the user who updated the tree.
     who = db.Column(db.Text, nullable=False)
 
@@ -116,7 +113,7 @@ class Log(Base):
             "status": self.status,
             "tags": self.tags,
             "tree": self.tree,
-            "when": self.when.isoformat(),
+            "when": self.created_at.isoformat(),
             "who": self.who,
         }
 
@@ -129,9 +126,6 @@ class StatusChange(Base):
 
     # A string describing the reason the tree's status was changed.
     reason = db.Column(db.Text, nullable=False)
-
-    # The timestamp the status was changed.
-    when = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
 
     # The status the trees were changed to.
     status = db.Column(db.String(64), nullable=False)
@@ -147,7 +141,7 @@ class StatusChange(Base):
             "reason": self.reason,
             "status": self.status,
             "trees": [tree.to_dict() for tree in self.trees],
-            "when": self.when.isoformat(),
+            "when": self.created_at.isoformat(),
             "who": self.who,
         }
 
