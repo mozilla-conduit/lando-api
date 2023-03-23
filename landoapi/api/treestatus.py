@@ -259,7 +259,7 @@ def update_tree_status(
         log = Log(
             tree=tree.tree,
             created_at=_now(),
-            who=g.auth0_user.user_id(),
+            changed_by=g.auth0_user.user_id(),
             status=status,
             reason=reason,
             tags=tags,
@@ -462,7 +462,7 @@ def update_trees(body: dict):
     if "remember" in body and body["remember"] is True:
         # Add a new stack entry with the new and existing states.
         status_change = StatusChange(
-            who=g.auth0_user.user_id(),
+            changed_by=g.auth0_user.user_id(),
             reason=body["reason"],
             created_at=_now(),
             status=body["status"],

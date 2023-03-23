@@ -84,7 +84,7 @@ class Log(Base):
     )
 
     # A string representing the user who updated the tree.
-    who = db.Column(db.Text, nullable=False)
+    changed_by = db.Column(db.Text, nullable=False)
 
     # The status which the tree has been set to.
     status = db.Column(db.String(64), nullable=False)
@@ -114,7 +114,7 @@ class Log(Base):
             "tags": self.tags,
             "tree": self.tree,
             "when": self.created_at.isoformat(),
-            "who": self.who,
+            "who": self.changed_by,
         }
 
 
@@ -122,7 +122,7 @@ class StatusChange(Base):
     """A change of status which applies to trees."""
 
     # The user who changed the tree status.
-    who = db.Column(db.Text, nullable=False)
+    changed_by = db.Column(db.Text, nullable=False)
 
     # A string describing the reason the tree's status was changed.
     reason = db.Column(db.Text, nullable=False)
@@ -142,7 +142,7 @@ class StatusChange(Base):
             "status": self.status,
             "trees": [tree.to_dict() for tree in self.trees],
             "when": self.created_at.isoformat(),
-            "who": self.who,
+            "who": self.changed_by,
         }
 
 
