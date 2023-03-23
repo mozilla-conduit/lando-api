@@ -407,16 +407,14 @@ class LandingWorker(Worker):
                 "utf-8"
             )
 
-            temporary_exceptions = {
-                TreeClosed: f"Tree {repo.tree} is closed - retrying later.",
-                TreeApprovalRequired: f"Tree {repo.tree} requires approval - retrying later.",
-                LostPushRace: f"Lost push race when pushing to {repo.push_path}.",
-            }
-
+            repo_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
                 hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
-            except tuple(temporary_exceptions.keys()) as e:
-                message = temporary_exceptions[e.__class__]
+            except (TreeClosed, TreeApprovalRequired, LostPushRace) as e:
+                message = (
+                    f"`Temporary error ({e.__class__}) "
+                    f"encountered while pushing to {repo_info}"
+                )
                 job.transition_status(
                     LandingJobAction.DEFER, message=message, commit=True, db=db
                 )
