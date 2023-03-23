@@ -4,7 +4,7 @@
 
 import pytest
 
-from landoapi.phabricator import RevisionStatus, ReviewerStatus
+from landoapi.phabricator import PhabricatorRevisionStatus, ReviewerStatus
 from landoapi.repos import get_repos_for_env
 from landoapi.revisions import (
     check_author_planned_changes,
@@ -39,7 +39,12 @@ def test_check_diff_author_is_known_with_unknown_author(phabdouble):
 
 
 @pytest.mark.parametrize(
-    "status", [s for s in RevisionStatus if s is not RevisionStatus.CHANGES_PLANNED]
+    "status",
+    [
+        s
+        for s in PhabricatorRevisionStatus
+        if s is not PhabricatorRevisionStatus.CHANGES_PLANNED
+    ],
 )
 def test_check_author_planned_changes_changes_not_planned(phabdouble, status):
     revision = phabdouble.api_object_for(
@@ -51,7 +56,7 @@ def test_check_author_planned_changes_changes_not_planned(phabdouble, status):
 
 def test_check_author_planned_changes_changes_planned(phabdouble):
     revision = phabdouble.api_object_for(
-        phabdouble.revision(status=RevisionStatus.CHANGES_PLANNED),
+        phabdouble.revision(status=PhabricatorRevisionStatus.CHANGES_PLANNED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
     assert check_author_planned_changes(revision=revision) is not None

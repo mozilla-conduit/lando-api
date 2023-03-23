@@ -10,7 +10,7 @@ from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.phabricator import ReviewerStatus, RevisionStatus
+from landoapi.phabricator import ReviewerStatus, PhabricatorRevisionStatus
 from landoapi.repos import Repo, SCM_CONDUIT, DONTBUILD
 from landoapi.reviews import get_collated_reviewers
 from landoapi.tasks import admin_remove_phab_project
@@ -494,7 +494,12 @@ def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
 
 
 @pytest.mark.parametrize(
-    "status", [s for s in RevisionStatus if s is not RevisionStatus.ACCEPTED]
+    "status",
+    [
+        s
+        for s in PhabricatorRevisionStatus
+        if s is not PhabricatorRevisionStatus.ACCEPTED
+    ],
 )
 def test_warning_not_accepted_warns_on_other_status(phabdouble, status):
     revision = phabdouble.api_object_for(
@@ -507,7 +512,7 @@ def test_warning_not_accepted_warns_on_other_status(phabdouble, status):
 
 def test_warning_not_accepted_no_warning_when_accepted(phabdouble):
     revision = phabdouble.api_object_for(
-        phabdouble.revision(status=RevisionStatus.ACCEPTED),
+        phabdouble.revision(status=PhabricatorRevisionStatus.ACCEPTED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
@@ -956,7 +961,7 @@ def test_warning_wip_commit_message(phabdouble):
     revision = phabdouble.api_object_for(
         phabdouble.revision(
             title="WIP: Bug 123: test something r?reviewer",
-            status=RevisionStatus.ACCEPTED,
+            status=PhabricatorRevisionStatus.ACCEPTED,
         ),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
