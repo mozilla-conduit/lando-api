@@ -4,14 +4,12 @@
 import logging
 import logging.config
 import os
-
 from typing import Any
 
 import connexion
 from connexion.resolver import RestyResolver
 
 import landoapi.models  # noqa, makes sure alembic knows about the models.
-
 from landoapi.auth import auth0_subsystem
 from landoapi.cache import cache_subsystem
 from landoapi.celery import celery_subsystem
@@ -109,7 +107,7 @@ def construct_app(config: dict[str, Any]) -> connexion.App:
     app.add_api(
         "swagger.yml",
         resolver=RestyResolver("landoapi.api"),
-        options=dict(swagger_ui=False),
+        options={"swagger_ui": False},
     )
     flask_app = app.app
     flask_app.config.update(config)

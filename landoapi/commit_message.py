@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """Add revision data to commit message."""
 import re
-
 from typing import (
     Iterable,
     Optional,

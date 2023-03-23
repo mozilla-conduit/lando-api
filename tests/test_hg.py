@@ -7,13 +7,13 @@ import os
 import pytest
 
 from landoapi.hg import (
+    REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,
     HgRepo,
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
-    REQUEST_USER_ENV_VAR,
     TreeApprovalRequired,
     TreeClosed,
     hglib,

@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import inspect
+
 import pytest
 
 from landoapi.celery import FlaskCelery
@@ -10,7 +11,6 @@ from landoapi.models.landing_job import LandingJob
 from landoapi.models.revisions import Revision
 from landoapi.notifications import notify_user_of_landing_failure
 from landoapi.tasks import send_landing_failure_email
-
 
 dedent = inspect.cleandoc
 

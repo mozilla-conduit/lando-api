@@ -5,7 +5,6 @@
 Code Style Tests.
 """
 
-import pytest
 import subprocess
 
 from landoapi.cli import LINT_PATHS
@@ -17,7 +16,6 @@ def test_check_python_style():
     assert not output, "The python code does not adhere to the project style."
 
 
-@pytest.mark.xfail
 def test_check_python_ruff():
     passed = []
     for lint_path in LINT_PATHS:

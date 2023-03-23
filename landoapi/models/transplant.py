@@ -4,11 +4,9 @@
 import datetime
 import enum
 import logging
-
 from typing import Any
 
 import flask_sqlalchemy
-
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
 

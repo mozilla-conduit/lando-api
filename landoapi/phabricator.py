@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-
 from datetime import (
     datetime,
     timezone,
@@ -19,8 +18,8 @@ from enum import (
 from json.decoder import JSONDecodeError
 from typing import (
     Any,
-    Optional,
     Iterable,
+    Optional,
 )
 
 import requests

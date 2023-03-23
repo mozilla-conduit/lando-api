@@ -12,14 +12,14 @@ import requests
 from connexion import ProblemException
 from flask import current_app
 
-from landoapi.repos import Repo, get_repos_for_env
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import (
     PhabricatorClient,
-    ReviewerStatus,
     PhabricatorRevisionStatus,
+    ReviewerStatus,
 )
+from landoapi.repos import Repo, get_repos_for_env
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (
     check_author_planned_changes,
@@ -527,7 +527,7 @@ def get_blocker_checks(
     repositories: dict, relman_group_phid: str, stack_data: RevisionData
 ):
     """Build all transplant blocker checks that need extra Phabricator data"""
-    assert all(map(lambda r: isinstance(r, Repo), repositories.values()))
+    assert all((isinstance(r, Repo) for r in repositories.values()))
 
     return DEFAULT_OTHER_BLOCKER_CHECKS + [
         # Configure uplift check with extra data.

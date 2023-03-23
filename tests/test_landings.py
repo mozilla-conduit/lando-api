@@ -3,20 +3,20 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import io
-
-import pytest
 import textwrap
 import unittest.mock as mock
 
+import pytest
+
 from landoapi.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
-from landoapi.workers.landing_worker import LandingWorker
 from landoapi.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
 from landoapi.models.revisions import Revision
-from landoapi.repos import Repo, SCM_LEVEL_3
+from landoapi.repos import SCM_LEVEL_3, Repo
+from landoapi.workers.landing_worker import LandingWorker
 
 
 @pytest.fixture

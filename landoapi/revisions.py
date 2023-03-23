@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 from collections import Counter
-
 from typing import (
     Any,
     Callable,
@@ -11,19 +10,19 @@ from typing import (
 )
 
 from landoapi.models import SecApprovalRequest
-from landoapi.reviews import get_collated_reviewers
 from landoapi.phabricator import (
-    ReviewerStatus,
     PhabricatorAPIException,
     PhabricatorClient,
     PhabricatorRevisionStatus,
+    ReviewerStatus,
 )
+from landoapi.reviews import get_collated_reviewers
 from landoapi.secapproval import (
     CommentParseError,
     CommitDescription,
+    TransactionSearchError,
     parse_comment,
     search_sec_approval_request_for_comment,
-    TransactionSearchError,
 )
 from landoapi.uplift import (
     stack_uplift_form_submitted,

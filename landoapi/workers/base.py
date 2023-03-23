@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import logging
 import os
-import subprocess
 import re
+import subprocess
 from time import sleep
+
+from landoapi.models.configuration import ConfigurationKey, ConfigurationVariable
 from landoapi.repos import repo_clone_subsystem
 from landoapi.treestatus import treestatus_subsystem
-from landoapi.models.configuration import ConfigurationVariable, ConfigurationKey
-
 
 logger = logging.getLogger(__name__)
 

@@ -3,12 +3,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 import urllib.parse
-
 from datetime import datetime
 from typing import Optional
 
 import kombu
-from connexion import problem, ProblemException
+from connexion import ProblemException, problem
 from flask import current_app, g
 
 from landoapi import auth
@@ -27,8 +26,8 @@ from landoapi.projects import (
     get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
-    get_testing_tag_project_phids,
     get_testing_policy_phid,
+    get_testing_tag_project_phids,
     project_search,
 )
 from landoapi.repos import (
@@ -41,11 +40,11 @@ from landoapi.reviews import (
     reviewers_for_commit_message,
 )
 from landoapi.revisions import (
+    find_title_and_summary_for_landing,
     gather_involved_phids,
     get_bugzilla_bug,
-    select_diff_author,
-    find_title_and_summary_for_landing,
     revision_is_secure,
+    select_diff_author,
 )
 from landoapi.stacks import (
     RevisionData,
@@ -65,8 +64,8 @@ from landoapi.transplants import (
 )
 from landoapi.users import user_search
 from landoapi.validation import (
-    revision_id_to_int,
     parse_landing_path,
+    revision_id_to_int,
 )
 
 logger = logging.getLogger(__name__)
@@ -142,7 +141,7 @@ def _assess_transplant_request(
     Optional[RevisionData],
 ]:
     nodes, edges = _find_stack_from_landing_path(phab, landing_path)
-    stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
+    stack_data = request_extended_revision_data(phab, list(nodes))
     landing_path_phid = convert_path_id_to_phid(landing_path, stack_data)
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
@@ -412,7 +411,7 @@ def post(phab: PhabricatorClient, data: dict):
         try:
             admin_remove_phab_project.apply_async(
                 args=(r_phid, checkin_phid),
-                kwargs=dict(comment=f"#{CHECKIN_PROJ_SLUG} handled, landing queued."),
+                kwargs={"comment": f"#{CHECKIN_PROJ_SLUG} handled, landing queued."},
             )
         except kombu.exceptions.OperationalError:
             # Best effort is acceptable here, Transplant *is* going to land

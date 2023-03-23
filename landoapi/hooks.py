@@ -4,7 +4,6 @@
 
 import logging
 import time
-
 from typing import Optional
 
 from connexion import FlaskApi, problem
@@ -16,7 +15,7 @@ from flask import (
     request,
 )
 
-from landoapi.models.configuration import ConfigurationVariable, ConfigurationKey
+from landoapi.models.configuration import ConfigurationKey, ConfigurationVariable
 from landoapi.phabricator import PhabricatorAPIException
 from landoapi.sentry import sentry_sdk
 from landoapi.treestatus import TreeStatusException

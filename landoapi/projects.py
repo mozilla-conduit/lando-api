@@ -2,11 +2,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
-
 from typing import Optional
 
-from landoapi.cache import cache, DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-from landoapi.phabricator import result_list_to_phid_dict, PhabricatorClient
+from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
+from landoapi.phabricator import PhabricatorClient, result_list_to_phid_dict
 
 logger = logging.getLogger(__name__)
 

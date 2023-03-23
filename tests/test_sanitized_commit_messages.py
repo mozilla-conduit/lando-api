@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import pytest
+
 from landoapi.models.revisions import Revision
 from landoapi.phabricator import PhabricatorClient
 from landoapi.revisions import find_title_and_summary_for_landing

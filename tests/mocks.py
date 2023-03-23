@@ -13,7 +13,6 @@ from landoapi.phabricator import (
     ReviewerStatus,
 )
 from landoapi.treestatus import TreeStatus, TreeStatusError
-
 from tests.canned_responses.phabricator.diffs import (
     CANNED_DEFAULT_DIFF_CHANGES,
     CANNED_RAW_DEFAULT_DIFF,
@@ -60,7 +59,7 @@ def validate_hunk(hunk):
     assert isinstance(hunk["corpus"], str)
     lines = hunk["corpus"].splitlines()
     assert len(lines) > 0
-    assert all([line[0] in (" ", "-", "+") for line in lines])
+    assert all(line[0] in (" ", "-", "+") for line in lines)
 
     return True
 
@@ -777,7 +776,7 @@ class PhabricatorDouble:
                 }
             )
 
-        items = [p for p in self._projects]
+        items = list(self._projects)
 
         if "ids" in constraints:
             if not constraints["ids"]:
@@ -864,7 +863,7 @@ class PhabricatorDouble:
 
             return deepcopy(resp)
 
-        items = [r for r in self._diffs]
+        items = list(self._diffs)
 
         if constraints and "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]
@@ -924,30 +923,28 @@ class PhabricatorDouble:
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
 
-        if not set(types) <= set(
-            (
-                "commit.revision",
-                "commit.task",
-                "mention",
-                "mentioned-in",
-                "revision.child",
-                "revision.commit",
-                "revision.parent",
-                "revision.task",
-                "task.commit",
-                "task.duplicate",
-                "task.merged-in",
-                "task.parent",
-                "task.revision",
-                "task.subtask",
-            )
-        ):
+        if not set(types) <= {
+            "commit.revision",
+            "commit.task",
+            "mention",
+            "mentioned-in",
+            "revision.child",
+            "revision.commit",
+            "revision.parent",
+            "revision.task",
+            "task.commit",
+            "task.duplicate",
+            "task.merged-in",
+            "task.parent",
+            "task.revision",
+            "task.subtask",
+        }:
             error_info = 'Edge type "<type-is-here>" is not a recognized edge type.'
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
 
-        items = [e for e in self._edges]
+        items = list(self._edges)
         items = [i for i in items if i["sourcePHID"] in sourcePHIDs]
         items = [i for i in items if i["edgeType"] in types]
 
@@ -1152,7 +1149,7 @@ class PhabricatorDouble:
         if isinstance(transactions, list):
             transactions = list(enumerate(transactions))
         elif isinstance(transactions, dict):
-            transactions = list((k, v) for k, v, in transactions.items())
+            transactions = [(k, v) for k, v, in transactions.items()]
 
         # Validate each transaction.
         for key, t in transactions:
@@ -1167,7 +1164,7 @@ class PhabricatorDouble:
 
             if "type" not in t:
                 error_info = (
-                    f'Parameter "transactions" must contain a list of transaction '
+                    'Parameter "transactions" must contain a list of transaction '
                     'descriptions, but item with key "{key}" is missing a "type" '
                     "field. Each transaction must have a type field."
                 )
@@ -1358,7 +1355,7 @@ class PhabricatorDouble:
                 }
             )
 
-        items = [r for r in self._repos]
+        items = list(self._repos)
 
         if "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]
@@ -1607,7 +1604,7 @@ class PhabricatorDouble:
                 }
             )
 
-        items = [u for u in self._users]
+        items = list(self._users)
 
         if "ids" in constraints:
             if not constraints["ids"]:
@@ -1684,7 +1681,7 @@ class PhabricatorDouble:
                 }
             )
 
-        items = [u for u in self._users]
+        items = list(self._users)
 
         if usernames:
             items = [i for i in items if i["userName"] in usernames]

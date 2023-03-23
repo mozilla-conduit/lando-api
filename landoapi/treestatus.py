@@ -4,9 +4,9 @@
 import logging
 from json.decoder import JSONDecodeError
 
-from landoapi.systems import Subsystem
-
 import requests
+
+from landoapi.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 

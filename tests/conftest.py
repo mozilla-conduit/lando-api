@@ -9,18 +9,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-import redis
-import requests
-import sqlalchemy
 import flask.testing
 import pytest
+import redis
+import requests
 import requests_mock
+import sqlalchemy
 from flask import current_app
 from pytest_flask.plugin import JSONResponse
 
-from landoapi.app import construct_app, load_config, SUBSYSTEMS
+from landoapi.app import SUBSYSTEMS, construct_app, load_config
 from landoapi.cache import cache
-from landoapi.mocks.auth import MockAuth0, TEST_JWKS
+from landoapi.mocks.auth import TEST_JWKS, MockAuth0
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -28,11 +28,10 @@ from landoapi.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from landoapi.repos import Repo, SCM_LEVEL_3
+from landoapi.repos import SCM_LEVEL_3, Repo
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
-from landoapi.transplants import tokens_are_equal, CODE_FREEZE_OFFSET
-
+from landoapi.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
 
