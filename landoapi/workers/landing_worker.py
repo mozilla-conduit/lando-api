@@ -206,6 +206,20 @@ class LandingWorker(Worker):
         treestatus: TreeStatus,
         patch_bucket: str,
     ) -> bool:
+        """Run a given LandingJob and return appropriate boolean state.
+
+        Running a landing job goes through the following steps:
+        - Check treestatus.
+        - Update local repo with latest and prepare for import.
+        - Download patch buffers from S3.
+        - Apply each patch to the repo.
+        - Perform additional processes and checks (e.g., code formatting).
+        - Push changes to remote repo.
+
+        Returns:
+            True: The job finished processing and is in a permanent state.
+            False: The job encountered a temporary failure and should be tried again.
+        """
         if not treestatus.is_open(repo.tree):
             job.transition_status(
                 LandingJobAction.DEFER,
@@ -322,7 +336,7 @@ class LandingWorker(Worker):
                     )
                     self.notify_user_of_landing_failure(job)
                     return True
-                except NoDiffStartLine as e:
+                except NoDiffStartLine:
                     message = (
                         "Lando encountered a malformed patch, please try again. "
                         "If this error persists please file a bug: "
@@ -331,7 +345,7 @@ class LandingWorker(Worker):
                     logger.error(message)
                     job.transition_status(
                         LandingJobAction.FAIL,
-                        message=message + f"\n{e}",
+                        message=message,
                         commit=True,
                         db=db,
                     )
@@ -340,11 +354,12 @@ class LandingWorker(Worker):
                 except Exception as e:
                     message = (
                         f"Aborting, could not apply patch buffer for {revision_id}."
+                        f"\n{e}"
                     )
                     logger.exception(message)
                     job.transition_status(
                         LandingJobAction.FAIL,
-                        message=message + f"\n{e}",
+                        message=message,
                         commit=True,
                         db=db,
                     )
@@ -400,25 +415,22 @@ class LandingWorker(Worker):
 
             try:
                 hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
-            except Exception as e:
-                try_again = e.__class__ in temporary_exceptions
-                message = temporary_exceptions.get(
-                    e.__class__, f"Unexpected error while pushing to {repo.push_path}."
+            except tuple(temporary_exceptions.keys()) as e:
+                message = temporary_exceptions[e.__class__]
+                job.transition_status(
+                    LandingJobAction.DEFER, message=message, commit=True, db=db
                 )
-
-                if try_again:
-                    job.transition_status(
-                        LandingJobAction.DEFER, message=message, commit=True, db=db
-                    )
-                else:
-                    job.transition_status(
-                        LandingJobAction.FAIL,
-                        message=f"{message}\n{e}",
-                        commit=True,
-                        db=db,
-                    )
-                    self.notify_user_of_landing_failure(job)
-                return not try_again
+                return False  # Try again, this is a temporary failure.
+            except Exception as e:
+                message = f"Unexpected error while pushing to {repo.push_path}.\n{e}"
+                job.transition_status(
+                    LandingJobAction.FAIL,
+                    message=message,
+                    commit=True,
+                    db=db,
+                )
+                self.notify_user_of_landing_failure(job)
+                return True  # Do not try again, this is a permanent failure.
 
         job.transition_status(
             LandingJobAction.LAND, commit_id=commit_id, commit=True, db=db
