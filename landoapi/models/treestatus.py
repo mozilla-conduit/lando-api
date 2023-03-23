@@ -13,7 +13,6 @@ from typing import (
     Optional,
 )
 
-import sqlalchemy as sa
 import sqlalchemy.ext.hybrid
 
 from sqlalchemy.orm import (
@@ -56,16 +55,16 @@ class Tree(Base):
     """A Tree that is managed via Treestatus."""
 
     # Name of the tree.
-    tree = sa.Column(sa.String(32), index=True, unique=True)
+    tree = db.Column(db.String(32), index=True, unique=True)
 
     # The current status of the tree.
-    status = sa.Column(sa.String(64), default="open", nullable=False)
+    status = db.Column(db.String(64), default="open", nullable=False)
 
     # A string indicating the reason behind the current tree status.
-    reason = sa.Column(sa.Text, default="", nullable=False)
+    reason = db.Column(db.Text, default="", nullable=False)
 
     # A temporary message attached to the tree.
-    message_of_the_day = sa.Column(sa.Text, default="", nullable=False)
+    message_of_the_day = db.Column(db.Text, default="", nullable=False)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -80,23 +79,23 @@ class Log(Base):
     """A log of changes to a Tree."""
 
     # The name of the three which this log entry belongs to.
-    tree = sa.Column(sa.String(32), nullable=False, index=True)
+    tree = db.Column(db.String(32), nullable=False, index=True)
 
     # The timestamp the log entry was created.
-    when = sa.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    when = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
 
     # A string representing the user who updated the tree.
-    who = sa.Column(sa.Text, nullable=False)
+    who = db.Column(db.Text, nullable=False)
 
     # The status which the tree has been set to.
-    status = sa.Column(sa.String(64), nullable=False)
+    status = db.Column(db.String(64), nullable=False)
 
     # A string describing why the status has changed.
-    reason = sa.Column(sa.Text, nullable=False)
+    reason = db.Column(db.Text, nullable=False)
 
     # A set of tags (strings) which are attached to this log entry.
     # The field is a JSON-encoded list.
-    _tags = sa.Column("tags", sa.Text, nullable=False)
+    _tags = db.Column("tags", db.Text, nullable=False)
 
     def __init__(self, tags: Optional[list[str]] = None, **kwargs):
         if tags is not None:
@@ -124,16 +123,16 @@ class StatusChange(Base):
     """A change of status which applies to trees."""
 
     # The user who changed the tree status.
-    who = sa.Column(sa.Text, nullable=False)
+    who = db.Column(db.Text, nullable=False)
 
     # A string describing the reason the tree's status was changed.
-    reason = sa.Column(sa.Text, nullable=False)
+    reason = db.Column(db.Text, nullable=False)
 
     # The timestamp the status was changed.
-    when = sa.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    when = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
 
     # The status the trees were changed to.
-    status = sa.Column(sa.String(64), nullable=False)
+    status = db.Column(db.String(64), nullable=False)
 
     # A back references to a `StatusChangeTree` list.
     trees: list["StatusChangeTree"] = relationship(
@@ -155,14 +154,14 @@ class StatusChangeTree(Base):
     """A tree (ie a "stack") of status changes."""
 
     # The StatusChange that corresponds to this tree.
-    stack_id = sa.Column(sa.Integer, sa.ForeignKey(StatusChange.id), index=True)
+    stack_id = db.Column(db.Integer, db.ForeignKey(StatusChange.id), index=True)
 
     # The name of the tree this StatusChange applies to.
-    tree = sa.Column(sa.String(32), nullable=False, index=True)
+    tree = db.Column(db.String(32), nullable=False, index=True)
 
     # A JSON encoded string containing the previous state of the tree before
     # applying this change.
-    last_state = sa.Column(sa.Text, nullable=False)
+    last_state = db.Column(db.Text, nullable=False)
 
     # A backreference to the `StatusChange` model.
     stack: "StatusChange" = relationship("StatusChange", back_populates="trees")
