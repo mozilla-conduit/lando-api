@@ -16,7 +16,6 @@ attrs==23.1.0 \
     --hash=sha256:1f28b4522cdc2fb4256ac1a020c78acf9cba2c6b461ccd2c126f3aa8e8335d04 \
     --hash=sha256:6279836d581513a26f1bf235f9acd333bc9115683f14f7e8fae46c98fc50e015
     # via
-    #   flake8-bugbear
     #   jsonschema
     #   pytest
 billiard==3.6.4.0 \
@@ -96,20 +95,6 @@ ecdsa==0.18.0 \
     --hash=sha256:190348041559e21b22a1d65cee485282ca11a6f81d503fddb84d5017e9ed1e49 \
     --hash=sha256:80600258e7ed2f16b9aa1d7c295bd70194109ad5a30fdee0eaeefef1d4c559dd
     # via python-jose
-entrypoints==0.3 \
-    --hash=sha256:589f874b313739ad35be6e0cd7efde2a4e9b6fea91edcc34e58ecbb8dbe56d19 \
-    --hash=sha256:c70dd71abe5a8c85e55e12c19bd91ccfeec11a6e99044204511f9ed547d48451
-    # via flake8
-flake8==3.7.7 \
-    --hash=sha256:859996073f341f2670741b51ec1e67a01da142831aa1fdc6242dbf88dffbe661 \
-    --hash=sha256:a796a115208f5c03b18f332f7c11729812c8c3ded6c46319c59b53efd3819da8
-    # via
-    #   -r requirements.in
-    #   flake8-bugbear
-flake8-bugbear==19.3.0 \
-    --hash=sha256:5070774b668be92c4312e5ca82748ddf4ecaa7a24ff062662681bb745c7896eb \
-    --hash=sha256:fef9c9826d14ec23187ae1edeb3c6513c4e46bf0e70d86bac38f7d9aabae113d
-    # via -r requirements.in
 flask==2.2.5 \
     --hash=sha256:58107ed83443e86067e41eff4631b058178191a355886f8e479e347fa1285fdf \
     --hash=sha256:edee9b0a7ff26621bd5a8c10ff484ae28737a2410d99b0bb9a6850c7fb977aa0
@@ -292,10 +277,6 @@ markupsafe==2.1.2 \
     #   jinja2
     #   mako
     #   werkzeug
-mccabe==0.6.1 \
-    --hash=sha256:ab8a6258860da4b6677da4bd2fe5dc2c659cff31b3ee4f7f5d64e79735b80d42 \
-    --hash=sha256:dd8d182285a0fe56bace7f45b5e7d1a6ebcbf524e8f3bd87eb0f125271b8831f
-    # via flake8
 mercurial==6.1.1 \
     --hash=sha256:0132c5e72044f3a47e3f500573d6590ccfcb89b5af264767c4f2bdf04ad8fd23 \
     --hash=sha256:1b7faeb781df10308146b7da0827a40b41d0fc8f23cea28909ae6ec29cb60b10 \
@@ -360,14 +341,6 @@ pyasn1==0.5.0 \
     # via
     #   python-jose
     #   rsa
-pycodestyle==2.5.0 \
-    --hash=sha256:95a2219d12372f05704562a14ec30bc76b05a5b297b21a5dfe3f6fac3491ae56 \
-    --hash=sha256:e40a936c9a450ad81df37f549d676d127b1b66000a6c500caa2b085bc0ca976c
-    # via flake8
-pyflakes==2.1.1 \
-    --hash=sha256:17dbeb2e3f4d772725c777fabc446d5634d1038f234e77343108ce445ea69ce0 \
-    --hash=sha256:d976835886f8c5b31d47970ed689944a0262b5f3afa00a5a7b4dc81e5449f8a2
-    # via flake8
 pyrsistent==0.19.3 \
     --hash=sha256:016ad1afadf318eb7911baa24b049909f7f3bb2c5b1ed7b6a8f21db21ea3faa8 \
     --hash=sha256:1a2994773706bbb4995c31a97bc94f1418314923bd1048c6d964837040376440 \
@@ -490,6 +463,25 @@ rsa==4.9 \
     --hash=sha256:90260d9058e514786967344d0ef75fa8727eed8a7d2e43ce9f4bcf1b536174f7 \
     --hash=sha256:e38464a49c6c85d7f1351b0126661487a7e0a14a50f1675ec50eb34d4f20ef21
     # via python-jose
+ruff==0.0.270 \
+    --hash=sha256:0012f9b7dc137ab7f1f0355e3c4ca49b562baf6c9fa1180948deeb6648c52957 \
+    --hash=sha256:08188f8351f4c0b6216e8463df0a76eb57894ca59a3da65e4ed205db980fd3ae \
+    --hash=sha256:0827b074635d37984fc98d99316bfab5c8b1231bb83e60dacc83bd92883eedb4 \
+    --hash=sha256:0bbfbf6fd2436165566ca85f6e57be03ed2f0a994faf40180cfbb3604c9232ef \
+    --hash=sha256:0d61ae4841313f6eeb8292dc349bef27b4ce426e62c36e80ceedc3824e408734 \
+    --hash=sha256:0eb412f20e77529a01fb94d578b19dcb8331b56f93632aa0cce4a2ea27b7aeba \
+    --hash=sha256:21f00e47ab2308617c44435c8dfd9e2e03897461c9e647ec942deb2a235b4cfd \
+    --hash=sha256:3ed3b198768d2b3a2300fb18f730cd39948a5cc36ba29ae9d4639a11040880be \
+    --hash=sha256:643de865fd35cb76c4f0739aea5afe7b8e4d40d623df7e9e6ea99054e5cead0a \
+    --hash=sha256:739495d2dbde87cf4e3110c8d27bc20febf93112539a968a4e02c26f0deccd1d \
+    --hash=sha256:8af391ef81f7be960be10886a3c1aac0b298bde7cb9a86ec2b05faeb2081ce6b \
+    --hash=sha256:95db07b7850b30ebf32b27fe98bc39e0ab99db3985edbbf0754d399eb2f0e690 \
+    --hash=sha256:9613456b0b375766244c25045e353bc8890c856431cd97893c97b10cc93bd28d \
+    --hash=sha256:b4c037fe2f75bcd9aed0c89c7c507cb7fa59abae2bd4c8b6fc331a28178655a4 \
+    --hash=sha256:b775e2c5fc869359daf8c8b8aa0fd67240201ab2e8d536d14a0edf279af18786 \
+    --hash=sha256:eca02e709b3308eb7255b5f74e779be23b5980fca3862eae28bb23069cd61ae4 \
+    --hash=sha256:f74c4d550f7b8e808455ac77bbce38daafc458434815ba0bc21ae4bdb276509b
+    # via -r requirements.in
 sentry-sdk[flask]==1.11.1 \
     --hash=sha256:675f6279b6bb1fea09fd61751061f9a90dca3b5929ef631dd50dc8b3aeb245e9 \
     --hash=sha256:8b4ff696c0bdcceb3f70bbb87a57ba84fd3168b1332d493fcd16c137f709578c
