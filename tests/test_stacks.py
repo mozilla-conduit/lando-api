@@ -4,7 +4,7 @@
 
 import pytest
 
-from landoapi.phabricator import RevisionStatus
+from landoapi.phabricator import PhabricatorRevisionStatus
 from landoapi.repos import get_repos_for_env
 from landoapi.stacks import (
     RevisionStack,
@@ -296,7 +296,9 @@ def test_calculate_landable_subgraphs_no_edges_closed(phabdouble):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
-    revision = phabdouble.revision(repo=repo, status=RevisionStatus.PUBLISHED)
+    revision = phabdouble.revision(
+        repo=repo, status=PhabricatorRevisionStatus.PUBLISHED
+    )
     ext_data = request_extended_revision_data(phab, [revision["phid"]])
 
     landable, _ = calculate_landable_subgraphs(ext_data, set(), {repo["phid"]})
@@ -308,7 +310,7 @@ def test_calculate_landable_subgraphs_closed_root(phabdouble):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
-    r1 = phabdouble.revision(repo=repo, status=RevisionStatus.PUBLISHED)
+    r1 = phabdouble.revision(repo=repo, status=PhabricatorRevisionStatus.PUBLISHED)
     r2 = phabdouble.revision(repo=repo, depends_on=[r1])
 
     nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
@@ -324,7 +326,7 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble):
     repo = phabdouble.repo()
     r1 = phabdouble.revision(repo=repo)
     r2 = phabdouble.revision(repo=repo, depends_on=[r1])
-    r3 = phabdouble.revision(repo=repo, status=RevisionStatus.PUBLISHED)
+    r3 = phabdouble.revision(repo=repo, status=PhabricatorRevisionStatus.PUBLISHED)
     r4 = phabdouble.revision(repo=repo, depends_on=[r2, r3])
 
     nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
@@ -413,7 +415,7 @@ def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble):
     phab = phabdouble.get_phabricator_client()
 
     repo1 = phabdouble.repo(name="repo1")
-    r1 = phabdouble.revision(repo=repo1, status=RevisionStatus.PUBLISHED)
+    r1 = phabdouble.revision(repo=repo1, status=PhabricatorRevisionStatus.PUBLISHED)
 
     repo2 = phabdouble.repo(name="repo2")
     r2 = phabdouble.revision(repo=repo2)
@@ -499,17 +501,17 @@ def test_calculate_landable_subgraphs_complex_graph(phabdouble):
     #  \|/
     #   *       rA1 (CLOSED)
 
-    rA1 = phabdouble.revision(repo=repoA, status=RevisionStatus.PUBLISHED)
+    rA1 = phabdouble.revision(repo=repoA, status=PhabricatorRevisionStatus.PUBLISHED)
     rA2 = phabdouble.revision(repo=repoA, depends_on=[rA1])
     rA3 = phabdouble.revision(
-        repo=repoA, status=RevisionStatus.PUBLISHED, depends_on=[rA1]
+        repo=repoA, status=PhabricatorRevisionStatus.PUBLISHED, depends_on=[rA1]
     )
     rA4 = phabdouble.revision(repo=repoA, depends_on=[rA1, rA2])
     rA5 = phabdouble.revision(repo=repoA, depends_on=[rA4])
     rA6 = phabdouble.revision(repo=repoA, depends_on=[rA3, rA5])
     rA7 = phabdouble.revision(repo=repoA, depends_on=[rA6])
     rA8 = phabdouble.revision(repo=repoA, depends_on=[rA6])
-    rA9 = phabdouble.revision(repo=repoA, status=RevisionStatus.PUBLISHED)
+    rA9 = phabdouble.revision(repo=repoA, status=PhabricatorRevisionStatus.PUBLISHED)
 
     rB1 = phabdouble.revision(repo=repoB)
 
@@ -517,7 +519,7 @@ def test_calculate_landable_subgraphs_complex_graph(phabdouble):
 
     rC1 = phabdouble.revision(repo=repoC, depends_on=[rA10])
 
-    rB2 = phabdouble.revision(repo=repoB, status=RevisionStatus.PUBLISHED)
+    rB2 = phabdouble.revision(repo=repoB, status=PhabricatorRevisionStatus.PUBLISHED)
     rB3 = phabdouble.revision(repo=repoB, depends_on=[rA10])
     rB4 = phabdouble.revision(repo=repoB, depends_on=[rB2, rB3])
 

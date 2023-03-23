@@ -15,7 +15,11 @@ from flask import current_app
 from landoapi.repos import Repo, get_repos_for_env
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
-from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
+from landoapi.phabricator import (
+    PhabricatorClient,
+    ReviewerStatus,
+    PhabricatorRevisionStatus,
+)
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (
     check_author_planned_changes,
@@ -237,10 +241,10 @@ def warning_previously_landed(*, revision, diff, **kwargs):
 
 @RevisionWarningCheck(2, "Is not Accepted.")
 def warning_not_accepted(*, revision, **kwargs):
-    status = RevisionStatus.from_status(
+    status = PhabricatorRevisionStatus.from_status(
         PhabricatorClient.expect(revision, "fields", "status", "value")
     )
-    if status is RevisionStatus.ACCEPTED:
+    if status is PhabricatorRevisionStatus.ACCEPTED:
         return None
 
     return status.output_name

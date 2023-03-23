@@ -7,7 +7,7 @@ import pytest
 from landoapi.phabricator import (
     PhabricatorCommunicationException,
     result_list_to_phid_dict,
-    RevisionStatus,
+    PhabricatorRevisionStatus,
 )
 
 
@@ -24,7 +24,10 @@ from landoapi.phabricator import (
     ],
 )
 def test_revision_status_uknown_values(v):
-    assert RevisionStatus.from_status(v) is RevisionStatus.UNEXPECTED_STATUS
+    assert (
+        PhabricatorRevisionStatus.from_status(v)
+        is PhabricatorRevisionStatus.UNEXPECTED_STATUS
+    )
 
 
 @pytest.mark.parametrize(

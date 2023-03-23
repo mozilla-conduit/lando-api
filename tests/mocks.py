@@ -9,7 +9,7 @@ from copy import deepcopy
 from landoapi.phabricator import (
     PhabricatorAPIException,
     PhabricatorClient,
-    RevisionStatus,
+    PhabricatorRevisionStatus,
     ReviewerStatus,
 )
 from landoapi.treestatus import TreeStatus, TreeStatusError
@@ -266,7 +266,7 @@ class PhabricatorDouble:
         diff=None,
         author=None,
         repo=None,
-        status=RevisionStatus.ACCEPTED,
+        status=PhabricatorRevisionStatus.ACCEPTED,
         depends_on=[],
         bug_id=None,
         projects=[],
@@ -1045,8 +1045,9 @@ class PhabricatorDouble:
                 status_set.update(
                     {
                         s.value
-                        for s in RevisionStatus
-                        if not s.closed and s is not RevisionStatus.UNEXPECTED_STATUS
+                        for s in PhabricatorRevisionStatus
+                        if not s.closed
+                        and s is not PhabricatorRevisionStatus.UNEXPECTED_STATUS
                     }
                 )
             if "closed()" in status_set:
@@ -1054,8 +1055,9 @@ class PhabricatorDouble:
                 status_set.update(
                     {
                         s.value
-                        for s in RevisionStatus
-                        if s.closed and s is not RevisionStatus.UNEXPECTED_STATUS
+                        for s in PhabricatorRevisionStatus
+                        if s.closed
+                        and s is not PhabricatorRevisionStatus.UNEXPECTED_STATUS
                     }
                 )
 
