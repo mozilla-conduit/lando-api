@@ -153,7 +153,9 @@ class StatusChangeTree(Base):
     stack_id = db.Column(db.Integer, db.ForeignKey(StatusChange.id), index=True)
 
     # The name of the tree this StatusChange applies to.
-    tree = db.Column(db.String(32), nullable=False, index=True)
+    tree = db.Column(
+        db.String(64), db.ForeignKey(Tree.tree), nullable=False, index=True
+    )
 
     # A JSON encoded string containing the previous state of the tree before
     # applying this change.
