@@ -120,11 +120,8 @@ def get_tree_by_name(tree: str) -> Optional[CombinedTree]:
 
     Returns `None` if no tree can be found.
     """
-    session = db.session
-
     query = (
-        session.query(Tree)
-        .distinct(Tree.tree)
+        Tree.query.distinct(Tree.tree)
         .add_columns(
             Log._tags,
             Log.status,
@@ -150,7 +147,7 @@ def remove_tree_by_name(tree_name: str):
     Note: this function commits the session.
     """
     session = db.session
-    tree = session.query(Tree).filter_by(tree=tree_name).one_or_none()
+    tree = Tree.query.filter_by(tree=tree_name).one_or_none()
     if not tree:
         raise ProblemException(
             404,
@@ -174,9 +171,7 @@ def update_tree_log(
     if tags is None and reason is None:
         return
 
-    session = db.session
-
-    log = session.query(Log).get(id)
+    log = Log.query.get(id)
 
     if log is None:
         raise ProblemException(
@@ -198,11 +193,8 @@ def get_combined_trees(trees: Optional[list[Tree]] = None) -> list[CombinedTree]
     If `trees` is set, return the `CombinedTree` for those trees, otherwise
     return all known trees.
     """
-    session = db.session
-
     query = (
-        session.query(Tree)
-        .distinct(Tree.tree)
+        Tree.query.distinct(Tree.tree)
         .add_columns(
             Log._tags,
             Log.status,
@@ -285,7 +277,7 @@ def update_stack(id: int, body: dict) -> tuple[None, int]:
     """Handler for `PATCH /stack/{id}`."""
     session = db.session
 
-    change = session.query(StatusChange).get(id)
+    change = StatusChange.query.get(id)
     if not change:
         raise ProblemException(
             404,
@@ -319,7 +311,7 @@ def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
     previous values.
     """
     session = db.session
-    status_change = session.query(StatusChange).get(id)
+    status_change = StatusChange.query.get(id)
     if not status_change:
         raise ProblemException(
             404,
@@ -558,7 +550,7 @@ def update_log(id: int, body: dict):
     update_tree_log(id, tags, reason)
 
     # Iterate over all stack.
-    for status_change in session.query(StatusChange).all():
+    for status_change in StatusChange.query.all():
         for tree in status_change.trees:
             last_state = load_last_state(tree.last_state)
 
@@ -582,10 +574,8 @@ def get_logs_for_tree(tree_name: str, limit_logs: bool = True) -> list[dict]:
 
     If `limit_logs` is `True`, limit the number of returned logs to the log limit.
     """
-    session = db.session
-
     # Verify the tree exists first.
-    tree = session.query(Tree).filter_by(tree=tree_name).one_or_none()
+    tree = Tree.query.filter_by(tree=tree_name).one_or_none()
     if not tree:
         raise ProblemException(
             404,
@@ -594,7 +584,7 @@ def get_logs_for_tree(tree_name: str, limit_logs: bool = True) -> list[dict]:
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
-    query = session.query(Log).filter_by(tree=tree_name).order_by(Log.created_at.desc())
+    query = Log.query.filter_by(tree=tree_name).order_by(Log.created_at.desc())
     if limit_logs:
         query = query.limit(TREE_SUMMARY_LOG_LIMIT)
 
