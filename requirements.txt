@@ -54,11 +54,14 @@ blinker==1.4 \
 boto3==1.22.0 \
     --hash=sha256:733a651e76b37b10c1f7ccba53deae43e47ada8ae64128042632373c5d266cf7 \
     --hash=sha256:75310f5bb2af8f51f15f790d95dc4a4725bcec286f83458980ee2c3286cc0a03
-    # via moto
+    # via
+    #   -r requirements.in
+    #   moto
 botocore==1.25.0 \
     --hash=sha256:38c04682e7554dbccb33cd37863d76eaff97922dfb72677d0b7a49f8dbadc373 \
     --hash=sha256:646f0631c4ee46928be2dbb4b44e10f5f184e70ed6efddb24bc7328d81d7a175
     # via
+    #   -r requirements.in
     #   boto3
     #   moto
     #   s3transfer
@@ -136,6 +139,7 @@ click==8.1.2 \
     --hash=sha256:24e1a4a9ec5bf6299411369b208c1df2188d9eb8d916302fe6bf03faed227f1e \
     --hash=sha256:479707fe14d9ec9a0757618b7a100a0ae4c4e236fac5b7f80ca68028141a1a72
     # via
+    #   -r requirements.in
     #   black
     #   clickclick
     #   flask
@@ -216,7 +220,9 @@ flask-migrate==3.1.0 \
 flask-sqlalchemy==2.5.1 \
     --hash=sha256:2bda44b43e7cacb15d4e05ff3cc1f8bc97936cc464623424102bfc2c35e95912 \
     --hash=sha256:f12c3d4cc5cc7fdcc148b9527ea05671718c3ea45d50c7e732cceb33f574b390
-    # via flask-migrate
+    # via
+    #   -r requirements.in
+    #   flask-migrate
 greenlet==1.1.2 \
     --hash=sha256:0051c6f1f27cb756ffc0ffbac7d2cd48cb0362ac1736871399a739b2885134d3 \
     --hash=sha256:00e44c8afdbe5467e4f7b5851be223be68adb4272f44696ee71fe46b7036a711 \
@@ -315,7 +321,9 @@ jsonschema==3.2.0 \
 kombu==4.6.11 \
     --hash=sha256:be48cdffb54a2194d93ad6533d73f69408486483d189fe9f5990ee24255b0e0a \
     --hash=sha256:ca1b45faac8c0b18493d02a8571792f3c40291cf2bcf1f55afed3d8f3aa7ba74
-    # via celery
+    # via
+    #   -r requirements.in
+    #   celery
 mako==1.2.0 \
     --hash=sha256:23aab11fdbbb0f1051b93793a58323ff937e98e34aece1c4219675122e57e4ba \
     --hash=sha256:9a7c7e922b87db3686210cf49d5d767033a41d4010b284e747682c92bddd8b39
@@ -629,6 +637,7 @@ sqlalchemy==1.4.35 \
     --hash=sha256:ecc81336b46e31ae9c9bdfa220082079914e31a476d088d3337ecf531d861228 \
     --hash=sha256:effadcda9a129cc56408dd5b2ea20ee9edcea24bd58e6a1489fa27672d733182
     # via
+    #   -r requirements.in
     #   alembic
     #   flask-sqlalchemy
 tomli==2.0.1 \
