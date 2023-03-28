@@ -13,9 +13,6 @@ import click
 import connexion
 from flask.cli import FlaskGroup
 
-from landoapi import (
-    patches,
-)
 from landoapi.models.configuration import (
     ConfigurationVariable,
     ConfigurationKey,
@@ -55,18 +52,6 @@ def create_lando_api_app() -> connexion.App:
 @click.group(cls=FlaskGroup, create_app=create_lando_api_app)
 def cli():
     """Lando API cli."""
-
-
-@cli.command()
-def init_s3():
-    """Initialize fake S3 bucket for development purposes."""
-    # Create a fake S3 bucket, ie for moto.
-    s3 = patches.create_s3(
-        aws_access_key=os.environ["AWS_ACCESS_KEY"],
-        aws_secret_key=os.environ["AWS_SECRET_KEY"],
-        endpoint_url=os.environ["S3_ENDPOINT_URL"],
-    )
-    s3.create_bucket(Bucket=os.environ["PATCH_BUCKET_NAME"])
 
 
 @cli.command(context_settings=dict(ignore_unknown_options=True))

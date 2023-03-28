@@ -6,10 +6,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
+from landoapi.models.revisions import Revision
 from landoapi.phabricator import ReviewerStatus, PhabricatorRevisionStatus
 from landoapi.repos import Repo, SCM_CONDUIT, DONTBUILD
 from landoapi.reviews import get_collated_reviewers
@@ -671,6 +671,7 @@ def test_integrated_transplant_with_flags(
     test_flags = ["VALIDFLAG1", "VALIDFLAG2"]
 
     mock_format_commit_message = MagicMock()
+    mock_format_commit_message.return_value = "Mock formatted commit message."
     monkeypatch.setattr(
         "landoapi.api.transplants.format_commit_message", mock_format_commit_message
     )
@@ -950,10 +951,9 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     assert response == 202
 
     # Check the transplanted patch for our alternate commit message.
-    patch = s3.Object(
-        app.config["PATCH_BUCKET_NAME"], patches.name(revision["id"], diff["id"])
+    patch_text = Revision.get_from_revision_id(revision["id"]).patch_bytes.decode(
+        "utf-8"
     )
-    patch_text = patch.get()["Body"].read().decode()
     assert sec_approval_project["name"] not in patch_text
 
 

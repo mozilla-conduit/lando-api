@@ -7,13 +7,11 @@ from contextlib import contextmanager
 from datetime import datetime
 import logging
 import re
+from io import BytesIO
 from typing import Any
-
-from flask import current_app
 
 import kombu
 
-from landoapi import patches
 from landoapi.commit_message import parse_bugs
 from landoapi.hg import (
     AutoformattingException,
@@ -27,6 +25,7 @@ from landoapi.hg import (
 )
 from landoapi.models.configuration import ConfigurationKey
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
+from landoapi.models.revisions import Revision
 from landoapi.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -82,14 +81,6 @@ class LandingWorker(Worker):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        config_keys = [
-            "AWS_SECRET_KEY",
-            "AWS_ACCESS_KEY",
-            "PATCH_BUCKET_NAME",
-            "S3_ENDPOINT_URL",
-        ]
-
-        self.config = {k: current_app.config[k] for k in config_keys}
         self.last_job_finished = None
         self.refresh_enabled_repos()
 
@@ -133,7 +124,6 @@ class LandingWorker(Worker):
                 repo,
                 hgrepo,
                 treestatus_subsystem.client,
-                current_app.config["PATCH_BUCKET_NAME"],
             )
             logger.info("Finished processing landing job", extra={"id": job.id})
 
@@ -262,14 +252,12 @@ class LandingWorker(Worker):
         repo: Repo,
         hgrepo: HgRepo,
         treestatus: TreeStatus,
-        patch_bucket: str,
     ) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
 
         Running a landing job goes through the following steps:
         - Check treestatus.
         - Update local repo with latest and prepare for import.
-        - Download patch buffers from S3.
         - Apply each patch to the repo.
         - Perform additional processes and checks (e.g., code formatting).
         - Push changes to remote repo.
@@ -303,35 +291,16 @@ class LandingWorker(Worker):
                 self.notify_user_of_landing_failure(job)
                 return True
 
-            # Download all patches locally from S3.
-            patch_bufs = []
-            for revision_id, diff_id in job.landing_path:
-                try:
-                    patch_buf = patches.download(
-                        revision_id,
-                        diff_id,
-                        patch_bucket,
-                        aws_access_key=self.config["AWS_ACCESS_KEY"],
-                        aws_secret_key=self.config["AWS_SECRET_KEY"],
-                        endpoint_url=self.config["S3_ENDPOINT_URL"],
-                    )
-                except Exception as e:
-                    message = (
-                        f"Aborting, could not fetch {revision_id}, {diff_id} from S3."
-                    )
-                    logger.exception(message)
-                    job.transition_status(
-                        LandingJobAction.FAIL,
-                        message=message + f"\n{e}",
-                        commit=True,
-                        db=db,
-                    )
-                    self.notify_user_of_landing_failure(job)
-                    return True
-                patch_bufs.append((revision_id, patch_buf))
+            # Fetch all patches.
+            all_patches = []
+
+            for revision_id, _diff_id in job.landing_path:
+                patch_byte = Revision.get_from_revision_id(revision_id).patch_bytes
+                patch_buf = BytesIO(patch_byte)
+                all_patches.append((revision_id, patch_buf))
 
             # Run through the patches one by one and try to apply them.
-            for revision_id, patch_buf in patch_bufs:
+            for revision_id, patch_buf in all_patches:
                 try:
                     hgrepo.apply_patch(patch_buf)
                 except PatchConflict as exc:
@@ -394,7 +363,7 @@ class LandingWorker(Worker):
             # Run automated code formatters if enabled.
             if repo.autoformat_enabled:
                 try:
-                    replacements = hgrepo.format_stack(len(patch_bufs), bug_ids)
+                    replacements = hgrepo.format_stack(len(all_patches), bug_ids)
 
                     # If autoformatting added any changesets, note those in the job.
                     if replacements:

@@ -8,28 +8,26 @@ import pytest
 import textwrap
 import unittest.mock as mock
 
-from landoapi import patches
 from landoapi.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
 from landoapi.workers.landing_worker import LandingWorker
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
+from landoapi.models.revisions import Revision
 from landoapi.repos import Repo, SCM_LEVEL_3
 
 
 @pytest.fixture
-def upload_patch():
+def create_patch_revision(db):
     """A fixture that fake uploads a patch"""
 
-    def _upload_patch(number, patch=PATCH_NORMAL_1):
-        patches.upload(
-            number,
-            number,
-            patch,
-            "landoapi.test.bucket",
-            aws_access_key=None,
-            aws_secret_key=None,
-        )
+    def _create_patch_revision(number, patch=PATCH_NORMAL_1):
+        revision = Revision()
+        revision.revision_id = number
+        revision.diff_id = number
+        revision.patch_bytes = patch.encode("utf-8")
+        db.session.add(revision)
+        db.session.commit()
 
-    return _upload_patch
+    return _create_patch_revision
 
 
 PATCH_NORMAL_1 = r"""
@@ -248,7 +246,7 @@ def test_integrated_execute_job(
     hg_clone,
     treestatusdouble,
     monkeypatch,
-    upload_patch,
+    create_patch_revision,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
@@ -260,8 +258,8 @@ def test_integrated_execute_job(
         pull_path=hg_server,
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    upload_patch(1)
-    upload_patch(2)
+    create_patch_revision(1)
+    create_patch_revision(2)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
@@ -280,7 +278,7 @@ def test_integrated_execute_job(
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert worker.run_job(job, repo, hgrepo, treestatus)
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (
@@ -297,7 +295,7 @@ def test_integrated_execute_job_with_bookmark(
     hg_clone,
     treestatusdouble,
     monkeypatch,
-    upload_patch,
+    create_patch_revision,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
@@ -310,7 +308,7 @@ def test_integrated_execute_job_with_bookmark(
         push_bookmark="@",
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    upload_patch(1)
+    create_patch_revision(1)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
@@ -330,7 +328,7 @@ def test_integrated_execute_job_with_bookmark(
     )
 
     hgrepo.push = mock.MagicMock()
-    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert worker.run_job(job, repo, hgrepo, treestatus)
     assert hgrepo.push.call_count == 1
     assert len(hgrepo.push.call_args) == 2
     assert len(hgrepo.push.call_args[0]) == 1
@@ -339,7 +337,14 @@ def test_integrated_execute_job_with_bookmark(
 
 
 def test_lose_push_race(
-    app, db, s3, mock_repo_config, hg_server, hg_clone, treestatusdouble, upload_patch
+    app,
+    db,
+    s3,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    create_patch_revision,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
@@ -351,7 +356,7 @@ def test_lose_push_race(
         pull_path=hg_server,
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    upload_patch(1, patch=PATCH_PUSH_LOSER)
+    create_patch_revision(1, patch=PATCH_PUSH_LOSER)
     job = LandingJob(
         id=1234,
         status=LandingJobStatus.IN_PROGRESS,
@@ -364,7 +369,7 @@ def test_lose_push_race(
 
     worker = LandingWorker(sleep_seconds=0)
 
-    assert not worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert not worker.run_job(job, repo, hgrepo, treestatus)
     assert job.status == LandingJobStatus.DEFERRED
 
 
@@ -377,7 +382,7 @@ def test_failed_landing_job_notification(
     hg_clone,
     treestatusdouble,
     monkeypatch,
-    upload_patch,
+    create_patch_revision,
 ):
     """Ensure that a failed landings triggers a user notification."""
     treestatus = treestatusdouble.get_treestatus_client()
@@ -386,8 +391,8 @@ def test_failed_landing_job_notification(
         "mozilla-central", SCM_LEVEL_3, "", hg_server, hg_server, True, hg_server, False
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    upload_patch(1)
-    upload_patch(2)
+    create_patch_revision(1)
+    create_patch_revision(2)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
@@ -410,7 +415,7 @@ def test_failed_landing_job_notification(
         "landoapi.workers.landing_worker.notify_user_of_landing_failure", mock_notify
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert worker.run_job(job, repo, hgrepo, treestatus)
     assert job.status == LandingJobStatus.FAILED
     assert mock_notify.call_count == 1
 
@@ -480,7 +485,7 @@ def test_format_patch_success_unchanged(
     hg_clone,
     treestatusdouble,
     monkeypatch,
-    upload_patch,
+    create_patch_revision,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
     tree = "mozilla-central"
@@ -497,8 +502,8 @@ def test_format_patch_success_unchanged(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    upload_patch(1, patch=PATCH_FORMATTING_PATTERN_PASS)
-    upload_patch(2, patch=PATCH_NORMAL_3)
+    create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS)
+    create_patch_revision(2, patch=PATCH_NORMAL_3)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
@@ -517,7 +522,7 @@ def test_format_patch_success_unchanged(
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert worker.run_job(job, repo, hgrepo, treestatus)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -538,7 +543,7 @@ def test_format_single_success_changed(
     hg_clone,
     treestatusdouble,
     monkeypatch,
-    upload_patch,
+    create_patch_revision,
 ):
     """Test formatting a single commit via amending."""
     tree = "mozilla-central"
@@ -563,7 +568,7 @@ def test_format_single_success_changed(
         )
 
     # Upload a patch for formatting.
-    upload_patch(2, patch=PATCH_FORMATTED_1)
+    create_patch_revision(2, patch=PATCH_FORMATTED_1)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
@@ -583,7 +588,7 @@ def test_format_single_success_changed(
     )
 
     assert worker.run_job(
-        job, repo, hgrepo, treestatus, "landoapi.test.bucket"
+        job, repo, hgrepo, treestatus
     ), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -628,7 +633,7 @@ def test_format_stack_success_changed(
     hg_clone,
     treestatusdouble,
     monkeypatch,
-    upload_patch,
+    create_patch_revision,
 ):
     """Test formatting a stack via an autoformat tip commit."""
     tree = "mozilla-central"
@@ -645,9 +650,9 @@ def test_format_stack_success_changed(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    upload_patch(1, patch=PATCH_FORMATTING_PATTERN_PASS)
-    upload_patch(2, patch=PATCH_FORMATTED_1)
-    upload_patch(3, patch=PATCH_FORMATTED_2)
+    create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS)
+    create_patch_revision(2, patch=PATCH_FORMATTED_1)
+    create_patch_revision(3, patch=PATCH_FORMATTED_2)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
@@ -667,7 +672,7 @@ def test_format_stack_success_changed(
     )
 
     assert worker.run_job(
-        job, repo, hgrepo, treestatus, "landoapi.test.bucket"
+        job, repo, hgrepo, treestatus
     ), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -709,7 +714,7 @@ def test_format_patch_fail(
     hg_clone,
     treestatusdouble,
     monkeypatch,
-    upload_patch,
+    create_patch_revision,
 ):
     """Tests automated formatting failures before landing."""
     tree = "mozilla-central"
@@ -726,9 +731,9 @@ def test_format_patch_fail(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    upload_patch(1, patch=PATCH_FORMATTING_PATTERN_FAIL)
-    upload_patch(2)
-    upload_patch(3)
+    create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL)
+    create_patch_revision(2)
+    create_patch_revision(3)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
@@ -747,7 +752,7 @@ def test_format_patch_fail(
     )
 
     assert not worker.run_job(
-        job, repo, hgrepo, treestatus, "landoapi.test.bucket"
+        job, repo, hgrepo, treestatus
     ), "`run_job` should return `False` when autoformatting fails."
     assert (
         job.status == LandingJobStatus.FAILED
@@ -769,7 +774,7 @@ def test_format_patch_no_landoini(
     hg_clone,
     treestatusdouble,
     monkeypatch,
-    upload_patch,
+    create_patch_revision,
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
     treestatus = treestatusdouble.get_treestatus_client()
@@ -785,8 +790,8 @@ def test_format_patch_no_landoini(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    upload_patch(1)
-    upload_patch(2)
+    create_patch_revision(1)
+    create_patch_revision(2)
     job = LandingJob(
         status=LandingJobStatus.IN_PROGRESS,
         requester_email="test@example.com",
@@ -811,7 +816,7 @@ def test_format_patch_no_landoini(
         "landoapi.workers.landing_worker.notify_user_of_landing_failure", mock_notify
     )
 
-    assert worker.run_job(job, repo, hgrepo, treestatus, "landoapi.test.bucket")
+    assert worker.run_job(job, repo, hgrepo, treestatus)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Missing `.lando.ini` should not inhibit landing."

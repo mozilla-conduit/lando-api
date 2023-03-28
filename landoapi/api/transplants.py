@@ -14,9 +14,8 @@ from flask import current_app, g
 from landoapi import auth
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.hgexports import build_patch_for_revision
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.patches import upload
+from landoapi.models.revisions import Revision
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -309,7 +308,6 @@ def post(phab: PhabricatorClient, data: dict):
     }
 
     # Build the patches to land.
-    patch_urls = []
     for revision, diff in to_land:
         reviewers = get_collated_reviewers(revision)
         accepted_reviewers = reviewers_for_commit_message(
@@ -341,23 +339,27 @@ def post(phab: PhabricatorClient, data: dict):
         author_name, author_email = select_diff_author(diff)
         timestamp = int(datetime.now().timestamp())
 
-        # Construct the patch that will be sent to transplant.
-        raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
-        patch = build_patch_for_revision(
-            raw_diff, author_name, author_email, commit_message, timestamp
-        )
+        # Construct the patch that will be transplanted.
+        revision_id = revision["id"]
+        diff_id = diff["id"]
 
-        # Upload the patch to S3
-        patch_url = upload(
-            revision["id"],
-            diff["id"],
-            patch,
-            current_app.config["PATCH_BUCKET_NAME"],
-            aws_access_key=current_app.config["AWS_ACCESS_KEY"],
-            aws_secret_key=current_app.config["AWS_SECRET_KEY"],
-            endpoint_url=current_app.config["S3_ENDPOINT_URL"],
-        )
-        patch_urls.append(patch_url)
+        lando_revision = Revision.get_from_revision_id(revision_id)
+        if not lando_revision:
+            lando_revision = Revision(revision_id=revision_id)
+            db.session.add(lando_revision)
+
+        lando_revision.diff_id = diff_id
+        db.session.commit()
+
+        patch_data = {
+            "author_name": author_name,
+            "author_email": author_email,
+            "commit_message": commit_message,
+            "timestamp": timestamp,
+        }
+
+        raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
+        lando_revision.set_patch(raw_diff, patch_data)
 
     ldap_username = g.auth0_user.email
     revision_to_diff_id = {str(r["id"]): d["id"] for r, d in to_land}

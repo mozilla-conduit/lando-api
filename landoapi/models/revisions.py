@@ -14,6 +14,7 @@ import logging
 
 from sqlalchemy.dialects.postgresql.json import JSONB
 
+from landoapi.hgexports import build_patch_for_revision
 from landoapi.models.base import Base
 from landoapi.storage import db
 
@@ -30,6 +31,39 @@ class DiffWarningStatus(enum.Enum):
 class DiffWarningGroup(enum.Enum):
     GENERAL = "GENERAL"
     LINT = "LINT"
+
+
+class Revision(Base):
+    """A Lando revision mapping to a Phabricator revision."""
+
+    # revision_id and diff_id map to Phabricator IDs (integers).
+    revision_id = db.Column(db.Integer, nullable=False, unique=True)
+    diff_id = db.Column(db.Integer, nullable=False)
+
+    # The actual patch.
+    patch_bytes = db.Column(db.LargeBinary, nullable=True)
+
+    # Patch metadata, such as author, timestamp, etc...
+    patch_data = db.Column(JSONB, nullable=False, default=dict)
+
+    def __repr__(self):
+        """Return a human-readable representation of the instance."""
+        return (
+            f"<{self.__class__.__name__}: {self.id} "
+            f"[D{self.revision_id}-{self.diff_id}]>"
+        )
+
+    @classmethod
+    def get_from_revision_id(cls, revision_id: int) -> "Revision":
+        """Return a Revision object from a given ID."""
+        return cls.query.filter(Revision.revision_id == revision_id).one_or_none()
+
+    def set_patch(self, raw_diff: bytes, patch_data: dict[str, str]):
+        """Given a raw_diff and patch data, build the patch and store it."""
+        self.patch_data = patch_data
+        patch = build_patch_for_revision(raw_diff, **self.patch_data)
+        self.patch_bytes = patch.encode("utf-8")
+        db.session.commit()
 
 
 class DiffWarning(Base):
