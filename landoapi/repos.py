@@ -54,6 +54,8 @@ class Repo:
         approval_required (bool): Whether approval is required or not for given repo.
             Note that this is not fully implemented but is included for compatibility.
             Defaults to `False`.
+        milestone_tracking_flag_template (str): A format string that takes the current
+            release milestone and returns the relevant Bugzilla status tracking flag.
         commit_flags (list of tuple): A list of supported flags that can be appended to
             the commit message at landing time (e.g. `[("DONTBUILD", "help text")]`).
         product_details_url (str): The URL which contains product-related information
@@ -68,6 +70,7 @@ class Repo:
     pull_path: str = ""
     short_name: str = ""
     approval_required: bool = False
+    milestone_tracking_flag_template: str = ""
     autoformat_enabled: bool = False
     commit_flags: list[tuple[str, str]] = field(default_factory=list)
     product_details_url: str = ""
@@ -180,6 +183,7 @@ REPO_CONFIG = {
             push_path="ssh://autoland.hg//repos/third-repo",
             pull_path="http://hg.test/third-repo",
             approval_required=True,
+            milestone_tracking_flag_template="cf_status_firefox{milestone}",
         ),
         # Approval is required for the uplift dev repo
         "uplift-target": Repo(
@@ -187,6 +191,7 @@ REPO_CONFIG = {
             url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
             access_group=SCM_LEVEL_1,
             approval_required=True,
+            milestone_tracking_flag_template="cf_status_firefox{milestone}",
         ),
     },
     "devsvcdev": {
@@ -201,6 +206,7 @@ REPO_CONFIG = {
             access_group=SCM_CONDUIT,
             commit_flags=[DONTBUILD],
             approval_required=True,
+            milestone_tracking_flag_template="cf_status_firefox{milestone}",
             product_details_url="https://raw.githubusercontent.com/mozilla-conduit"
             "/suite/main/docker/product-details/1.0/firefox_versions.json",
         ),
@@ -300,6 +306,7 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/releases/mozilla-beta",
             access_group=SCM_ALLOW_DIRECT_PUSH,
             approval_required=True,
+            milestone_tracking_flag_template="cf_status_firefox{milestone}",
             commit_flags=[DONTBUILD],
         ),
         "release": Repo(
@@ -308,6 +315,7 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/releases/mozilla-release",
             access_group=SCM_ALLOW_DIRECT_PUSH,
             approval_required=True,
+            milestone_tracking_flag_template="cf_status_firefox{milestone}",
             commit_flags=[DONTBUILD],
         ),
         "esr102": Repo(
@@ -316,6 +324,7 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/releases/mozilla-esr102",
             access_group=SCM_ALLOW_DIRECT_PUSH,
             approval_required=True,
+            milestone_tracking_flag_template="cf_status_firefox_esr{milestone}",
             commit_flags=[DONTBUILD],
         ),
     },
