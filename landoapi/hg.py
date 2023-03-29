@@ -13,7 +13,10 @@ import uuid
 
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional
+from typing import (
+    Iterable,
+    Optional,
+)
 
 import hglib
 
@@ -464,7 +467,7 @@ class HgRepo:
 
             raise exc
 
-    def format_stack_tip(self, bug_ids: list[str]) -> Optional[list[str]]:
+    def format_stack_tip(self, bug_ids: Iterable[str]) -> Optional[list[str]]:
         """Add an autoformat commit to the top of the patch stack.
 
         Return the commit hash of the autoformat commit as a `str`,
@@ -492,7 +495,7 @@ class HgRepo:
 
             raise exc
 
-    def format_stack(self, stack_size: int, bug_ids: list[str]) -> Optional[list[str]]:
+    def format_stack(self, stack_size: int, bug_ids: Iterable[str]) -> Optional[list[str]]:
         """Format the patch stack for landing.
 
         Return a list of `str` commit hashes where autoformatting was applied,
