@@ -298,7 +298,9 @@ def test_create_uplift_bug_update_payload():
         "keywords": [],
         "whiteboard": "[checkin-needed-beta]",
     }
-    payload = create_uplift_bug_update_payload(bug, "beta", 100)
+    payload = create_uplift_bug_update_payload(
+        bug, "beta", 100, "cf_status_firefox{milestone}"
+    )
 
     assert payload["ids"] == [123], "Passed bug ID should be present in the payload."
     assert (
@@ -314,7 +316,9 @@ def test_create_uplift_bug_update_payload():
         "keywords": ["leave-open"],
         "whiteboard": "[checkin-needed-beta]",
     }
-    payload = create_uplift_bug_update_payload(bug, "beta", 100)
+    payload = create_uplift_bug_update_payload(
+        bug, "beta", 100, "cf_status_firefox{milestone}"
+    )
 
     assert (
         "cf_status_firefox100" not in payload

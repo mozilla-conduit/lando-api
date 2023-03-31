@@ -454,6 +454,7 @@ class LandingWorker(Worker):
                 update_bugs_for_uplift(
                     repo.short_name,
                     hgrepo.read_checkout_file("config/milestone.txt"),
+                    repo.milestone_tracking_flag_template,
                     bug_ids,
                 )
             except Exception as e:

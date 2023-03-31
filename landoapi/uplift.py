@@ -305,7 +305,7 @@ def stack_uplift_form_submitted(stack_data: RevisionData) -> bool:
 
 
 def create_uplift_bug_update_payload(
-    bug: dict, repo_name: str, milestone: int
+    bug: dict, repo_name: str, milestone: int, milestone_tracking_flag_template: str
 ) -> dict[str, Any]:
     """Create a payload for updating a bug using the BMO REST API.
 
@@ -321,9 +321,12 @@ def create_uplift_bug_update_payload(
         "ids": [int(bug["id"])],
     }
 
-    milestone_tracking_flag = f"cf_status_firefox{milestone}"
+    milestone_tracking_flag = milestone_tracking_flag_template.format(
+        milestone=milestone
+    )
     if (
-        "keywords" in bug
+        milestone_tracking_flag
+        and "keywords" in bug
         and "leave-open" not in bug["keywords"]
         and milestone_tracking_flag in bug
     ):
@@ -342,6 +345,7 @@ def create_uplift_bug_update_payload(
 def update_bugs_for_uplift(
     repo_name: str,
     milestone_file_contents: str,
+    milestone_tracking_flag_template: str,
     bug_ids: list[str],
 ):
     """Update Bugzilla bugs for uplift."""
@@ -360,7 +364,9 @@ def update_bugs_for_uplift(
 
     # Create bug update payloads.
     payloads = [
-        create_uplift_bug_update_payload(bug, repo_name, milestone.major)
+        create_uplift_bug_update_payload(
+            bug, repo_name, milestone.major, milestone_tracking_flag_template
+        )
         for bug in bugs
     ]
 
