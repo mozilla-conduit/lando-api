@@ -495,7 +495,9 @@ class HgRepo:
 
             raise exc
 
-    def format_stack(self, stack_size: int, bug_ids: Iterable[str]) -> Optional[list[str]]:
+    def format_stack(
+        self, stack_size: int, bug_ids: Iterable[str]
+    ) -> Optional[list[str]]:
         """Format the patch stack for landing.
 
         Return a list of `str` commit hashes where autoformatting was applied,
