@@ -5,6 +5,7 @@
 import re
 
 from typing import (
+    Iterable,
     Optional,
 )
 
@@ -202,7 +203,7 @@ def split_title_and_summary(msg: str) -> tuple[str, str]:
     return title, summary
 
 
-def bug_list_to_commit_string(bug_ids: list[str]) -> str:
+def bug_list_to_commit_string(bug_ids: Iterable[str]) -> str:
     """Convert a list of `str` bug IDs to a string for a commit message."""
     if not bug_ids:
         return "No bug"
