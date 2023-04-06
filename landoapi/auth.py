@@ -321,6 +321,10 @@ class A0User:
         if not self._userinfo:
             raise ValueError("User ID requested for user without userinfo.")
 
+        # "sub" here means the "subject" of the JWT, i.e. the user. See below:
+        # https://auth0.com/docs/secure/tokens/
+        #   json-web-tokens/json-web-token-claims#registered-claims
+        # https://www.rfc-editor.org/rfc/rfc7519.html#section-4.1.2
         if "sub" not in self._userinfo:
             raise ValueError("User does not have username available.")
 
