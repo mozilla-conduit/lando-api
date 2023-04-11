@@ -9,6 +9,8 @@ The `DiffWarning` model provides a warning that is associated with a particular
 Phabricator diff that is associated with a particular revision.
 """
 
+from __future__ import annotations
+
 import enum
 import logging
 
@@ -34,14 +36,16 @@ class DiffWarningGroup(enum.Enum):
 
 
 class Revision(Base):
-    """A Lando revision mapping to a Phabricator revision."""
+    """
+    A representation of a revision in the database referencing a Phabricator revision.
+    """
 
     # revision_id and diff_id map to Phabricator IDs (integers).
     revision_id = db.Column(db.Integer, nullable=False, unique=True)
     diff_id = db.Column(db.Integer, nullable=False)
 
     # The actual patch.
-    patch_bytes = db.Column(db.LargeBinary, nullable=True)
+    patch_bytes = db.Column(db.LargeBinary, nullable=False, default=b"")
 
     # Patch metadata, such as author, timestamp, etc...
     patch_data = db.Column(JSONB, nullable=False, default=dict)
@@ -54,7 +58,7 @@ class Revision(Base):
         )
 
     @classmethod
-    def get_from_revision_id(cls, revision_id: int) -> "Revision":
+    def get_from_revision_id(cls, revision_id: int) -> "Revision" | None:
         """Return a Revision object from a given ID."""
         return cls.query.filter(Revision.revision_id == revision_id).one_or_none()
 

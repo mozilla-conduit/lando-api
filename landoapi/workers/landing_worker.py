@@ -295,9 +295,14 @@ class LandingWorker(Worker):
             all_patches = []
 
             for revision_id, _diff_id in job.landing_path:
-                patch_byte = Revision.get_from_revision_id(revision_id).patch_bytes
-                patch_buf = BytesIO(patch_byte)
-                all_patches.append((revision_id, patch_buf))
+                # The revision is guaranteed to exist since all revisions are created
+                # when the landing is requested.
+                # TODO: replace this with a many to many field.
+                revision = Revision.get_from_revision_id(revision_id)
+
+                # The patch buffer is stored when the landing is requested, and should
+                # not be modified after that point.
+                all_patches.append((revision_id, BytesIO(revision.patch_bytes)))
 
             # Run through the patches one by one and try to apply them.
             for revision_id, patch_buf in all_patches:

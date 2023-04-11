@@ -240,7 +240,6 @@ aDd oNe mOrE LiNe
 def test_integrated_execute_job(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -289,7 +288,6 @@ def test_integrated_execute_job(
 def test_integrated_execute_job_with_bookmark(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -339,7 +337,6 @@ def test_integrated_execute_job_with_bookmark(
 def test_lose_push_race(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -376,7 +373,6 @@ def test_lose_push_race(
 def test_failed_landing_job_notification(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -479,7 +475,6 @@ def test_landing_worker__extract_error_data():
 def test_format_patch_success_unchanged(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -537,7 +532,6 @@ def test_format_patch_success_unchanged(
 def test_format_single_success_changed(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -627,7 +621,6 @@ def test_format_single_success_changed(
 def test_format_stack_success_changed(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -708,7 +701,6 @@ def test_format_stack_success_changed(
 def test_format_patch_fail(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
@@ -768,7 +760,6 @@ def test_format_patch_fail(
 def test_format_patch_no_landoini(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,

@@ -607,7 +607,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     db,
     client,
     phabdouble,
-    s3,
     auth0_mock,
     release_management_project,
     register_codefreeze_uri,
@@ -659,7 +658,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
 
 def test_integrated_transplant_with_flags(
-    db, client, phabdouble, s3, auth0_mock, monkeypatch, release_management_project
+    db, client, phabdouble, auth0_mock, monkeypatch, release_management_project
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -692,7 +691,7 @@ def test_integrated_transplant_with_flags(
 
 
 def test_integrated_transplant_with_invalid_flags(
-    db, client, phabdouble, s3, auth0_mock, monkeypatch, release_management_project
+    db, client, phabdouble, auth0_mock, monkeypatch, release_management_project
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -720,7 +719,6 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     client,
     phabdouble,
     transfactory,
-    s3,
     auth0_mock,
     checkin_project,
     monkeypatch,
@@ -758,7 +756,6 @@ def test_integrated_transplant_repo_checkin_project_removed(
     db,
     client,
     phabdouble,
-    s3,
     auth0_mock,
     checkin_project,
     monkeypatch,
@@ -838,7 +835,7 @@ def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
 
 
 def test_integrated_transplant_diff_not_in_revision(
-    db, client, phabdouble, s3, auth0_mock, release_management_project
+    db, client, phabdouble, auth0_mock, release_management_project
 ):
     repo = phabdouble.repo()
     d1 = phabdouble.diff()
@@ -923,7 +920,6 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     client,
     phabdouble,
     auth0_mock,
-    s3,
     transfactory,
     sec_approval_project,
     release_management_project,

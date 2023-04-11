@@ -1,8 +1,8 @@
 """add revision model
 
-Revision ID: 9c74ff48168e
+Revision ID: c5b4350e073b
 Revises: 7883d80258fb
-Create Date: 2023-04-04 18:35:28.709323
+Create Date: 2023-04-11 16:18:55.045882
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "9c74ff48168e"
+revision = "c5b4350e073b"
 down_revision = "7883d80258fb"
 branch_labels = None
 depends_on = None
@@ -25,7 +25,7 @@ def upgrade():
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("revision_id", sa.Integer(), nullable=False),
         sa.Column("diff_id", sa.Integer(), nullable=False),
-        sa.Column("patch_bytes", sa.LargeBinary(), nullable=True),
+        sa.Column("patch_bytes", sa.LargeBinary(), nullable=False),
         sa.Column(
             "patch_data", postgresql.JSONB(astext_type=sa.Text()), nullable=False
         ),
