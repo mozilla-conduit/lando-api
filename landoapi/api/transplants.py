@@ -360,6 +360,7 @@ def post(phab: PhabricatorClient, data: dict):
 
         raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
         lando_revision.set_patch(raw_diff, patch_data)
+        db.session.commit()
 
     ldap_username = g.auth0_user.email
     revision_to_diff_id = {str(r["id"]): d["id"] for r, d in to_land}

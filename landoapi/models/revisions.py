@@ -67,7 +67,6 @@ class Revision(Base):
         self.patch_data = patch_data
         patch = build_patch_for_revision(raw_diff, **self.patch_data)
         self.patch_bytes = patch.encode("utf-8")
-        db.session.commit()
 
 
 class DiffWarning(Base):
