@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import pytest
-from landoapi import patches
+from landoapi.models.revisions import Revision
 from landoapi.phabricator import PhabricatorClient
 from landoapi.revisions import find_title_and_summary_for_landing
 from landoapi.secapproval import SECURE_COMMENT_TEMPLATE, CommentParseError
@@ -140,7 +140,6 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
     client,
     phabdouble,
     transfactory,
-    s3,
     auth0_mock,
     secure_project,
     monkeypatch,
@@ -193,11 +192,10 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
     assert response == 202
 
     # Check the transplanted patch for our alternate commit message.
-    patch = s3.Object(
-        app.config["PATCH_BUCKET_NAME"], patches.name(secure_revision["id"], diff["id"])
+    patch = Revision.get_from_revision_id(secure_revision["id"]).patch_bytes.decode(
+        "utf-8"
     )
-
-    for line in patch.get()["Body"].read().decode().splitlines():
+    for line in patch.splitlines():
         if not line.startswith("#"):
             title = line
             break
@@ -213,7 +211,6 @@ def test_integrated_sec_approval_problem_halts_landing(
     client,
     phabdouble,
     transfactory,
-    s3,
     auth0_mock,
     secure_project,
     monkeypatch,

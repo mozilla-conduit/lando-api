@@ -12,12 +12,10 @@ from types import SimpleNamespace
 import redis
 import requests
 import sqlalchemy
-import boto3
 import flask.testing
 import pytest
 import requests_mock
 from flask import current_app
-from moto import mock_s3
 from pytest_flask.plugin import JSONResponse
 
 from landoapi.app import construct_app, load_config, SUBSYSTEMS
@@ -224,18 +222,6 @@ def db(app):
         yield _db
         _db.session.remove()
         _db.drop_all()
-
-
-@pytest.fixture
-def s3(docker_env_vars):
-    """Provide s3 mocked connection."""
-    bucket = os.getenv("PATCH_BUCKET_NAME")
-    with mock_s3():
-        s3 = boto3.resource("s3")
-        # We need to create the bucket since this is all in Moto's
-        # 'virtual' AWS account
-        s3.create_bucket(Bucket=bucket)
-        yield s3
 
 
 @pytest.fixture

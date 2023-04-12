@@ -6,10 +6,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from landoapi import patches
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
+from landoapi.models.revisions import Revision
 from landoapi.phabricator import ReviewerStatus, PhabricatorRevisionStatus
 from landoapi.repos import Repo, SCM_CONDUIT, DONTBUILD
 from landoapi.reviews import get_collated_reviewers
@@ -607,7 +607,6 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     db,
     client,
     phabdouble,
-    s3,
     auth0_mock,
     release_management_project,
     register_codefreeze_uri,
@@ -659,7 +658,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
 
 
 def test_integrated_transplant_with_flags(
-    db, client, phabdouble, s3, auth0_mock, monkeypatch, release_management_project
+    db, client, phabdouble, auth0_mock, monkeypatch, release_management_project
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -671,6 +670,7 @@ def test_integrated_transplant_with_flags(
     test_flags = ["VALIDFLAG1", "VALIDFLAG2"]
 
     mock_format_commit_message = MagicMock()
+    mock_format_commit_message.return_value = "Mock formatted commit message."
     monkeypatch.setattr(
         "landoapi.api.transplants.format_commit_message", mock_format_commit_message
     )
@@ -691,7 +691,7 @@ def test_integrated_transplant_with_flags(
 
 
 def test_integrated_transplant_with_invalid_flags(
-    db, client, phabdouble, s3, auth0_mock, monkeypatch, release_management_project
+    db, client, phabdouble, auth0_mock, monkeypatch, release_management_project
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -719,7 +719,6 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     client,
     phabdouble,
     transfactory,
-    s3,
     auth0_mock,
     checkin_project,
     monkeypatch,
@@ -757,7 +756,6 @@ def test_integrated_transplant_repo_checkin_project_removed(
     db,
     client,
     phabdouble,
-    s3,
     auth0_mock,
     checkin_project,
     monkeypatch,
@@ -837,7 +835,7 @@ def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
 
 
 def test_integrated_transplant_diff_not_in_revision(
-    db, client, phabdouble, s3, auth0_mock, release_management_project
+    db, client, phabdouble, auth0_mock, release_management_project
 ):
     repo = phabdouble.repo()
     d1 = phabdouble.diff()
@@ -922,7 +920,6 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     client,
     phabdouble,
     auth0_mock,
-    s3,
     transfactory,
     sec_approval_project,
     release_management_project,
@@ -950,10 +947,9 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     assert response == 202
 
     # Check the transplanted patch for our alternate commit message.
-    patch = s3.Object(
-        app.config["PATCH_BUCKET_NAME"], patches.name(revision["id"], diff["id"])
+    patch_text = Revision.get_from_revision_id(revision["id"]).patch_bytes.decode(
+        "utf-8"
     )
-    patch_text = patch.get()["Body"].read().decode()
     assert sec_approval_project["name"] not in patch_text
 
 

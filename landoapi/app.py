@@ -18,7 +18,6 @@ from landoapi.celery import celery_subsystem
 from landoapi.dockerflow import dockerflow
 from landoapi.hooks import initialize_hooks
 from landoapi.logging import logging_subsystem
-from landoapi.patches import patches_s3_subsystem
 from landoapi.phabricator import phabricator_subsystem
 from landoapi.repos import repo_clone_subsystem
 from landoapi.sentry import sentry_subsystem
@@ -41,7 +40,6 @@ SUBSYSTEMS: list[Subsystem] = [
     celery_subsystem,
     db_subsystem,
     lando_ui_subsystem,
-    patches_s3_subsystem,
     phabricator_subsystem,
     smtp_subsystem,
     treestatus_subsystem,
@@ -90,7 +88,6 @@ def load_config() -> dict[str, Any]:
         "PHABRICATOR_URL",
         "REPO_CLONES_PATH",
         "REPOS_TO_LAND",
-        "S3_ENDPOINT_URL",
         "SENTRY_DSN",
         "TRANSPLANT_PASSWORD",
         "TRANSPLANT_API_KEY",
