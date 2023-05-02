@@ -1,7 +1,7 @@
 Flask-Caching==2.0.2
 Flask-Migrate==3.1.0
 Flask-SQLAlchemy==2.5.1
-Flask==2.1.1
+Flask==2.2.5
 black==22.3.0
 click==8.1.2
 celery==4.3.0
