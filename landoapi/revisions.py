@@ -147,7 +147,6 @@ def check_uplift_approval(relman_phid, supported_repos, stack_data) -> Callable:
     """Check that Release Managers group approved a revision"""
 
     def _check(*, revision, repo, **kwargs) -> Optional[str]:
-
         # Check if this repository needs an approval from relman
         local_repo = supported_repos.get(repo["fields"]["shortName"])
         assert local_repo is not None, "Unsupported repository"

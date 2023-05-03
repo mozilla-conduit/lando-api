@@ -19,7 +19,7 @@ from flask import current_app
 from pytest_flask.plugin import JSONResponse
 
 from landoapi.app import construct_app, load_config, SUBSYSTEMS
-from landoapi.cache import cache, cache_subsystem
+from landoapi.cache import cache
 from landoapi.mocks.auth import MockAuth0, TEST_JWKS
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
@@ -29,7 +29,7 @@ from landoapi.projects import (
     SEC_PROJ_SLUG,
 )
 from landoapi.repos import Repo, SCM_LEVEL_3
-from landoapi.storage import db as _db, db_subsystem
+from landoapi.storage import db as _db
 from landoapi.tasks import celery
 from landoapi.transplants import tokens_are_equal, CODE_FREEZE_OFFSET
 
@@ -209,19 +209,17 @@ def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
 @pytest.fixture
 def db(app):
     """Reset database for each test."""
-    with app.app_context():
-        db_subsystem.init_app(app)
-        try:
-            _db.engine.connect()
-        except sqlalchemy.exc.OperationalError:
-            if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
-                raise
-            else:
-                pytest.skip("Could not connect to PostgreSQL")
-        _db.create_all()
-        yield _db
-        _db.session.remove()
-        _db.drop_all()
+    try:
+        _db.engine.connect()
+    except sqlalchemy.exc.OperationalError:
+        if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
+            raise
+        else:
+            pytest.skip("Could not connect to PostgreSQL")
+    _db.create_all()
+    yield _db
+    _db.session.remove()
+    _db.drop_all()
 
 
 @pytest.fixture
@@ -303,23 +301,19 @@ def get_phab_client(app):
 
 @pytest.fixture
 def redis_cache(app):
-    with app.app_context():
-        cache_subsystem.init_app(app)
-        cache.init_app(
-            app, config={"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": "redis.cache"}
-        )
-        try:
-            cache.clear()
-        except redis.exceptions.ConnectionError:
-            if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
-                raise
-            else:
-                pytest.skip("Could not connect to Redis")
-        yield cache
+    cache.init_app(
+        app, config={"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": "redis.cache"}
+    )
+    try:
         cache.clear()
-        cache.init_app(
-            app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True}
-        )
+    except redis.exceptions.ConnectionError:
+        if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
+            raise
+        else:
+            pytest.skip("Could not connect to Redis")
+    yield cache
+    cache.clear()
+    cache.init_app(app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True})
 
 
 @pytest.fixture
