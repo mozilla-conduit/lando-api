@@ -30,13 +30,6 @@ services:
       - ENV=localdev
       - SENTRY_DSN=
       - LANDO_UI_URL=https://lando.test
-      - PINGBACK_ENABLED=y
-      - PINGBACK_HOST_URL=https://lando-api.test
-      - TRANSPLANT_URL=https://fake-transplant.herokuapp.com/
-      - TRANSPLANT_USERNAME=autoland
-      - TRANSPLANT_PASSWORD=autoland
-      - TRANSPLANT_API_KEY=set-api-key
-      - PATCH_BUCKET_NAME=
       - OIDC_IDENTIFIER=https://lando-api.test
       - OIDC_DOMAIN=https://auth0.test
       # - CSP_REPORTING_URL=/__cspreport__
@@ -50,9 +43,6 @@ services:
       # See http://docs.celeryproject.org/en/latest/userguide/configuration.html#broker-url
       # for the full URL format.
       - CELERY_BROKER_URL=redis://redis.queue/0
-      # Leave AWS credentials unconfigured in production
-      - AWS_ACCESS_KEY=
-      - AWS_SECRET_KEY=
       # ------------------------------------------------------------------------
       # Local Development Flags, edit in docker-compose.override.yml
       # https://docs.docker.com/compose/extends/#example-use-case

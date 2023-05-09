@@ -718,7 +718,6 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     db,
     client,
     phabdouble,
-    transfactory,
     auth0_mock,
     checkin_project,
     monkeypatch,
@@ -731,8 +730,6 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d, repo=repo, projects=[checkin_project])
     phabdouble.reviewer(r, user)
-
-    transfactory.mock_successful_response(3)
 
     mock_remove = MagicMock(admin_remove_phab_project)
     monkeypatch.setattr(
@@ -920,7 +917,6 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     client,
     phabdouble,
     auth0_mock,
-    transfactory,
     sec_approval_project,
     release_management_project,
     register_codefreeze_uri,
@@ -932,8 +928,6 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     revision = phabdouble.revision(diff=diff, repo=repo)
     phabdouble.reviewer(revision, user)
     phabdouble.reviewer(revision, sec_approval_project)
-
-    transfactory.mock_successful_response()
 
     response = client.post(
         "/transplants",

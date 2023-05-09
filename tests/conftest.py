@@ -33,7 +33,6 @@ from landoapi.storage import db as _db, db_subsystem
 from landoapi.tasks import celery
 from landoapi.transplants import tokens_are_equal, CODE_FREEZE_OFFSET
 
-from tests.factories import TransResponseFactory
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
 
@@ -92,13 +91,6 @@ def docker_env_vars(versionfile, monkeypatch):
     )
     monkeypatch.setenv("BUGZILLA_URL", "http://bmo.test")
     monkeypatch.setenv("BUGZILLA_URL", "asdfasdfasdfasdfasdfasdf")
-    monkeypatch.setenv("TRANSPLANT_URL", "http://autoland.test")
-    monkeypatch.setenv("TRANSPLANT_API_KEY", "someapikey")
-    monkeypatch.setenv("TRANSPLANT_USERNAME", "autoland")
-    monkeypatch.setenv("TRANSPLANT_PASSWORD", "autoland")
-    monkeypatch.setenv("PATCH_BUCKET_NAME", "landoapi.test.bucket")
-    monkeypatch.delenv("AWS_ACCESS_KEY", raising=False)
-    monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
     monkeypatch.setenv("OIDC_IDENTIFIER", "lando-api")
     monkeypatch.setenv("OIDC_DOMAIN", "lando-api.auth0.test")
     # Explicitly shut off cache use for all tests.  Tests can re-enable the cache
@@ -151,12 +143,6 @@ def release_management_project(phabdouble):
         RELMAN_PROJECT_SLUG,
         attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
     )
-
-
-@pytest.fixture
-def transfactory(request_mocker):
-    """Mock Transplant service."""
-    yield TransResponseFactory(request_mocker)
 
 
 @pytest.fixture
