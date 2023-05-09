@@ -103,8 +103,8 @@ class LandingWorker(Worker):
         ).first()
 
         if job is None:
-            self.throttle(self.sleep_seconds)
             db.session.commit()
+            self.throttle(self.sleep_seconds)
             return
 
         with job_processing(self, job, db):
