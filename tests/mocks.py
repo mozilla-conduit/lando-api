@@ -238,6 +238,7 @@ class PhabricatorDouble:
 
     def update_revision_dependencies(self, phid: str, depends_on: list[str]):
         """Updates edges of `phid` so they match `depends_on`."""
+
         # Remove all previous edges related to this revision.
         def philter(edge):
             return phid not in (edge["sourcePHID"], edge["destinationPHID"])
