@@ -139,6 +139,7 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
     db,
     client,
     phabdouble,
+    transfactory,
     auth0_mock,
     secure_project,
     monkeypatch,
@@ -175,6 +176,8 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
     assert response == 200
     confirmation_token = response.json["confirmation_token"]
 
+    transfactory.mock_successful_response()
+
     # Request landing of the patch using our alternate commit message.
     response = client.post(
         "/transplants",
@@ -207,6 +210,7 @@ def test_integrated_sec_approval_problem_halts_landing(
     db,
     client,
     phabdouble,
+    transfactory,
     auth0_mock,
     secure_project,
     monkeypatch,
@@ -244,6 +248,8 @@ def test_integrated_sec_approval_problem_halts_landing(
 
     assert response == 200
     confirmation_token = response.json["confirmation_token"]
+
+    transfactory.mock_successful_response()
 
     # Request landing of the patch using our alternate commit message.
     with pytest.raises(CommentParseError):

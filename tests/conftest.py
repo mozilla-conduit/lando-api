@@ -33,6 +33,7 @@ from landoapi.storage import db as _db
 from landoapi.tasks import celery
 from landoapi.transplants import tokens_are_equal, CODE_FREEZE_OFFSET
 
+from tests.factories import TransResponseFactory
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
 
@@ -91,6 +92,13 @@ def docker_env_vars(versionfile, monkeypatch):
     )
     monkeypatch.setenv("BUGZILLA_URL", "http://bmo.test")
     monkeypatch.setenv("BUGZILLA_URL", "asdfasdfasdfasdfasdfasdf")
+    monkeypatch.setenv("TRANSPLANT_URL", "http://autoland.test")
+    monkeypatch.setenv("TRANSPLANT_API_KEY", "someapikey")
+    monkeypatch.setenv("TRANSPLANT_USERNAME", "autoland")
+    monkeypatch.setenv("TRANSPLANT_PASSWORD", "autoland")
+    monkeypatch.setenv("PATCH_BUCKET_NAME", "landoapi.test.bucket")
+    monkeypatch.delenv("AWS_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
     monkeypatch.setenv("OIDC_IDENTIFIER", "lando-api")
     monkeypatch.setenv("OIDC_DOMAIN", "lando-api.auth0.test")
     # Explicitly shut off cache use for all tests.  Tests can re-enable the cache
@@ -146,6 +154,12 @@ def release_management_project(phabdouble):
 
 
 @pytest.fixture
+def transfactory(request_mocker):
+    """Mock Transplant service."""
+    yield TransResponseFactory(request_mocker)
+
+
+@pytest.fixture
 def versionfile(tmpdir):
     """Provide a temporary version.json on disk."""
     v = tmpdir.mkdir("app").join("version.json")
@@ -183,7 +197,6 @@ def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     # We need the TESTING setting turned on to get tracebacks when testing API
     # endpoints with the TestClient.
     config["TESTING"] = True
-    config["CACHE_DISABLED"] = True
     app = construct_app(config)
     flask_app = app.app
     flask_app.test_client_class = JSONClient
