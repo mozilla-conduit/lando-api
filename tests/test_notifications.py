@@ -73,15 +73,11 @@ def test_email_content():
     )
     assert email["To"] == "sadpanda@failure.test"
     assert email["Subject"] == "Lando: Landing of D54321 failed!"
-    expected_body = dedent(
-        """
-        Your request to land D54321 failed.
-
-        See https://lando.test/D54321/ for details.
-
-        Reason:
-        Rebase failed!
-        """  # noqa
+    expected_body = (
+        "Your request to land D54321 failed.\n\n"
+        "See https://lando.test/D54321/ for details.\n\n"
+        "Reason:\n"
+        "Rebase failed!"
     )
     assert email.get_content() == expected_body + "\n"
 
