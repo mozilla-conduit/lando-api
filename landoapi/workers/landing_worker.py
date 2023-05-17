@@ -103,6 +103,7 @@ class LandingWorker(Worker):
         ).first()
 
         if job is None:
+            db.session.commit()
             self.throttle(self.sleep_seconds)
             return
 
