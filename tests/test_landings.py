@@ -10,11 +10,7 @@ import unittest.mock as mock
 
 from landoapi.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
 from landoapi.workers.landing_worker import LandingWorker
-from landoapi.models.landing_job import (
-    LandingJob,
-    LandingJobStatus,
-    add_job_with_revisions,
-)
+from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.revisions import Revision
 from landoapi.repos import Repo, SCM_LEVEL_3
 
@@ -30,7 +26,6 @@ def create_patch_revision(db):
         revision.patch_bytes = patch.encode("utf-8")
         db.session.add(revision)
         db.session.commit()
-        return revision
 
     return _create_patch_revision
 
@@ -262,17 +257,16 @@ def test_integrated_execute_job(
         pull_path=hg_server,
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    revisions = [
-        create_patch_revision(1),
-        create_patch_revision(2),
-    ]
-    job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
-        "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
-        "attempts": 1,
-    }
-    job = add_job_with_revisions(revisions, **job_params)
+    create_patch_revision(1)
+    create_patch_revision(2)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1, "2": 2},
+        revision_order=["1", "2"],
+        attempts=1,
+    )
 
     worker = LandingWorker(sleep_seconds=0.01)
 
@@ -312,13 +306,15 @@ def test_integrated_execute_job_with_bookmark(
         push_bookmark="@",
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
-        "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
-        "attempts": 1,
-    }
-    job = add_job_with_revisions([create_patch_revision(1)], **job_params)
+    create_patch_revision(1)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1},
+        revision_order=["1"],
+        attempts=1,
+    )
 
     worker = LandingWorker(sleep_seconds=0.01)
 
@@ -357,15 +353,15 @@ def test_lose_push_race(
         pull_path=hg_server,
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    job_params = {
-        "id": 1234,
-        "status": LandingJobStatus.IN_PROGRESS,
-        "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
-        "attempts": 1,
-    }
-    job = add_job_with_revisions(
-        [create_patch_revision(1, patch=PATCH_PUSH_LOSER)], **job_params
+    create_patch_revision(1, patch=PATCH_PUSH_LOSER)
+    job = LandingJob(
+        id=1234,
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1},
+        revision_order=["1"],
+        attempts=1,
     )
 
     worker = LandingWorker(sleep_seconds=0)
@@ -391,17 +387,16 @@ def test_failed_landing_job_notification(
         "mozilla-central", SCM_LEVEL_3, "", hg_server, hg_server, True, hg_server, False
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    revisions = [
-        create_patch_revision(1),
-        create_patch_revision(2),
-    ]
-    job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
-        "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
-        "attempts": 1,
-    }
-    job = add_job_with_revisions(revisions, **job_params)
+    create_patch_revision(1)
+    create_patch_revision(2)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1, "2": 2},
+        revision_order=["1", "2"],
+        attempts=1,
+    )
 
     worker = LandingWorker(sleep_seconds=0.01)
 
@@ -502,17 +497,16 @@ def test_format_patch_success_unchanged(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    revisions = [
-        create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
-        create_patch_revision(2, patch=PATCH_NORMAL_3),
-    ]
-    job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
-        "requester_email": "test@example.com",
-        "repository_name": tree,
-        "attempts": 1,
-    }
-    job = add_job_with_revisions(revisions, **job_params)
+    create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS)
+    create_patch_revision(2, patch=PATCH_NORMAL_3)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name=tree,
+        revision_to_diff_id={"1": 1, "2": 2},
+        revision_order=["1", "2"],
+        attempts=1,
+    )
 
     worker = LandingWorker(sleep_seconds=0.01)
 
@@ -568,14 +562,14 @@ def test_format_single_success_changed(
         )
 
     # Upload a patch for formatting.
-    job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
-        "requester_email": "test@example.com",
-        "repository_name": tree,
-        "attempts": 1,
-    }
-    job = add_job_with_revisions(
-        [create_patch_revision(2, patch=PATCH_FORMATTED_1)], **job_params
+    create_patch_revision(2, patch=PATCH_FORMATTED_1)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name=tree,
+        revision_to_diff_id={"2": 2},
+        revision_order=["2"],
+        attempts=1,
     )
 
     worker = LandingWorker(sleep_seconds=0.01)
@@ -649,18 +643,17 @@ def test_format_stack_success_changed(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    revisions = [
-        create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
-        create_patch_revision(2, patch=PATCH_FORMATTED_1),
-        create_patch_revision(3, patch=PATCH_FORMATTED_2),
-    ]
-    job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
-        "requester_email": "test@example.com",
-        "repository_name": tree,
-        "attempts": 1,
-    }
-    job = add_job_with_revisions(revisions, **job_params)
+    create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS)
+    create_patch_revision(2, patch=PATCH_FORMATTED_1)
+    create_patch_revision(3, patch=PATCH_FORMATTED_2)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name=tree,
+        revision_to_diff_id={"1": 1, "2": 2, "3": 3},
+        revision_order=["1", "2", "3"],
+        attempts=1,
+    )
 
     worker = LandingWorker(sleep_seconds=0.01)
 
@@ -730,18 +723,17 @@ def test_format_patch_fail(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    revisions = [
-        create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL),
-        create_patch_revision(2),
-        create_patch_revision(3),
-    ]
-    job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
-        "requester_email": "test@example.com",
-        "repository_name": tree,
-        "attempts": 1,
-    }
-    job = add_job_with_revisions(revisions, **job_params)
+    create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL)
+    create_patch_revision(2)
+    create_patch_revision(3)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name=tree,
+        revision_to_diff_id={"1": 1, "2": 2, "3": 3},
+        revision_order=["1", "2", "3"],
+        attempts=1,
+    )
 
     worker = LandingWorker(sleep_seconds=0.01)
 
@@ -789,17 +781,16 @@ def test_format_patch_no_landoini(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    revisions = [
-        create_patch_revision(1),
-        create_patch_revision(2),
-    ]
-    job_params = {
-        "status": LandingJobStatus.IN_PROGRESS,
-        "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
-        "attempts": 1,
-    }
-    job = add_job_with_revisions(revisions, **job_params)
+    create_patch_revision(1)
+    create_patch_revision(2)
+    job = LandingJob(
+        status=LandingJobStatus.IN_PROGRESS,
+        requester_email="test@example.com",
+        repository_name="mozilla-central",
+        revision_to_diff_id={"1": 1, "2": 2},
+        revision_order=["1", "2"],
+        attempts=1,
+    )
 
     worker = LandingWorker(sleep_seconds=0.01)
 
@@ -826,29 +817,3 @@ def test_format_patch_no_landoini(
     assert (
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
-
-
-def test_landing_job_revisions_sorting(
-    app,
-    db,
-    create_patch_revision,
-):
-    revisions = [
-        create_patch_revision(1),
-        create_patch_revision(2),
-        create_patch_revision(3),
-    ]
-    job_params = {
-        "status": LandingJobStatus.SUBMITTED,
-        "requester_email": "test@example.com",
-        "repository_name": "mozilla-central",
-        "attempts": 1,
-    }
-    job = add_job_with_revisions(revisions, **job_params)
-
-    assert job.revisions == revisions
-    new_ordering = [revisions[2], revisions[0], revisions[1]]
-    job.sort_revisions(new_ordering)
-    db.session.commit()
-    job = LandingJob.query.get(job.id)
-    assert job.revisions == new_ordering
