@@ -14,12 +14,10 @@ from typing import (
 
 import flask_sqlalchemy
 
-from sqlalchemy import or_
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
 
 from landoapi.models.base import Base
-from landoapi.models.revisions import Revision, revision_landing_job
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
@@ -84,11 +82,30 @@ class LandingJob(Base):
     # ordered, the resulting column will have the same order
     # as the definition order of the enum. This can be relied
     # on for comparisons or things like queries with ORDER BY.
-    status = db.Column(db.Enum(LandingJobStatus), nullable=True, default=None)
+    status = db.Column(
+        db.Enum(LandingJobStatus), nullable=False, default=LandingJobStatus.SUBMITTED
+    )
 
-    # revision_to_diff_id and revision_order are deprecated and kept for historical reasons.
-    revision_to_diff_id = db.Column(JSONB, nullable=True)
-    revision_order = db.Column(JSONB, nullable=True)
+    # JSON object mapping string revision id of the form "<int>" (used because
+    # json keys may not be integers) to integer diff id. This is used to
+    # record the diff id used with each revision and make searching for
+    # Transplants that match a set of revisions easy (such as those
+    # in a stack).
+    # e.g.
+    #     {
+    #         "1001": 1221,
+    #         "1002": 1246,
+    #         "1003": 1412
+    #     }
+    revision_to_diff_id = db.Column(JSONB, nullable=False)
+
+    # JSON array of string revision ids of the form "<int>" (used to match
+    # the string type of revision_to_diff_id keys) listing the order
+    # of the revisions in the request from most ancestral to most
+    # descendant.
+    # e.g.
+    #     ["1001", "1002", "1003"]
+    revision_order = db.Column(JSONB, nullable=False)
 
     # Text describing errors when status != LANDED.
     error = db.Column(db.Text(), default="")
@@ -127,56 +144,22 @@ class LandingJob(Base):
     #    ["", ""]
     formatted_replacements = db.Column(JSONB, nullable=True)
 
-    revisions = db.relationship(
-        "Revision",
-        secondary=revision_landing_job,
-        back_populates="landing_jobs",
-        order_by="revision_landing_job.columns.index",
-    )
-
     @property
     def landing_path(self) -> list[tuple[int, int]]:
-        return [(revision.revision_id, revision.diff_id) for revision in self.revisions]
-
-    @property
-    def serialized_landing_path(self):
-        """Return landing path based on associated revisions or legacy fields."""
-        if self.revisions:
-            return [
-                {
-                    "revision_id": "D{}".format(revision_id),
-                    "diff_id": diff_id,
-                }
-                for revision_id, diff_id in self.landing_path
-            ]
-        else:
-            return [
-                {"revision_id": "D{}".format(r), "diff_id": self.revision_to_diff_id[r]}
-                for r in self.revision_order
-            ]
+        return [(int(r), self.revision_to_diff_id[r]) for r in self.revision_order]
 
     @property
     def head_revision(self) -> str:
         """Human-readable representation of the branch head's Phabricator revision ID."""
-        return f"D{self.revisions[-1].revision_id}"
+        assert (
+            self.revision_order
+        ), "head_revision should never be called without setting self.revision_order!"
+        return "D" + self.revision_order[-1]
 
     @classmethod
     def revisions_query(cls, revisions: Iterable[str]) -> flask_sqlalchemy.BaseQuery:
-        """
-        Return all landing jobs associated with a given list of revisions.
-
-        Older records do not have associated revisions, but rather have a JSONB field
-        that stores revisions and diff IDs. Both associated revisions and revisions that
-        appear in the revision_to_diff_id are used to fetch landing jobs.
-        """
-
         revisions = [str(int(r)) for r in revisions]
-        return cls.query.filter(
-            or_(
-                cls.revisions.any(Revision.revision_id.in_(revisions)),
-                cls.revision_to_diff_id.has_any(array(revisions)),
-            )
-        )
+        return cls.query.filter(cls.revision_to_diff_id.has_any(array(revisions)))
 
     @classmethod
     def job_queue_query(
@@ -227,27 +210,6 @@ class LandingJob(Base):
         query = query.with_for_update()
 
         return query
-
-    def add_revisions(self, revisions: list[Revision]):
-        """Associate a list of revisions with job."""
-        for revision in revisions:
-            self.revisions.append(revision)
-
-    def sort_revisions(self, revisions: list[Revision]):
-        """Sort the associated revisions based on provided list."""
-        if len(revisions) != len(self.revisions):
-            raise ValueError("List of revisions does not match associated revisions")
-
-        # Update association table records with correct index values.
-        for index, revision in enumerate(revisions):
-            db.session.execute(
-                revision_landing_job.update()
-                .where(revision_landing_job.c.landing_job_id == self.id)
-                .where(
-                    revision_landing_job.c.revision_id == revision.id,
-                )
-                .values(index=index)
-            )
 
     def transition_status(
         self,
@@ -312,7 +274,10 @@ class LandingJob(Base):
         return {
             "id": self.id,
             "status": self.status.value,
-            "landing_path": self.serialized_landing_path,
+            "landing_path": [
+                {"revision_id": "D{}".format(r), "diff_id": self.revision_to_diff_id[r]}
+                for r in self.revision_order
+            ],
             "error_breakdown": self.error_breakdown,
             "details": (
                 self.error or self.landed_commit_id
@@ -329,19 +294,3 @@ class LandingJob(Base):
                 self.updated_at.astimezone(datetime.timezone.utc).isoformat()
             ),
         }
-
-
-def add_job_with_revisions(revisions: list[Revision], **params: Any) -> LandingJob:
-    """Creates a new job and associates provided revisions with it."""
-    job = LandingJob(**params)
-    db.session.add(job)
-    add_revisions_to_job(revisions, job)
-    return job
-
-
-def add_revisions_to_job(revisions: list[Revision], job: LandingJob):
-    """Given an existing job, add and sort provided revisions."""
-    job.add_revisions(revisions)
-    db.session.commit()
-    job.sort_revisions(revisions)
-    db.session.commit()

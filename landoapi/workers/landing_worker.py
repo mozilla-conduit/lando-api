@@ -25,6 +25,7 @@ from landoapi.hg import (
 )
 from landoapi.models.configuration import ConfigurationKey
 from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
+from landoapi.models.revisions import Revision
 from landoapi.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -292,10 +293,17 @@ class LandingWorker(Worker):
                 return True
 
             # Fetch all patches.
-            all_patches = [
-                (revision.revision_id, BytesIO(revision.patch_bytes))
-                for revision in job.revisions
-            ]
+            all_patches = []
+
+            for revision_id, _diff_id in job.landing_path:
+                # The revision is guaranteed to exist since all revisions are created
+                # when the landing is requested.
+                # TODO: replace this with a many to many field.
+                revision = Revision.get_from_revision_id(revision_id)
+
+                # The patch buffer is stored when the landing is requested, and should
+                # not be modified after that point.
+                all_patches.append((revision_id, BytesIO(revision.patch_bytes)))
 
             # Run through the patches one by one and try to apply them.
             for revision_id, patch_buf in all_patches:
