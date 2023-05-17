@@ -62,6 +62,8 @@ def load_config() -> dict[str, Any]:
     }
 
     config_keys = (
+        "AWS_ACCESS_KEY",
+        "AWS_SECRET_KEY",
         "BUGZILLA_API_KEY",
         "BUGZILLA_URL",
         "CACHE_REDIS_DB",
@@ -80,12 +82,17 @@ def load_config() -> dict[str, Any]:
         "MAIL_USERNAME",
         "OIDC_DOMAIN",
         "OIDC_IDENTIFIER",
+        "PATCH_BUCKET_NAME",
         "PHABRICATOR_ADMIN_API_KEY",
         "PHABRICATOR_UNPRIVILEGED_API_KEY",
         "PHABRICATOR_URL",
         "REPO_CLONES_PATH",
         "REPOS_TO_LAND",
         "SENTRY_DSN",
+        "TRANSPLANT_PASSWORD",
+        "TRANSPLANT_API_KEY",
+        "TRANSPLANT_URL",
+        "TRANSPLANT_USERNAME",
         "TREESTATUS_URL",
     )
 

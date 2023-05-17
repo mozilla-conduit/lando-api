@@ -214,19 +214,22 @@ def warning_previously_landed(*, revision, diff, **kwargs):
     revision_id = PhabricatorClient.expect(revision, "id")
     diff_id = PhabricatorClient.expect(diff, "id")
 
-    landed_transplant = (
+    job = (
         LandingJob.revisions_query([revision_id])
         .filter_by(status=LandingJobStatus.LANDED)
         .order_by(LandingJob.updated_at.desc())
         .first()
     )
 
-    if landed_transplant is None:
+    if job is None:
         return None
 
-    landed_diff_id = landed_transplant.revision_to_diff_id[str(revision_id)]
+    revision_to_diff_id = {
+        revision.revision_id: revision.diff_id for revision in job.revisions
+    }
+    landed_diff_id = revision_to_diff_id[revision_id]
     same = diff_id == landed_diff_id
-    only_revision = len(landed_transplant.revision_order) == 1
+    only_revision = len(job.revisions) == 1
 
     return (
         "Already landed with {is_same_string} diff ({landed_diff_id}), "
@@ -234,7 +237,7 @@ def warning_previously_landed(*, revision, diff, **kwargs):
             is_same_string=("the same" if same else "an older"),
             landed_diff_id=landed_diff_id,
             push_string=("as" if only_revision else "with new tip"),
-            commit_sha=landed_transplant.landed_commit_id,
+            commit_sha=job.landed_commit_id,
         )
     )
 
@@ -483,7 +486,16 @@ def check_landing_blockers(
         LandingJob.revisions_query(
             [PhabricatorClient.expect(r, "id") for r in stack_data.revisions.values()]
         )
-        .filter_by(status=LandingJobStatus.SUBMITTED)
+        .filter(
+            LandingJob.status.in_(
+                (
+                    LandingJobStatus.SUBMITTED,
+                    LandingJobStatus.DEFERRED,
+                    LandingJobStatus.IN_PROGRESS,
+                    None,
+                )
+            )
+        )
         .first()
         is not None
     ):

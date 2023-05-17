@@ -6,7 +6,7 @@ from email.message import EmailMessage
 
 logger = logging.getLogger(__name__)
 
-LANDING_FAILURE_EMAIL_TEMPLATE = """
+TRANSPLANT_FAILURE_EMAIL_TEMPLATE = """
 Your request to land {phab_revision_id} failed.
 
 See {lando_revision_url} for details.
@@ -37,7 +37,7 @@ def make_failure_email(
     msg["Subject"] = f"Lando: Landing of {revision_id} failed!"
     lando_revision_url = f"{lando_ui_url}/{revision_id}/"
     msg.set_content(
-        LANDING_FAILURE_EMAIL_TEMPLATE.format(
+        TRANSPLANT_FAILURE_EMAIL_TEMPLATE.format(
             phab_revision_id=revision_id,
             lando_revision_url=lando_revision_url,
             reason=error_msg,
