@@ -90,14 +90,13 @@ def test_find_txn_with_comment_in_phabricator(phabdouble):
 
 
 def test_parse_well_formed_comment(phabdouble):
-    msg = dedent(
-        """
-        please approve my new commit message preamble
-        
-        ```
-        my new commit title
-        ```
-        """  # noqa
+    msg = (
+        "\n"
+        "please approve my new commit message preamble\n"
+        "\n"
+        "```\n"
+        "my new commit title\n"
+        "```"
     )
     comment = _get_comment(phabdouble, msg)
     comment_description = parse_comment(comment)

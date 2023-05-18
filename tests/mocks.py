@@ -781,7 +781,10 @@ class PhabricatorDouble:
 
         if "ids" in constraints:
             if not constraints["ids"]:
-                error_info = 'Error while reading "ids": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "ids": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -790,7 +793,10 @@ class PhabricatorDouble:
 
         if "phids" in constraints:
             if not constraints["phids"]:
-                error_info = 'Error while reading "phids": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "phids": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -799,7 +805,10 @@ class PhabricatorDouble:
 
         if "slugs" in constraints:
             if not constraints["slugs"]:
-                error_info = 'Error while reading "slugs": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "slugs": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -901,7 +910,10 @@ class PhabricatorDouble:
             )
 
         if not sourcePHIDs:
-            error_info = "Edge object query must be executed with a nonempty list of source PHIDs."  # noqa
+            error_info = (
+                "Edge object query must be executed with a "
+                "nonempty list of source PHIDs."
+            )
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
@@ -1145,13 +1157,20 @@ class PhabricatorDouble:
         # Validate each transaction.
         for key, t in transactions:
             if not isinstance(t, dict):
-                error_info = f'Parameter "transactions" must contain a list of transaction descriptions, but item with key "{key}" is not a dictionary.'  # noqa
+                error_info = (
+                    'Parameter "transactions" must contain a list of transaction '
+                    f'descriptions, but item with key "{key}" is not a dictionary.'
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
             if "type" not in t:
-                error_info = f'Parameter "transactions" must contain a list of transaction descriptions, but item with key "{key}" is missing a "type" field. Each transaction must have a type field.'  # noqa
+                error_info = (
+                    f'Parameter "transactions" must contain a list of transaction '
+                    'descriptions, but item with key "{key}" is missing a "type" '
+                    "field. Each transaction must have a type field."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1159,7 +1178,10 @@ class PhabricatorDouble:
             if t["type"] not in TRANSACTION_TYPES:
                 given_type = t["type"]
                 valid_types = " ,".join(TRANSACTION_TYPES)
-                error_info = f'Transaction with key "{key}" has invalid type "{given_type}". This type is not recognized. Valid types are: {valid_types}.'  # noqa
+                error_info = (
+                    f'Transaction with key "{key}" has invalid type "{given_type}". '
+                    f"This type is not recognized. Valid types are: {valid_types}."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1474,7 +1496,10 @@ class PhabricatorDouble:
         items = list(self._transactions)
 
         if not objectIdentifier:
-            error_info = 'When calling "transaction.search", you must provide an object to retrieve transactions for.'  # noqa
+            error_info = (
+                'When calling "transaction.search", you must provide an '
+                "object to retrieve transactions for."
+            )
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
@@ -1496,7 +1521,10 @@ class PhabricatorDouble:
         # Transactions are special. You can't retrieve them directly using search. I
         # don't know why. You have to retrieve the transaction's parent object instead.
         if objectIdentifier.startswith("PHID-XACT-"):
-            error_info = '[Invalid Translation!] Object "%s" does not implement "%s", so transactions can not be loaded for it.'  # noqa
+            error_info = (
+                '[Invalid Translation!] Object "%s" does not implement "%s", '
+                "so transactions can not be loaded for it."
+            )
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
@@ -1514,7 +1542,10 @@ class PhabricatorDouble:
         if constraints and "phids" in constraints:
             phids = constraints["phids"]
             if not phids:
-                error_info = 'Constraint "phids" to "transaction.search" requires nonempty list, empty list provided.'  # noqa
+                error_info = (
+                    'Constraint "phids" to "transaction.search" requires nonempty list, '
+                    "empty list provided."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1580,7 +1611,10 @@ class PhabricatorDouble:
 
         if "ids" in constraints:
             if not constraints["ids"]:
-                error_info = 'Error while reading "ids": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "ids": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1589,7 +1623,10 @@ class PhabricatorDouble:
 
         if "phids" in constraints:
             if not constraints["phids"]:
-                error_info = 'Error while reading "phids": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "phids": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1598,7 +1635,10 @@ class PhabricatorDouble:
 
         if "usernames" in constraints:
             if not constraints["usernames"]:
-                error_info = 'Error while reading "usernames": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "usernames": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1687,7 +1727,12 @@ class PhabricatorDouble:
     @conduit_method("phid.query")
     def phid_query(self, *, phids=None):
         if phids is None:
-            error_info = "Argument 1 passed to PhabricatorHandleQuery::withPHIDs() must be of the type array, null given, called in /app/phabricator/src/applications/phid/conduit/PHIDQueryConduitAPIMethod.php on line 28 and defined"  # noqa
+            error_info = (
+                "Argument 1 passed to PhabricatorHandleQuery::withPHIDs() must be "
+                "of the type array, null given, called in "
+                "/app/phabricator/src/applications/phid/conduit/PHIDQueryConduitAPIMethod.php "
+                "on line 28 and defined"
+            )
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )

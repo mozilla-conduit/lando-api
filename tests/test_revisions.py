@@ -162,9 +162,9 @@ def test_relman_approval_status(status, phabdouble, release_management_project):
     if status == ReviewerStatus.ACCEPTED:
         assert output is None
     else:
-        assert (
-            output
-            == "The release-managers group did not accept the stack: you need to wait for a group approval from release-managers, or request a new review."  # noqa
+        assert output == (
+            "The release-managers group did not accept the stack: you need to wait "
+            "for a group approval from release-managers, or request a new review."
         )
 
 
