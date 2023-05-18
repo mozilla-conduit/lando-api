@@ -14,7 +14,11 @@ from flask import current_app, g
 from landoapi import auth
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.models.landing_job import LandingJob, LandingJobStatus
+from landoapi.models.landing_job import (
+    LandingJob,
+    LandingJobStatus,
+    add_revisions_to_job,
+)
 from landoapi.models.revisions import Revision
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
@@ -307,6 +311,8 @@ def post(phab: PhabricatorClient, data: dict):
         for member in release_managers["attachments"]["members"]["members"]
     }
 
+    lando_revisions = []
+
     # Build the patches to land.
     for revision, diff in to_land:
         reviewers = get_collated_reviewers(revision)
@@ -361,17 +367,16 @@ def post(phab: PhabricatorClient, data: dict):
         raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff["id"])
         lando_revision.set_patch(raw_diff, patch_data)
         db.session.commit()
+        lando_revisions.append(lando_revision)
 
     ldap_username = g.auth0_user.email
-    revision_to_diff_id = {str(r["id"]): d["id"] for r, d in to_land}
-    revision_order = [str(r["id"]) for r in revisions]
-    stack_ids = [r["id"] for r in stack_data.revisions.values()]
 
     submitted_assessment = TransplantAssessment(
         blocker=(
             "This stack was submitted for landing by another user at the same time."
         )
     )
+    stack_ids = [revision.revision_id for revision in lando_revisions]
     with db.session.begin_nested():
         LandingJob.lock_table()
         if (
@@ -388,18 +393,17 @@ def post(phab: PhabricatorClient, data: dict):
 
         # Trigger a local transplant
         job = LandingJob(
-            status=LandingJobStatus.SUBMITTED,
             requester_email=ldap_username,
             repository_name=landing_repo.short_name,
             repository_url=landing_repo.url,
-            revision_to_diff_id=revision_to_diff_id,
-            revision_order=revision_order,
         )
+    add_revisions_to_job(lando_revisions, job)
 
-        db.session.add(job)
+    # Submit landing job.
+    job.status = LandingJobStatus.SUBMITTED
     db.session.commit()
-    logger.info("New landing job {job.id} created for {landing_repo.tree} repo")
-    job_id = job.id
+
+    logger.info(f"New landing job {job.id} created for {landing_repo.tree} repo.")
 
     # Asynchronously remove the checkin project from any of the landing
     # revisions that had it.
@@ -414,7 +418,7 @@ def post(phab: PhabricatorClient, data: dict):
             # these changes so it's better to return properly from the request.
             pass
 
-    return {"id": job_id}, 202
+    return {"id": job.id}, 202
 
 
 @require_phabricator_api_key(optional=True)

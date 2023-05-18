@@ -35,6 +35,15 @@ class DiffWarningGroup(enum.Enum):
     LINT = "LINT"
 
 
+# Association table with custom "index" column to guarantee sorting of revisions.
+revision_landing_job = db.Table(
+    "revision_landing_job",
+    db.Column("landing_job_id", db.ForeignKey("landing_job.id")),
+    db.Column("revision_id", db.ForeignKey("revision.id")),
+    db.Column("index", db.Integer),
+)
+
+
 class Revision(Base):
     """
     A representation of a revision in the database referencing a Phabricator revision.
@@ -42,6 +51,9 @@ class Revision(Base):
 
     # revision_id and diff_id map to Phabricator IDs (integers).
     revision_id = db.Column(db.Integer, nullable=False, unique=True)
+
+    # diff_id is that of the latest diff on the revision at landing request time. It
+    # does not track all diffs.
     diff_id = db.Column(db.Integer, nullable=False)
 
     # The actual patch.
@@ -49,6 +61,10 @@ class Revision(Base):
 
     # Patch metadata, such as author, timestamp, etc...
     patch_data = db.Column(JSONB, nullable=False, default=dict)
+
+    landing_jobs = db.relationship(
+        "LandingJob", secondary=revision_landing_job, back_populates="revisions"
+    )
 
     def __repr__(self):
         """Return a human-readable representation of the instance."""

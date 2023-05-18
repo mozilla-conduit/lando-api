@@ -8,7 +8,11 @@ import pytest
 
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.transplant import Transplant
-from landoapi.models.landing_job import LandingJob, LandingJobStatus
+from landoapi.models.landing_job import (
+    LandingJob,
+    LandingJobStatus,
+    add_job_with_revisions,
+)
 from landoapi.models.revisions import Revision
 from landoapi.phabricator import ReviewerStatus, PhabricatorRevisionStatus
 from landoapi.repos import Repo, SCM_CONDUIT, DONTBUILD
@@ -35,16 +39,23 @@ def _create_landing_job(
     repository_url="http://hg.test",
     status=None,
 ):
-    job = LandingJob(
-        revision_to_diff_id={str(r_id): d_id for r_id, d_id in landing_path},
-        revision_order=[str(r_id) for r_id, _ in landing_path],
-        requester_email=requester_email,
-        repository_name=repository_name,
-        repository_url=repository_url,
-        status=status,
-    )
-    db.session.add(job)
-    db.session.commit()
+    job_params = {
+        "requester_email": requester_email,
+        "repository_name": repository_name,
+        "repository_url": repository_url,
+        "status": status,
+    }
+    revisions = []
+    for revision_id, diff_id in landing_path:
+        revision = Revision.query.filter(
+            Revision.revision_id == revision_id
+        ).one_or_none()
+        if not revision:
+            revision = Revision(revision_id=revision_id)
+        revision.diff_id = diff_id
+        revisions.append(revision)
+    db.session.add_all(revisions)
+    job = add_job_with_revisions(revisions, **job_params)
     return job
 
 
@@ -648,12 +659,11 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     # Get LandingJob object by its id
     job = LandingJob.query.get(job_id)
     assert job.id == job_id
-    assert job.revision_to_diff_id == {
-        str(r1["id"]): d1["id"],
-        str(r2["id"]): d2["id"],
-        str(r3["id"]): d3["id"],
-    }
-    assert job.revision_order == [str(r1["id"]), str(r2["id"]), str(r3["id"])]
+    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+        (r1["id"], d1["id"]),
+        (r2["id"], d2["id"]),
+        (r3["id"], d3["id"]),
+    ]
     assert job.status == LandingJobStatus.SUBMITTED
 
 
