@@ -136,6 +136,7 @@ class LandingJob(Base):
 
     @property
     def landed_revisions(self):
+        """Return revision and diff ID mapping associated with the landing job."""
         revision_ids = [revision.id for revision in self.revisions]
         revision_to_diff_ids_query = (
             revision_landing_job.select()
