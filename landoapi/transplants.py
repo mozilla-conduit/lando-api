@@ -230,7 +230,7 @@ def warning_previously_landed(*, revision, diff, **kwargs):
     if job.revision_to_diff_id:
         legacy_data = {
             int(revision_id): int(diff_id)
-            for revision_id, diff_id in job.revision_to_diff_id
+            for revision_id, diff_id in job.revision_to_diff_id.items()
         }
         revision_to_diff_id.update(legacy_data)
     landed_diff_id = revision_to_diff_id[revision_id]

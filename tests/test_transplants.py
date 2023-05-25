@@ -59,6 +59,44 @@ def _create_landing_job(
     return job
 
 
+def _create_landing_job_with_no_linked_revisions(
+    db,
+    *,
+    landing_path=((1, 1),),
+    revisions=None,
+    requester_email="tuser@example.com",
+    repository_name="mozilla-central",
+    repository_url="http://hg.test",
+    status=None,
+):
+    # Create a landing job without a direct link to revisions, but by referencing
+    # revisions in revision_to_diff_id and revision_order
+    job_params = {
+        "requester_email": requester_email,
+        "repository_name": repository_name,
+        "repository_url": repository_url,
+        "status": status,
+    }
+    job = LandingJob(**job_params)
+    db.session.add(job)
+    revisions = []
+    for revision_id, diff_id in landing_path:
+        revision = Revision.query.filter(
+            Revision.revision_id == revision_id
+        ).one_or_none()
+        if not revision:
+            revision = Revision(revision_id=revision_id)
+        revision.diff_id = diff_id
+        revisions.append(revision)
+    db.session.add_all(revisions)
+    job.revision_to_diff_id = {
+        str(revision.revision_id): revision.diff_id for revision in revisions
+    }
+    job.revision_order = [str(revision.revision_id) for r in revisions]
+    db.session.commit()
+    return job
+
+
 def test_dryrun_no_warnings_or_blockers(
     client, db, phabdouble, auth0_mock, release_management_project
 ):
@@ -430,11 +468,15 @@ def test_warning_previously_landed_no_landings(db, phabdouble):
     assert warning_previously_landed(revision=revision, diff=diff) is None
 
 
-def test_warning_previously_landed_failed_landing(db, phabdouble):
+@pytest.mark.parametrize(
+    "create_landing_job",
+    (_create_landing_job, _create_landing_job_with_no_linked_revisions),
+)
+def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing_job):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
-    _create_landing_job(
+    create_landing_job(
         db,
         landing_path=[(r["id"], d["id"])],
         status=LandingJobStatus.FAILED,
@@ -448,11 +490,15 @@ def test_warning_previously_landed_failed_landing(db, phabdouble):
     assert warning_previously_landed(revision=revision, diff=diff) is None
 
 
-def test_warning_previously_landed_landed_landing(db, phabdouble):
+@pytest.mark.parametrize(
+    "create_landing_job",
+    (_create_landing_job, _create_landing_job_with_no_linked_revisions),
+)
+def test_warning_previously_landed_landed_landing(db, phabdouble, create_landing_job):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
-    _create_landing_job(
+    create_landing_job(
         db,
         landing_path=[(r["id"], d["id"])],
         status=LandingJobStatus.LANDED,
