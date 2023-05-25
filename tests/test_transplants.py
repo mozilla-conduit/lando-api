@@ -711,6 +711,88 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
         (r3["id"], d3["id"]),
     ]
     assert job.status == LandingJobStatus.SUBMITTED
+    assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
+
+
+def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    register_codefreeze_uri,
+):
+    # Performs a similar simple test as in
+    # test_integrated_transplant_simple_stack_saves_data_in_db but submit an additional
+    # landing job for an updated revision diff.
+    repo = phabdouble.repo()
+    user = phabdouble.user(username="reviewer")
+
+    d1a = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1a, repo=repo)
+    phabdouble.reviewer(r1, user)
+
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1a["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response.status_code == 202
+    assert response.content_type == "application/json"
+    assert "id" in response.json
+    job_id = response.json["id"]
+
+    # Ensure DB access isn't using uncommitted data.
+    db.session.close()
+
+    # Get LandingJob object by its id
+    job = LandingJob.query.get(job_id)
+    assert job.id == job_id
+    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+        (r1["id"], d1a["id"]),
+    ]
+    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.landed_revisions == {r1["id"]: d1a["id"]}
+
+    # Cancel job.
+    response = client.put(
+        f"/landing_jobs/{job.id}",
+        json={"status": "CANCELLED"},
+        headers=auth0_mock.mock_headers,
+    )
+
+    job = LandingJob.query.get(job_id)
+    assert job.status == LandingJobStatus.CANCELLED
+
+    d1b = phabdouble.diff(revision=r1)
+    phabdouble.reviewer(r1, user)
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1b["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    job_id = response.json["id"]
+
+    # Ensure DB access isn't using uncommitted data.
+    db.session.close()
+
+    # Get LandingJob object by its id
+    job = LandingJob.query.get(job_id)
+    assert job.id == job_id
+    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+        (r1["id"], d1b["id"]),
+    ]
+    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.landed_revisions == {r1["id"]: d1b["id"]}
 
 
 def test_integrated_transplant_with_flags(

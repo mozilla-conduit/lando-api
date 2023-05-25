@@ -401,6 +401,7 @@ def post(phab: PhabricatorClient, data: dict):
 
     # Submit landing job.
     job.status = LandingJobStatus.SUBMITTED
+    job.set_landed_revision_diffs()
     db.session.commit()
 
     logger.info(f"New landing job {job.id} created for {landing_repo.tree} repo.")

@@ -36,11 +36,13 @@ class DiffWarningGroup(enum.Enum):
 
 
 # Association table with custom "index" column to guarantee sorting of revisions.
+# The diff_id column is used as a transaction record of the diff_id at landing time.
 revision_landing_job = db.Table(
     "revision_landing_job",
     db.Column("landing_job_id", db.ForeignKey("landing_job.id")),
     db.Column("revision_id", db.ForeignKey("revision.id")),
     db.Column("index", db.Integer),
+    db.Column("diff_id", db.Integer, nullable=True),
 )
 
 
