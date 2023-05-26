@@ -722,9 +722,13 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     release_management_project,
     register_codefreeze_uri,
 ):
-    # Performs a similar simple test as in
-    # test_integrated_transplant_simple_stack_saves_data_in_db but submit an additional
-    # landing job for an updated revision diff.
+    """
+    Perform a simple test but with two landing jobs for the same revision.
+
+    The test is similar to the one in
+    test_integrated_transplant_simple_stack_saves_data_in_db but submits an additional
+    landing job for an updated revision diff.
+    """
     repo = phabdouble.repo()
     user = phabdouble.user(username="reviewer")
 
@@ -744,14 +748,14 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     assert response.status_code == 202
     assert response.content_type == "application/json"
     assert "id" in response.json
-    job_id = response.json["id"]
+    job_1_id = response.json["id"]
 
     # Ensure DB access isn't using uncommitted data.
     db.session.close()
 
-    # Get LandingJob object by its id
-    job = LandingJob.query.get(job_id)
-    assert job.id == job_id
+    # Get LandingJob object by its id.
+    job = LandingJob.query.get(job_1_id)
+    assert job.id == job_1_id
     assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
         (r1["id"], d1a["id"]),
     ]
@@ -765,7 +769,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
         headers=auth0_mock.mock_headers,
     )
 
-    job = LandingJob.query.get(job_id)
+    job = LandingJob.query.get(job_1_id)
     assert job.status == LandingJobStatus.CANCELLED
 
     d1b = phabdouble.diff(revision=r1)
@@ -780,19 +784,33 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
         headers=auth0_mock.mock_headers,
     )
 
-    job_id = response.json["id"]
+    job_2_id = response.json["id"]
 
     # Ensure DB access isn't using uncommitted data.
     db.session.close()
 
-    # Get LandingJob object by its id
-    job = LandingJob.query.get(job_id)
-    assert job.id == job_id
-    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+    # Get LandingJob objects by their ids.
+    job_1 = LandingJob.query.get(job_1_id)
+    job_2 = LandingJob.query.get(job_2_id)
+
+    # The Revision objects always track the latest revisions.
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job_1.revisions
+    ] == [
         (r1["id"], d1b["id"]),
     ]
-    assert job.status == LandingJobStatus.SUBMITTED
-    assert job.landed_revisions == {r1["id"]: d1b["id"]}
+
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job_2.revisions
+    ] == [
+        (r1["id"], d1b["id"]),
+    ]
+
+    assert job_1.status == LandingJobStatus.CANCELLED
+    assert job_2.status == LandingJobStatus.SUBMITTED
+
+    assert job_1.landed_revisions == {r1["id"]: d1a["id"]}
+    assert job_2.landed_revisions == {r1["id"]: d1b["id"]}
 
 
 def test_integrated_transplant_with_flags(

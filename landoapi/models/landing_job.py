@@ -267,8 +267,8 @@ class LandingJob(Base):
         for revision in self.revisions:
             db.session.execute(
                 revision_landing_job.update()
-                .where(revision_landing_job.c.landing_job_id == self.id)
                 .where(
+                    revision_landing_job.c.landing_job_id == self.id,
                     revision_landing_job.c.revision_id == revision.id,
                 )
                 .values(diff_id=revision.diff_id)
