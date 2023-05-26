@@ -711,6 +711,106 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
         (r3["id"], d3["id"]),
     ]
     assert job.status == LandingJobStatus.SUBMITTED
+    assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
+
+
+def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    register_codefreeze_uri,
+):
+    """
+    Perform a simple test but with two landing jobs for the same revision.
+
+    The test is similar to the one in
+    test_integrated_transplant_simple_stack_saves_data_in_db but submits an additional
+    landing job for an updated revision diff.
+    """
+    repo = phabdouble.repo()
+    user = phabdouble.user(username="reviewer")
+
+    d1a = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1a, repo=repo)
+    phabdouble.reviewer(r1, user)
+
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1a["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response.status_code == 202
+    assert response.content_type == "application/json"
+    assert "id" in response.json
+    job_1_id = response.json["id"]
+
+    # Ensure DB access isn't using uncommitted data.
+    db.session.close()
+
+    # Get LandingJob object by its id.
+    job = LandingJob.query.get(job_1_id)
+    assert job.id == job_1_id
+    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+        (r1["id"], d1a["id"]),
+    ]
+    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.landed_revisions == {r1["id"]: d1a["id"]}
+
+    # Cancel job.
+    response = client.put(
+        f"/landing_jobs/{job.id}",
+        json={"status": "CANCELLED"},
+        headers=auth0_mock.mock_headers,
+    )
+
+    job = LandingJob.query.get(job_1_id)
+    assert job.status == LandingJobStatus.CANCELLED
+
+    d1b = phabdouble.diff(revision=r1)
+    phabdouble.reviewer(r1, user)
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1b["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    job_2_id = response.json["id"]
+
+    # Ensure DB access isn't using uncommitted data.
+    db.session.close()
+
+    # Get LandingJob objects by their ids.
+    job_1 = LandingJob.query.get(job_1_id)
+    job_2 = LandingJob.query.get(job_2_id)
+
+    # The Revision objects always track the latest revisions.
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job_1.revisions
+    ] == [
+        (r1["id"], d1b["id"]),
+    ]
+
+    assert [
+        (revision.revision_id, revision.diff_id) for revision in job_2.revisions
+    ] == [
+        (r1["id"], d1b["id"]),
+    ]
+
+    assert job_1.status == LandingJobStatus.CANCELLED
+    assert job_2.status == LandingJobStatus.SUBMITTED
+
+    assert job_1.landed_revisions == {r1["id"]: d1a["id"]}
+    assert job_2.landed_revisions == {r1["id"]: d1b["id"]}
 
 
 def test_integrated_transplant_with_flags(

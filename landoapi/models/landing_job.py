@@ -135,8 +135,20 @@ class LandingJob(Base):
     )
 
     @property
-    def landing_path(self) -> list[tuple[int, int]]:
-        return [(revision.revision_id, revision.diff_id) for revision in self.revisions]
+    def landed_revisions(self) -> dict:
+        """Return revision and diff ID mapping associated with the landing job."""
+        revision_ids = [revision.id for revision in self.revisions]
+        revision_to_diff_ids_query = (
+            revision_landing_job.select()
+            .join(Revision)
+            .where(
+                revision_landing_job.c.revision_id.in_(revision_ids),
+                revision_landing_job.c.landing_job_id == self.id,
+            )
+            .with_only_columns(Revision.revision_id, revision_landing_job.c.diff_id)
+            .order_by(revision_landing_job.c.index)
+        )
+        return dict(list(db.session.execute(revision_to_diff_ids_query)))
 
     @property
     def serialized_landing_path(self):
@@ -147,7 +159,7 @@ class LandingJob(Base):
                     "revision_id": "D{}".format(revision_id),
                     "diff_id": diff_id,
                 }
-                for revision_id, diff_id in self.landing_path
+                for revision_id, diff_id in self.landed_revisions.items()
             ]
         else:
             return [
@@ -247,6 +259,19 @@ class LandingJob(Base):
                     revision_landing_job.c.revision_id == revision.id,
                 )
                 .values(index=index)
+            )
+
+    def set_landed_revision_diffs(self):
+        """Assign diff_ids, if available, to each association row."""
+        # Update association table records with current diff_id values.
+        for revision in self.revisions:
+            db.session.execute(
+                revision_landing_job.update()
+                .where(
+                    revision_landing_job.c.landing_job_id == self.id,
+                    revision_landing_job.c.revision_id == revision.id,
+                )
+                .values(diff_id=revision.diff_id)
             )
 
     def transition_status(

@@ -224,13 +224,11 @@ def warning_previously_landed(*, revision, diff, **kwargs):
     if job is None:
         return None
 
-    revision_to_diff_id = {
-        revision.revision_id: revision.diff_id for revision in job.revisions
-    }
+    revision_to_diff_id = job.landed_revisions
     if job.revision_to_diff_id:
         legacy_data = {
-            int(revision_id): int(diff_id)
-            for revision_id, diff_id in job.revision_to_diff_id.items()
+            int(legacy_revision_id): int(legacy_diff_id)
+            for legacy_revision_id, legacy_diff_id in job.revision_to_diff_id.items()
         }
         revision_to_diff_id.update(legacy_data)
     landed_diff_id = revision_to_diff_id[revision_id]
