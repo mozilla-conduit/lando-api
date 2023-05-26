@@ -496,15 +496,6 @@ class require_auth0:
         return self._require_access_token(f)
 
 
-def _not_authorized_problem_exception() -> ProblemException:
-    return ProblemException(
-        403,
-        "Not Authorized",
-        "You're not authorized to proceed.",
-        type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
-    )
-
-
 class Auth0Subsystem(Subsystem):
     name = "auth0"
 
