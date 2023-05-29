@@ -11,6 +11,8 @@ Phabricator diff that is associated with a particular revision.
 
 from __future__ import annotations
 
+from typing import Any
+
 import enum
 import logging
 
@@ -85,6 +87,16 @@ class Revision(Base):
         self.patch_data = patch_data
         patch = build_patch_for_revision(raw_diff, **self.patch_data)
         self.patch_bytes = patch.encode("utf-8")
+
+    def serialize(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "revision_id": self.revision_id,
+            "diff_id": self.diff_id,
+            "landing_jobs": [job.id for job in self.landing_jobs],
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
 
 
 class DiffWarning(Base):
