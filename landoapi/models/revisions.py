@@ -86,7 +86,7 @@ class Revision(Base):
         patch = build_patch_for_revision(raw_diff, **self.patch_data)
         self.patch_bytes = patch.encode("utf-8")
 
-    def serialize(self):
+    def serialize(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "revision_id": self.revision_id,
