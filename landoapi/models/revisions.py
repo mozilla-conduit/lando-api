@@ -11,6 +11,8 @@ Phabricator diff that is associated with a particular revision.
 
 from __future__ import annotations
 
+from typing import Any
+
 import enum
 import logging
 
