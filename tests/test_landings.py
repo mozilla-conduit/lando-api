@@ -291,6 +291,53 @@ def test_integrated_execute_job(
     ), "Successful landing should trigger Phab repo update."
 
 
+def test_integrated_execute_job_with_force_push(
+    app,
+    db,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    monkeypatch,
+    create_patch_revision,
+):
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo(
+        tree="mozilla-central",
+        url=hg_server,
+        access_group=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        force_push=True,
+    )
+    hgrepo = HgRepo(hg_clone.strpath)
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions([create_patch_revision(1)], **job_params)
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    # We don't care about repo update in this test, however if we don't mock
+    # this, the test will fail since there is no celery instance.
+    monkeypatch.setattr(
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock.MagicMock(),
+    )
+
+    hgrepo.push = mock.MagicMock()
+    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert hgrepo.push.call_count == 1
+    assert len(hgrepo.push.call_args) == 2
+    assert len(hgrepo.push.call_args[0]) == 1
+    assert hgrepo.push.call_args[0][0] == hg_server
+    assert hgrepo.push.call_args[1] == {"bookmark": None, "force_push": True}
+
+
 def test_integrated_execute_job_with_bookmark(
     app,
     db,
@@ -335,7 +382,7 @@ def test_integrated_execute_job_with_bookmark(
     assert len(hgrepo.push.call_args) == 2
     assert len(hgrepo.push.call_args[0]) == 1
     assert hgrepo.push.call_args[0][0] == hg_server
-    assert hgrepo.push.call_args[1] == {"bookmark": "@"}
+    assert hgrepo.push.call_args[1] == {"bookmark": "@", "force_push": False}
 
 
 def test_lose_push_race(

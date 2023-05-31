@@ -278,7 +278,7 @@ class LandingWorker(Worker):
         with hgrepo.for_push(job.requester_email):
             # Update local repo.
             try:
-                hgrepo.update_repo(repo.pull_path)
+                hgrepo.update_repo(repo.pull_path, target_cset=job.target_cset)
             except Exception as e:
                 message = f"Unexpected error while fetching repo from {repo.pull_path}."
                 logger.exception(message)
@@ -385,7 +385,11 @@ class LandingWorker(Worker):
 
             repo_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
-                hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
+                hgrepo.push(
+                    repo.push_path,
+                    bookmark=repo.push_bookmark or None,
+                    force_push=repo.force_push,
+                )
             except (TreeClosed, TreeApprovalRequired, LostPushRace) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
@@ -427,6 +431,7 @@ class LandingWorker(Worker):
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
-        self.phab_trigger_repo_update(repo.phab_identifier)
+        if repo.phab_identifier:
+            self.phab_trigger_repo_update(repo.phab_identifier)
 
         return True

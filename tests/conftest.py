@@ -28,7 +28,7 @@ from landoapi.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from landoapi.repos import SCM_LEVEL_3, Repo
+from landoapi.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
 from landoapi.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
@@ -255,6 +255,16 @@ def mocked_repo_config(mock_repo_config):
                     url="http://hg.test/new",
                     access_group=SCM_LEVEL_3,
                     commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
+                ),
+                "try": Repo(
+                    tree="try",
+                    url="http://hg.test/try",
+                    push_path="http://hg.test/try",
+                    pull_path="http://hg.test",
+                    access_group=SCM_LEVEL_1,
+                    short_name="try",
+                    phabricator_repo=False,
+                    force_push=True,
                 ),
             }
         }

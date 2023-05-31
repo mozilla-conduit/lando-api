@@ -60,6 +60,9 @@ class Repo:
             the commit message at landing time (e.g. `[("DONTBUILD", "help text")]`).
         product_details_url (str): The URL which contains product-related information
             relevant to the repo. Defaults to an empty string.
+        phabricator_repo (bool): Boolean indicating if the repo is available on
+            Phabricator or not.
+        force_push (bool): Boolean that controls the use of force pushes for a repo.
     """
 
     tree: str
@@ -74,6 +77,8 @@ class Repo:
     autoformat_enabled: bool = False
     commit_flags: list[tuple[str, str]] = field(default_factory=list)
     product_details_url: str = ""
+    phabricator_repo: bool = True
+    force_push: bool = False
 
     def __post_init__(self):
         """Set defaults based on initial values.
@@ -91,8 +96,11 @@ class Repo:
             self.short_name = self.tree
 
     @property
-    def phab_identifier(self) -> str:
+    def phab_identifier(self) -> str | None:
         """Return a valid Phabricator identifier as a `str`."""
+        if not self.phabricator_repo:
+            return None
+
         return self.short_name if self.short_name else self.tree
 
 
@@ -216,12 +224,34 @@ REPO_CONFIG = {
             access_group=SCM_CONDUIT,
             push_bookmark="@",
         ),
+        # Use real `try` for testing since `try` is a testing environment anyway.
+        "try": Repo(
+            tree="try",
+            url="https://hg.mozilla.org/try",
+            push_path="ssh://hg.mozilla.org/try",
+            pull_path="https://hg.mozilla.org/mozilla-unified",
+            access_group=SCM_LEVEL_1,
+            short_name="try",
+            phabricator_repo=False,
+            force_push=True,
+        ),
     },
     "devsvcstage": {
         "test-repo-clone": Repo(
             tree="test-repo-clone",
             url="https://hg.mozilla.org/conduit-testing/test-repo-clone",
             access_group=SCM_CONDUIT,
+        ),
+        # Use real `try` for testing since `try` is a testing environment anyway.
+        "try": Repo(
+            tree="try",
+            url="https://hg.mozilla.org/try",
+            push_path="ssh://hg.mozilla.org/try",
+            pull_path="https://hg.mozilla.org/mozilla-unified",
+            access_group=SCM_LEVEL_1,
+            short_name="try",
+            phabricator_repo=False,
+            force_push=True,
         ),
     },
     "devsvcprod": {
@@ -265,6 +295,18 @@ REPO_CONFIG = {
             product_details_url="https://product-details.mozilla.org"
             "/1.0/firefox_versions.json",
             autoformat_enabled=True,
+        ),
+        # Try uses `mozilla-unified` as the `pull_path` as using try
+        # proper is exceptionally slow.
+        "try": Repo(
+            tree="try",
+            url="https://hg.mozilla.org/try",
+            push_path="ssh://hg.mozilla.org/try",
+            pull_path="https://hg.mozilla.org/mozilla-unified",
+            access_group=SCM_LEVEL_1,
+            short_name="try",
+            phabricator_repo=False,
+            force_push=True,
         ),
         "comm-central": Repo(
             tree="comm-central",

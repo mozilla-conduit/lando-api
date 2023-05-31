@@ -493,6 +493,40 @@ class require_auth0:
         return self._require_access_token(f)
 
 
+def assert_scm_level_1(auth0_user: A0User):
+    """Raise an appropriate `ProblemException` if the user is missing `scm_level_1`."""
+    # Return appropriate error message if user does not have commit access.
+    if not auth0_user.is_in_groups("all_scm_level_1"):
+        raise ProblemException(
+            401,
+            "`scm_level_1` access is required.",
+            "You do not have `scm_level_1` commit access.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        )
+
+    # Check that user has active_scm_level_1 and not `expired_scm_level_1`.
+    if auth0_user.is_in_groups("expired_scm_level_1") or not auth0_user.is_in_groups(
+        "active_scm_level_1"
+    ):
+        raise ProblemException(
+            401,
+            "Your `scm_level_1` commit access has expired.",
+            "Your `scm_level_1` commit access has expired.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        )
+
+
+def enforce_scm_level_1(func):
+    """Decorator to enforce `active_scm_level_1` membership with error messaging."""
+
+    @functools.wraps(func)
+    def wrap_api(*args, **kwargs):
+        assert_scm_level_1(g.auth0_user)
+        return func(*args, **kwargs)
+
+    return wrap_api
+
+
 class Auth0Subsystem(Subsystem):
     name = "auth0"
 

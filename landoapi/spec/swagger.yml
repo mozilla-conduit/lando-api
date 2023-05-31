@@ -366,6 +366,34 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+  /try:
+    post:
+      operationId: landoapi.api.try.post
+      description: |
+        Submit a set of patches to the Try server.
+      parameters:
+        - name: data
+          in: body
+          description: |
+            Provide the content of the push for submission to Lando.
+          required: true
+          schema:
+            type: object
+            required:
+              - base_commit
+              - patches
+            properties:
+              base_commit:
+                type: string
+                description: |
+                  The published base commit on which to apply `patches`.
+              patches:
+                type: array
+                description: |
+                  Ordered array of base64 encoded patches for submission to Lando.
+      responses:
+        201:
+          description: Push was submitted successfully.
 definitions:
   LandingPath:
     type: array

@@ -125,6 +125,9 @@ class LandingJob(Base):
     #    ["", ""]
     formatted_replacements = db.Column(JSONB, nullable=True)
 
+    # Identifier of the published commit which this job should land on top of.
+    target_cset = db.Column(db.Text(), nullable=True)
+
     revisions = db.relationship(
         "Revision",
         secondary=revision_landing_job,
