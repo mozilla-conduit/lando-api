@@ -3,10 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 from __future__ import annotations
 
-from contextlib import contextmanager
-from datetime import datetime
 import logging
 import re
+from contextlib import contextmanager
+from datetime import datetime
 from io import BytesIO
 from typing import Any
 
@@ -14,6 +14,7 @@ import kombu
 
 from landoapi.commit_message import parse_bugs
 from landoapi.hg import (
+    REJECTS_PATH,
     AutoformattingException,
     HgRepo,
     LostPushRace,
@@ -21,10 +22,9 @@ from landoapi.hg import (
     PatchConflict,
     TreeApprovalRequired,
     TreeClosed,
-    REJECTS_PATH,
 )
 from landoapi.models.configuration import ConfigurationKey
-from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
+from landoapi.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from landoapi.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -33,7 +33,7 @@ from landoapi.repos import (
     Repo,
     repo_clone_subsystem,
 )
-from landoapi.storage import db, SQLAlchemy
+from landoapi.storage import SQLAlchemy, db
 from landoapi.tasks import phab_trigger_repo_update
 from landoapi.treestatus import (
     TreeStatus,

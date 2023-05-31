@@ -5,15 +5,13 @@ import datetime
 import enum
 import logging
 import os
-
 from typing import (
     Any,
-    Optional,
     Iterable,
+    Optional,
 )
 
 import flask_sqlalchemy
-
 from sqlalchemy import or_
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB

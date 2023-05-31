@@ -38,7 +38,7 @@ def request_sec_approval(phab: PhabricatorClient, data: dict):
 
     logger.info(
         "Got request for sec-approval review of revision",
-        extra=dict(revision_phid=revision_id),
+        extra={"revision_phid": revision_id},
     )
 
     if not alt_message:

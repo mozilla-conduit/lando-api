@@ -7,7 +7,6 @@ from sqlalchemy.ext.declarative import declared_attr
 
 from landoapi.storage import db
 
-
 # Regex to parse various forms of capitalizations/camel case into snake case.
 table_name_re = re.compile("((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))")
 

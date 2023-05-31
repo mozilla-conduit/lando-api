@@ -15,12 +15,12 @@ from typing import (
 
 import networkx as nx
 
-from landoapi.repos import Repo
 from landoapi.phabricator import (
     PhabricatorClient,
-    result_list_to_phid_dict,
     PhabricatorRevisionStatus,
+    result_list_to_phid_dict,
 )
+from landoapi.repos import Repo
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ def request_extended_revision_data(
         repos = phab.call_conduit(
             "diffusion.repository.search",
             attachments={"projects": True},
-            constraints={"phids": [phid for phid in repo_phids]},
+            constraints={"phids": list(repo_phids)},
             limit=len(repo_phids),
         )
         phab.expect(repos, "data", len(repo_phids) - 1)

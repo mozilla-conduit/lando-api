@@ -45,7 +45,7 @@ def test_build_sec_approval_request_obj(phabdouble):
         {
             "phid": "PHID-XACT-DREV-faketxn2",
             "type": "reviewers.add",
-            "value": [f"blocking(bar)"],
+            "value": ["blocking(bar)"],
         },
     ]
 

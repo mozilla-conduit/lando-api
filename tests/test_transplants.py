@@ -7,15 +7,15 @@ from unittest.mock import MagicMock
 import pytest
 
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
-from landoapi.models.transplant import Transplant
 from landoapi.models.landing_job import (
     LandingJob,
     LandingJobStatus,
     add_job_with_revisions,
 )
 from landoapi.models.revisions import Revision
-from landoapi.phabricator import ReviewerStatus, PhabricatorRevisionStatus
-from landoapi.repos import Repo, SCM_CONDUIT, DONTBUILD
+from landoapi.models.transplant import Transplant
+from landoapi.phabricator import PhabricatorRevisionStatus, ReviewerStatus
+from landoapi.repos import DONTBUILD, SCM_CONDUIT, Repo
 from landoapi.reviews import get_collated_reviewers
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (

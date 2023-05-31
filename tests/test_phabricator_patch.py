@@ -3,9 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 
-import pytest
-import os.path
 import json
+import os.path
+
+import pytest
 
 from landoapi.phabricator_patch import patch_to_changes
 

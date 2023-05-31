@@ -4,6 +4,7 @@
 # Largely inspired by moz-phab:
 # https://github.com/mozilla-conduit/review/blob/1.40/moz-phab#L1187
 import enum
+
 import rs_parsepatch
 
 

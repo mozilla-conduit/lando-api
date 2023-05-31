@@ -8,9 +8,7 @@ import functools
 import hashlib
 import logging
 import os
-
 from collections.abc import Iterable
-
 from typing import (
     Callable,
     Optional,
@@ -24,7 +22,6 @@ from jose import jwt
 from landoapi.cache import cache
 from landoapi.mocks.auth import MockAuth0
 from landoapi.systems import Subsystem
-
 
 logger = logging.getLogger(__name__)
 

@@ -2,14 +2,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
+from datetime import datetime
 
 from connexion import ProblemException
-from datetime import datetime
 from flask import g
-from sqlalchemy import func, Date
+from sqlalchemy import Date, func
 
 from landoapi import auth
-from landoapi.models.landing_job import LandingJob, LandingJobStatus, LandingJobAction
+from landoapi.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)

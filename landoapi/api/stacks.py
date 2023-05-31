@@ -6,6 +6,7 @@ import urllib.parse
 
 from connexion import problem
 from flask import current_app
+
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
 from landoapi.models.revisions import Revision
@@ -70,7 +71,7 @@ def get(phab: PhabricatorClient, revision_id: str):
 
     nodes, edges = build_stack_graph(revision)
     try:
-        stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
+        stack_data = request_extended_revision_data(phab, list(nodes))
     except ValueError:
         return not_found_problem
 
@@ -224,7 +225,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     return {
         "repositories": repositories,
         "revisions": revisions_response,
-        "edges": [e for e in edges],
+        "edges": list(edges),
         "landable_paths": landable,
         "uplift_repositories": uplift_repos,
     }

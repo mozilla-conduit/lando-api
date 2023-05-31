@@ -8,6 +8,7 @@ from connexion import problem
 from flask import current_app
 
 from landoapi import auth
+from landoapi.decorators import require_phabricator_api_key
 from landoapi.phabricator import PhabricatorClient
 from landoapi.repos import get_repos_for_env
 from landoapi.uplift import (
@@ -16,7 +17,6 @@ from landoapi.uplift import (
     get_uplift_conduit_state,
     get_uplift_repositories,
 )
-from landoapi.decorators import require_phabricator_api_key
 from landoapi.validation import revision_id_to_int
 
 logger = logging.getLogger(__name__)

@@ -16,7 +16,7 @@ from landoapi.auth import (
     fetch_auth0_userinfo,
     require_auth0,
 )
-from landoapi.mocks.auth import create_access_token, TEST_KEY_PRIV
+from landoapi.mocks.auth import TEST_KEY_PRIV, create_access_token
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 
 
