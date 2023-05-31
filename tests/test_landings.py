@@ -4,9 +4,7 @@
 
 import io
 import textwrap
-import unittest.mock as mock
-
-import pytest
+from unittest import mock
 
 from landoapi.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
 from landoapi.models.landing_job import (
@@ -14,26 +12,8 @@ from landoapi.models.landing_job import (
     LandingJobStatus,
     add_job_with_revisions,
 )
-from landoapi.models.revisions import Revision
 from landoapi.repos import SCM_LEVEL_3, Repo
 from landoapi.workers.landing_worker import LandingWorker
-
-
-@pytest.fixture
-def create_patch_revision(db):
-    """A fixture that fake uploads a patch"""
-
-    def _create_patch_revision(number, patch=PATCH_NORMAL_1):
-        revision = Revision()
-        revision.revision_id = number
-        revision.diff_id = number
-        revision.patch_bytes = patch.encode("utf-8")
-        db.session.add(revision)
-        db.session.commit()
-        return revision
-
-    return _create_patch_revision
-
 
 PATCH_NORMAL_1 = r"""
 # HG changeset patch

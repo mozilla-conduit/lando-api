@@ -21,6 +21,7 @@ from pytest_flask.plugin import JSONResponse
 from landoapi.app import SUBSYSTEMS, construct_app, load_config
 from landoapi.cache import cache
 from landoapi.mocks.auth import TEST_JWKS, MockAuth0
+from landoapi.models.revisions import Revision, RevisionStatus
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -28,11 +29,26 @@ from landoapi.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from landoapi.repos import SCM_LEVEL_3, Repo
+from landoapi.repos import SCM_LEVEL_3, Repo, repo_clone_subsystem
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
 from landoapi.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
+
+PATCH_NORMAL_1 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip()
 
 
 class JSONClient(flask.testing.FlaskClient):
@@ -426,3 +442,48 @@ def codefreeze_datetime(request_mocker):
             return dates[f"{date_string}"]
 
     return Mockdatetime
+
+
+@pytest.fixture
+def create_patch_revision(db):
+    """A fixture that fake uploads a patch"""
+
+    def _create_patch_revision(
+        number, patch=PATCH_NORMAL_1, status=RevisionStatus.READY
+    ):
+        revision = Revision()
+        revision.status = status
+        revision.revision_id = number
+        revision.diff_id = number
+        revision.patch_bytes = patch.encode("utf-8")
+        db.session.add(revision)
+        db.session.commit()
+        return revision
+
+    return _create_patch_revision
+
+
+@pytest.fixture
+def setup_repo(mock_repo_config, phabdouble, app, hg_server):
+    def _setup(commit_flags=None):
+        mock_repo_config(
+            {
+                "test": {
+                    "repoA": Repo(
+                        tree="mozilla-central",
+                        url=hg_server,
+                        access_group=SCM_LEVEL_3,
+                        push_path=hg_server,
+                        pull_path=hg_server,
+                        use_revision_worker=True,
+                        commit_flags=commit_flags or [],
+                    )
+                }
+            }
+        )
+        repo = phabdouble.repo(name="repoA")
+        app.config["REPOS_TO_LAND"] = "repoA"
+        repo_clone_subsystem.ready()
+        return repo
+
+    return _setup

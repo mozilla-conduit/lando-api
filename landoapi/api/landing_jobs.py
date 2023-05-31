@@ -63,6 +63,9 @@ def put(landing_job_id: str, data: dict):
 
     if landing_job.status in (LandingJobStatus.SUBMITTED, LandingJobStatus.DEFERRED):
         landing_job.transition_status(LandingJobAction.CANCEL)
+        for revision in landing_job.revisions:
+            # Unlock patches so they can be modified in the future.
+            revision.patch_locked = False
         db.session.commit()
         return {"id": landing_job.id}, 200
     else:

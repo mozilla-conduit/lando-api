@@ -10,7 +10,11 @@ import re
 import subprocess
 from time import sleep
 
-from landoapi.models.configuration import ConfigurationKey, ConfigurationVariable
+from landoapi.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    VariableType,
+)
 from landoapi.repos import repo_clone_subsystem
 from landoapi.treestatus import treestatus_subsystem
 
@@ -121,9 +125,11 @@ class Worker:
             self._setup_ssh(self.ssh_private_key)
 
     def _start(self, max_loops: int | None = None, *args, **kwargs):
-        """Run the main event loop."""
-        # NOTE: The worker will exit when max_loops is reached, or when the stop
-        # variable is changed to True.
+        """Start the main event loop, and a loop counter.
+
+        If maximum number of loops is reached, or if the worker stop flag is toggled,
+        the worker will exit.
+        """
         loops = 0
         while self._running:
             if max_loops is not None and loops >= max_loops:
@@ -163,5 +169,53 @@ class Worker:
         self._start(max_loops=max_loops)
 
     def loop(self, *args, **kwargs):
-        """The main event loop."""
+        """Main event loop to be defined by each worker."""
         raise NotImplementedError()
+
+
+class RevisionWorker(Worker):
+    """A worker that pre-processes revisions.
+
+    This worker continuously synchronises revisions with the remote Phabricator API
+    and runs all applicable checks and processes on each revision, if needed.
+    """
+
+    @property
+    def STOP_KEY(self) -> ConfigurationKey:
+        """Return the configuration key that prevents the worker from starting."""
+        return ConfigurationKey.REVISION_WORKER_STOPPED
+
+    @property
+    def PAUSE_KEY(self) -> ConfigurationKey:
+        """Return the configuration key that pauses the worker."""
+        return ConfigurationKey.REVISION_WORKER_PAUSED
+
+    @property
+    def CAPACITY_KEY(self) -> ConfigurationKey:
+        """Return the configuration key that pauses the worker."""
+        return ConfigurationKey.REVISION_WORKER_CAPACITY
+
+    @classmethod
+    def pause(cls):
+        """Pause the operation of revision workers."""
+        ConfigurationVariable.set(cls.PAUSE_KEY, VariableType.BOOL, "1")
+
+    @classmethod
+    def resume(cls):
+        """Resume the operation of revision workers."""
+        ConfigurationVariable.set(cls.PAUSE_KEY, VariableType.BOOL, "0")
+
+    @classmethod
+    def stop(cls):
+        """Stop the operation of revision workers (causes worker to exit)."""
+        ConfigurationVariable.set(cls.STOP_KEY, VariableType.BOOL, "1")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(with_ssh=False, **kwargs)
+
+    @property
+    def capacity(self):
+        """
+        The number of revisions that this worker will fetch for processing per batch.
+        """
+        return ConfigurationVariable.get(self.CAPACITY_KEY, 2)

@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
 
 from landoapi.models.base import Base
-from landoapi.models.revisions import Revision, revision_landing_job
+from landoapi.models.revisions import Revision, RevisionStatus, revision_landing_job
 from landoapi.storage import db
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ class LandingJobStatus(enum.Enum):
     column of `LandingJob`.
     """
 
-    # Initial creation state.
+    # Ready to be picked up state.
     SUBMITTED = "SUBMITTED"
 
     # Actively being processed.
@@ -272,6 +272,14 @@ class LandingJob(Base):
                 .values(diff_id=revision.diff_id)
             )
 
+    def has_non_ready_revisions(self) -> bool:
+        """Return whether any of the revisions are in a non-ready state or not."""
+        return bool(
+            {r.status for r in self.revisions}.intersection(
+                RevisionStatus.NON_READY_STATES
+            )
+        )
+
     def transition_status(
         self,
         action: LandingJobAction,
@@ -321,14 +329,34 @@ class LandingJob(Base):
 
         self.status = actions[action]["status"]
 
+        if action == LandingJobAction.CANCEL:
+            self.ready_revisions()
+
         if action in (LandingJobAction.FAIL, LandingJobAction.DEFER):
             self.error = kwargs["message"]
+            self.fail_revisions()
 
         if action == LandingJobAction.LAND:
             self.landed_commit_id = kwargs["commit_id"]
+            self.land_revisions()
 
         if commit:
             db.session.commit()
+
+    def fail_revisions(self):
+        """Mark all revisions in landing jobs as failed."""
+        for revision in self.revisions:
+            revision.fail()
+
+    def land_revisions(self):
+        """Mark all revisions in landing jobs as landed."""
+        for revision in self.revisions:
+            revision.land()
+
+    def ready_revisions(self):
+        """Mark all revisions in landing jobs as ready."""
+        for revision in self.revisions:
+            revision.ready()
 
     def serialize(self) -> dict[str, Any]:
         """Return a JSON compatible dictionary."""
@@ -336,6 +364,7 @@ class LandingJob(Base):
             "id": self.id,
             "status": self.status.value,
             "landing_path": self.serialized_landing_path,
+            "duration_seconds": self.duration_seconds,
             "error_breakdown": self.error_breakdown,
             "details": (
                 self.error or self.landed_commit_id
