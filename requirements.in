@@ -18,7 +18,7 @@ python-hglib==2.6.2
 python-jose==3.3.0
 redis==3.2.1
 requests-mock==1.6.0
-requests==2.27.1
+requests==2.31.0
 rs-parsepatch==0.3.9
 ruff==0.0.270
 sentry-sdk==1.11.1
