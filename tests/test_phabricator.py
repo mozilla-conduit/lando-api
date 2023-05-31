@@ -23,7 +23,7 @@ from landoapi.phabricator import (
         "closed",
     ],
 )
-def test_revision_status_uknown_values(v):
+def test_revision_status_unknown_values(v):
     assert (
         PhabricatorRevisionStatus.from_status(v)
         is PhabricatorRevisionStatus.UNEXPECTED_STATUS
