@@ -7,6 +7,7 @@ import logging
 import re
 from contextlib import contextmanager
 from datetime import datetime
+from io import BytesIO
 from typing import Any
 
 import kombu
@@ -291,15 +292,19 @@ class LandingWorker(Worker):
                 return True
 
             # Run through the patches one by one and try to apply them.
-            for patch_id, patch_buf in job.get_patches():
+            for revision in job.revisions:
+                patch_buf = BytesIO(revision.patch_bytes)
+
                 try:
                     hgrepo.apply_patch(patch_buf)
                 except PatchConflict as exc:
-                    breakdown = self.process_merge_conflict(exc, repo, hgrepo, patch_id)
+                    breakdown = self.process_merge_conflict(
+                        exc, repo, hgrepo, revision.revision_id
+                    )
                     job.error_breakdown = breakdown
 
                     message = (
-                        f"Problem while applying patch in revision {patch_id}:\n\n"
+                        f"Problem while applying patch in revision {revision.revision_id}:\n\n"
                         f"{str(exc)}"
                     )
                     job.transition_status(
@@ -324,7 +329,7 @@ class LandingWorker(Worker):
                     return True
                 except Exception as e:
                     message = (
-                        f"Aborting, could not apply patch buffer for {patch_id}."
+                        f"Aborting, could not apply patch buffer for {revision.revision_id}."
                         f"\n{e}"
                     )
                     logger.exception(message)

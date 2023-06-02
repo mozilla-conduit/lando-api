@@ -5,11 +5,9 @@ import datetime
 import enum
 import logging
 import os
-from io import BytesIO
 from typing import (
     Any,
     Iterable,
-    Iterator,
     Optional,
 )
 
@@ -331,17 +329,6 @@ class LandingJob(Base):
 
         if commit:
             db.session.commit()
-
-    def get_patches(self) -> Iterator[tuple[int, BytesIO]]:
-        """Generator of patches for this landing job.
-
-        Yields patches in the format (patch identifier, patch buffer) for application
-        to the repository in the landing worker.
-        """
-        return (
-            (revision.revision_id, BytesIO(revision.patch_bytes))
-            for revision in self.revisions
-        )
 
     def serialize(self) -> dict[str, Any]:
         """Return a JSON compatible dictionary."""
