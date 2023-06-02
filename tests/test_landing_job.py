@@ -4,10 +4,7 @@
 
 import pytest
 
-from landoapi.models.landing_job import (
-    LandingJob,
-    LandingJobStatus,
-)
+from landoapi.models.landing_job import LandingJob, LandingJobStatus
 
 
 @pytest.fixture
