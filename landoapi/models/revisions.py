@@ -71,6 +71,9 @@ class Revision(Base):
         "LandingJob", secondary=revision_landing_job, back_populates="revisions"
     )
 
+    # A general purpose data field to store arbitrary information about this revision.
+    data = db.Column(JSONB, nullable=False, default=dict)
+
     def __repr__(self):
         """Return a human-readable representation of the instance."""
         # Add an identifier for the Phabricator revision if it exists.

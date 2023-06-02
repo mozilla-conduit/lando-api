@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from landoapi.hg import HgRepo
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing_job import (
     LandingJob,
@@ -15,7 +16,7 @@ from landoapi.models.landing_job import (
 from landoapi.models.revisions import Revision
 from landoapi.models.transplant import Transplant
 from landoapi.phabricator import PhabricatorRevisionStatus, ReviewerStatus
-from landoapi.repos import DONTBUILD, SCM_CONDUIT, Repo
+from landoapi.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
 from landoapi.reviews import get_collated_reviewers
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
@@ -27,6 +28,7 @@ from landoapi.transplants import (
     warning_revision_secure,
     warning_wip_commit_message,
 )
+from landoapi.workers.landing_worker import LandingWorker
 
 
 def _create_landing_job(
@@ -668,19 +670,19 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     release_management_project,
     register_codefreeze_uri,
 ):
-    repo = phabdouble.repo()
+    phabrepo = phabdouble.repo(name="mozilla-central")
     user = phabdouble.user(username="reviewer")
 
     d1 = phabdouble.diff()
-    r1 = phabdouble.revision(diff=d1, repo=repo)
+    r1 = phabdouble.revision(diff=d1, repo=phabrepo)
     phabdouble.reviewer(r1, user)
 
     d2 = phabdouble.diff()
-    r2 = phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
+    r2 = phabdouble.revision(diff=d2, repo=phabrepo, depends_on=[r1])
     phabdouble.reviewer(r2, user)
 
     d3 = phabdouble.diff()
-    r3 = phabdouble.revision(diff=d3, repo=repo, depends_on=[r2])
+    r3 = phabdouble.revision(diff=d3, repo=phabrepo, depends_on=[r2])
     phabdouble.reviewer(r3, user)
 
     response = client.post(
@@ -712,6 +714,95 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     ]
     assert job.status == LandingJobStatus.SUBMITTED
     assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
+
+
+def test_integrated_transplant_records_approvers_peers_and_owners(
+    app,
+    db,
+    mock_repo_config,
+    client,
+    phabdouble,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    auth0_mock,
+    release_management_project,
+    register_codefreeze_uri,
+    monkeypatch,
+    normal_patch,
+):
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+    repo = Repo(
+        tree="mozilla-central",
+        url=hg_server,
+        access_group=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+    )
+    phabrepo = phabdouble.repo(name="mozilla-central")
+    hgrepo = HgRepo(hg_clone.strpath)
+
+    # Mock a few mots-related things needed by the landing worker.
+    # First, mock path existance.
+    mock_path = MagicMock()
+    monkeypatch.setattr("landoapi.workers.landing_worker.Path", mock_path)
+    (mock_path(hgrepo.path) / "mots.yaml").exists.return_value = True
+
+    # Then mock the directory/file config.
+    mock_Directory = MagicMock()
+    monkeypatch.setattr("landoapi.models.landing_job.Directory", mock_Directory)
+    mock_Directory.return_value = MagicMock()
+    mock_Directory().peers_and_owners = [101, 102]
+
+    user = phabdouble.user(username="reviewer")
+    user2 = phabdouble.user(username="reviewer2")
+
+    d1 = phabdouble.diff(rawdiff=normal_patch(1))
+    r1 = phabdouble.revision(diff=d1, repo=phabrepo)
+    phabdouble.reviewer(r1, user)
+
+    d2 = phabdouble.diff(rawdiff=normal_patch(2))
+    r2 = phabdouble.revision(diff=d2, repo=phabrepo, depends_on=[r1])
+    phabdouble.reviewer(r2, user2)
+
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response.status_code == 202
+    assert response.content_type == "application/json"
+    assert "id" in response.json
+    job_id = response.json["id"]
+
+    # Ensure DB access isn't using uncommitted data.
+    db.session.close()
+
+    # Get LandingJob object by its id
+    job = LandingJob.query.get(job_id)
+    assert job.id == job_id
+    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+        (r1["id"], d1["id"]),
+        (r2["id"], d2["id"]),
+    ]
+    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.landed_revisions == {1: 1, 2: 2}
+    approved_by = [revision.data["approved_by"] for revision in job.revisions]
+    assert approved_by == [[101], [102]]
+
+    worker = LandingWorker(sleep_seconds=0.01)
+    assert worker.run_job(job, repo, hgrepo, treestatus)
+    for revision in job.revisions:
+        if revision.revision_id == 1:
+            assert revision.data["peers_and_owners"] == [101]
+        if revision.revision_id == 2:
+            assert revision.data["peers_and_owners"] == [102]
 
 
 def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(

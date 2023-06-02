@@ -8,6 +8,7 @@ import re
 from contextlib import contextmanager
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import kombu
@@ -413,6 +414,14 @@ class LandingWorker(Worker):
         job.transition_status(
             LandingJobAction.LAND, commit_id=commit_id, commit=True, db=db
         )
+
+        mots_path = Path(hgrepo.path) / "mots.yaml"
+        if mots_path.exists():
+            logger.info(f"{mots_path} found, setting reviewer data.")
+            job.set_landed_reviewers(mots_path)
+            db.session.commit()
+        else:
+            logger.info(f"{mots_path} not found, skipping setting reviewer data.")
 
         # Extra steps for post-uplift landings.
         if repo.approval_required:
