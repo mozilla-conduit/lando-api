@@ -7,7 +7,6 @@ import logging
 import re
 from contextlib import contextmanager
 from datetime import datetime
-from io import BytesIO
 from typing import Any
 
 import kombu
@@ -291,26 +290,18 @@ class LandingWorker(Worker):
                 self.notify_user_of_landing_failure(job)
                 return True
 
-            # Fetch all patches.
-            all_patches = [
-                (revision.revision_id, BytesIO(revision.patch_bytes))
-                for revision in job.revisions
-            ]
-
             # Run through the patches one by one and try to apply them.
-            for revision_id, patch_buf in all_patches:
+            for patch_id, patch_buf in job.get_patches():
                 try:
                     hgrepo.apply_patch(patch_buf)
                 except PatchConflict as exc:
-                    breakdown = self.process_merge_conflict(
-                        exc, repo, hgrepo, revision_id
-                    )
-                    message = (
-                        f"Problem while applying patch in revision {revision_id}:\n\n"
-                        f"{str(exc)}"
-                    )
+                    breakdown = self.process_merge_conflict(exc, repo, hgrepo, patch_id)
                     job.error_breakdown = breakdown
 
+                    message = (
+                        f"Problem while applying patch in revision {patch_id}:\n\n"
+                        f"{str(exc)}"
+                    )
                     job.transition_status(
                         LandingJobAction.FAIL, message=message, commit=True, db=db
                     )
@@ -333,7 +324,7 @@ class LandingWorker(Worker):
                     return True
                 except Exception as e:
                     message = (
-                        f"Aborting, could not apply patch buffer for {revision_id}."
+                        f"Aborting, could not apply patch buffer for {patch_id}."
                         f"\n{e}"
                     )
                     logger.exception(message)
@@ -361,7 +352,7 @@ class LandingWorker(Worker):
             # Run automated code formatters if enabled.
             if repo.autoformat_enabled:
                 try:
-                    replacements = hgrepo.format_stack(len(all_patches), bug_ids)
+                    replacements = hgrepo.format_stack(len(changeset_titles), bug_ids)
 
                     # If autoformatting added any changesets, note those in the job.
                     if replacements:

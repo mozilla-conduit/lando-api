@@ -4,7 +4,11 @@
 
 import pytest
 
-from landoapi.models.landing_job import LandingJob, LandingJobStatus
+from landoapi.models.landing_job import (
+    LandingJob,
+    LandingJobStatus,
+    add_job_with_revisions,
+)
 
 
 @pytest.fixture
@@ -158,3 +162,25 @@ def test_landing_job_acquire_job_job_queue_query(db):
     assert queue_items[0] is jobs[2]
     assert queue_items[1] is jobs[0]
     assert jobs[1] not in queue_items
+
+
+def test_get_patches(create_patch_revision):
+    revisions = [
+        create_patch_revision(1, patch="foo"),
+        create_patch_revision(2, patch="bar"),
+    ]
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
+
+    for revision, (patch_id, patch_buf) in zip(revisions, job.get_patches()):
+        assert (
+            revision.revision_id == patch_id
+        ), "Revision ID should match returned value from `get_patches`."
+        assert (
+            revision.patch_bytes == patch_buf.getvalue()
+        ), "Revision bytes should match content of buffer."

@@ -21,6 +21,7 @@ from pytest_flask.plugin import JSONResponse
 from landoapi.app import SUBSYSTEMS, construct_app, load_config
 from landoapi.cache import cache
 from landoapi.mocks.auth import TEST_JWKS, MockAuth0
+from landoapi.models.revisions import Revision
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -426,3 +427,35 @@ def codefreeze_datetime(request_mocker):
             return dates[f"{date_string}"]
 
     return Mockdatetime
+
+
+PATCH_DEFAULT = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip()
+
+
+@pytest.fixture
+def create_patch_revision(db):
+    """A fixture that fake uploads a patch"""
+
+    def _create_patch_revision(number, patch=PATCH_DEFAULT):
+        revision = Revision()
+        revision.revision_id = number
+        revision.diff_id = number
+        revision.patch_bytes = patch.encode("utf-8")
+        db.session.add(revision)
+        db.session.commit()
+        return revision
+
+    return _create_patch_revision
