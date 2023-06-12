@@ -557,16 +557,16 @@ class HgRepo:
         ):
             raise LostPushRace()
 
-        force_args = ["-f"] if force_push else []
+        extra_args = ["-f"] if force_push else []
 
         try:
             if bookmark is None:
-                self.run_hg(["push", "-r", "tip", target] + force_args)
+                self.run_hg(["push", "-r", "tip", target] + extra_args)
             else:
                 self.run_hg_cmds(
                     [
                         ["bookmark", bookmark],
-                        ["push", "-B", bookmark, target] + force_args,
+                        ["push", "-B", bookmark, target] + extra_args,
                     ]
                 )
         except hglib.error.CommandError as exc:
