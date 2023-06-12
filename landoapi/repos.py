@@ -23,6 +23,9 @@ AccessGroup = namedtuple(
     (
         # LDAP group for active members. Required for landing.
         "active_group",
+        # LDAP group for expired members. Indicates the user had the
+        # permissions but has lost them due to inactivity.
+        "expired_group",
         # LDAP group for all members. If a user is in
         # membership_group but not active_group, their access
         # has expired.
@@ -106,46 +109,55 @@ class Repo:
 
 SCM_ALLOW_DIRECT_PUSH = AccessGroup(
     active_group="active_scm_allow_direct_push",
+    expired_group="expired_scm_allow_direct_push",
     membership_group="all_scm_allow_direct_push",
     display_name="Above Level 3 Commit Access",
 )
 SCM_LEVEL_3 = AccessGroup(
     active_group="active_scm_level_3",
+    expired_group="expired_scm_level_3",
     membership_group="all_scm_level_3",
     display_name="Level 3 Commit Access",
 )
 SCM_LEVEL_2 = AccessGroup(
     active_group="active_scm_level_2",
+    expired_group="expired_scm_level_2",
     membership_group="all_scm_level_2",
     display_name="Level 2 Commit Access",
 )
 SCM_LEVEL_1 = AccessGroup(
     active_group="active_scm_level_1",
+    expired_group="expired_scm_level_1",
     membership_group="all_scm_level_1",
     display_name="Level 1 Commit Access",
 )
 SCM_VERSIONCONTROL = AccessGroup(
     active_group="active_scm_versioncontrol",
+    expired_group="expired_scm_versioncontrol",
     membership_group="all_scm_versioncontrol",
     display_name="scm_versioncontrol",
 )
 SCM_CONDUIT = AccessGroup(
     active_group="active_scm_conduit",
+    expired_group="expired_scm_conduit",
     membership_group="all_scm_conduit",
     display_name="scm_conduit",
 )
 SCM_L10N_INFRA = AccessGroup(
     active_group="active_scm_l10n_infra",
+    expired_group="expired_scm_l10n_infra",
     membership_group="all_scm_l10n_infra",
     display_name="scm_l10n_infra",
 )
 SCM_NSS = AccessGroup(
     active_group="active_scm_nss",
+    expired_group="expired_scm_nss",
     membership_group="all_scm_nss",
     display_name="scm_nss",
 )
 SCM_FIREFOXCI = AccessGroup(
     active_group="active_scm_firefoxci",
+    expired_group="expired_scm_firefoxci",
     membership_group="all_scm_firefoxci",
     display_name="scm_firefoxci",
 )
