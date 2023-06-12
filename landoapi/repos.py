@@ -309,7 +309,9 @@ REPO_CONFIG = {
             autoformat_enabled=True,
         ),
         # Try uses `mozilla-unified` as the `pull_path` as using try
-        # proper is exceptionally slow.
+        # proper is exceptionally slow. `mozilla-unified` includes both
+        # autoland and central and is the most likely to contain the passed
+        # base commit.
         "try": Repo(
             tree="try",
             url="https://hg.mozilla.org/try",
