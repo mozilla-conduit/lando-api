@@ -90,5 +90,5 @@ def test_try_api_success(
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (
-        job.target_cset == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4"
+        job.target_commit_hash == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4"
     ), "Target changeset should match the passed value."

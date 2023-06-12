@@ -70,7 +70,7 @@ def post(data: dict):
         repository_url=try_repo.url,
         requester_email=ldap_username,
         status=LandingJobStatus.SUBMITTED,
-        target_cset=base_commit,
+        target_commit_hash=base_commit,
     )
     logger.info(
         f"Created try landing job with {len(revisions)} "
