@@ -501,7 +501,7 @@ def assert_scm_level_1(auth0_user: A0User):
             401,
             "`scm_level_1` access is required.",
             "You do not have `scm_level_1` commit access.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
         )
 
     # Check that user has active_scm_level_1 and not `expired_scm_level_1`.
@@ -512,7 +512,7 @@ def assert_scm_level_1(auth0_user: A0User):
             401,
             "Your `scm_level_1` commit access has expired.",
             "Your `scm_level_1` commit access has expired.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
         )
 
 
