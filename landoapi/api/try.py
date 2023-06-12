@@ -17,13 +17,16 @@ from landoapi.models.landing_job import (
     add_job_with_revisions,
 )
 from landoapi.models.revisions import Revision
-from landoapi.repos import get_repos_for_env
+from landoapi.repos import (
+    SCM_LEVEL_1,
+    get_repos_for_env,
+)
 
 logger = logging.getLogger(__name__)
 
 
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
-@auth.enforce_scm_level_1
+@auth.enforce_request_scm_level(SCM_LEVEL_1)
 def post(data: dict):
     base_commit = data["base_commit"]
     patches = data["patches"]

@@ -13,12 +13,13 @@ from flask import g
 
 from landoapi.auth import (
     A0User,
-    assert_scm_level_1,
+    ensure_user_has_scm_level,
     fetch_auth0_userinfo,
     require_auth0,
 )
 from landoapi.mocks.auth import TEST_KEY_PRIV, create_access_token
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
+from landoapi.repos import SCM_LEVEL_1
 
 
 def noop(*args, **kwargs):
@@ -354,7 +355,7 @@ def test_require_access_scopes_valid(jwks, app, scopes, token_kwargs):
     assert resp.status_code == 200
 
 
-def test_scm_level_1_enforce():
+def test_scm_level_enforce():
     """Test scm_level_1 enforcement and error handling."""
     token = create_access_token()
 
@@ -362,35 +363,35 @@ def test_scm_level_1_enforce():
     userinfo = CANNED_USERINFO["MISSING_L1"]
     user = A0User(token, userinfo)
     with pytest.raises(ProblemException) as exc_info:
-        assert_scm_level_1(user)
+        ensure_user_has_scm_level(user, SCM_LEVEL_1)
     assert exc_info.value.status == 401, "Lack of level 1 permission should return 401."
     assert (
-        exc_info.value.title == "`scm_level_1` access is required."
+        exc_info.value.title == "Level 1 Commit Access is required."
     ), "Lack of level 1 permissions should return appropriate error."
 
     # Test `expired_scm_level_1` is present.
     userinfo = CANNED_USERINFO["EXPIRED_L1"]
     user = A0User(token, userinfo)
     with pytest.raises(ProblemException) as exc_info:
-        assert_scm_level_1(user)
+        ensure_user_has_scm_level(user, SCM_LEVEL_1)
     assert exc_info.value.status == 401, "Expired level 1 permission should return 401."
     assert (
-        exc_info.value.title == "Your `scm_level_1` commit access has expired."
+        exc_info.value.title == "Your Level 1 Commit Access has expired."
     ), "Expired level 1 permissions should return appropriate error."
 
     # Test `active_scm_level_1` is not present.
     userinfo = CANNED_USERINFO["MISSING_ACTIVE_L1"]
     user = A0User(token, userinfo)
     with pytest.raises(ProblemException) as exc_info:
-        assert_scm_level_1(user)
+        ensure_user_has_scm_level(user, SCM_LEVEL_1)
     assert (
         exc_info.value.status == 401
     ), "Lack of active level 1 permission should return 401."
     assert (
-        exc_info.value.title == "Your `scm_level_1` commit access has expired."
+        exc_info.value.title == "Your Level 1 Commit Access has expired."
     ), "Lack of active level 1 permissions should return appropriate error."
 
     # Test happy path.
     userinfo = CANNED_USERINFO["STANDARD"]
     user = A0User(token, userinfo)
-    assert assert_scm_level_1(user) is None
+    assert ensure_user_has_scm_level(user, SCM_LEVEL_1) is None
