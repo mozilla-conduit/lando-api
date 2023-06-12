@@ -61,7 +61,7 @@ def post(data: dict):
         Revision(patch_bytes=base64.b64decode(patch.encode("ascii")), patch_data={})
         for patch in patches
     ]
-    add_job_with_revisions(
+    job = add_job_with_revisions(
         revisions,
         repository_name=try_repo.short_name,
         repository_url=try_repo.url,
@@ -74,4 +74,4 @@ def post(data: dict):
         f"changesets against {base_commit} for {ldap_username}."
     )
 
-    return None, 201
+    return {"id": job.id}, 201

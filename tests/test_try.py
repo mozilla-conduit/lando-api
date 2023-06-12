@@ -60,6 +60,9 @@ def test_try_api_success(
     }
     response = client.post("/try", json=try_push_json, headers=auth0_mock.mock_headers)
     assert response.status_code == 201, "Successful try push should return 201."
+    assert (
+        "id" in response.json
+    ), "Response should include the ID of the new landing job."
 
     queue_items = LandingJob.job_queue_query(
         repositories=["try"], grace_seconds=0
