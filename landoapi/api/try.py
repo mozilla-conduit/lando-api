@@ -25,7 +25,7 @@ from landoapi.repos import (
 logger = logging.getLogger(__name__)
 
 
-@auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
+@auth.require_auth0(scopes=("openid", "lando", "profile", "email"), userinfo=True)
 @auth.enforce_request_scm_level(SCM_LEVEL_1)
 def post(data: dict):
     base_commit = data["base_commit"]
