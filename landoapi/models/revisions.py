@@ -49,7 +49,9 @@ revision_landing_job = db.Table(
 
 class Revision(Base):
     """
-    A representation of a revision in the database referencing a Phabricator revision.
+    A representation of a revision in the database.
+
+    Includes a reference to the related Phabricator revision and diff ID if one exists.
     """
 
     # revision_id and diff_id map to Phabricator IDs (integers).
