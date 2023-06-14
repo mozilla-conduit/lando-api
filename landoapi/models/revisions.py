@@ -71,10 +71,11 @@ class Revision(Base):
 
     def __repr__(self):
         """Return a human-readable representation of the instance."""
-        return (
-            f"<{self.__class__.__name__}: {self.id} "
-            f"[D{self.revision_id}-{self.diff_id}]>"
+        # Add an identifier for the Phabricator revision if it exists.
+        phab_identifier = (
+            f" [D{self.revision_id}-{self.diff_id}]>" if self.revision_id else ""
         )
+        return f"<{self.__class__.__name__}: {self.id}{phab_identifier}>"
 
     @classmethod
     def get_from_revision_id(cls, revision_id: int) -> "Revision" | None:
