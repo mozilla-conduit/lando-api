@@ -9,13 +9,7 @@ from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.repos import SCM_LEVEL_1, Repo
 from landoapi.workers.landing_worker import LandingWorker
 
-PATCH_NORMAL = rb"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-add another file.
+PATCH_DIFF = rb"""
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
@@ -56,7 +50,15 @@ def test_try_api_success(
     try_push_json = {
         # The only node in the test repo.
         "base_commit": "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4",
-        "patches": [base64.b64encode(PATCH_NORMAL).decode("ascii")],
+        "patches": [
+            {
+                "author": "User Test User",
+                "author_email": "test@example.com",
+                "diff": base64.b64encode(PATCH_DIFF).decode("ascii"),
+                "timestamp": "0",
+                "commit_message": "add another file.",
+            }
+        ],
     }
     response = client.post("/try", json=try_push_json, headers=auth0_mock.mock_headers)
     assert response.status_code == 201, "Successful try push should return 201."

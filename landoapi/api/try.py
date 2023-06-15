@@ -59,9 +59,15 @@ def post(data: dict):
     # Add a landing job for this try push.
     ldap_username = g.auth0_user.email
     revisions = [
-        # TODO do something more useful with `patch_data`, maybe gather data from
-        # rs-parsepatch??
-        Revision(patch_bytes=base64.b64decode(patch.encode("ascii")), patch_data={})
+        Revision.new_from_patch(
+            patch_bytes=base64.b64decode(patch["diff"]).decode("ascii"),
+            patch_data={
+                "author_name": patch["author"],
+                "author_email": patch["author_email"],
+                "commit_message": patch["commit_message"],
+                "timestamp": patch["timestamp"],
+            },
+        )
         for patch in patches
     ]
     job = add_job_with_revisions(

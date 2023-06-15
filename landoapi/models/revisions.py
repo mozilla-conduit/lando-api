@@ -84,7 +84,17 @@ class Revision(Base):
         """Return a Revision object from a given ID."""
         return cls.query.filter(Revision.revision_id == revision_id).one_or_none()
 
-    def set_patch(self, raw_diff: bytes, patch_data: dict[str, str]):
+    @classmethod
+    def new_from_patch(cls, patch_bytes: str, patch_data: dict[str, str]) -> Revision:
+        """Construct a new Revsion from patch data."""
+        rev = Revision()
+        db.session.add(rev)
+        db.session.commit()
+        rev.set_patch(patch_bytes, patch_data)
+        db.session.commit()
+        return rev
+
+    def set_patch(self, raw_diff: str, patch_data: dict[str, str]):
         """Given a raw_diff and patch data, build the patch and store it."""
         self.patch_data = patch_data
         patch = build_patch_for_revision(raw_diff, **self.patch_data)
