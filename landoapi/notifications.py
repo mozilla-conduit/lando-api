@@ -13,7 +13,7 @@ from landoapi.tasks import (
 logger = logging.getLogger(__name__)
 
 
-def notify_user_of_landing_failure(email, revision, error, request_id):
+def notify_user_of_landing_failure(email, landing_job_identifier, error, request_id):
     """Send out user notifications that a Landing failed.
 
     Args:
@@ -29,7 +29,7 @@ def notify_user_of_landing_failure(email, revision, error, request_id):
     """
     try:
         return send_landing_failure_email.apply_async(
-            (email, revision, error),
+            (email, landing_job_identifier, error),
             retry=True,
             # This policy will result in 3 connection retries if the job queue
             # is down. The current web request's response will be delayed 600ms
