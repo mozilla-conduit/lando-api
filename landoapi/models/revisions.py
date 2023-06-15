@@ -81,7 +81,7 @@ class Revision(Base):
         """Return a Revision object from a given ID."""
         return cls.query.filter(Revision.revision_id == revision_id).one_or_none()
 
-    def set_patch(self, raw_diff: bytes, patch_data: dict[str, str]):
+    def set_patch(self, raw_diff: str, patch_data: dict[str, str]):
         """Given a raw_diff and patch data, build the patch and store it."""
         self.patch_data = patch_data
         patch = build_patch_for_revision(raw_diff, **self.patch_data)
