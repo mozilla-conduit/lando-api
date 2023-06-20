@@ -366,7 +366,7 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
-  /try:
+  /try/patches:
     post:
       operationId: landoapi.api.try.post
       description: |

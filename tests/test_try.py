@@ -24,13 +24,17 @@ def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):
         "base_commit": "abc",
         "patches": [],
     }
-    response = client.post("/try", json=try_push_json, headers=auth0_mock.mock_headers)
+    response = client.post(
+        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+    )
     assert (
         response.status_code == 400
     ), "Try push without 40-character base commit should return 400."
 
     try_push_json["base_commit"] = "abcabcabcaabcabcabcaabcabcabcaabcabcabca"
-    response = client.post("/try", json=try_push_json, headers=auth0_mock.mock_headers)
+    response = client.post(
+        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+    )
     assert response.status_code == 400, "Try push without patches should return 400."
 
 
@@ -60,7 +64,9 @@ def test_try_api_success(
             }
         ],
     }
-    response = client.post("/try", json=try_push_json, headers=auth0_mock.mock_headers)
+    response = client.post(
+        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+    )
     assert response.status_code == 201, "Successful try push should return 201."
     assert (
         "id" in response.json
