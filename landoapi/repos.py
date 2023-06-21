@@ -383,6 +383,15 @@ REPO_CONFIG = {
             milestone_tracking_flag_template="cf_status_firefox_esr{milestone}",
             commit_flags=[DONTBUILD],
         ),
+        "esr115": Repo(
+            tree="mozilla-esr115",
+            short_name="esr115",
+            url="https://hg.mozilla.org/releases/mozilla-esr115",
+            access_group=SCM_ALLOW_DIRECT_PUSH,
+            approval_required=True,
+            milestone_tracking_flag_template="cf_status_firefox_esr{milestone}",
+            commit_flags=[DONTBUILD],
+        ),
     },
 }
 
@@ -412,7 +421,7 @@ class RepoCloneSubsystem(Subsystem):
                 "directory for holding repository clones.".format(clones_path)
             )
 
-        repo_names = set(filter(None, (r.strip() for r in repo_names.split(","))))
+        repo_names = set(filter(None, (name.strip() for name in repo_names.split(","))))
         if not repo_names:
             return (
                 "REPOS_TO_LAND does not contain a valid comma seperated list "
@@ -420,7 +429,7 @@ class RepoCloneSubsystem(Subsystem):
             )
 
         repos = get_repos_for_env(self.flask_app.config.get("ENVIRONMENT"))
-        if not all(r in repos for r in repo_names):
+        if not all(name in repos for name in repo_names):
             return "REPOS_TO_LAND contains unsupported repository names."
 
         self.repos = {name: repos[name] for name in repo_names}
@@ -428,21 +437,21 @@ class RepoCloneSubsystem(Subsystem):
 
         from landoapi.hg import HgRepo
 
-        for name, repo in ((name, repos[name]) for name in repo_names):
+        for name, repo in self.repos.items():
             path = clones_path.joinpath(name)
-            r = HgRepo(str(path))
+            hgrepo = HgRepo(str(path))
 
             if path.exists():
                 logger.info("Repo exists, pulling.", extra={"repo": name})
-                with r.for_pull():
-                    r.update_repo(repo.pull_path)
+                with hgrepo.for_pull():
+                    hgrepo.update_repo(repo.pull_path)
             else:
                 logger.info("Cloning repo.", extra={"repo": name})
-                r.clone(repo.pull_path)
+                hgrepo.clone(repo.pull_path)
 
             # Ensure packages required for automated code formatting are installed.
             if repo.autoformat_enabled:
-                r.run_mach_bootstrap()
+                hgrepo.run_mach_bootstrap()
 
             logger.info("Repo ready.", extra={"repo": name})
             self.repo_paths[name] = path

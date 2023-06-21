@@ -1,6 +1,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+from __future__ import annotations
+
+import io
 import re
 from typing import (
     Optional,
@@ -34,16 +38,16 @@ _HG_EXPORT_HEADER_LENGTH = len(_HG_EXPORT_HEADER.splitlines())
 
 
 def build_patch_for_revision(
-    diff, author_name, author_email, commit_message, timestamp
-):
+    diff: str, author_name: str, author_email: str, commit_message: str, timestamp: str
+) -> str:
     """Generate a 'hg export' patch using Phabricator Revision data.
 
     Args:
         diff: A string holding a Git-formatted patch.
         author: A string with information about the patch's author.
         commit_message: A string containing the full commit message.
-        timestamp: (int) Number of seconds since Unix Epoch representing the date and
-            time to be included in the Date header.
+        timestamp: (str) String number of seconds since Unix Epoch representing the
+            date and time to be included in the Date header.
 
     Returns:
         A string containing a patch in 'hg export' format.
@@ -62,15 +66,15 @@ def build_patch_for_revision(
     )
 
 
-def _no_line_breaks(s):
-    """Return s with all line breaks removed."""
-    return "".join(s.strip().splitlines())
+def _no_line_breaks(break_string: str) -> str:
+    """Return `break_string` with all line breaks removed."""
+    return "".join(break_string.strip().splitlines())
 
 
 class HgPatchHelper(object):
     """Helper class for parsing Mercurial patches/exports."""
 
-    def __init__(self, fileobj):
+    def __init__(self, fileobj: io.BytesIO):
         self.patch = fileobj
         self.headers = {}
         self.header_end_line_no = 0
@@ -87,11 +91,11 @@ class HgPatchHelper(object):
                 self.diff_start_line = None
 
     @staticmethod
-    def _is_diff_line(line):
-        return DIFF_LINE_RE.search(line)
+    def _is_diff_line(line: bytes) -> bool:
+        return DIFF_LINE_RE.search(line) is not None
 
     @staticmethod
-    def _header_value(line, prefix):
+    def _header_value(line: bytes, prefix: bytes) -> Optional[bytes]:
         m = re.search(
             rb"^#\s+" + re.escape(prefix) + rb"\s+(.*)", line, flags=re.IGNORECASE
         )
@@ -115,12 +119,12 @@ class HgPatchHelper(object):
         finally:
             self.patch.seek(0)
 
-    def header(self, name) -> Optional[str]:
+    def header(self, name: bytes | str) -> Optional[bytes]:
         """Returns value of the specified header, or None if missing."""
         name = name.encode("utf-8") if isinstance(name, str) else name
         return self.headers.get(name.lower())
 
-    def commit_description(self):
+    def commit_description(self) -> bytes:
         """Returns the commit description."""
         try:
             line_no = 0
@@ -144,7 +148,7 @@ class HgPatchHelper(object):
         finally:
             self.patch.seek(0)
 
-    def write(self, f):
+    def write(self, f: io.BytesIO):
         """Writes whole patch to the specified file object."""
         try:
             while 1:
@@ -155,11 +159,11 @@ class HgPatchHelper(object):
         finally:
             self.patch.seek(0)
 
-    def write_commit_description(self, f):
+    def write_commit_description(self, f: io.BytesIO):
         """Writes the commit description to the specified file object."""
         f.write(self.commit_description())
 
-    def write_diff(self, f):
+    def write_diff(self, f: io.BytesIO):
         """Writes the diff to the specified file object."""
         try:
             line_no = 0
