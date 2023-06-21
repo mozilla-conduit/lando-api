@@ -5,7 +5,7 @@ import io
 
 import pytest
 
-from landoapi.hgexports import PatchHelper, build_patch_for_revision
+from landoapi.hgexports import HgPatchHelper, build_patch_for_revision
 
 GIT_DIFF_FROM_REVISION = """diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
@@ -79,11 +79,11 @@ def test_build_patch():
     ],
 )
 def test_patchhelper_is_diff_line(line, expected):
-    assert bool(PatchHelper._is_diff_line(line)) is expected
+    assert bool(HgPatchHelper._is_diff_line(line)) is expected
 
 
 def test_patchhelper_vanilla_export():
-    patch = PatchHelper(
+    patch = HgPatchHelper(
         io.BytesIO(
             b"""
 # HG changeset patch
@@ -111,7 +111,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_start_line():
-    patch = PatchHelper(
+    patch = HgPatchHelper(
         io.BytesIO(
             b"""
 # HG changeset patch
@@ -137,7 +137,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_no_header():
-    patch = PatchHelper(
+    patch = HgPatchHelper(
         io.BytesIO(
             b"""
 WIP transplant and diff-start-line
@@ -156,7 +156,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_diff_injection_no_start_line():
-    patch = PatchHelper(
+    patch = HgPatchHelper(
         io.BytesIO(
             b"""
 # HG changeset patch
@@ -184,7 +184,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_diff_injection_start_line():
-    patch = PatchHelper(
+    patch = HgPatchHelper(
         io.BytesIO(
             b"""
 # HG changeset patch
@@ -239,7 +239,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 # instead of passing the url to 'hg import' to make
 ...
 """.strip()
-    patch = PatchHelper(io.BytesIO(b"%s\n%s\n\n%s" % (header, commit_desc, diff)))
+    patch = HgPatchHelper(io.BytesIO(b"%s\n%s\n\n%s" % (header, commit_desc, diff)))
 
     buf = io.BytesIO(b"")
     patch.write_commit_description(buf)
@@ -270,7 +270,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 # instead of passing the url to 'hg import' to make
 ...
 """.strip()
-    patch = PatchHelper(io.BytesIO(b"%s\n%s\n\n%s" % (header, commit_desc, diff)))
+    patch = HgPatchHelper(io.BytesIO(b"%s\n%s\n\n%s" % (header, commit_desc, diff)))
 
     buf = io.BytesIO(b"")
     patch.write_commit_description(buf)

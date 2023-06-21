@@ -20,7 +20,7 @@ from typing import (
 import hglib
 
 from landoapi.commit_message import bug_list_to_commit_string
-from landoapi.hgexports import PatchHelper
+from landoapi.hgexports import HgPatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -302,7 +302,7 @@ class HgRepo:
                 pass
 
     def apply_patch(self, patch_io_buf):
-        patch_helper = PatchHelper(patch_io_buf)
+        patch_helper = HgPatchHelper(patch_io_buf)
         if not patch_helper.diff_start_line:
             raise NoDiffStartLine()
 

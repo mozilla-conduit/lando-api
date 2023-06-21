@@ -6,7 +6,7 @@ from typing import (
     Optional,
 )
 
-HEADER_NAMES = (
+HG_HEADER_NAMES = (
     b"User",
     b"Date",
     b"Node ID",
@@ -67,7 +67,7 @@ def _no_line_breaks(s):
     return "".join(s.strip().splitlines())
 
 
-class PatchHelper(object):
+class HgPatchHelper(object):
     """Helper class for parsing Mercurial patches/exports."""
 
     def __init__(self, fileobj):
@@ -107,7 +107,7 @@ class PatchHelper(object):
                 if not line.startswith(b"# "):
                     break
                 self.header_end_line_no += 1
-                for name in HEADER_NAMES:
+                for name in HG_HEADER_NAMES:
                     value = self._header_value(line, name)
                     if value:
                         self.headers[name.lower()] = value
