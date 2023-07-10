@@ -382,6 +382,7 @@ paths:
             required:
               - base_commit
               - patches
+              - patch_format
             properties:
               base_commit:
                 type: string
@@ -393,6 +394,11 @@ paths:
                   Ordered array of base64 encoded patches for submission to Lando.
                 items:
                   $ref: '#/definitions/TryPatch'
+              patch_format:
+                type: string
+                description: |
+                  The format of the encoded patches in `patches`. Either `hgexport` or
+                  `git-format-patch` are accepted.
       responses:
         201:
           description: Push was submitted successfully.

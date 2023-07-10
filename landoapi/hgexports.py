@@ -104,7 +104,7 @@ class HgPatchHelper(object):
         return m.group(1).strip()
 
     def _parse_header(self):
-        """Extract header values specified by HEADER_NAMES."""
+        """Extract header values specified by HG_HEADER_NAMES."""
         self.patch.seek(0)
         try:
             for line in self.patch:
@@ -123,6 +123,137 @@ class HgPatchHelper(object):
         """Returns value of the specified header, or None if missing."""
         name = name.encode("utf-8") if isinstance(name, str) else name
         return self.headers.get(name.lower())
+
+    def commit_description(self) -> bytes:
+        """Returns the commit description."""
+        try:
+            line_no = 0
+            commit_desc = []
+            for line in self.patch:
+                line_no += 1
+
+                if line_no <= self.header_end_line_no:
+                    continue
+
+                if self.diff_start_line:
+                    if line_no == self.diff_start_line:
+                        break
+                    commit_desc.append(line)
+                else:
+                    if self._is_diff_line(line):
+                        break
+                    commit_desc.append(line)
+
+            return b"".join(commit_desc).strip()
+        finally:
+            self.patch.seek(0)
+
+    def write(self, f: io.BytesIO):
+        """Writes whole patch to the specified file object."""
+        try:
+            while 1:
+                buf = self.patch.read(16 * 1024)
+                if not buf:
+                    break
+                f.write(buf)
+        finally:
+            self.patch.seek(0)
+
+    def write_commit_description(self, f: io.BytesIO):
+        """Writes the commit description to the specified file object."""
+        f.write(self.commit_description())
+
+    def write_diff(self, f: io.BytesIO):
+        """Writes the diff to the specified file object."""
+        try:
+            line_no = 0
+            for line in self.patch:
+                line_no += 1
+
+                if self.diff_start_line:
+                    if line_no == self.diff_start_line:
+                        f.write(line)
+                        break
+                else:
+                    if self._is_diff_line(line):
+                        f.write(line)
+                        break
+
+            while 1:
+                buf = self.patch.read(16 * 1024)
+                if not buf:
+                    break
+                f.write(buf)
+        finally:
+            self.patch.seek(0)
+
+
+class GitPatchHelper(object):
+    """Helper class for parsing Mercurial patches/exports."""
+
+    GIT_HEADERS = (
+        "From ",
+        "From: ",
+        "Date: ",
+        "Subject: ",
+    )
+
+    def __init__(self, fileobj: io.BytesIO):
+        self.patch = fileobj
+        self.headers = {}
+
+        mail_from_line = next(self.patch)
+        if not mail_from_line.startswith(b"From "):
+            raise ValueError("Patch is malformed, first line is not `From `.")
+
+        author_from_line = next(self.patch)
+        if not author_from_line.startswith(b"From: "):
+            raise ValueError("Patch is malformed, second line is not `From:`.")
+        self.headers[b"From"] = author_from_line.removeprefix(b"From: ")
+
+        date_line = next(self.patch)
+        if not date_line.startswith(b"Date: "):
+            raise ValueError("Patch is malformed, third line is not `Date:`.")
+        self.headers[b"Date"] = date_line.removeprefix(b"Date: ")
+
+        # Get the main `Subject` header line.
+        subject_line = next(self.patch)
+        if not subject_line.startswith(b"Subject: "):
+            raise ValueError("Patch is malformed, fourth line is not `Subject:`.")
+        subject_line = subject_line.removeprefix(b"Subject: ")
+
+        # Get the extended commit message, which ends with a `---` line.
+        for line in self.patch:
+            if line == b"---\n":
+                self.headers[b"Subject"] = subject_line
+                break
+
+            subject_line += line
+        else:
+            raise ValueError(
+                "Patch is malformed, commit message does not end with `---`."
+            )
+
+        # Move through the patch until we find the start of the diff.
+        for line in self.patch:
+            if GitPatchHelper._is_diff_line(line):
+                break
+        else:
+            raise ValueError("Patch is malformed, could not find start of patch diff.")
+
+        # The diff is the remainder of the patch.
+        self.diff = b"".join(line for line in self.patch)
+
+    @staticmethod
+    def _is_diff_line(line: bytes) -> bool:
+        return DIFF_LINE_RE.search(line) is not None
+
+    def header(self, name: bytes | str) -> Optional[bytes]:
+        """Returns value of the specified header, or None if missing."""
+        # TODO do we need to access by both strings and bytes?
+        # name = name.encode("utf-8") if isinstance(name, str) else name
+        # return self.headers.get(name.lower())
+        return self.headers.get(name)
 
     def commit_description(self) -> bytes:
         """Returns the commit description."""

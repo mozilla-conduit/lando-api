@@ -5,7 +5,11 @@ import io
 
 import pytest
 
-from landoapi.hgexports import HgPatchHelper, build_patch_for_revision
+from landoapi.hgexports import (
+    GitPatchHelper,
+    HgPatchHelper,
+    build_patch_for_revision,
+)
 
 GIT_DIFF_FROM_REVISION = """diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
@@ -52,6 +56,47 @@ diff --git a/hello.c b/hello.c
         return 0;
  }
 """
+
+GIT_PATCH = rb"""
+From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
+From: Connor Sheehan <sheehan@mozilla.com>
+Date: Wed, 6 Jul 2022 16:36:09 -0400
+Subject: [PATCH] errors: add a maintenance-mode specific title to serverside
+ error handlers (Bug 1724769)
+
+Adds a conditional to the Lando-API exception handlers that
+shows a maintenance-mode specific title when a 503 error is
+returned from Lando. This should inform users that Lando is
+unavailable at the moment and is not broken.
+---
+ landoui/errorhandlers.py | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
+index f56ba1c..33391ea 100644
+--- a/landoui/errorhandlers.py
++++ b/landoui/errorhandlers.py
+@@ -122,10 +122,16 @@ def landoapi_exception(e):
+     sentry.captureException()
+     logger.exception("Uncaught communication exception with Lando API.")
+ 
++    if e.status_code == 503:
++        # Show a maintenance-mode specific title if we get a 503.
++        title = "Lando is undergoing maintenance and is temporarily unavailable"
++    else:
++        title = "Lando API returned an unexpected error"
++
+     return (
+         render_template(
+             "errorhandlers/default_error.html",
+-            title="Lando API returned an unexpected error",
++            title=title,
+             message=str(e),
+         ),
+         500,
+-- 
+2.31.1
+""".lstrip()
 
 
 def test_build_patch():
@@ -279,3 +324,16 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     buf = io.BytesIO(b"")
     patch.write_diff(buf)
     assert buf.getvalue() == diff
+
+
+def test_git_formatpatch_helper_parse():
+    patch = GitPatchHelper(io.BytesIO(GIT_PATCH))
+    assert (
+        patch.header(b"From") == b"Connor Sheehan <sheehan@mozilla.com>"
+    ), "`From` header should contain author information."
+    assert (
+        patch.header(b"Date") == b"Wed, 6 Jul 2022 16:36:09 -0400"
+    ), "`Date` header should contain raw date info."
+    assert (
+        patch.header(b"Subject") == ()
+    ), "`Subject` header should contain full commit message."
