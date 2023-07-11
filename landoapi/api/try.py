@@ -30,22 +30,49 @@ from landoapi.repos import (
 
 logger = logging.getLogger(__name__)
 
+def parse_values_from_user_header(user_header: bytes) -> tuple[bytes, bytes]:
+    """Parse user's name and email address from the `User` Mercurial patch header."""
+    # TODO finish implementing this.
+    return user, email
 
 def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
     """Turn an iterable of `bytes` patches from `hg export` into `Revision` objects."""
-    return [
-        Revision.new_from_patch(
-            patch_bytes=base64.b64decode(patch["diff"]).decode("ascii"),
-            patch_data={
-                "author_name": patch["author"],
-                "author_email": patch["author_email"],
-                "commit_message": patch["commit_message"],
-                "timestamp": patch["timestamp"],
-            },
+    # TODO test this and fix typing problems.
+    revisions = []
+    for patch in patches:
+        helper = HgPatchHelper(io.BytesIO(patch))
+
+        user = helper.header("User")
+        if not user:
+            raise ValueError("Patch does not have a `User` header.")
+
+        author = get_name_from_user_header(user)
+        email = get_email_from_user_header(user)
+        # TODO parse name/email from header.
+
+        date = helper.header("Date")
+        # TODO parse proper timestamp from Date.
+        if not date:
+            raise ValueError("Patch does not have a `Date` header.")
+
+        timestamp = get_timestamp_from_date(date)
+
+        commit_message = helper.commit_description()
+        if not commit_message:
+            raise ValueError("Patch does not have a commit description.")
+
+        revisions.append(
+            Revision.new_from_patch(
+                patch_bytes=helper.get_diff(),
+                patch_data={
+                    "author_name": author,
+                    "author_email": email,
+                    "commit_message": helper.commit_description(),
+                    "timestamp": timestamp,
+                },
+            )
         )
-        # TODO should we just do a loop here?
-        for patch in map(HgPatchHelper, map(io.BytesIO, patches))
-    ]
+    return revisions
 
 
 def parse_git_format_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
@@ -87,7 +114,7 @@ def parse_revisions_from_request(
     if patch_format == "git-format-patch":
         return parse_git_format_patches_to_revisions(patches_bytes)
 
-    raise ValueError()
+    raise ValueError(f"Unknown value for `patch_format`: {patch_format}.")
 
 
 @auth.require_auth0(scopes=("openid", "lando", "profile", "email"), userinfo=True)
@@ -125,19 +152,6 @@ def post(data: dict):
     # Add a landing job for this try push.
     ldap_username = g.auth0_user.email
     revisions = parse_revisions_from_request(patches, patch_format)
-    # TODO Parse patch data
-    revisions = [
-        Revision.new_from_patch(
-            patch_bytes=base64.b64decode(patch["diff"]).decode("ascii"),
-            patch_data={
-                "author_name": patch["author"],
-                "author_email": patch["author_email"],
-                "commit_message": patch["commit_message"],
-                "timestamp": patch["timestamp"],
-            },
-        )
-        for patch in patches
-    ]
     job = add_job_with_revisions(
         revisions,
         repository_name=try_repo.short_name,
