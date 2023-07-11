@@ -163,29 +163,36 @@ class HgPatchHelper(object):
         """Writes the commit description to the specified file object."""
         f.write(self.commit_description())
 
-    def write_diff(self, file_obj: io.BytesIO):
-        """Writes the diff to the specified file object."""
+    def get_diff(self) -> bytes:
+        """Return the diff for this patch."""
         try:
+            diff = []
             line_no = 0
             for line in self.patch:
                 line_no += 1
 
                 if self.diff_start_line:
                     if line_no == self.diff_start_line:
-                        file_obj.write(line)
+                        diff.append(line)
                         break
                 else:
                     if self._is_diff_line(line):
-                        file_obj.write(line)
+                        diff.append(line)
                         break
 
             while 1:
                 buf = self.patch.read(16 * 1024)
                 if not buf:
                     break
-                file_obj.write(buf)
+                diff.append(buf)
+
+            return b"".join(diff)
         finally:
             self.patch.seek(0)
+
+    def write_diff(self, file_obj: io.BytesIO):
+        """Writes the diff to the specified file object."""
+        file_obj.write(self.get_diff())
 
 
 class GitPatchHelper(object):

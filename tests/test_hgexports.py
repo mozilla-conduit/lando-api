@@ -321,6 +321,8 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     patch.write_commit_description(buf)
     assert buf.getvalue() == commit_desc
 
+    assert patch.get_diff() == diff
+
     buf = io.BytesIO(b"")
     patch.write_diff(buf)
     assert buf.getvalue() == diff
