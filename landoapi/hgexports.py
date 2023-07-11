@@ -163,7 +163,7 @@ class HgPatchHelper(object):
         """Writes the commit description to the specified file object."""
         f.write(self.commit_description())
 
-    def write_diff(self, f: io.BytesIO):
+    def write_diff(self, file_obj: io.BytesIO):
         """Writes the diff to the specified file object."""
         try:
             line_no = 0
@@ -172,18 +172,18 @@ class HgPatchHelper(object):
 
                 if self.diff_start_line:
                     if line_no == self.diff_start_line:
-                        f.write(line)
+                        file_obj.write(line)
                         break
                 else:
                     if self._is_diff_line(line):
-                        f.write(line)
+                        file_obj.write(line)
                         break
 
             while 1:
                 buf = self.patch.read(16 * 1024)
                 if not buf:
                     break
-                f.write(buf)
+                file_obj.write(buf)
         finally:
             self.patch.seek(0)
 
