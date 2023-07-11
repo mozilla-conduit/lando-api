@@ -6,7 +6,7 @@ import base64
 import io
 import logging
 
-from typing import Iterable
+from typing import Iterable, Optional
 
 from connexion import ProblemException
 from flask import (
@@ -30,10 +30,47 @@ from landoapi.repos import (
 
 logger = logging.getLogger(__name__)
 
+
+def person(author: bytes) -> bytes:
+    """Returns the name before an email address,
+    interpreting it as per RFC 5322
+
+    >>> person(b'foo@bar')
+    'foo'
+    >>> person(b'Foo Bar <foo@bar>')
+    'Foo Bar'
+    >>> person(b'"Foo Bar" <foo@bar>')
+    'Foo Bar'
+    >>> person(b'"Foo \"buz\" Bar" <foo@bar>')
+    'Foo "buz" Bar'
+    >>> # The following are invalid, but do exist in real-life
+    ...
+    >>> person(b'Foo "buz" Bar <foo@bar>')
+    'Foo "buz" Bar'
+    >>> person(b'"Foo Bar <foo@bar>')
+    'Foo Bar'
+    """
+    if b"@" not in author:
+        return author
+    f = author.find(b"<")
+    if f != -1:
+        return author[:f].strip(b' "').replace(b'\\"', b'"')
+    f = author.find(b"@")
+    return author[:f].replace(b".", b" ")
+
+
+def email(author: bytes) -> Optional[bytes]:
+    """Get email of author."""
+    r = author.find(b">")
+    if r == -1:
+        r = None
+    return author[author.find(b"<") + 1 : r]
+
+
 def parse_values_from_user_header(user_header: bytes) -> tuple[bytes, bytes]:
     """Parse user's name and email address from the `User` Mercurial patch header."""
-    # TODO finish implementing this.
-    return user, email
+    return person(user_header), email(user_header)
+
 
 def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
     """Turn an iterable of `bytes` patches from `hg export` into `Revision` objects."""
@@ -46,9 +83,7 @@ def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revisi
         if not user:
             raise ValueError("Patch does not have a `User` header.")
 
-        author = get_name_from_user_header(user)
-        email = get_email_from_user_header(user)
-        # TODO parse name/email from header.
+        author, email = parse_values_from_user_header(user)
 
         date = helper.header("Date")
         # TODO parse proper timestamp from Date.
