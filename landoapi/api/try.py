@@ -69,9 +69,11 @@ def email(author: bytes) -> Optional[bytes]:
     return author[author.find(b"<") + 1 : r]
 
 
-# TODO rename this.
-def parse_values_from_user_header(user_header: bytes) -> tuple[bytes, bytes]:
-    """Parse user's name and email address from the `User` Mercurial patch header."""
+def parse_git_author_information(user_header: bytes) -> tuple[bytes, bytes]:
+    """Parse user's name and email address from a Git style author header.
+
+    Converts a header like 'User Name <user@example.com>' to it's separate parts.
+    """
     return person(user_header), email(user_header)
 
 
@@ -92,7 +94,7 @@ def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revisi
         if not user:
             raise ValueError("Patch does not have a `User` header.")
 
-        author, email = parse_values_from_user_header(user)
+        author, email = parse_git_author_information(user)
 
         date = helper.header("Date")
         # TODO parse proper timestamp from Date.
@@ -131,7 +133,7 @@ def parse_git_format_patches_to_revisions(patches: Iterable[bytes]) -> list[Revi
         if not from_header:
             raise ValueError("Patch does not have a `From:` header.")
 
-        author, email = parse_values_from_user_header(from_header)
+        author, email = parse_git_author_information(from_header)
 
         date = helper.header("Date")
         if not date:
