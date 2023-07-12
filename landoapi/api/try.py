@@ -110,12 +110,12 @@ def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revisi
 
         revisions.append(
             Revision.new_from_patch(
-                patch_bytes=helper.get_diff(),
+                patch_bytes=helper.get_diff().decode("utf-8"),
                 patch_data={
-                    "author_name": author,
-                    "author_email": email,
-                    "commit_message": helper.commit_description(),
-                    "timestamp": timestamp,
+                    "author_name": author.decode("utf-8"),
+                    "author_email": email.decode("utf-8"),
+                    "commit_message": helper.commit_description().decode("utf-8"),
+                    "timestamp": timestamp.decode("utf-8"),
                 },
             )
         )
