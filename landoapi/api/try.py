@@ -72,7 +72,7 @@ def email(author: bytes) -> Optional[bytes]:
 def parse_git_author_information(user_header: bytes) -> tuple[bytes, bytes]:
     """Parse user's name and email address from a Git style author header.
 
-    Converts a header like 'User Name <user@example.com>' to it's separate parts.
+    Converts a header like 'User Name <user@example.com>' to its separate parts.
     """
     return person(user_header), email(user_header)
 
