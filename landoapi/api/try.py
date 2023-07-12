@@ -77,6 +77,7 @@ def parse_values_from_user_header(user_header: bytes) -> tuple[bytes, bytes]:
 
 def get_timestamp_from_date(date_header: bytes) -> int:
     """Convert a Git patch date header into a timestamp."""
+    # TODO implement this properly
     return 0
 
 
