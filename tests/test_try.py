@@ -4,6 +4,7 @@
 
 import base64
 
+from landoapi.api.try_push import get_timestamp_from_date
 from landoapi.hg import HgRepo
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.repos import SCM_LEVEL_1, Repo
@@ -51,6 +52,12 @@ diff --git a/test.txt b/test.txt
 --
 2.31.1
 """.strip()
+
+
+def test_get_timestamp_from_date():
+    assert (
+        get_timestamp_from_date("Wed, 6 Jul 2022 16:36:09 -0400") == "1657139769"
+    ), "Timestamp from `git format-patch` should properly convert to `str`."
 
 
 def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):

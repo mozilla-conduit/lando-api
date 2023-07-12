@@ -5,9 +5,11 @@
 import base64
 import io
 import logging
+import math
 from typing import Iterable, Optional
 
 from connexion import ProblemException
+from dateutil.parser import parse as dateparse
 from flask import (
     current_app,
     g,
@@ -77,10 +79,10 @@ def parse_git_author_information(user_header: bytes) -> tuple[bytes, bytes]:
     return person(user_header), email(user_header)
 
 
-def get_timestamp_from_date(date_header: bytes) -> bytes:
+def get_timestamp_from_date(date_header: bytes) -> str:
     """Convert a Git patch date header into a timestamp."""
-    # TODO implement this properly
-    return b"0"
+    header_datetime = dateparse(date_header)
+    return str(math.floor(header_datetime.timestamp()))
 
 
 def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
@@ -147,7 +149,7 @@ def parse_git_format_patches_to_revisions(patches: Iterable[bytes]) -> list[Revi
                     "author_name": author.decode("utf-8"),
                     "author_email": email.decode("utf-8"),
                     "commit_message": helper.commit_description().decode("utf-8"),
-                    "timestamp": timestamp.decode("utf-8"),
+                    "timestamp": timestamp,
                 },
             )
         )
