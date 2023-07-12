@@ -5,7 +5,6 @@
 import base64
 import io
 import logging
-
 from typing import Iterable, Optional
 
 from connexion import ProblemException
@@ -16,6 +15,7 @@ from flask import (
 
 from landoapi import auth
 from landoapi.hgexports import (
+    GitPatchHelper,
     HgPatchHelper,
 )
 from landoapi.models.landing_job import (
@@ -69,9 +69,15 @@ def email(author: bytes) -> Optional[bytes]:
     return author[author.find(b"<") + 1 : r]
 
 
+# TODO rename this.
 def parse_values_from_user_header(user_header: bytes) -> tuple[bytes, bytes]:
     """Parse user's name and email address from the `User` Mercurial patch header."""
     return person(user_header), email(user_header)
+
+
+def get_timestamp_from_date(date_header: bytes) -> int:
+    """Convert a Git patch date header into a timestamp."""
+    return 0
 
 
 def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
@@ -114,24 +120,36 @@ def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revisi
 
 def parse_git_format_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
     """Turn an iterable of `bytes` patches from `git format-patch` into `Revision` objects."""
-    return [
-        Revision.new_from_patch(
-            # TODO write this function.
-            patch_bytes=strip_git_diff_file_summary(diff),
-            patch_data={
-                # TODO write these two functions to parse fields from author.
-                "author_name": get_author_name(commit.author),
-                "author_email": get_author_email(commit.author),
-                "commit_message": commit.message,
-                # TODO this doesn't work apparently?
-                "timestamp": commit.commit_time,
-            },
+    revisions = []
+
+    for patch in patches:
+        helper = GitPatchHelper(io.BytesIO(patch))
+
+        from_header = helper.header("From")
+        if not from_header:
+            raise ValueError("Patch does not have a `From:` header.")
+
+        author, email = parse_values_from_user_header(from_header)
+
+        date = helper.header("Date")
+        if not date:
+            raise ValueError("Patch does not have a `Date:` header.")
+
+        timestamp = get_timestamp_from_date(date)
+
+        revisions.append(
+            Revision.new_from_patch(
+                patch_bytes=helper.get_diff(),
+                patch_data={
+                    "author_name": author,
+                    "author_email": email,
+                    "commit_message": helper.commit_description(),
+                    # TODO this doesn't work apparently?
+                    "timestamp": timestamp,
+                },
+            )
         )
-        # TODO should we just do a loop here?
-        for commit, diff, git_vers in map(
-            patch.git_am_split_patch, map(io.BytesIO, patches)
-        )
-    ]
+    return revisions
 
 
 def convert_json_patch_to_bytes(patch: str) -> bytes:

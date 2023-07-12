@@ -259,7 +259,7 @@ class GitPatchHelper(object):
             raise ValueError("Patch is malformed, could not find start of patch diff.")
 
         # The diff is the remainder of the patch, except the last two lines of Git version info.
-        remaining_lines = [line for line in self.patch]
+        remaining_lines = list(self.patch)
         self.diff += b"".join(line for line in remaining_lines[:-2])
 
     @staticmethod
@@ -275,27 +275,11 @@ class GitPatchHelper(object):
 
     def commit_description(self) -> bytes:
         """Returns the commit description."""
-        try:
-            line_no = 0
-            commit_desc = []
-            for line in self.patch:
-                line_no += 1
+        commit_description = self.header("Subject")
+        if not commit_description:
+            raise ValueError("Patch does not have a commit description.")
 
-                if line_no <= self.header_end_line_no:
-                    continue
-
-                if self.diff_start_line:
-                    if line_no == self.diff_start_line:
-                        break
-                    commit_desc.append(line)
-                else:
-                    if self._is_diff_line(line):
-                        break
-                    commit_desc.append(line)
-
-            return b"".join(commit_desc).strip()
-        finally:
-            self.patch.seek(0)
+        return commit_description
 
     def write(self, f: io.BytesIO):
         """Writes whole patch to the specified file object."""

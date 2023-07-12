@@ -79,7 +79,7 @@ index f56ba1c..33391ea 100644
 @@ -122,10 +122,16 @@ def landoapi_exception(e):
      sentry.captureException()
      logger.exception("Uncaught communication exception with Lando API.")
- 
+
 +    if e.status_code == 503:
 +        # Show a maintenance-mode specific title if we get a 503.
 +        title = "Lando is undergoing maintenance and is temporarily unavailable"
@@ -94,7 +94,7 @@ index f56ba1c..33391ea 100644
              message=str(e),
          ),
          500,
--- 
+--
 2.31.1
 """.strip()
 
@@ -105,7 +105,7 @@ index f56ba1c..33391ea 100644
 @@ -122,10 +122,16 @@ def landoapi_exception(e):
      sentry.captureException()
      logger.exception("Uncaught communication exception with Lando API.")
- 
+
 +    if e.status_code == 503:
 +        # Show a maintenance-mode specific title if we get a 503.
 +        title = "Lando is undergoing maintenance and is temporarily unavailable"
@@ -368,4 +368,6 @@ def test_git_formatpatch_helper_parse():
         b"returned from Lando. This should inform users that Lando is\n"
         b"unavailable at the moment and is not broken.\n"
     ), "`Subject` header should contain full commit message."
-    assert patch.get_diff() == GIT_PATCH_ONLY_DIFF, "`get_diff()` should return the full diff."
+    assert (
+        patch.get_diff() == GIT_PATCH_ONLY_DIFF
+    ), "`get_diff()` should return the full diff."
