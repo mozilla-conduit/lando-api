@@ -94,6 +94,7 @@ class Revision(Base):
         db.session.commit()
         return rev
 
+    # TODO why is the raw_diff a `str`?
     def set_patch(self, raw_diff: str, patch_data: dict[str, str]):
         """Given a raw_diff and patch data, build the patch and store it."""
         self.patch_data = patch_data
