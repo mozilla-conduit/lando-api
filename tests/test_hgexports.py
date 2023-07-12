@@ -96,7 +96,31 @@ index f56ba1c..33391ea 100644
          500,
 -- 
 2.31.1
-""".lstrip()
+""".strip()
+
+GIT_PATCH_ONLY_DIFF = b"""diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
+index f56ba1c..33391ea 100644
+--- a/landoui/errorhandlers.py
++++ b/landoui/errorhandlers.py
+@@ -122,10 +122,16 @@ def landoapi_exception(e):
+     sentry.captureException()
+     logger.exception("Uncaught communication exception with Lando API.")
+ 
++    if e.status_code == 503:
++        # Show a maintenance-mode specific title if we get a 503.
++        title = "Lando is undergoing maintenance and is temporarily unavailable"
++    else:
++        title = "Lando API returned an unexpected error"
++
+     return (
+         render_template(
+             "errorhandlers/default_error.html",
+-            title="Lando API returned an unexpected error",
++            title=title,
+             message=str(e),
+         ),
+         500,
+"""
 
 
 def test_build_patch():
@@ -336,6 +360,12 @@ def test_git_formatpatch_helper_parse():
     assert (
         patch.header(b"Date") == b"Wed, 6 Jul 2022 16:36:09 -0400"
     ), "`Date` header should contain raw date info."
-    assert (
-        patch.header(b"Subject") == ()
+    assert patch.header(b"Subject") == (
+        b"errors: add a maintenance-mode specific title to serverside error handlers "
+        b"(Bug 1724769)\n\n"
+        b"Adds a conditional to the Lando-API exception handlers that\n"
+        b"shows a maintenance-mode specific title when a 503 error is\n"
+        b"returned from Lando. This should inform users that Lando is\n"
+        b"unavailable at the moment and is not broken.\n"
     ), "`Subject` header should contain full commit message."
+    assert patch.get_diff() == GIT_PATCH_ONLY_DIFF, "`get_diff()` should return the full diff."

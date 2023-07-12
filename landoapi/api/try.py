@@ -31,6 +31,7 @@ from landoapi.repos import (
 logger = logging.getLogger(__name__)
 
 
+# Borrowed from Mercurial core.
 def person(author: bytes) -> bytes:
     """Returns the name before an email address,
     interpreting it as per RFC 5322
@@ -59,6 +60,7 @@ def person(author: bytes) -> bytes:
     return author[:f].replace(b".", b" ")
 
 
+# Borrowed from Mercurial core.
 def email(author: bytes) -> Optional[bytes]:
     """Get email of author."""
     r = author.find(b">")

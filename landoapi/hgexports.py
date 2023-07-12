@@ -216,18 +216,26 @@ class GitPatchHelper(object):
         author_from_line = next(self.patch)
         if not author_from_line.startswith(b"From: "):
             raise ValueError("Patch is malformed, second line is not `From:`.")
-        self.headers[b"From"] = author_from_line.removeprefix(b"From: ")
+        self.headers[b"From"] = author_from_line.removeprefix(b"From: ").removesuffix(
+            b"\n"
+        )
 
         date_line = next(self.patch)
         if not date_line.startswith(b"Date: "):
             raise ValueError("Patch is malformed, third line is not `Date:`.")
-        self.headers[b"Date"] = date_line.removeprefix(b"Date: ")
+        self.headers[b"Date"] = date_line.removeprefix(b"Date: ").removesuffix(b"\n")
 
         # Get the main `Subject` header line.
         subject_line = next(self.patch)
         if not subject_line.startswith(b"Subject: "):
             raise ValueError("Patch is malformed, fourth line is not `Subject:`.")
-        subject_line = subject_line.removeprefix(b"Subject: ")
+
+        # Clean up the first subject line.
+        subject_line = (
+            subject_line.removeprefix(b"Subject: ")
+            .removeprefix(b"[PATCH] ")
+            .removesuffix(b"\n")
+        )
 
         # Get the extended commit message, which ends with a `---` line.
         for line in self.patch:
@@ -242,14 +250,17 @@ class GitPatchHelper(object):
             )
 
         # Move through the patch until we find the start of the diff.
+        self.diff = b""
         for line in self.patch:
             if GitPatchHelper._is_diff_line(line):
+                self.diff += line
                 break
         else:
             raise ValueError("Patch is malformed, could not find start of patch diff.")
 
-        # The diff is the remainder of the patch.
-        self.diff = b"".join(line for line in self.patch)
+        # The diff is the remainder of the patch, except the last two lines of Git version info.
+        remaining_lines = [line for line in self.patch]
+        self.diff += b"".join(line for line in remaining_lines[:-2])
 
     @staticmethod
     def _is_diff_line(line: bytes) -> bool:
@@ -324,3 +335,7 @@ class GitPatchHelper(object):
                 f.write(buf)
         finally:
             self.patch.seek(0)
+
+    def get_diff(self) -> bytes:
+        """Return the patch diff."""
+        return self.diff
