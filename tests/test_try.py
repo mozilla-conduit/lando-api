@@ -18,6 +18,20 @@ diff --git a/test.txt b/test.txt
 +adding another line
 """.strip()
 
+PATCH_WITHOUT_STARTLINE = rb"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip()
+
 
 def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):
     try_push_json = {
@@ -54,14 +68,9 @@ def test_try_api_success(
     try_push_json = {
         # The only node in the test repo.
         "base_commit": "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4",
+        "patch_format": "hgexport",
         "patches": [
-            {
-                "author": "User Test User",
-                "author_email": "test@example.com",
-                "diff": base64.b64encode(PATCH_DIFF).decode("ascii"),
-                "timestamp": "0",
-                "commit_message": "add another file.",
-            }
+            base64.b64encode(PATCH_WITHOUT_STARTLINE).decode("ascii"),
         ],
     }
     response = client.post(
