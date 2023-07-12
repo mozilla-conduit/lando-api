@@ -85,7 +85,6 @@ def get_timestamp_from_date(date_header: bytes) -> bytes:
 
 def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
     """Turn an iterable of `bytes` patches from `hg export` into `Revision` objects."""
-    # TODO test this and fix typing problems.
     revisions = []
     for patch in patches:
         helper = HgPatchHelper(io.BytesIO(patch))
@@ -97,7 +96,6 @@ def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revisi
         author, email = parse_git_author_information(user)
 
         date = helper.header("Date")
-        # TODO parse proper timestamp from Date.
         if not date:
             raise ValueError("Patch does not have a `Date` header.")
 
@@ -108,6 +106,7 @@ def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revisi
         if not commit_message:
             raise ValueError("Patch does not have a commit description.")
 
+        # TODO should we avoid decoding everywhere?
         revisions.append(
             Revision.new_from_patch(
                 patch_bytes=helper.get_diff().decode("utf-8"),
