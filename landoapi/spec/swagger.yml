@@ -393,7 +393,7 @@ paths:
                 description: |
                   Ordered array of base64 encoded patches for submission to Lando.
                 items:
-                  $ref: '#/definitions/TryPatch'
+                  type: string
               patch_format:
                 type: string
                 description: |
