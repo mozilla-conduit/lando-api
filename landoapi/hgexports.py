@@ -216,14 +216,14 @@ class GitPatchHelper(object):
         author_from_line = next(self.patch)
         if not author_from_line.startswith(b"From: "):
             raise ValueError("Patch is malformed, second line is not `From:`.")
-        self.headers[b"From"] = author_from_line.removeprefix(b"From: ").removesuffix(
+        self.headers["From"] = author_from_line.removeprefix(b"From: ").removesuffix(
             b"\n"
         )
 
         date_line = next(self.patch)
         if not date_line.startswith(b"Date: "):
             raise ValueError("Patch is malformed, third line is not `Date:`.")
-        self.headers[b"Date"] = date_line.removeprefix(b"Date: ").removesuffix(b"\n")
+        self.headers["Date"] = date_line.removeprefix(b"Date: ").removesuffix(b"\n")
 
         # Get the main `Subject` header line.
         subject_line = next(self.patch)
@@ -240,7 +240,7 @@ class GitPatchHelper(object):
         # Get the extended commit message, which ends with a `---` line.
         for line in self.patch:
             if line == b"---\n":
-                self.headers[b"Subject"] = subject_line
+                self.headers["Subject"] = subject_line
                 break
 
             subject_line += line
