@@ -99,7 +99,8 @@ def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revisi
         if not date:
             raise ValueError("Patch does not have a `Date` header.")
 
-        timestamp = get_timestamp_from_date(date)
+        # TODO make this a proper function with better handling.
+        timestamp = date.split(b" ")[0]
 
         commit_message = helper.commit_description()
         if not commit_message:
