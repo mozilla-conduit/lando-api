@@ -4,7 +4,10 @@
 
 import base64
 
-from landoapi.api.try_push import get_timestamp_from_date
+from landoapi.api.try_push import (
+    get_timestamp_from_date,
+    parse_git_author_information,
+)
 from landoapi.hg import HgRepo
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.repos import SCM_LEVEL_1, Repo
@@ -58,6 +61,13 @@ def test_get_timestamp_from_date():
     assert (
         get_timestamp_from_date("Wed, 6 Jul 2022 16:36:09 -0400") == "1657139769"
     ), "Timestamp from `git format-patch` should properly convert to `str`."
+
+
+def test_parse_git_author_information():
+    assert parse_git_author_information(b"User Name <user@example.com>") == (
+        b"User Name",
+        b"user@example.com",
+    ), "Name and email information should be parsed into separate strings."
 
 
 def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):
