@@ -77,10 +77,10 @@ def parse_git_author_information(user_header: bytes) -> tuple[bytes, bytes]:
     return person(user_header), email(user_header)
 
 
-def get_timestamp_from_date(date_header: bytes) -> int:
+def get_timestamp_from_date(date_header: bytes) -> bytes:
     """Convert a Git patch date header into a timestamp."""
     # TODO implement this properly
-    return 0
+    return b"0"
 
 
 def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
