@@ -216,12 +216,30 @@ REPO_CONFIG = {
             access_group=SCM_CONDUIT,
             push_bookmark="@",
         ),
+        # Use real `try` for testing since `try` is a testing environment anyway.
+        "try": Repo(
+            tree="try",
+            url="https://hg.mozilla.org/try",
+            push_path="ssh://hg.mozilla.org/try",
+            pull_path="https://hg.mozilla.org/mozilla-unified",
+            access_group=SCM_LEVEL_1,
+            short_name="try",
+        ),
     },
     "devsvcstage": {
         "test-repo-clone": Repo(
             tree="test-repo-clone",
             url="https://hg.mozilla.org/conduit-testing/test-repo-clone",
             access_group=SCM_CONDUIT,
+        ),
+        # Use real `try` for testing since `try` is a testing environment anyway.
+        "try": Repo(
+            tree="try",
+            url="https://hg.mozilla.org/try",
+            push_path="ssh://hg.mozilla.org/try",
+            pull_path="https://hg.mozilla.org/mozilla-unified",
+            access_group=SCM_LEVEL_1,
+            short_name="try",
         ),
     },
     "devsvcprod": {
