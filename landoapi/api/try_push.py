@@ -63,7 +63,7 @@ def person(author: bytes) -> bytes:
 
 
 # Borrowed from Mercurial core.
-def email(author: bytes) -> Optional[bytes]:
+def email(author: bytes) -> bytes:
     """Get email of author."""
     r = author.find(b">")
     if r == -1:
