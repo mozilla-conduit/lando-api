@@ -6,7 +6,7 @@ import base64
 import io
 import logging
 import math
-from typing import Iterable, Optional
+from typing import Iterable
 
 from connexion import ProblemException
 from dateutil.parser import parse as dateparse
@@ -85,6 +85,15 @@ def get_timestamp_from_date(date_header: bytes) -> str:
     return str(math.floor(header_datetime.timestamp()))
 
 
+def get_timestamp_from_hg_date_header(date_header: bytes) -> bytes:
+    """Return the first part of the `hg export` date header.
+
+    >>> get_timestamp_from_hg_date_header(b"1686621879 14400")
+    b"1686621879"
+    """
+    return date_header.split(b" ")[0]
+
+
 def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
     """Turn an iterable of `bytes` patches from `hg export` into `Revision` objects."""
     revisions = []
@@ -101,8 +110,7 @@ def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revisi
         if not date:
             raise ValueError("Patch does not have a `Date` header.")
 
-        # TODO make this a proper function with better handling.
-        timestamp = date.split(b" ")[0]
+        timestamp = get_timestamp_from_hg_date_header(date)
 
         commit_message = helper.commit_description()
         if not commit_message:
