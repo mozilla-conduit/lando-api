@@ -5,7 +5,7 @@
 import base64
 
 from landoapi.api.try_push import (
-    get_timestamp_from_date,
+    get_timestamp_from_git_date_header,
     parse_git_author_information,
 )
 from landoapi.hg import HgRepo
@@ -59,7 +59,8 @@ diff --git a/test.txt b/test.txt
 
 def test_get_timestamp_from_date():
     assert (
-        get_timestamp_from_date("Wed, 6 Jul 2022 16:36:09 -0400") == "1657139769"
+        get_timestamp_from_git_date_header("Wed, 6 Jul 2022 16:36:09 -0400")
+        == "1657139769"
     ), "Timestamp from `git format-patch` should properly convert to `str`."
 
 

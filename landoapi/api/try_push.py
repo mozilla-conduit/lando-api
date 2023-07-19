@@ -6,7 +6,6 @@ import base64
 import io
 import logging
 import math
-from typing import Iterable
 
 from connexion import ProblemException
 from dateutil.parser import parse as dateparse
@@ -79,7 +78,7 @@ def parse_git_author_information(user_header: bytes) -> tuple[bytes, bytes]:
     return person(user_header), email(user_header)
 
 
-def get_timestamp_from_date(date_header: bytes) -> str:
+def get_timestamp_from_git_date_header(date_header: bytes) -> str:
     """Convert a Git patch date header into a timestamp."""
     header_datetime = dateparse(date_header)
     return str(math.floor(header_datetime.timestamp()))
@@ -94,74 +93,63 @@ def get_timestamp_from_hg_date_header(date_header: bytes) -> bytes:
     return date_header.split(b" ")[0]
 
 
-def parse_hgexport_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
-    """Turn an iterable of `bytes` patches from `hg export` into `Revision` objects."""
-    revisions = []
-    for patch in patches:
-        helper = HgPatchHelper(io.BytesIO(patch))
+def build_revision_from_hgexport_patch(patch: bytes) -> Revision:
+    """Convert an `hg export` formatted `bytes` patch into a `Revision`."""
+    helper = HgPatchHelper(io.BytesIO(patch))
 
-        user = helper.header("User")
-        if not user:
-            raise ValueError("Patch does not have a `User` header.")
+    user = helper.header("User")
+    if not user:
+        raise ValueError("Patch does not have a `User` header.")
 
-        author, email = parse_git_author_information(user)
+    author, email = parse_git_author_information(user)
 
-        date = helper.header("Date")
-        if not date:
-            raise ValueError("Patch does not have a `Date` header.")
+    date = helper.header("Date")
+    if not date:
+        raise ValueError("Patch does not have a `Date` header.")
 
-        timestamp = get_timestamp_from_hg_date_header(date)
+    timestamp = get_timestamp_from_hg_date_header(date)
 
-        commit_message = helper.commit_description()
-        if not commit_message:
-            raise ValueError("Patch does not have a commit description.")
+    commit_message = helper.commit_description()
+    if not commit_message:
+        raise ValueError("Patch does not have a commit description.")
 
-        # TODO should we avoid decoding everywhere?
-        revisions.append(
-            Revision.new_from_patch(
-                patch_bytes=helper.get_diff().decode("utf-8"),
-                patch_data={
-                    "author_name": author.decode("utf-8"),
-                    "author_email": email.decode("utf-8"),
-                    "commit_message": helper.commit_description().decode("utf-8"),
-                    "timestamp": timestamp.decode("utf-8"),
-                },
-            )
-        )
-    return revisions
+    # TODO should we avoid decoding everywhere?
+    return Revision.new_from_patch(
+        patch_bytes=helper.get_diff().decode("utf-8"),
+        patch_data={
+            "author_name": author.decode("utf-8"),
+            "author_email": email.decode("utf-8"),
+            "commit_message": helper.commit_description().decode("utf-8"),
+            "timestamp": timestamp.decode("utf-8"),
+        },
+    )
 
 
-def parse_git_format_patches_to_revisions(patches: Iterable[bytes]) -> list[Revision]:
-    """Turn an iterable of `bytes` patches from `git format-patch` into `Revision` objects."""
-    revisions = []
+def build_revision_from_git_format_patch(patch: bytes) -> Revision:
+    """Turn a `git format-patch` formatted `bytes` patch into a `Revision`."""
+    helper = GitPatchHelper(io.BytesIO(patch))
 
-    for patch in patches:
-        helper = GitPatchHelper(io.BytesIO(patch))
+    from_header = helper.header("From")
+    if not from_header:
+        raise ValueError("Patch does not have a `From:` header.")
 
-        from_header = helper.header("From")
-        if not from_header:
-            raise ValueError("Patch does not have a `From:` header.")
+    author, email = parse_git_author_information(from_header)
 
-        author, email = parse_git_author_information(from_header)
+    date = helper.header("Date")
+    if not date:
+        raise ValueError("Patch does not have a `Date:` header.")
 
-        date = helper.header("Date")
-        if not date:
-            raise ValueError("Patch does not have a `Date:` header.")
+    timestamp = get_timestamp_from_git_date_header(date)
 
-        timestamp = get_timestamp_from_date(date)
-
-        revisions.append(
-            Revision.new_from_patch(
-                patch_bytes=helper.get_diff().decode("utf-8"),
-                patch_data={
-                    "author_name": author.decode("utf-8"),
-                    "author_email": email.decode("utf-8"),
-                    "commit_message": helper.commit_description().decode("utf-8"),
-                    "timestamp": timestamp,
-                },
-            )
-        )
-    return revisions
+    return Revision.new_from_patch(
+        patch_bytes=helper.get_diff().decode("utf-8"),
+        patch_data={
+            "author_name": author.decode("utf-8"),
+            "author_email": email.decode("utf-8"),
+            "commit_message": helper.commit_description().decode("utf-8"),
+            "timestamp": timestamp,
+        },
+    )
 
 
 def convert_json_patch_to_bytes(patch: str) -> bytes:
@@ -176,10 +164,10 @@ def parse_revisions_from_request(
     patches_bytes = (convert_json_patch_to_bytes(patch) for patch in patches)
 
     if patch_format == "hgexport":
-        return parse_hgexport_patches_to_revisions(patches_bytes)
+        return [build_revision_from_hgexport_patch(patch) for patch in patches_bytes]
 
     if patch_format == "git-format-patch":
-        return parse_git_format_patches_to_revisions(patches_bytes)
+        return [build_revision_from_git_format_patch(patch) for patch in patches_bytes]
 
     raise ValueError(f"Unknown value for `patch_format`: {patch_format}.")
 
