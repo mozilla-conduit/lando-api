@@ -355,12 +355,12 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 def test_git_formatpatch_helper_parse():
     patch = GitPatchHelper(io.BytesIO(GIT_PATCH))
     assert (
-        patch.header("From") == b"Connor Sheehan <sheehan@mozilla.com>"
+        patch.header(b"From") == b"Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
     assert (
-        patch.header("Date") == b"Wed, 6 Jul 2022 16:36:09 -0400"
+        patch.header(b"Date") == b"Wed, 6 Jul 2022 16:36:09 -0400"
     ), "`Date` header should contain raw date info."
-    assert patch.header("Subject") == (
+    assert patch.header(b"Subject") == (
         b"errors: add a maintenance-mode specific title to serverside error handlers "
         b"(Bug 1724769)\n\n"
         b"Adds a conditional to the Lando-API exception handlers that\n"

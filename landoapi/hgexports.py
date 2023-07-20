@@ -198,13 +198,6 @@ class HgPatchHelper(object):
 class GitPatchHelper(object):
     """Helper class for parsing Mercurial patches/exports."""
 
-    GIT_HEADERS = (
-        "From ",
-        "From: ",
-        "Date: ",
-        "Subject: ",
-    )
-
     def __init__(self, fileobj: io.BytesIO):
         self.patch = fileobj
         self.headers = {}
@@ -216,14 +209,14 @@ class GitPatchHelper(object):
         author_from_line = next(self.patch)
         if not author_from_line.startswith(b"From: "):
             raise ValueError("Patch is malformed, second line is not `From:`.")
-        self.headers["From"] = author_from_line.removeprefix(b"From: ").removesuffix(
+        self.headers[b"From"] = author_from_line.removeprefix(b"From: ").removesuffix(
             b"\n"
         )
 
         date_line = next(self.patch)
         if not date_line.startswith(b"Date: "):
             raise ValueError("Patch is malformed, third line is not `Date:`.")
-        self.headers["Date"] = date_line.removeprefix(b"Date: ").removesuffix(b"\n")
+        self.headers[b"Date"] = date_line.removeprefix(b"Date: ").removesuffix(b"\n")
 
         # Get the main `Subject` header line.
         subject_line = next(self.patch)
@@ -240,7 +233,7 @@ class GitPatchHelper(object):
         # Get the extended commit message, which ends with a `---` line.
         for line in self.patch:
             if line == b"---\n":
-                self.headers["Subject"] = subject_line
+                self.headers[b"Subject"] = subject_line
                 break
 
             subject_line += line
@@ -266,16 +259,13 @@ class GitPatchHelper(object):
     def _is_diff_line(line: bytes) -> bool:
         return DIFF_LINE_RE.search(line) is not None
 
-    def header(self, name: bytes | str) -> Optional[bytes]:
+    def header(self, name: bytes) -> Optional[bytes]:
         """Returns value of the specified header, or None if missing."""
-        # TODO do we need to access by both strings and bytes?
-        # name = name.encode("utf-8") if isinstance(name, str) else name
-        # return self.headers.get(name.lower())
         return self.headers.get(name)
 
     def commit_description(self) -> bytes:
         """Returns the commit description."""
-        commit_description = self.header("Subject")
+        commit_description = self.header(b"Subject")
         if not commit_description:
             raise ValueError("Patch does not have a commit description.")
 

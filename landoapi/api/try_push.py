@@ -129,13 +129,13 @@ def build_revision_from_git_format_patch(patch: bytes) -> Revision:
     """Turn a `git format-patch` formatted `bytes` patch into a `Revision`."""
     helper = GitPatchHelper(io.BytesIO(patch))
 
-    from_header = helper.header("From")
+    from_header = helper.header(b"From")
     if not from_header:
         raise ValueError("Patch does not have a `From:` header.")
 
     author, email = parse_git_author_information(from_header)
 
-    date = helper.header("Date")
+    date = helper.header(b"Date")
     if not date:
         raise ValueError("Patch does not have a `Date:` header.")
 
