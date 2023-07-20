@@ -128,7 +128,7 @@ class LandingWorker(Worker):
             logger.info("Finished processing landing job", extra={"id": job.id})
 
     @staticmethod
-    def notify_user_of_landing_failure(job):
+    def notify_user_of_landing_failure(job: LandingJob):
         """Wrapper around notify_user_of_landing_failure for convenience.
 
         Args:
@@ -197,7 +197,7 @@ class LandingWorker(Worker):
         return breakdown
 
     @staticmethod
-    def notify_user_of_bug_update_failure(job, exception):
+    def notify_user_of_bug_update_failure(job: LandingJob, exception: Exception):
         """Wrapper around notify_user_of_bug_update_failure for convenience.
 
         Args:

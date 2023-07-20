@@ -113,7 +113,6 @@ def build_revision_from_hgexport_patch(patch: bytes) -> Revision:
     if not commit_message:
         raise ValueError("Patch does not have a commit description.")
 
-    # TODO should we avoid decoding everywhere?
     return Revision.new_from_patch(
         raw_diff=helper.get_diff().decode("utf-8"),
         patch_data={
