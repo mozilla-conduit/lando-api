@@ -115,7 +115,7 @@ def build_revision_from_hgexport_patch(patch: bytes) -> Revision:
 
     # TODO should we avoid decoding everywhere?
     return Revision.new_from_patch(
-        patch_bytes=helper.get_diff().decode("utf-8"),
+        raw_diff=helper.get_diff().decode("utf-8"),
         patch_data={
             "author_name": author.decode("utf-8"),
             "author_email": email.decode("utf-8"),
@@ -142,7 +142,7 @@ def build_revision_from_git_format_patch(patch: bytes) -> Revision:
     timestamp = get_timestamp_from_git_date_header(date)
 
     return Revision.new_from_patch(
-        patch_bytes=helper.get_diff().decode("utf-8"),
+        raw_diff=helper.get_diff().decode("utf-8"),
         patch_data={
             "author_name": author.decode("utf-8"),
             "author_email": email.decode("utf-8"),
