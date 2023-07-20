@@ -803,35 +803,6 @@ definitions:
                     type: string
                     description: |
                       Details of this warning specific to this instance.
-  TryPatch:
-    type: object
-    required:
-      - author
-      - author_email
-      - commit_message
-      - timestamp
-      - diff
-    properties:
-      author:
-        type: string
-        description: |
-          The name of the patch author.
-      author_email:
-        type: string
-        description: |
-          The email of the patch author.
-      commit_message:
-        type: string
-        description: |
-          The commit message for the patch.
-      timestamp:
-        type: string
-        description: |
-          The commit timestamp for the patch.
-      diff:
-        type: string
-        description: |
-          Base64 encoded diff data.
   # RFC 7807 Problem Details for HTTP APIs (https://tools.ietf.org/html/rfc7807)
   # is used for error messages. Extensions to the error can be speced using an
   # "allOf" schema keyword along with additional schema definition
