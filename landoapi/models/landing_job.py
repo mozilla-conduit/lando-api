@@ -169,9 +169,7 @@ class LandingJob(Base):
             ]
 
     @property
-    # TODO rename this to job_identifier or something like that?
-    # TODO actually test changes here, ie "unknown" and the commit message parsing.
-    def head_revision(self) -> str:
+    def landing_job_identifier(self) -> str:
         """Human-readable representation of the branch head's Phabricator revision ID."""
         if not self.revisions:
             raise ValueError(

@@ -136,7 +136,7 @@ class LandingWorker(Worker):
                 notification parameters.
         """
         notify_user_of_landing_failure(
-            job.requester_email, job.head_revision, job.error, job.id
+            job.requester_email, job.landing_job_identifier, job.error, job.id
         )
 
     def process_merge_conflict(
@@ -206,7 +206,7 @@ class LandingWorker(Worker):
         """
         notify_user_of_bug_update_failure(
             job.requester_email,
-            job.head_revision,
+            job.landing_job_identifier,
             f"Failed to update Bugzilla after landing uplift revisions: {str(exception)}",
             job.id,
         )
