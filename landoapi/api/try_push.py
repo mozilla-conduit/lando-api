@@ -178,14 +178,6 @@ def post(data: dict):
     patches = data["patches"]
     patch_format = data["patch_format"]
 
-    if not base_commit or len(base_commit) != 40:
-        raise ProblemException(
-            400,
-            "Base commit must be a 40-character commit hash.",
-            "Base commit must be a 40-character commit hash.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
-
     if not patches:
         raise ProblemException(
             400,

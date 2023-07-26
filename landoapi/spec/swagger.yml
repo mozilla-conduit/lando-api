@@ -386,6 +386,8 @@ paths:
             properties:
               base_commit:
                 type: string
+                minLength: 40
+                maxLength: 40
                 description: |
                   The published base commit on which to apply `patches`.
               patches:
