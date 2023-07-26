@@ -178,14 +178,6 @@ def post(data: dict):
     patches = data["patches"]
     patch_format = data["patch_format"]
 
-    if not patches:
-        raise ProblemException(
-            400,
-            "Patches must contain at least 1 patch.",
-            "Patches must contain at least 1 patch.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
-
     try_repo = get_repos_for_env(current_app.config.get("ENVIRONMENT")).get("try")
     if not try_repo:
         raise ProblemException(

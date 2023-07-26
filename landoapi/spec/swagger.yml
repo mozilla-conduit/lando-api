@@ -392,6 +392,7 @@ paths:
                   The published base commit on which to apply `patches`.
               patches:
                 type: array
+                minItems: 1
                 description: |
                   Ordered array of base64 encoded patches for submission to Lando.
                 items:
