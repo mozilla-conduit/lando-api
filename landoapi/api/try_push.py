@@ -200,7 +200,7 @@ def post(data: dict):
         target_commit_hash=base_commit,
     )
     logger.info(
-        f"Created try landing job with {len(revisions)} "
+        f"Created try landing job {job.id} with {len(revisions)} "
         f"changesets against {base_commit} for {ldap_username}."
     )
 
