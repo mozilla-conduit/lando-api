@@ -86,7 +86,7 @@ class Revision(Base):
 
     @classmethod
     def new_from_patch(cls, raw_diff: str, patch_data: dict[str, str]) -> Revision:
-        """Construct a new Revsion from patch data."""
+        """Construct a new Revision from patch data."""
         rev = Revision()
         db.session.add(rev)
         db.session.commit()
