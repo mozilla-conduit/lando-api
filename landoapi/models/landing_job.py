@@ -170,7 +170,11 @@ class LandingJob(Base):
 
     @property
     def landing_job_identifier(self) -> str:
-        """Human-readable representation of the branch head's Phabricator revision ID."""
+        """Human-readable representation of the branch head.
+
+        Returns a Phabricator revision ID if the revisions are associated with a Phabricator
+        repo, otherwise the first line of the commit message.
+        """
         if not self.revisions:
             raise ValueError(
                 "Job must be associated with a revision to have a head revision."
