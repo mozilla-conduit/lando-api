@@ -364,7 +364,7 @@ def test_scm_level_enforce():
     user = A0User(token, userinfo)
     with pytest.raises(ProblemException) as exc_info:
         ensure_user_has_scm_level(user, SCM_LEVEL_1)
-    assert exc_info.value.status == 401, "Lack of level 1 permission should return 401."
+    assert exc_info.value.status == 403, "Lack of level 1 permission should return 403."
     assert (
         exc_info.value.title == "Level 1 Commit Access is required."
     ), "Lack of level 1 permissions should return appropriate error."
@@ -374,7 +374,7 @@ def test_scm_level_enforce():
     user = A0User(token, userinfo)
     with pytest.raises(ProblemException) as exc_info:
         ensure_user_has_scm_level(user, SCM_LEVEL_1)
-    assert exc_info.value.status == 401, "Expired level 1 permission should return 401."
+    assert exc_info.value.status == 403, "Expired level 1 permission should return 403."
     assert (
         exc_info.value.title == "Your Level 1 Commit Access has expired."
     ), "Expired level 1 permissions should return appropriate error."
@@ -385,8 +385,8 @@ def test_scm_level_enforce():
     with pytest.raises(ProblemException) as exc_info:
         ensure_user_has_scm_level(user, SCM_LEVEL_1)
     assert (
-        exc_info.value.status == 401
-    ), "Lack of active level 1 permission should return 401."
+        exc_info.value.status == 403
+    ), "Lack of active level 1 permission should return 403."
     assert (
         exc_info.value.title == "Your Level 1 Commit Access has expired."
     ), "Lack of active level 1 permissions should return appropriate error."

@@ -499,10 +499,10 @@ def ensure_user_has_scm_level(auth0_user: A0User, access_group: AccessGroup):
     # Return appropriate error message if user does not have commit access.
     if not auth0_user.is_in_groups(access_group.membership_group):
         raise ProblemException(
-            401,
+            403,
             f"{access_group.display_name} is required.",
             f"You do not have {access_group.display_name}.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
         )
 
     # Check that user has active_scm_level_1 and not `expired_scm_level_1`.
@@ -510,10 +510,10 @@ def ensure_user_has_scm_level(auth0_user: A0User, access_group: AccessGroup):
         access_group.expired_group
     ) or not auth0_user.is_in_groups(access_group.active_group):
         raise ProblemException(
-            401,
+            403,
             f"Your {access_group.display_name} has expired.",
             f"Your {access_group.display_name} has expired.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
         )
 
 
