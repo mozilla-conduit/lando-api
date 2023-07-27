@@ -179,7 +179,7 @@ class LandingJob(Base):
         head = self.revisions[-1]
         if head.revision_id:
             # Return the Phabricator identifier if the head revision has one.
-            return f"D{self.revisions[-1].revision_id}"
+            return f"D{head.revision_id}"
 
         commit_message = head.patch_data.get("commit_message")
         if commit_message:
