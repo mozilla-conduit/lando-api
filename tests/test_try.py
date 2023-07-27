@@ -135,7 +135,7 @@ def test_try_api_success_hgexport(
         push_path=hg_server,
         pull_path=hg_server,
         short_name="try",
-        phabricator_repo=False,
+        is_phabricator_repo=False,
         force_push=True,
     )
 
@@ -194,7 +194,7 @@ def test_try_api_success_gitformatpatch(
         push_path=hg_server,
         pull_path=hg_server,
         short_name="try",
-        phabricator_repo=False,
+        is_phabricator_repo=False,
         force_push=True,
     )
 

@@ -63,7 +63,7 @@ class Repo:
             the commit message at landing time (e.g. `[("DONTBUILD", "help text")]`).
         product_details_url (str): The URL which contains product-related information
             relevant to the repo. Defaults to an empty string.
-        phabricator_repo (bool): Boolean indicating if the repo is available on
+        is_phabricator_repo (bool): Boolean indicating if the repo is available on
             Phabricator or not.
         force_push (bool): Boolean that controls the use of force pushes for a repo.
     """
@@ -80,7 +80,7 @@ class Repo:
     autoformat_enabled: bool = False
     commit_flags: list[tuple[str, str]] = field(default_factory=list)
     product_details_url: str = ""
-    phabricator_repo: bool = True
+    is_phabricator_repo: bool = True
     force_push: bool = False
 
     def __post_init__(self):
@@ -101,7 +101,7 @@ class Repo:
     @property
     def phab_identifier(self) -> str | None:
         """Return a valid Phabricator identifier as a `str`."""
-        if not self.phabricator_repo:
+        if not self.is_phabricator_repo:
             return None
 
         return self.short_name if self.short_name else self.tree
@@ -244,7 +244,7 @@ REPO_CONFIG = {
             pull_path="https://hg.mozilla.org/mozilla-unified",
             access_group=SCM_LEVEL_1,
             short_name="try",
-            phabricator_repo=False,
+            is_phabricator_repo=False,
             force_push=True,
         ),
     },
@@ -262,7 +262,7 @@ REPO_CONFIG = {
             pull_path="https://hg.mozilla.org/mozilla-unified",
             access_group=SCM_LEVEL_1,
             short_name="try",
-            phabricator_repo=False,
+            is_phabricator_repo=False,
             force_push=True,
         ),
     },
@@ -319,7 +319,7 @@ REPO_CONFIG = {
             pull_path="https://hg.mozilla.org/mozilla-unified",
             access_group=SCM_LEVEL_1,
             short_name="try",
-            phabricator_repo=False,
+            is_phabricator_repo=False,
             force_push=True,
         ),
         "comm-central": Repo(

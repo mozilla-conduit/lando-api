@@ -263,7 +263,7 @@ def mocked_repo_config(mock_repo_config):
                     pull_path="http://hg.test",
                     access_group=SCM_LEVEL_1,
                     short_name="try",
-                    phabricator_repo=False,
+                    is_phabricator_repo=False,
                     force_push=True,
                 ),
             }
