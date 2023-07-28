@@ -71,12 +71,60 @@ def _no_line_breaks(break_string: str) -> str:
     return "".join(break_string.strip().splitlines())
 
 
-class HgPatchHelper(object):
-    """Helper class for parsing Mercurial patches/exports."""
+class PatchHelper(object):
+    """Base class for parsing patches/exports."""
 
     def __init__(self, fileobj: io.BytesIO):
         self.patch = fileobj
         self.headers = {}
+
+    @staticmethod
+    def _is_diff_line(line: bytes) -> bool:
+        return DIFF_LINE_RE.search(line) is not None
+
+    def header(self, name: bytes | str) -> Optional[bytes]:
+        """Returns value of the specified header, or None if missing."""
+        name = name.encode("utf-8") if isinstance(name, str) else name
+        return self.headers.get(name.lower())
+
+    def set_header(self, name: bytes | str, value: bytes):
+        """Set the header `name` to `value`."""
+        name = name.encode("utf-8") if isinstance(name, str) else name
+        self.headers[name.lower()] = value
+
+    def commit_description(self) -> bytes:
+        """Returns the commit description."""
+        raise NotImplementedError("`commit_description` not implemented.")
+
+    def get_diff(self) -> bytes:
+        """Return the patch diff."""
+        raise NotImplementedError("`get_diff` not implemented.")
+
+    def write_commit_description(self, f: io.BytesIO):
+        """Writes the commit description to the specified file object."""
+        f.write(self.commit_description())
+
+    def write_diff(self, file_obj: io.BytesIO):
+        """Writes the diff to the specified file object."""
+        file_obj.write(self.get_diff())
+
+    def write(self, f: io.BytesIO):
+        """Writes whole patch to the specified file object."""
+        try:
+            while 1:
+                buf = self.patch.read(16 * 1024)
+                if not buf:
+                    break
+                f.write(buf)
+        finally:
+            self.patch.seek(0)
+
+
+class HgPatchHelper(PatchHelper):
+    """Helper class for parsing Mercurial patches/exports."""
+
+    def __init__(self, fileobj: io.BytesIO):
+        super().__init__(fileobj)
         self.header_end_line_no = 0
         self._parse_header()
 
@@ -89,10 +137,6 @@ class HgPatchHelper(object):
                 self.diff_start_line = int(self.diff_start_line)
             except ValueError:
                 self.diff_start_line = None
-
-    @staticmethod
-    def _is_diff_line(line: bytes) -> bool:
-        return DIFF_LINE_RE.search(line) is not None
 
     @staticmethod
     def _header_value(line: bytes, prefix: bytes) -> Optional[bytes]:
@@ -114,15 +158,10 @@ class HgPatchHelper(object):
                 for name in HG_HEADER_NAMES:
                     value = self._header_value(line, name)
                     if value:
-                        self.headers[name.lower()] = value
+                        self.set_header(name, value)
                         break
         finally:
             self.patch.seek(0)
-
-    def header(self, name: bytes | str) -> Optional[bytes]:
-        """Returns value of the specified header, or None if missing."""
-        name = name.encode("utf-8") if isinstance(name, str) else name
-        return self.headers.get(name.lower())
 
     def commit_description(self) -> bytes:
         """Returns the commit description."""
@@ -147,21 +186,6 @@ class HgPatchHelper(object):
             return b"".join(commit_desc).strip()
         finally:
             self.patch.seek(0)
-
-    def write(self, f: io.BytesIO):
-        """Writes whole patch to the specified file object."""
-        try:
-            while 1:
-                buf = self.patch.read(16 * 1024)
-                if not buf:
-                    break
-                f.write(buf)
-        finally:
-            self.patch.seek(0)
-
-    def write_commit_description(self, f: io.BytesIO):
-        """Writes the commit description to the specified file object."""
-        f.write(self.commit_description())
 
     def get_diff(self) -> bytes:
         """Return the diff for this patch."""
@@ -190,17 +214,12 @@ class HgPatchHelper(object):
         finally:
             self.patch.seek(0)
 
-    def write_diff(self, file_obj: io.BytesIO):
-        """Writes the diff to the specified file object."""
-        file_obj.write(self.get_diff())
 
-
-class GitPatchHelper(object):
+class GitPatchHelper(PatchHelper):
     """Helper class for parsing Mercurial patches/exports."""
 
     def __init__(self, fileobj: io.BytesIO):
-        self.patch = fileobj
-        self.headers = {}
+        super().__init__(fileobj)
 
         mail_from_line = next(self.patch)
         if not mail_from_line.startswith(b"From "):
@@ -209,14 +228,14 @@ class GitPatchHelper(object):
         author_from_line = next(self.patch)
         if not author_from_line.startswith(b"From: "):
             raise ValueError("Patch is malformed, second line is not `From:`.")
-        self.headers[b"From"] = author_from_line.removeprefix(b"From: ").removesuffix(
-            b"\n"
+        self.set_header(
+            "From", author_from_line.removeprefix(b"From: ").removesuffix(b"\n")
         )
 
         date_line = next(self.patch)
         if not date_line.startswith(b"Date: "):
             raise ValueError("Patch is malformed, third line is not `Date:`.")
-        self.headers[b"Date"] = date_line.removeprefix(b"Date: ").removesuffix(b"\n")
+        self.set_header("Date", date_line.removeprefix(b"Date: ").removesuffix(b"\n"))
 
         # Get the main `Subject` header line.
         subject_line = next(self.patch)
@@ -233,7 +252,7 @@ class GitPatchHelper(object):
         # Get the extended commit message, which ends with a `---` line.
         for line in self.patch:
             if line == b"---\n":
-                self.headers[b"Subject"] = subject_line
+                self.set_header("Subject", subject_line)
                 break
 
             subject_line += line
@@ -255,60 +274,13 @@ class GitPatchHelper(object):
         remaining_lines = list(self.patch)
         self.diff += b"".join(line for line in remaining_lines[:-2])
 
-    @staticmethod
-    def _is_diff_line(line: bytes) -> bool:
-        return DIFF_LINE_RE.search(line) is not None
-
-    def header(self, name: bytes) -> Optional[bytes]:
-        """Returns value of the specified header, or None if missing."""
-        return self.headers.get(name)
-
     def commit_description(self) -> bytes:
         """Returns the commit description."""
-        commit_description = self.header(b"Subject")
+        commit_description = self.header("Subject")
         if not commit_description:
             raise ValueError("Patch does not have a commit description.")
 
         return commit_description
-
-    def write(self, f: io.BytesIO):
-        """Writes whole patch to the specified file object."""
-        try:
-            while 1:
-                buf = self.patch.read(16 * 1024)
-                if not buf:
-                    break
-                f.write(buf)
-        finally:
-            self.patch.seek(0)
-
-    def write_commit_description(self, f: io.BytesIO):
-        """Writes the commit description to the specified file object."""
-        f.write(self.commit_description())
-
-    def write_diff(self, f: io.BytesIO):
-        """Writes the diff to the specified file object."""
-        try:
-            line_no = 0
-            for line in self.patch:
-                line_no += 1
-
-                if self.diff_start_line:
-                    if line_no == self.diff_start_line:
-                        f.write(line)
-                        break
-                else:
-                    if self._is_diff_line(line):
-                        f.write(line)
-                        break
-
-            while 1:
-                buf = self.patch.read(16 * 1024)
-                if not buf:
-                    break
-                f.write(buf)
-        finally:
-            self.patch.seek(0)
 
     def get_diff(self) -> bytes:
         """Return the patch diff."""
