@@ -7,6 +7,7 @@ from __future__ import annotations
 import io
 import math
 import re
+from email.utils import parseaddr
 from typing import (
     Optional,
 )
@@ -74,50 +75,13 @@ def _no_line_breaks(break_string: str) -> str:
     return "".join(break_string.strip().splitlines())
 
 
-# Borrowed from Mercurial core.
-def person(author: bytes) -> bytes:
-    """Returns the name before an email address,
-    interpreting it as per RFC 5322
-
-    >>> person(b'foo@bar')
-    'foo'
-    >>> person(b'Foo Bar <foo@bar>')
-    'Foo Bar'
-    >>> person(b'"Foo Bar" <foo@bar>')
-    'Foo Bar'
-    >>> person(b'"Foo \"buz\" Bar" <foo@bar>')
-    'Foo "buz" Bar'
-    >>> # The following are invalid, but do exist in real-life
-    ...
-    >>> person(b'Foo "buz" Bar <foo@bar>')
-    'Foo "buz" Bar'
-    >>> person(b'"Foo Bar <foo@bar>')
-    'Foo Bar'
-    """
-    if b"@" not in author:
-        return author
-    f = author.find(b"<")
-    if f != -1:
-        return author[:f].strip(b' "').replace(b'\\"', b'"')
-    f = author.find(b"@")
-    return author[:f].replace(b".", b" ")
-
-
-# Borrowed from Mercurial core.
-def email(author: bytes) -> bytes:
-    """Get email of author."""
-    r = author.find(b">")
-    if r == -1:
-        r = None
-    return author[author.find(b"<") + 1 : r]
-
-
 def parse_git_author_information(user_header: bytes) -> tuple[bytes, bytes]:
     """Parse user's name and email address from a Git style author header.
 
     Converts a header like 'User Name <user@example.com>' to its separate parts.
     """
-    return person(user_header), email(user_header)
+    name, email = parseaddr(user_header.decode("utf-8"))
+    return name.encode("utf-8"), email.encode("utf-8")
 
 
 def get_timestamp_from_git_date_header(date_header: bytes) -> str:
