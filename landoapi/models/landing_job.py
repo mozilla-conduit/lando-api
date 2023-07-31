@@ -185,10 +185,13 @@ class LandingJob(Base):
             # Return the Phabricator identifier if the head revision has one.
             return f"D{head.revision_id}"
 
+        # If there is no Phabricator identifier, return the first line of the
+        # non-try-syntax commit's message for the patch.
+        if len(self.revisions) > 1:
+            head = self.revisions[-2]
+
         commit_message = head.patch_data.get("commit_message")
         if commit_message:
-            # If there is no Phabricator identifier, return the first line of the
-            # commit message for the patch.
             return commit_message.splitlines()[0]
 
         # Return a placeholder in the event neither exists.
