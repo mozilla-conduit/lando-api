@@ -74,6 +74,9 @@ def _no_line_breaks(break_string: str) -> str:
 class PatchHelper(object):
     """Helper class for parsing Mercurial patches/exports."""
 
+    # Read 16KiB at a time.
+    PATCH_READ_BYTES = 16 * 1024
+
     def __init__(self, fileobj: io.BytesIO):
         self.patch = fileobj
         self.headers = {}
@@ -152,7 +155,7 @@ class PatchHelper(object):
         """Writes whole patch to the specified file object."""
         try:
             while 1:
-                buf = self.patch.read(16 * 1024)
+                buf = self.patch.read(PatchHelper.PATCH_READ_BYTES)
                 if not buf:
                     break
                 f.write(buf)
@@ -180,7 +183,7 @@ class PatchHelper(object):
                         break
 
             while 1:
-                buf = self.patch.read(16 * 1024)
+                buf = self.patch.read(PatchHelper.PATCH_READ_BYTES)
                 if not buf:
                     break
                 f.write(buf)
