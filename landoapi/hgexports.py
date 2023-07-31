@@ -220,7 +220,10 @@ class GitPatchHelper(PatchHelper):
 
     def __init__(self, fileobj: io.BytesIO):
         super().__init__(fileobj)
+        self.parse_patch()
 
+    def parse_patch(self):
+        """Parse the Git patch file for headers and diff content."""
         mail_from_line = next(self.patch)
         if not mail_from_line.startswith(b"From "):
             raise ValueError("Patch is malformed, first line is not `From `.")
