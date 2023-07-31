@@ -4,11 +4,11 @@
 
 import base64
 
-from landoapi.api.try_push import (
+from landoapi.hg import HgRepo
+from landoapi.hgexports import (
     get_timestamp_from_git_date_header,
     parse_git_author_information,
 )
-from landoapi.hg import HgRepo
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.repos import SCM_LEVEL_1, Repo
 from landoapi.workers.landing_worker import LandingWorker

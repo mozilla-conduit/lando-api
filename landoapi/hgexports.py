@@ -5,10 +5,13 @@
 from __future__ import annotations
 
 import io
+import math
 import re
 from typing import (
     Optional,
 )
+
+from dateutil.parser import parse as dateparse
 
 HG_HEADER_NAMES = (
     b"User",
@@ -71,6 +74,67 @@ def _no_line_breaks(break_string: str) -> str:
     return "".join(break_string.strip().splitlines())
 
 
+# Borrowed from Mercurial core.
+def person(author: bytes) -> bytes:
+    """Returns the name before an email address,
+    interpreting it as per RFC 5322
+
+    >>> person(b'foo@bar')
+    'foo'
+    >>> person(b'Foo Bar <foo@bar>')
+    'Foo Bar'
+    >>> person(b'"Foo Bar" <foo@bar>')
+    'Foo Bar'
+    >>> person(b'"Foo \"buz\" Bar" <foo@bar>')
+    'Foo "buz" Bar'
+    >>> # The following are invalid, but do exist in real-life
+    ...
+    >>> person(b'Foo "buz" Bar <foo@bar>')
+    'Foo "buz" Bar'
+    >>> person(b'"Foo Bar <foo@bar>')
+    'Foo Bar'
+    """
+    if b"@" not in author:
+        return author
+    f = author.find(b"<")
+    if f != -1:
+        return author[:f].strip(b' "').replace(b'\\"', b'"')
+    f = author.find(b"@")
+    return author[:f].replace(b".", b" ")
+
+
+# Borrowed from Mercurial core.
+def email(author: bytes) -> bytes:
+    """Get email of author."""
+    r = author.find(b">")
+    if r == -1:
+        r = None
+    return author[author.find(b"<") + 1 : r]
+
+
+def parse_git_author_information(user_header: bytes) -> tuple[bytes, bytes]:
+    """Parse user's name and email address from a Git style author header.
+
+    Converts a header like 'User Name <user@example.com>' to its separate parts.
+    """
+    return person(user_header), email(user_header)
+
+
+def get_timestamp_from_git_date_header(date_header: bytes) -> str:
+    """Convert a Git patch date header into a timestamp."""
+    header_datetime = dateparse(date_header)
+    return str(math.floor(header_datetime.timestamp()))
+
+
+def get_timestamp_from_hg_date_header(date_header: bytes) -> bytes:
+    """Return the first part of the `hg export` date header.
+
+    >>> get_timestamp_from_hg_date_header(b"1686621879 14400")
+    b"1686621879"
+    """
+    return date_header.split(b" ")[0]
+
+
 class PatchHelper(object):
     """Base class for parsing patches/exports."""
 
@@ -118,6 +182,14 @@ class PatchHelper(object):
                 f.write(buf)
         finally:
             self.patch.seek(0)
+
+    def parse_author_information(self) -> tuple[bytes, bytes]:
+        """Return the author name and email from the patch."""
+        raise NotImplementedError("`parse_author_information` is not implemented.")
+
+    def get_timestamp(self) -> bytes:
+        """Return an `hg export` formatted timestamp."""
+        raise NotImplementedError("`get_timestamp` is not implemented.")
 
 
 class HgPatchHelper(PatchHelper):
@@ -214,6 +286,22 @@ class HgPatchHelper(PatchHelper):
         finally:
             self.patch.seek(0)
 
+    def parse_author_information(self) -> tuple[bytes, bytes]:
+        """Return the author name and email from the patch."""
+        user = self.header("User")
+        if not user:
+            raise ValueError("Patch does not have a `User` header.")
+
+        return parse_git_author_information(user)
+
+    def get_timestamp(self) -> bytes:
+        """Return an `hg export` formatted timestamp."""
+        date = self.header("Date")
+        if not date:
+            raise ValueError("Patch does not have a `Date` header.")
+
+        return get_timestamp_from_hg_date_header(date)
+
 
 class GitPatchHelper(PatchHelper):
     """Helper class for parsing Mercurial patches/exports."""
@@ -288,3 +376,19 @@ class GitPatchHelper(PatchHelper):
     def get_diff(self) -> bytes:
         """Return the patch diff."""
         return self.diff
+
+    def parse_author_information(self) -> tuple[bytes, bytes]:
+        """Return the author name and email from the patch."""
+        from_header = self.header("From")
+        if not from_header:
+            raise ValueError("Patch does not have a `From:` header.")
+
+        return parse_git_author_information(from_header)
+
+    def get_timestamp(self) -> bytes:
+        """Return an `hg export` formatted timestamp."""
+        date = self.header("Date")
+        if not date:
+            raise ValueError("Patch does not have a `Date:` header.")
+
+        return get_timestamp_from_git_date_header(date).encode("utf-8")
