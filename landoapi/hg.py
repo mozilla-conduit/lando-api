@@ -557,7 +557,10 @@ class HgRepo:
         ):
             raise LostPushRace()
 
-        extra_args = ["-f"] if force_push else []
+        extra_args = []
+
+        if force_push:
+            extra_args.append("-f")
 
         try:
             if bookmark is None:
