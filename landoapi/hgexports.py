@@ -99,7 +99,7 @@ def get_timestamp_from_hg_date_header(date_header: bytes) -> bytes:
     return date_header.split(b" ")[0]
 
 
-class PatchHelper(object):
+class PatchHelper:
     """Base class for parsing patches/exports."""
 
     def __init__(self, fileobj: io.BytesIO):
