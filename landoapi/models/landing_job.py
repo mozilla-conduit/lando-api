@@ -227,7 +227,7 @@ class LandingJob(Base):
 
     @classmethod
     def next_job_for_update_query(
-        cls, repositories: Optional[str] = None
+        cls, repositories: Optional[Iterable[str]] = None
     ) -> flask_sqlalchemy.BaseQuery:
         """Return a query which selects the next job and locks the row."""
         query = cls.job_queue_query(repositories=repositories)
