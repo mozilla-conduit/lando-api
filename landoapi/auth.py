@@ -509,10 +509,10 @@ def ensure_user_has_scm_level(auth0_user: A0User, access_group: AccessGroup):
         access_group.expired_group
     ) or not auth0_user.is_in_groups(access_group.active_group):
         raise ProblemException(
-            403,
+            401,
             f"Your {access_group.display_name} has expired.",
             f"Your {access_group.display_name} has expired.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
         )
 
 
