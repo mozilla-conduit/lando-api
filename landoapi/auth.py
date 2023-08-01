@@ -496,7 +496,6 @@ class require_auth0:
 
 def ensure_user_has_scm_level(auth0_user: A0User, access_group: AccessGroup):
     """Raise an appropriate `ProblemException` if the user is missing `scm_level_1`."""
-    # Return appropriate error message if user does not have commit access.
     if not auth0_user.is_in_groups(access_group.membership_group):
         raise ProblemException(
             403,
