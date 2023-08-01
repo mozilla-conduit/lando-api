@@ -254,7 +254,9 @@ class HgPatchHelper(PatchHelper):
         """Return the author name and email from the patch."""
         user = self.get_header("User")
         if not user:
-            raise ValueError("Patch does not have a `User` header.")
+            raise ValueError(
+                "Could not determine patch author information from header."
+            )
 
         return parse_git_author_information(user)
 
@@ -262,7 +264,7 @@ class HgPatchHelper(PatchHelper):
         """Return an `hg export` formatted timestamp."""
         date = self.get_header("Date")
         if not date:
-            raise ValueError("Patch does not have a `Date` header.")
+            raise ValueError("Could not determine patch timestamp from header.")
 
         return get_timestamp_from_hg_date_header(date)
 
