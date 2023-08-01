@@ -110,7 +110,7 @@ class PatchHelper:
     def _is_diff_line(line: bytes) -> bool:
         return DIFF_LINE_RE.search(line) is not None
 
-    def header(self, name: bytes | str) -> Optional[bytes]:
+    def get_header(self, name: bytes | str) -> Optional[bytes]:
         """Returns value of the specified header, or None if missing."""
         name = name.encode("utf-8") if isinstance(name, str) else name
         return self.headers.get(name.lower())
@@ -167,7 +167,7 @@ class HgPatchHelper(PatchHelper):
         # "Diff Start Line" is a Lando extension to the hg export
         # format meant to prevent injection of diff hunks using the
         # commit message.
-        self.diff_start_line = self.header(b"Diff Start Line")
+        self.diff_start_line = self.get_header(b"Diff Start Line")
         if self.diff_start_line:
             try:
                 self.diff_start_line = int(self.diff_start_line)
@@ -252,7 +252,7 @@ class HgPatchHelper(PatchHelper):
 
     def parse_author_information(self) -> tuple[bytes, bytes]:
         """Return the author name and email from the patch."""
-        user = self.header("User")
+        user = self.get_header("User")
         if not user:
             raise ValueError("Patch does not have a `User` header.")
 
@@ -260,7 +260,7 @@ class HgPatchHelper(PatchHelper):
 
     def get_timestamp(self) -> bytes:
         """Return an `hg export` formatted timestamp."""
-        date = self.header("Date")
+        date = self.get_header("Date")
         if not date:
             raise ValueError("Patch does not have a `Date` header.")
 
@@ -331,7 +331,7 @@ class GitPatchHelper(PatchHelper):
 
     def commit_description(self) -> bytes:
         """Returns the commit description."""
-        commit_description = self.header("Subject")
+        commit_description = self.get_header("Subject")
         if not commit_description:
             raise ValueError("Patch does not have a commit description.")
 
@@ -343,7 +343,7 @@ class GitPatchHelper(PatchHelper):
 
     def parse_author_information(self) -> tuple[bytes, bytes]:
         """Return the author name and email from the patch."""
-        from_header = self.header("From")
+        from_header = self.get_header("From")
         if not from_header:
             raise ValueError("Patch does not have a `From:` header.")
 
@@ -351,7 +351,7 @@ class GitPatchHelper(PatchHelper):
 
     def get_timestamp(self) -> bytes:
         """Return an `hg export` formatted timestamp."""
-        date = self.header("Date")
+        date = self.get_header("Date")
         if not date:
             raise ValueError("Patch does not have a `Date:` header.")
 

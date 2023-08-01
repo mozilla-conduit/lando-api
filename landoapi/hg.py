@@ -306,7 +306,7 @@ class HgRepo:
         if not patch_helper.diff_start_line:
             raise NoDiffStartLine()
 
-        self.patch_header = patch_helper.header
+        self.patch_header = patch_helper.get_header
 
         # Import the diff to apply the changes then commit separately to
         # ensure correct parsing of the commit message.
@@ -330,7 +330,7 @@ class HgRepo:
             import_cmd = ["import", "--no-commit"] + similarity_args
 
             try:
-                if patch_helper.header("Fail HG Import") == b"FAIL":
+                if patch_helper.get_header("Fail HG Import") == b"FAIL":
                     # For testing, force a PatchConflict exception if this header is
                     # defined.
                     raise hglib.error.CommandError(
@@ -361,8 +361,8 @@ class HgRepo:
 
             # Commit using the extracted date, user, and commit desc.
             # --landing_system is provided by the set_landing_system hgext.
-            date = patch_helper.header("Date")
-            user = patch_helper.header("User")
+            date = patch_helper.get_header("Date")
+            user = patch_helper.get_header("User")
 
             if not user:
                 raise ValueError("Missing `User` header!")

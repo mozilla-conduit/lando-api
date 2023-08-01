@@ -172,10 +172,10 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 """.strip()
         )
     )
-    assert patch.header("Date") == b"1523427125 -28800"
-    assert patch.header("Node ID") == b"3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07"
-    assert patch.header("User") == b"byron jones <glob@mozilla.com>"
-    assert patch.header("Parent") == b"46c36c18528fe2cc780d5206ed80ae8e37d3545d"
+    assert patch.get_header("Date") == b"1523427125 -28800"
+    assert patch.get_header("Node ID") == b"3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07"
+    assert patch.get_header("User") == b"byron jones <glob@mozilla.com>"
+    assert patch.get_header("Parent") == b"46c36c18528fe2cc780d5206ed80ae8e37d3545d"
     assert patch.commit_description() == b"WIP transplant and diff-start-line"
 
 
@@ -201,7 +201,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 """.strip()
         )
     )
-    assert patch.header("Diff Start Line") == b"10"
+    assert patch.get_header("Diff Start Line") == b"10"
     assert patch.commit_description() == b"WIP transplant and diff-start-line"
 
 
@@ -220,7 +220,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 """.strip()
         )
     )
-    assert patch.header("User") is None
+    assert patch.get_header("User") is None
     assert patch.commit_description() == b"WIP transplant and diff-start-line"
 
 
@@ -355,12 +355,12 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 def test_git_formatpatch_helper_parse():
     patch = GitPatchHelper(io.BytesIO(GIT_PATCH))
     assert (
-        patch.header(b"From") == b"Connor Sheehan <sheehan@mozilla.com>"
+        patch.get_header(b"From") == b"Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
     assert (
-        patch.header(b"Date") == b"Wed, 6 Jul 2022 16:36:09 -0400"
+        patch.get_header(b"Date") == b"Wed, 6 Jul 2022 16:36:09 -0400"
     ), "`Date` header should contain raw date info."
-    assert patch.header(b"Subject") == (
+    assert patch.get_header(b"Subject") == (
         b"errors: add a maintenance-mode specific title to serverside error handlers "
         b"(Bug 1724769)\n\n"
         b"Adds a conditional to the Lando-API exception handlers that\n"
