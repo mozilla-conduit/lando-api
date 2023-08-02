@@ -293,10 +293,6 @@ class GitPatchHelper(PatchHelper):
 
     def verify_content(self, content: str) -> bytes:
         """Verify the diff is present in the patch."""
-        # TODO I think this mostly works, except for some bytes/str shenanigans.
-        # TODO Check which API is wrong and converting to bytes. I believe Lando
-        # itself is expecting a `str` in the end, maybe we should convert to those
-        # types?
         subject_header = self.get_header("Subject")
         if not subject_header:
             raise ValueError("No valid subject header for commit message.")
