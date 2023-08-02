@@ -65,9 +65,9 @@ def test_get_timestamp_from_date():
 
 
 def test_parse_git_author_information():
-    assert parse_git_author_information(b"User Name <user@example.com>") == (
-        b"User Name",
-        b"user@example.com",
+    assert parse_git_author_information("User Name <user@example.com>") == (
+        "User Name",
+        "user@example.com",
     ), "Name and email information should be parsed into separate strings."
 
 

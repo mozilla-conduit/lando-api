@@ -98,7 +98,7 @@ index f56ba1c..33391ea 100644
 2.31.1
 """.strip()
 
-GIT_PATCH_ONLY_DIFF = b"""diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
+GIT_PATCH_ONLY_DIFF = """diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
 index f56ba1c..33391ea 100644
 --- a/landoui/errorhandlers.py
 +++ b/landoui/errorhandlers.py
@@ -138,13 +138,13 @@ def test_build_patch():
 @pytest.mark.parametrize(
     "line, expected",
     [
-        (b"diff --git a/file b/file", True),
-        (b"diff a/file b/file", True),
-        (b"diff -r 23280edf8655 autoland/autoland/patch_helper.py", True),
-        (b"cheese", False),
-        (b"diff", False),
-        (b"diff ", False),
-        (b"diff file", False),
+        ("diff --git a/file b/file", True),
+        ("diff a/file b/file", True),
+        ("diff -r 23280edf8655 autoland/autoland/patch_helper.py", True),
+        ("cheese", False),
+        ("diff", False),
+        ("diff ", False),
+        ("diff file", False),
     ],
 )
 def test_patchhelper_is_diff_line(line, expected):
@@ -172,11 +172,11 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 """.strip()
         )
     )
-    assert patch.get_header("Date") == b"1523427125 -28800"
-    assert patch.get_header("Node ID") == b"3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07"
-    assert patch.get_header("User") == b"byron jones <glob@mozilla.com>"
-    assert patch.get_header("Parent") == b"46c36c18528fe2cc780d5206ed80ae8e37d3545d"
-    assert patch.commit_description() == b"WIP transplant and diff-start-line"
+    assert patch.get_header("Date") == "1523427125 -28800"
+    assert patch.get_header("Node ID") == "3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07"
+    assert patch.get_header("User") == "byron jones <glob@mozilla.com>"
+    assert patch.get_header("Parent") == "46c36c18528fe2cc780d5206ed80ae8e37d3545d"
+    assert patch.commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_start_line():
@@ -201,8 +201,8 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 """.strip()
         )
     )
-    assert patch.get_header("Diff Start Line") == b"10"
-    assert patch.commit_description() == b"WIP transplant and diff-start-line"
+    assert patch.get_header("Diff Start Line") == "10"
+    assert patch.commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_no_header():
@@ -221,7 +221,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         )
     )
     assert patch.get_header("User") is None
-    assert patch.commit_description() == b"WIP transplant and diff-start-line"
+    assert patch.commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_diff_injection_no_start_line():
@@ -249,7 +249,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 """.strip()
         )
     )
-    assert patch.commit_description() == b"WIP transplant and diff-start-line"
+    assert patch.commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_diff_injection_start_line():
@@ -279,11 +279,11 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         )
     )
     assert patch.commit_description() == (
-        b"WIP transplant and diff-start-line\n"
-        b"\n"
-        b"diff --git a/bad b/bad\n"
-        b"@@ -0,0 +0,0 @@\n"
-        b"blah"
+        "WIP transplant and diff-start-line\n"
+        "\n"
+        "diff --git a/bad b/bad\n"
+        "@@ -0,0 +0,0 @@\n"
+        "blah"
     )
 
 
@@ -320,7 +320,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_write_no_start_line():
-    header = b"""
+    header = """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -328,10 +328,10 @@ def test_patchhelper_write_no_start_line():
 # Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
 """.strip()
-    commit_desc = b"""
+    commit_desc = """
 WIP transplant and diff-start-line
 """.strip()
-    diff = b"""
+    diff = """
 diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 --- a/autoland/autoland/transplant.py
 +++ b/autoland/autoland/transplant.py
@@ -339,38 +339,38 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 # instead of passing the url to 'hg import' to make
 ...
 """.strip()
-    patch = HgPatchHelper(io.BytesIO(b"%s\n%s\n\n%s" % (header, commit_desc, diff)))
+    patch = HgPatchHelper(io.BytesIO(f"{header}\n{commit_desc}\n\n{diff}".encode("utf-8")))
 
     buf = io.BytesIO(b"")
     patch.write_commit_description(buf)
-    assert buf.getvalue() == commit_desc
+    assert buf.getvalue().decode("utf-8") == commit_desc
 
     assert patch.get_diff() == diff
 
     buf = io.BytesIO(b"")
     patch.write_diff(buf)
-    assert buf.getvalue() == diff
+    assert buf.getvalue().decode("utf-8") == diff
 
 
 def test_git_formatpatch_helper_parse():
     patch = GitPatchHelper(io.BytesIO(GIT_PATCH))
     assert (
-        patch.get_header(b"From") == b"Connor Sheehan <sheehan@mozilla.com>"
+        patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
     assert (
-        patch.get_header(b"Date") == b"Wed, 06 Jul 2022 16:36:09 -0400"
+        patch.get_header("Date") == "Wed, 06 Jul 2022 16:36:09 -0400"
     ), "`Date` header should contain raw date info."
-    assert patch.get_header(b"Subject") == (
-        b"[PATCH] errors: add a maintenance-mode specific title to serverside error handlers "
-        b"(Bug 1724769)"
+    assert patch.get_header("Subject") == (
+        "[PATCH] errors: add a maintenance-mode specific title to serverside error handlers "
+        "(Bug 1724769)"
     ), "`Subject` header should contain raw subject header."
     assert patch.commit_description() == (
-        b"errors: add a maintenance-mode specific title to serverside error handlers "
-        b"(Bug 1724769)\n\n"
-        b"Adds a conditional to the Lando-API exception handlers that\n"
-        b"shows a maintenance-mode specific title when a 503 error is\n"
-        b"returned from Lando. This should inform users that Lando is\n"
-        b"unavailable at the moment and is not broken."
+        "errors: add a maintenance-mode specific title to serverside error handlers "
+        "(Bug 1724769)\n\n"
+        "Adds a conditional to the Lando-API exception handlers that\n"
+        "shows a maintenance-mode specific title when a 503 error is\n"
+        "returned from Lando. This should inform users that Lando is\n"
+        "unavailable at the moment and is not broken."
     ), "`commit_description()` should return full commit message."
     assert (
         patch.get_diff() == GIT_PATCH_ONLY_DIFF

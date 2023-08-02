@@ -21,14 +21,14 @@ from typing import (
 from dateutil.parser import parse as dateparse
 
 HG_HEADER_NAMES = (
-    b"User",
-    b"Date",
-    b"Node ID",
-    b"Parent",
-    b"Diff Start Line",
-    b"Fail HG Import",
+    "User",
+    "Date",
+    "Node ID",
+    "Parent",
+    "Diff Start Line",
+    "Fail HG Import",
 )
-DIFF_LINE_RE = re.compile(rb"^diff\s+\S+\s+\S+")
+DIFF_LINE_RE = re.compile(r"^diff\s+\S+\s+\S+")
 
 _HG_EXPORT_PATCH_TEMPLATE = """
 {header}
@@ -81,28 +81,28 @@ def _no_line_breaks(break_string: str) -> str:
     return "".join(break_string.strip().splitlines())
 
 
-def parse_git_author_information(user_header: bytes) -> tuple[bytes, bytes]:
+def parse_git_author_information(user_header: str) -> tuple[str, str]:
     """Parse user's name and email address from a Git style author header.
 
     Converts a header like 'User Name <user@example.com>' to its separate parts.
     """
-    name, email = parseaddr(user_header.decode("utf-8"))
-    return name.encode("utf-8"), email.encode("utf-8")
+    name, email = parseaddr(user_header)
+    return name, email
 
 
-def get_timestamp_from_git_date_header(date_header: bytes) -> str:
+def get_timestamp_from_git_date_header(date_header: str) -> str:
     """Convert a Git patch date header into a timestamp."""
     header_datetime = dateparse(date_header)
     return str(math.floor(header_datetime.timestamp()))
 
 
-def get_timestamp_from_hg_date_header(date_header: bytes) -> bytes:
+def get_timestamp_from_hg_date_header(date_header: str) -> str:
     """Return the first part of the `hg export` date header.
 
     >>> get_timestamp_from_hg_date_header(b"1686621879 14400")
     b"1686621879"
     """
-    return date_header.split(b" ")[0]
+    return date_header.split(" ")[0]
 
 
 class PatchHelper:
@@ -113,34 +113,34 @@ class PatchHelper:
         self.headers = {}
 
     @staticmethod
-    def _is_diff_line(line: bytes) -> bool:
+    def _is_diff_line(line: str) -> bool:
         return DIFF_LINE_RE.search(line) is not None
 
-    def get_header(self, name: bytes | str) -> Optional[bytes]:
+    def get_header(self, name: bytes | str) -> Optional[str]:
         """Returns value of the specified header, or None if missing."""
         name = name.encode("utf-8") if isinstance(name, str) else name
         return self.headers.get(name.lower())
 
-    def set_header(self, name: bytes | str, value: bytes):
+    def set_header(self, name: bytes | str, value: str):
         """Set the header `name` to `value`."""
         name = name.encode("utf-8") if isinstance(name, str) else name
         self.headers[name.lower()] = value
 
-    def commit_description(self) -> bytes:
+    def commit_description(self) -> str:
         """Returns the commit description."""
         raise NotImplementedError("`commit_description` not implemented.")
 
-    def get_diff(self) -> bytes:
+    def get_diff(self) -> str:
         """Return the patch diff."""
         raise NotImplementedError("`get_diff` not implemented.")
 
     def write_commit_description(self, f: io.BytesIO):
         """Writes the commit description to the specified file object."""
-        f.write(self.commit_description())
+        f.write(self.commit_description().encode("utf-8"))
 
     def write_diff(self, file_obj: io.BytesIO):
         """Writes the diff to the specified file object."""
-        file_obj.write(self.get_diff())
+        file_obj.write(self.get_diff().encode("utf-8"))
 
     def write(self, f: io.BytesIO):
         """Writes whole patch to the specified file object."""
@@ -153,11 +153,11 @@ class PatchHelper:
         finally:
             self.patch.seek(0)
 
-    def parse_author_information(self) -> tuple[bytes, bytes]:
+    def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
         raise NotImplementedError("`parse_author_information` is not implemented.")
 
-    def get_timestamp(self) -> bytes:
+    def get_timestamp(self) -> str:
         """Return an `hg export` formatted timestamp."""
         raise NotImplementedError("`get_timestamp` is not implemented.")
 
@@ -181,9 +181,9 @@ class HgPatchHelper(PatchHelper):
                 self.diff_start_line = None
 
     @staticmethod
-    def _header_value(line: bytes, prefix: bytes) -> Optional[bytes]:
+    def _header_value(line: str, prefix: str) -> Optional[str]:
         m = re.search(
-            rb"^#\s+" + re.escape(prefix) + rb"\s+(.*)", line, flags=re.IGNORECASE
+            r"^#\s+" + re.escape(prefix) + r"\s+(.*)", line, flags=re.IGNORECASE
         )
         if not m:
             return None
@@ -197,15 +197,16 @@ class HgPatchHelper(PatchHelper):
                 if not line.startswith(b"# "):
                     break
                 self.header_end_line_no += 1
+                line_str = line.decode("utf-8")
                 for name in HG_HEADER_NAMES:
-                    value = self._header_value(line, name)
+                    value = self._header_value(line_str, name)
                     if value:
                         self.set_header(name, value)
                         break
         finally:
             self.patch.seek(0)
 
-    def commit_description(self) -> bytes:
+    def commit_description(self) -> str:
         """Returns the commit description."""
         try:
             line_no = 0
@@ -216,20 +217,22 @@ class HgPatchHelper(PatchHelper):
                 if line_no <= self.header_end_line_no:
                     continue
 
+                line_str = line.decode("utf-8")
+
                 if self.diff_start_line:
                     if line_no == self.diff_start_line:
                         break
-                    commit_desc.append(line)
+                    commit_desc.append(line_str)
                 else:
-                    if self._is_diff_line(line):
+                    if self._is_diff_line(line_str):
                         break
-                    commit_desc.append(line)
+                    commit_desc.append(line_str)
 
-            return b"".join(commit_desc).strip()
+            return "".join(commit_desc).strip()
         finally:
             self.patch.seek(0)
 
-    def get_diff(self) -> bytes:
+    def get_diff(self) -> str:
         """Return the diff for this patch."""
         try:
             diff = []
@@ -237,26 +240,28 @@ class HgPatchHelper(PatchHelper):
             for line in self.patch:
                 line_no += 1
 
+                line_str = line.decode("utf-8")
+
                 if self.diff_start_line:
                     if line_no == self.diff_start_line:
-                        diff.append(line)
+                        diff.append(line_str)
                         break
                 else:
-                    if self._is_diff_line(line):
-                        diff.append(line)
+                    if self._is_diff_line(line_str):
+                        diff.append(line_str)
                         break
 
             while 1:
                 buf = self.patch.read(16 * 1024)
                 if not buf:
                     break
-                diff.append(buf)
+                diff.append(buf.decode("utf-8"))
 
-            return b"".join(diff)
+            return "".join(diff)
         finally:
             self.patch.seek(0)
 
-    def parse_author_information(self) -> tuple[bytes, bytes]:
+    def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
         user = self.get_header("User")
         if not user:
@@ -266,7 +271,7 @@ class HgPatchHelper(PatchHelper):
 
         return parse_git_author_information(user)
 
-    def get_timestamp(self) -> bytes:
+    def get_timestamp(self) -> str:
         """Return an `hg export` formatted timestamp."""
         date = self.get_header("Date")
         if not date:
@@ -282,16 +287,14 @@ class GitPatchHelper(PatchHelper):
         super().__init__(fileobj)
         self.parse_patch()
 
-    def get_header(self, name: bytes | str) -> Optional[bytes]:
+    def get_header(self, name: bytes | str) -> Optional[str]:
         """Get the headers from the message."""
         name = name.decode("utf-8") if isinstance(name, bytes) else name
 
-        if name not in self.message:
-            return None
+        # `EmailMessage` will return `None` if the header isn't found.
+        return self.message[name]
 
-        return self.message[name].encode("utf-8")
-
-    def verify_content(self, content: str) -> bytes:
+    def verify_content(self, content: str) -> str:
         """Verify the diff is present in the patch."""
         subject_header = self.get_header("Subject")
         if not subject_header:
@@ -299,7 +302,7 @@ class GitPatchHelper(PatchHelper):
 
         # Start the commit message from the stripped subject line.
         commit_message_lines = [
-            subject_header.removeprefix(b"[PATCH] ").removesuffix(b"\n")
+            subject_header.removeprefix("[PATCH] ").removesuffix("\n")
         ]
 
         # Create an iterator for the lines of the patch.
@@ -313,26 +316,26 @@ class GitPatchHelper(PatchHelper):
             # Add a newline after the subject line if this is a multi-line
             # commit message.
             if i == 0:
-                commit_message_lines += [b""]
+                commit_message_lines += [""]
 
-            commit_message_lines.append(line.encode("utf-8"))
+            commit_message_lines.append(line)
 
-        self.commit_message = b"\n".join(commit_message_lines)
+        self.commit_message = "\n".join(commit_message_lines)
 
         # Move through the patch until we find the start of the diff.
         # Add the diff start line to the diff.
         diff_lines = []
         for line in line_iterator:
-            if GitPatchHelper._is_diff_line(line.encode("utf-8")):
-                diff_lines.append(line.encode("utf-8"))
+            if GitPatchHelper._is_diff_line(line):
+                diff_lines.append(line)
                 break
         else:
             raise ValueError("Patch is malformed, could not find start of patch diff.")
 
         # The diff is the remainder of the patch, except the last two lines of Git version info.
         remaining_lines = list(line_iterator)
-        diff_lines += [line.encode("utf-8") for line in remaining_lines[:-2]]
-        return b"\n".join(diff_lines)
+        diff_lines += [line for line in remaining_lines[:-2]]
+        return "\n".join(diff_lines)
 
     def parse_patch(self):
         """Parse the Git patch file for headers and diff content."""
@@ -341,15 +344,15 @@ class GitPatchHelper(PatchHelper):
         )
         self.diff = self.verify_content(self.message.get_content())
 
-    def commit_description(self) -> bytes:
+    def commit_description(self) -> str:
         """Returns the commit description."""
         return self.commit_message
 
-    def get_diff(self) -> bytes:
+    def get_diff(self) -> str:
         """Return the patch diff."""
         return self.diff
 
-    def parse_author_information(self) -> tuple[bytes, bytes]:
+    def parse_author_information(self) -> tuple[str, str]:
         """Return the author name and email from the patch."""
         from_header = self.get_header("From")
         if not from_header:
@@ -357,10 +360,10 @@ class GitPatchHelper(PatchHelper):
 
         return parse_git_author_information(from_header)
 
-    def get_timestamp(self) -> bytes:
+    def get_timestamp(self) -> str:
         """Return an `hg export` formatted timestamp."""
         date = self.get_header("Date")
         if not date:
             raise ValueError("Patch does not have a `Date:` header.")
 
-        return get_timestamp_from_git_date_header(date).encode("utf-8")
+        return get_timestamp_from_git_date_header(date)

@@ -553,7 +553,7 @@ class HgRepo:
         # defined.
         if (
             self.patch_header
-            and self.patch_header("Fail HG Import") == b"LOSE_PUSH_RACE"
+            and self.patch_header("Fail HG Import") == "LOSE_PUSH_RACE"
         ):
             raise LostPushRace()
 

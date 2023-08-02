@@ -41,12 +41,12 @@ def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
         raise ValueError("Patch does not have a commit description.")
 
     return Revision.new_from_patch(
-        raw_diff=helper.get_diff().decode("utf-8"),
+        raw_diff=helper.get_diff(),
         patch_data={
-            "author_name": author.decode("utf-8"),
-            "author_email": email.decode("utf-8"),
-            "commit_message": commit_message.decode("utf-8"),
-            "timestamp": timestamp.decode("utf-8"),
+            "author_name": author,
+            "author_email": email,
+            "commit_message": commit_message,
+            "timestamp": timestamp,
         },
     )
 
