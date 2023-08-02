@@ -276,12 +276,15 @@ class GitPatchHelper(PatchHelper):
         super().__init__(fileobj)
         self.parse_patch()
 
-    def parse_patch(self):
-        """Parse the Git patch file for headers and diff content."""
+    def verify_from_header(self) -> bytes:
+        """Verify the `From ` header."""
         mail_from_line = next(self.patch)
         if not mail_from_line.startswith(b"From "):
             raise ValueError("Patch is malformed, first line is not `From `.")
+        return mail_from_line
 
+    def verify_from_author_header(self) -> bytes:
+        """Verify the `From:` header."""
         author_from_line = next(self.patch)
         if not author_from_line.startswith(b"From: "):
             raise ValueError("Patch is malformed, second line is not `From:`.")
@@ -289,11 +292,15 @@ class GitPatchHelper(PatchHelper):
             "From", author_from_line.removeprefix(b"From: ").removesuffix(b"\n")
         )
 
+    def verify_date_header(self) -> bytes:
+        """Verify the `Date:` header."""
         date_line = next(self.patch)
         if not date_line.startswith(b"Date: "):
             raise ValueError("Patch is malformed, third line is not `Date:`.")
         self.set_header("Date", date_line.removeprefix(b"Date: ").removesuffix(b"\n"))
 
+    def verify_subject_line(self) -> bytes:
+        """Verify the `Subject:` header."""
         # Get the main `Subject` header line.
         subject_line = next(self.patch)
         if not subject_line.startswith(b"Subject: "):
@@ -318,6 +325,8 @@ class GitPatchHelper(PatchHelper):
                 "Patch is malformed, commit message does not end with `---`."
             )
 
+    def verify_diff(self) -> bytes:
+        """Verify the diff is present in the patch."""
         # Move through the patch until we find the start of the diff.
         self.diff = b""
         for line in self.patch:
@@ -330,6 +339,14 @@ class GitPatchHelper(PatchHelper):
         # The diff is the remainder of the patch, except the last two lines of Git version info.
         remaining_lines = list(self.patch)
         self.diff += b"".join(line for line in remaining_lines[:-2])
+
+    def parse_patch(self):
+        """Parse the Git patch file for headers and diff content."""
+        self.verify_from_header()
+        self.verify_from_author_header()
+        self.verify_date_header()
+        self.verify_subject_line()
+        self.verify_diff()
 
     def commit_description(self) -> bytes:
         """Returns the commit description."""
