@@ -4,10 +4,16 @@
 
 from __future__ import annotations
 
+import email
 import io
 import math
 import re
-from email.utils import parseaddr
+from email.policy import (
+    default as default_email_policy,
+)
+from email.utils import (
+    parseaddr,
+)
 from typing import (
     Optional,
 )
@@ -276,81 +282,72 @@ class GitPatchHelper(PatchHelper):
         super().__init__(fileobj)
         self.parse_patch()
 
-    def verify_from_header(self) -> bytes:
-        """Verify the `From ` header."""
-        mail_from_line = next(self.patch)
-        if not mail_from_line.startswith(b"From "):
-            raise ValueError("Patch is malformed, first line is not `From `.")
-        return mail_from_line
+    def get_header(self, name: bytes | str) -> Optional[bytes]:
+        """Get the headers from the message."""
+        name = name.decode("utf-8") if isinstance(name, bytes) else name
 
-    def verify_from_author_header(self) -> bytes:
-        """Verify the `From:` header."""
-        author_from_line = next(self.patch)
-        if not author_from_line.startswith(b"From: "):
-            raise ValueError("Patch is malformed, second line is not `From:`.")
-        return author_from_line.removeprefix(b"From: ").removesuffix(b"\n")
+        if name not in self.message:
+            return None
 
-    def verify_date_header(self) -> bytes:
-        """Verify the `Date:` header."""
-        date_line = next(self.patch)
-        if not date_line.startswith(b"Date: "):
-            raise ValueError("Patch is malformed, third line is not `Date:`.")
-        return date_line.removeprefix(b"Date: ").removesuffix(b"\n")
+        return self.message[name].encode("utf-8")
 
-    def verify_subject_line(self) -> bytes:
-        """Verify the `Subject:` header."""
-        # Get the main `Subject` header line.
-        subject_line = next(self.patch)
-        if not subject_line.startswith(b"Subject: "):
-            raise ValueError("Patch is malformed, fourth line is not `Subject:`.")
-
-        # Clean up the first subject line.
-        subject_line = (
-            subject_line.removeprefix(b"Subject: ")
-            .removeprefix(b"[PATCH] ")
-            .removesuffix(b"\n")
-        )
-
-        # Get the extended commit message, which ends with a `---` line.
-        for line in self.patch:
-            if line == b"---\n":
-                return subject_line
-
-            subject_line += line
-
-        raise ValueError("Patch is malformed, commit message does not end with `---`.")
-
-    def verify_diff(self) -> bytes:
+    def verify_content(self, content: str) -> bytes:
         """Verify the diff is present in the patch."""
+        # TODO I think this mostly works, except for some bytes/str shenanigans.
+        # TODO Check which API is wrong and converting to bytes. I believe Lando
+        # itself is expecting a `str` in the end, maybe we should convert to those
+        # types?
+        subject_header = self.get_header("Subject")
+        if not subject_header:
+            raise ValueError("No valid subject header for commit message.")
+
+        # Start the commit message from the stripped subject line.
+        commit_message_lines = [
+            subject_header.removeprefix(b"[PATCH] ").removesuffix(b"\n")
+        ]
+
+        # Create an iterator for the lines of the patch.
+        line_iterator = iter(content.splitlines())
+
+        # Add each line to the commit message until we hit `---`.
+        for i, line in enumerate(line_iterator):
+            if line == "---":
+                break
+
+            # Add a newline after the subject line if this is a multi-line
+            # commit message.
+            if i == 0:
+                commit_message_lines += [b""]
+
+            commit_message_lines.append(line.encode("utf-8"))
+
+        self.commit_message = b"\n".join(commit_message_lines)
+
         # Move through the patch until we find the start of the diff.
-        diff = b""
-        for line in self.patch:
-            if GitPatchHelper._is_diff_line(line):
-                diff += line
+        # Add the diff start line to the diff.
+        diff_lines = []
+        for line in line_iterator:
+            if GitPatchHelper._is_diff_line(line.encode("utf-8")):
+                diff_lines.append(line.encode("utf-8"))
                 break
         else:
             raise ValueError("Patch is malformed, could not find start of patch diff.")
 
         # The diff is the remainder of the patch, except the last two lines of Git version info.
-        remaining_lines = list(self.patch)
-        diff += b"".join(line for line in remaining_lines[:-2])
-        return diff
+        remaining_lines = list(line_iterator)
+        diff_lines += [line.encode("utf-8") for line in remaining_lines[:-2]]
+        return b"\n".join(diff_lines)
 
     def parse_patch(self):
         """Parse the Git patch file for headers and diff content."""
-        self.verify_from_header()
-        self.set_header("From", self.verify_from_author_header())
-        self.set_header("Date", self.verify_date_header())
-        self.set_header("Subject", self.verify_subject_line())
-        self.diff = self.verify_diff()
+        self.message = email.message_from_bytes(
+            self.patch.read(), policy=default_email_policy
+        )
+        self.diff = self.verify_content(self.message.get_content())
 
     def commit_description(self) -> bytes:
         """Returns the commit description."""
-        commit_description = self.get_header("Subject")
-        if not commit_description:
-            raise ValueError("Patch does not have a commit description.")
-
-        return commit_description
+        return self.commit_message
 
     def get_diff(self) -> bytes:
         """Return the patch diff."""

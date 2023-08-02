@@ -120,7 +120,7 @@ index f56ba1c..33391ea 100644
              message=str(e),
          ),
          500,
-"""
+""".rstrip()
 
 
 def test_build_patch():
@@ -358,16 +358,20 @@ def test_git_formatpatch_helper_parse():
         patch.get_header(b"From") == b"Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."
     assert (
-        patch.get_header(b"Date") == b"Wed, 6 Jul 2022 16:36:09 -0400"
+        patch.get_header(b"Date") == b"Wed, 06 Jul 2022 16:36:09 -0400"
     ), "`Date` header should contain raw date info."
     assert patch.get_header(b"Subject") == (
+        b"[PATCH] errors: add a maintenance-mode specific title to serverside error handlers "
+        b"(Bug 1724769)"
+    ), "`Subject` header should contain raw subject header."
+    assert patch.commit_description() == (
         b"errors: add a maintenance-mode specific title to serverside error handlers "
         b"(Bug 1724769)\n\n"
         b"Adds a conditional to the Lando-API exception handlers that\n"
         b"shows a maintenance-mode specific title when a 503 error is\n"
         b"returned from Lando. This should inform users that Lando is\n"
-        b"unavailable at the moment and is not broken.\n"
-    ), "`Subject` header should contain full commit message."
+        b"unavailable at the moment and is not broken."
+    ), "`commit_description()` should return full commit message."
     assert (
         patch.get_diff() == GIT_PATCH_ONLY_DIFF
     ), "`get_diff()` should return the full diff."
