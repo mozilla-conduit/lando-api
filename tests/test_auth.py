@@ -394,4 +394,6 @@ def test_scm_level_enforce():
     # Test happy path.
     userinfo = CANNED_USERINFO["STANDARD"]
     user = A0User(token, userinfo)
-    assert ensure_user_has_scm_level(user, SCM_LEVEL_1) is None
+    assert (
+        ensure_user_has_scm_level(user, SCM_LEVEL_1) is None
+    ), "Proper level 1 permissions should return without exception."
