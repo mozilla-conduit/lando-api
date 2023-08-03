@@ -368,7 +368,7 @@ paths:
               - $ref: '#/definitions/Error'
   /try/patches:
     post:
-      operationId: landoapi.api.try_push.post
+      operationId: landoapi.api.try_push.post_patches
       description: |
         Submit a set of patches to the Try server.
       parameters:

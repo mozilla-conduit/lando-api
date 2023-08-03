@@ -81,7 +81,7 @@ def parse_revisions_from_request(
 
 @auth.require_auth0(scopes=("openid", "lando", "profile", "email"), userinfo=True)
 @auth.enforce_request_scm_level(SCM_LEVEL_1)
-def post(data: dict):
+def post_patches(data: dict):
     base_commit = data["base_commit"]
     patches = data["patches"]
     patch_format = data["patch_format"]
