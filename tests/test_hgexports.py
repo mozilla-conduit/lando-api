@@ -339,7 +339,9 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 # instead of passing the url to 'hg import' to make
 ...
 """.strip()
-    patch = HgPatchHelper(io.BytesIO(f"{header}\n{commit_desc}\n\n{diff}".encode("utf-8")))
+    patch = HgPatchHelper(
+        io.BytesIO(f"{header}\n{commit_desc}\n\n{diff}".encode("utf-8"))
+    )
 
     buf = io.BytesIO(b"")
     patch.write_commit_description(buf)
