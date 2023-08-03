@@ -334,7 +334,7 @@ class GitPatchHelper(PatchHelper):
 
         # The diff is the remainder of the patch, except the last two lines of Git version info.
         remaining_lines = list(line_iterator)
-        diff_lines += [line for line in remaining_lines[:-2]]
+        diff_lines += list(remaining_lines[:-2])
         return "\n".join(diff_lines)
 
     def parse_patch(self):
