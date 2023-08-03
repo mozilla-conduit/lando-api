@@ -118,12 +118,16 @@ class PatchHelper:
 
     def get_header(self, name: bytes | str) -> Optional[str]:
         """Returns value of the specified header, or None if missing."""
-        name = name.encode("utf-8") if isinstance(name, str) else name
+        if isinstance(name, bytes):
+            name = name.decode("utf-8")
+
         return self.headers.get(name.lower())
 
     def set_header(self, name: bytes | str, value: str):
         """Set the header `name` to `value`."""
-        name = name.encode("utf-8") if isinstance(name, str) else name
+        if isinstance(name, bytes):
+            name = name.decode("utf-8")
+
         self.headers[name.lower()] = value
 
     def get_commit_description(self) -> str:
@@ -289,7 +293,8 @@ class GitPatchHelper(PatchHelper):
 
     def get_header(self, name: bytes | str) -> Optional[str]:
         """Get the headers from the message."""
-        name = name.decode("utf-8") if isinstance(name, bytes) else name
+        if isinstance(name, bytes):
+            name = name.decode("utf-8")
 
         # `EmailMessage` will return `None` if the header isn't found.
         return self.message[name]
