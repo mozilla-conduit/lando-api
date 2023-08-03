@@ -176,7 +176,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
     assert patch.get_header("Node ID") == "3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07"
     assert patch.get_header("User") == "byron jones <glob@mozilla.com>"
     assert patch.get_header("Parent") == "46c36c18528fe2cc780d5206ed80ae8e37d3545d"
-    assert patch.commit_description() == "WIP transplant and diff-start-line"
+    assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_start_line():
@@ -202,7 +202,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         )
     )
     assert patch.get_header("Diff Start Line") == "10"
-    assert patch.commit_description() == "WIP transplant and diff-start-line"
+    assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_no_header():
@@ -221,7 +221,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         )
     )
     assert patch.get_header("User") is None
-    assert patch.commit_description() == "WIP transplant and diff-start-line"
+    assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_diff_injection_no_start_line():
@@ -249,7 +249,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 """.strip()
         )
     )
-    assert patch.commit_description() == "WIP transplant and diff-start-line"
+    assert patch.get_commit_description() == "WIP transplant and diff-start-line"
 
 
 def test_patchhelper_diff_injection_start_line():
@@ -278,7 +278,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 """.strip()
         )
     )
-    assert patch.commit_description() == (
+    assert patch.get_commit_description() == (
         "WIP transplant and diff-start-line\n"
         "\n"
         "diff --git a/bad b/bad\n"
@@ -366,7 +366,7 @@ def test_git_formatpatch_helper_parse():
         "[PATCH] errors: add a maintenance-mode specific title to serverside error handlers "
         "(Bug 1724769)"
     ), "`Subject` header should contain raw subject header."
-    assert patch.commit_description() == (
+    assert patch.get_commit_description() == (
         "errors: add a maintenance-mode specific title to serverside error handlers "
         "(Bug 1724769)\n\n"
         "Adds a conditional to the Lando-API exception handlers that\n"

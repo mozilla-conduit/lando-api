@@ -126,7 +126,7 @@ class PatchHelper:
         name = name.encode("utf-8") if isinstance(name, str) else name
         self.headers[name.lower()] = value
 
-    def commit_description(self) -> str:
+    def get_commit_description(self) -> str:
         """Returns the commit description."""
         raise NotImplementedError("`commit_description` not implemented.")
 
@@ -136,7 +136,7 @@ class PatchHelper:
 
     def write_commit_description(self, f: io.BytesIO):
         """Writes the commit description to the specified file object."""
-        f.write(self.commit_description().encode("utf-8"))
+        f.write(self.get_commit_description().encode("utf-8"))
 
     def write_diff(self, file_obj: io.BytesIO):
         """Writes the diff to the specified file object."""
@@ -206,7 +206,7 @@ class HgPatchHelper(PatchHelper):
         finally:
             self.patch.seek(0)
 
-    def commit_description(self) -> str:
+    def get_commit_description(self) -> str:
         """Returns the commit description."""
         try:
             line_no = 0
@@ -344,7 +344,7 @@ class GitPatchHelper(PatchHelper):
         )
         self.diff = self.verify_content(self.message.get_content())
 
-    def commit_description(self) -> str:
+    def get_commit_description(self) -> str:
         """Returns the commit description."""
         return self.commit_message
 

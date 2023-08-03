@@ -36,7 +36,7 @@ def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
 
     timestamp = helper.get_timestamp()
 
-    commit_message = helper.commit_description()
+    commit_message = helper.get_commit_description()
     if not commit_message:
         raise ValueError("Patch does not have a commit description.")
 
