@@ -289,7 +289,12 @@ class GitPatchHelper(PatchHelper):
 
     def __init__(self, fileobj: io.BytesIO):
         super().__init__(fileobj)
-        self.parse_patch()
+        self.message = email.message_from_bytes(
+            self.patch.read(), policy=default_email_policy
+        )
+        self.commit_message, self.diff = self.parse_email_body(
+            self.message.get_content()
+        )
 
     def get_header(self, name: bytes | str) -> Optional[str]:
         """Get the headers from the message."""
@@ -299,8 +304,12 @@ class GitPatchHelper(PatchHelper):
         # `EmailMessage` will return `None` if the header isn't found.
         return self.message[name]
 
-    def verify_content(self, content: str) -> str:
-        """Verify the diff is present in the patch."""
+    def parse_email_body(self, content: str) -> tuple[str, str]:
+        """Parse the patch email's body, returning the commit message and diff.
+
+        The commit message is composed of the `Subject` header and the contents of
+        the email message before the diff.
+        """
         subject_header = self.get_header("Subject")
         if not subject_header:
             raise ValueError("No valid subject header for commit message.")
@@ -325,7 +334,7 @@ class GitPatchHelper(PatchHelper):
 
             commit_message_lines.append(line)
 
-        self.commit_message = "\n".join(commit_message_lines)
+        commit_message = "\n".join(commit_message_lines)
 
         # Move through the patch until we find the start of the diff.
         # Add the diff start line to the diff.
@@ -340,14 +349,9 @@ class GitPatchHelper(PatchHelper):
         # The diff is the remainder of the patch, except the last two lines of Git version info.
         remaining_lines = list(line_iterator)
         diff_lines += list(remaining_lines[:-2])
-        return "\n".join(diff_lines)
+        diff = "\n".join(diff_lines)
 
-    def parse_patch(self):
-        """Parse the Git patch file for headers and diff content."""
-        self.message = email.message_from_bytes(
-            self.patch.read(), policy=default_email_policy
-        )
-        self.diff = self.verify_content(self.message.get_content())
+        return commit_message, diff
 
     def get_commit_description(self) -> str:
         """Returns the commit description."""
