@@ -304,9 +304,42 @@ def test_try_api_success_gitformatpatch(
     worker = LandingWorker(sleep_seconds=0.01)
     hgrepo = HgRepo(hg_clone.strpath)
 
+    # Assert the job landed against the expected commit hash.
     assert worker.run_job(job, repo, hgrepo, treestatus)
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (
         job.target_commit_hash == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4"
     ), "Target changeset should match the passed value."
+
+    # Test the revision content matches expected.
+    assert len(job.revisions) == 1, "Job should have landed a single revision."
+    revision = job.revisions[0]
+    assert (
+        revision.patch_data["author_name"] == "Connor Sheehan"
+    ), "Patch author should be parsed from `From` header."
+    assert (
+        revision.patch_data["author_email"] == "sheehan@mozilla.com"
+    ), "Email address should be parsed from `From` header."
+    assert revision.patch_data["commit_message"] == (
+        "add another file\n\nadd another file to the repo."
+    ), "Multi-line commit message should be parsed from patch."
+    assert (
+        revision.patch_data["timestamp"] == "1657139769"
+    ), "Timestamp should be parsed from `Date` header."
+    assert revision.patch_bytes == (
+        b"# HG changeset patch\n"
+        b"# User Connor Sheehan <sheehan@mozilla.com>\n"
+        b"# Date 1657139769 +0000\n"
+        b"# Diff Start Line 8\n"
+        b"add another file\n"
+        b"\n"
+        b"add another file to the repo.\n"
+        b"\n"
+        b"diff --git a/test.txt b/test.txt\n"
+        b"--- a/test.txt\n"
+        b"+++ b/test.txt\n"
+        b"@@ -1,1 +1,2 @@\n"
+        b" TEST\n"
+        b"+adding another line"
+    ), "Patch diff should be parsed from patch body."
