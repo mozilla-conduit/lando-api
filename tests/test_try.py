@@ -252,6 +252,36 @@ def test_try_api_success_hgexport(
         job.target_commit_hash == "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4"
     ), "Target changeset should match the passed value."
 
+    # Test the revision content matches expected.
+    assert len(job.revisions) == 1, "Job should have landed a single revision."
+    revision = job.revisions[0]
+    assert (
+        revision.patch_data["author_name"] == "Test User"
+    ), "Patch author should be parsed from `User` header."
+    assert (
+        revision.patch_data["author_email"] == "test@example.com"
+    ), "Email address should be parsed from `User` header."
+    assert revision.patch_data["commit_message"] == (
+        "add another file."
+    ), "Commit message should be parsed from patch."
+    assert (
+        revision.patch_data["timestamp"] == "0"
+    ), "Timestamp should be parsed from `Date` header."
+    assert revision.patch_bytes == (
+        b"# HG changeset patch\n"
+        b"# User Test User <test@example.com>\n"
+        b"# Date 0 +0000\n"
+        b"# Diff Start Line 6\n"
+        b"add another file.\n"
+        b"\n"
+        b"diff --git a/test.txt b/test.txt\n"
+        b"--- a/test.txt\n"
+        b"+++ b/test.txt\n"
+        b"@@ -1,1 +1,2 @@\n"
+        b" TEST\n"
+        b"+adding another line"
+    ), "Patch diff should be parsed from patch body."
+
 
 def test_try_api_success_gitformatpatch(
     app,
