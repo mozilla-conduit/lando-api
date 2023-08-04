@@ -4,6 +4,8 @@
 
 import base64
 
+import pytest
+
 from landoapi.hg import HgRepo
 from landoapi.hgexports import (
     get_timestamp_from_git_date_header,
@@ -120,7 +122,14 @@ def test_try_api_patch_decode_error(
     ), "Response should indicate the patch could not be decoded."
 
 
-def test_try_api_git_patch_format_mismatch(
+@pytest.mark.parametrize(
+    "patch_format,patch_content",
+    [
+        ("hgexport", GIT_PATCH),
+        ("git-format-patch", PATCH_WITHOUT_STARTLINE),
+    ],
+)
+def test_try_api_patch_format_mismatch(
     app,
     db,
     hg_server,
@@ -129,6 +138,8 @@ def test_try_api_git_patch_format_mismatch(
     client,
     auth0_mock,
     mocked_repo_config,
+    patch_format,
+    patch_content,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
@@ -137,9 +148,9 @@ def test_try_api_git_patch_format_mismatch(
     try_push_json = {
         # The only node in the test repo.
         "base_commit": "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4",
-        "patch_format": "git-format-patch",
+        "patch_format": patch_format,
         "patches": [
-            base64.b64encode(PATCH_WITHOUT_STARTLINE).decode("ascii"),
+            base64.b64encode(patch_content).decode("ascii"),
         ],
     }
     response = client.post(
@@ -151,6 +162,7 @@ def test_try_api_git_patch_format_mismatch(
     assert (
         response.json["title"] == "Improper patch format."
     ), "Response should indicate the patch could not be decoded."
+
 
 def test_try_api_success_hgexport(
     app,
