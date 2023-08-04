@@ -73,17 +73,25 @@ def parse_revisions_from_request(
         io.BytesIO(convert_json_patch_to_bytes(patch)) for patch in patches
     )
 
-    if patch_format == "hgexport":
-        return [
-            build_revision_from_patch_helper(HgPatchHelper(patch))
-            for patch in patches_bytes
-        ]
+    try:
+        if patch_format == "hgexport":
+            return [
+                build_revision_from_patch_helper(HgPatchHelper(patch))
+                for patch in patches_bytes
+            ]
 
-    if patch_format == "git-format-patch":
-        return [
-            build_revision_from_patch_helper(GitPatchHelper(patch))
-            for patch in patches_bytes
-        ]
+        if patch_format == "git-format-patch":
+            return [
+                build_revision_from_patch_helper(GitPatchHelper(patch))
+                for patch in patches_bytes
+            ]
+    except ValueError as exc:
+        raise ProblemException(
+            400,
+            "Improper patch format.",
+            f"Patch does not match expected format: {str(exc)}",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
 
     raise ValueError(f"Unknown value for `patch_format`: {patch_format}.")
 
