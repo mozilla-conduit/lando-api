@@ -164,6 +164,36 @@ def test_try_api_patch_format_mismatch(
     ), "Response should indicate the patch could not be decoded."
 
 
+def test_try_api_unknown_patch_format(
+    app,
+    db,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    client,
+    auth0_mock,
+    mocked_repo_config,
+):
+    """Test when `patch_format` isn't one of the accepted values."""
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+
+    try_push_json = {
+        # The only node in the test repo.
+        "base_commit": "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4",
+        "patch_format": "blah",
+        "patches": [
+            base64.b64encode(PATCH_WITHOUT_STARTLINE).decode("ascii"),
+        ],
+    }
+    response = client.post(
+        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+    )
+    assert (
+        response.status_code == 400
+    ), "Unknown `patch_format` value should return 400."
+
+
 def test_try_api_success_hgexport(
     app,
     db,
