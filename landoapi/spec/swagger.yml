@@ -399,6 +399,7 @@ paths:
                   type: string
               patch_format:
                 type: string
+                enum: ["git-format-patch", "hgexport"]
                 description: |
                   The format of the encoded patches in `patches`. Either `hgexport` or
                   `git-format-patch` are accepted.
