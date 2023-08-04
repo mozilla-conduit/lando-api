@@ -104,7 +104,7 @@ def test_try_api_patch_decode_error(
     mocked_repo_config,
 ):
     """Test when a patch can't be decoded."""
-    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
 
     try_push_json = {
@@ -142,7 +142,7 @@ def test_try_api_patch_format_mismatch(
     patch_content,
 ):
     """Test what happens when a patch does not match the passed format."""
-    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
 
     try_push_json = {
@@ -175,7 +175,7 @@ def test_try_api_unknown_patch_format(
     mocked_repo_config,
 ):
     """Test when `patch_format` isn't one of the accepted values."""
-    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
 
     try_push_json = {
