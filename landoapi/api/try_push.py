@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import base64
+import binascii
 import io
 import logging
 
@@ -53,7 +54,15 @@ def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
 
 def convert_json_patch_to_bytes(patch: str) -> bytes:
     """Convert from the base64 encoded patch to `bytes`."""
-    return base64.b64decode(patch.encode("ascii"))
+    try:
+        return base64.b64decode(patch.encode("ascii"))
+    except binascii.Error:
+        raise ProblemException(
+            400,
+            "Patch decoding error.",
+            "A patch could not be decoded from base64.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
 
 
 def parse_revisions_from_request(

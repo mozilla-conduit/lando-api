@@ -91,6 +91,35 @@ def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):
     assert response.status_code == 400, "Try push without patches should return 400."
 
 
+def test_try_api_patch_decode_error(
+    app,
+    db,
+    hg_server,
+    hg_clone,
+    treestatusdouble,
+    client,
+    auth0_mock,
+    mocked_repo_config,
+):
+    """Test when a patch can't be decoded."""
+    treestatus = treestatusdouble.get_treestatus_client()
+    treestatusdouble.open_tree("mozilla-central")
+
+    try_push_json = {
+        # The only node in the test repo.
+        "base_commit": "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4",
+        "patch_format": "hgexport",
+        "patches": ["x!!`"],
+    }
+    response = client.post(
+        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+    )
+    assert response.status_code == 400, "Improperly encoded patch should return 400."
+    assert (
+        response.json["title"] == "Patch decoding error."
+    ), "Response should indicate the patch could not be decoded."
+
+
 def test_try_api_success_hgexport(
     app,
     db,
