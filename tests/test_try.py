@@ -141,10 +141,10 @@ def test_try_api_patch_format_mismatch(
     patch_format,
     patch_content,
 ):
+    """Test what happens when a patch does not match the passed format."""
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
 
-    # Push an `hgexport` patch but specify the `git-format-patch` format.
     try_push_json = {
         # The only node in the test repo.
         "base_commit": "0da79df0ffff88e0ad6fa3e27508bcf5b2f2cec4",
