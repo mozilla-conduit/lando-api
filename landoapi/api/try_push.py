@@ -4,6 +4,7 @@
 
 import base64
 import binascii
+import enum
 import io
 import logging
 
@@ -30,6 +31,14 @@ from landoapi.repos import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@enum.unique
+class PatchFormat(enum.Enum):
+    """Enumeration of the acceptable types of patches."""
+
+    GitFormatPatch = "git-format-patch"
+    HgExport = "hgexport"
 
 
 def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
@@ -66,7 +75,7 @@ def convert_json_patch_to_bytes(patch: str) -> bytes:
 
 
 def parse_revisions_from_request(
-    patches: list[str], patch_format: str
+    patches: list[str], patch_format: PatchFormat
 ) -> list[Revision]:
     """Convert a set of base64 encoded patches to `Revision` objects."""
     patches_bytes = (
@@ -74,13 +83,13 @@ def parse_revisions_from_request(
     )
 
     try:
-        if patch_format == "hgexport":
+        if patch_format == PatchFormat.HgExport:
             return [
                 build_revision_from_patch_helper(HgPatchHelper(patch))
                 for patch in patches_bytes
             ]
 
-        if patch_format == "git-format-patch":
+        if patch_format == PatchFormat.GitFormatPatch:
             return [
                 build_revision_from_patch_helper(GitPatchHelper(patch))
                 for patch in patches_bytes
@@ -89,11 +98,9 @@ def parse_revisions_from_request(
         raise ProblemException(
             400,
             "Improper patch format.",
-            f"Patch does not match expected format: {str(exc)}",
+            f"Patch does not match expected format `{patch_format.value}`: {str(exc)}",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
-
-    raise ValueError(f"Unknown value for `patch_format`: {patch_format}.")
 
 
 @auth.require_auth0(scopes=("openid", "lando", "profile", "email"), userinfo=True)
@@ -101,7 +108,7 @@ def parse_revisions_from_request(
 def post_patches(data: dict):
     base_commit = data["base_commit"]
     patches = data["patches"]
-    patch_format = data["patch_format"]
+    patch_format = PatchFormat(data["patch_format"])
 
     environment_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     try_repo = environment_repos.get("try")
