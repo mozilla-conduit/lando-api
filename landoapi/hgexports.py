@@ -4,21 +4,30 @@
 
 from __future__ import annotations
 
+import email
 import io
+import math
 import re
+from datetime import datetime
+from email.policy import (
+    default as default_email_policy,
+)
+from email.utils import (
+    parseaddr,
+)
 from typing import (
     Optional,
 )
 
-HEADER_NAMES = (
-    b"User",
-    b"Date",
-    b"Node ID",
-    b"Parent",
-    b"Diff Start Line",
-    b"Fail HG Import",
+HG_HEADER_NAMES = (
+    "User",
+    "Date",
+    "Node ID",
+    "Parent",
+    "Diff Start Line",
+    "Fail HG Import",
 )
-DIFF_LINE_RE = re.compile(rb"^diff\s+\S+\s+\S+")
+DIFF_LINE_RE = re.compile(r"^diff\s+\S+\s+\S+")
 
 _HG_EXPORT_PATCH_TEMPLATE = """
 {header}
@@ -71,8 +80,32 @@ def _no_line_breaks(break_string: str) -> str:
     return "".join(break_string.strip().splitlines())
 
 
-class PatchHelper(object):
-    """Helper class for parsing Mercurial patches/exports."""
+def parse_git_author_information(user_header: str) -> tuple[str, str]:
+    """Parse user's name and email address from a Git style author header.
+
+    Converts a header like 'User Name <user@example.com>' to its separate parts.
+    """
+    name, email = parseaddr(user_header)
+    return name, email
+
+
+def get_timestamp_from_git_date_header(date_header: str) -> str:
+    """Convert a Git patch date header into a timestamp."""
+    header_datetime = datetime.strptime(date_header, "%a, %d %b %Y %H:%M:%S %z")
+    return str(math.floor(header_datetime.timestamp()))
+
+
+def get_timestamp_from_hg_date_header(date_header: str) -> str:
+    """Return the first part of the `hg export` date header.
+
+    >>> get_timestamp_from_hg_date_header("1686621879 14400")
+    "1686621879"
+    """
+    return date_header.split(" ")[0]
+
+
+class PatchHelper:
+    """Base class for parsing patches/exports."""
 
     # Read 16KiB at a time.
     PATCH_READ_BYTES = 16 * 1024
@@ -80,76 +113,40 @@ class PatchHelper(object):
     def __init__(self, fileobj: io.BytesIO):
         self.patch = fileobj
         self.headers = {}
-        self.header_end_line_no = 0
-        self._parse_header()
-
-        # "Diff Start Line" is a Lando extension to the hg export
-        # format meant to prevent injection of diff hunks using the
-        # commit message.
-        self.diff_start_line = self.header(b"Diff Start Line")
-        if self.diff_start_line:
-            try:
-                self.diff_start_line = int(self.diff_start_line)
-            except ValueError:
-                self.diff_start_line = None
 
     @staticmethod
-    def _is_diff_line(line: bytes) -> bool:
+    def _is_diff_line(line: str) -> bool:
         return DIFF_LINE_RE.search(line) is not None
 
-    @staticmethod
-    def _header_value(line: bytes, prefix: bytes) -> Optional[bytes]:
-        m = re.search(
-            rb"^#\s+" + re.escape(prefix) + rb"\s+(.*)", line, flags=re.IGNORECASE
-        )
-        if not m:
-            return None
-        return m.group(1).strip()
-
-    def _parse_header(self):
-        """Extract header values specified by HEADER_NAMES."""
-        self.patch.seek(0)
-        try:
-            for line in self.patch:
-                if not line.startswith(b"# "):
-                    break
-                self.header_end_line_no += 1
-                for name in HEADER_NAMES:
-                    value = self._header_value(line, name)
-                    if value:
-                        self.headers[name.lower()] = value
-                        break
-        finally:
-            self.patch.seek(0)
-
-    def header(self, name: bytes | str) -> Optional[bytes]:
+    def get_header(self, name: bytes | str) -> Optional[str]:
         """Returns value of the specified header, or None if missing."""
-        name = name.encode("utf-8") if isinstance(name, str) else name
+        if isinstance(name, bytes):
+            name = name.decode("utf-8")
+
         return self.headers.get(name.lower())
 
-    def commit_description(self) -> bytes:
+    def set_header(self, name: bytes | str, value: str):
+        """Set the header `name` to `value`."""
+        if isinstance(name, bytes):
+            name = name.decode("utf-8")
+
+        self.headers[name.lower()] = value
+
+    def get_commit_description(self) -> str:
         """Returns the commit description."""
-        try:
-            line_no = 0
-            commit_desc = []
-            for line in self.patch:
-                line_no += 1
+        raise NotImplementedError("`commit_description` not implemented.")
 
-                if line_no <= self.header_end_line_no:
-                    continue
+    def get_diff(self) -> str:
+        """Return the patch diff."""
+        raise NotImplementedError("`get_diff` not implemented.")
 
-                if self.diff_start_line:
-                    if line_no == self.diff_start_line:
-                        break
-                    commit_desc.append(line)
-                else:
-                    if self._is_diff_line(line):
-                        break
-                    commit_desc.append(line)
+    def write_commit_description(self, f: io.BytesIO):
+        """Writes the commit description to the specified file object."""
+        f.write(self.get_commit_description().encode("utf-8"))
 
-            return b"".join(commit_desc).strip()
-        finally:
-            self.patch.seek(0)
+    def write_diff(self, file_obj: io.BytesIO):
+        """Writes the diff to the specified file object."""
+        file_obj.write(self.get_diff().encode("utf-8"))
 
     def write(self, f: io.BytesIO):
         """Writes whole patch to the specified file object."""
@@ -162,30 +159,222 @@ class PatchHelper(object):
         finally:
             self.patch.seek(0)
 
-    def write_commit_description(self, f: io.BytesIO):
-        """Writes the commit description to the specified file object."""
-        f.write(self.commit_description())
+    def parse_author_information(self) -> tuple[str, str]:
+        """Return the author name and email from the patch."""
+        raise NotImplementedError("`parse_author_information` is not implemented.")
 
-    def write_diff(self, f: io.BytesIO):
-        """Writes the diff to the specified file object."""
+    def get_timestamp(self) -> str:
+        """Return an `hg export` formatted timestamp."""
+        raise NotImplementedError("`get_timestamp` is not implemented.")
+
+
+class HgPatchHelper(PatchHelper):
+    """Helper class for parsing Mercurial patches/exports."""
+
+    def __init__(self, fileobj: io.BytesIO):
+        super().__init__(fileobj)
+        self.header_end_line_no = 0
+        self._parse_header()
+
+        # "Diff Start Line" is a Lando extension to the hg export
+        # format meant to prevent injection of diff hunks using the
+        # commit message.
+        self.diff_start_line = self.get_header(b"Diff Start Line")
+        if self.diff_start_line:
+            try:
+                self.diff_start_line = int(self.diff_start_line)
+            except ValueError:
+                self.diff_start_line = None
+
+    @staticmethod
+    def _header_value(line: str, prefix: str) -> Optional[str]:
+        m = re.search(
+            r"^#\s+" + re.escape(prefix) + r"\s+(.*)", line, flags=re.IGNORECASE
+        )
+        if not m:
+            return None
+        return m.group(1).strip()
+
+    def _parse_header(self):
+        """Extract header values specified by HG_HEADER_NAMES."""
+        self.patch.seek(0)
         try:
+            for line in self.patch:
+                if not line.startswith(b"# "):
+                    break
+                self.header_end_line_no += 1
+                line_str = line.decode("utf-8")
+                for name in HG_HEADER_NAMES:
+                    value = self._header_value(line_str, name)
+                    if value:
+                        self.set_header(name, value)
+                        break
+        finally:
+            self.patch.seek(0)
+
+    def get_commit_description(self) -> str:
+        """Returns the commit description."""
+        try:
+            line_no = 0
+            commit_desc = []
+            for line in self.patch:
+                line_no += 1
+
+                if line_no <= self.header_end_line_no:
+                    continue
+
+                line_str = line.decode("utf-8")
+
+                if self.diff_start_line:
+                    if line_no == self.diff_start_line:
+                        break
+                    commit_desc.append(line_str)
+                else:
+                    if self._is_diff_line(line_str):
+                        break
+                    commit_desc.append(line_str)
+
+            return "".join(commit_desc).strip()
+        finally:
+            self.patch.seek(0)
+
+    def get_diff(self) -> str:
+        """Return the diff for this patch."""
+        try:
+            diff = []
             line_no = 0
             for line in self.patch:
                 line_no += 1
 
+                line_str = line.decode("utf-8")
+
                 if self.diff_start_line:
                     if line_no == self.diff_start_line:
-                        f.write(line)
+                        diff.append(line_str)
                         break
                 else:
-                    if self._is_diff_line(line):
-                        f.write(line)
+                    if self._is_diff_line(line_str):
+                        diff.append(line_str)
                         break
 
             while 1:
                 buf = self.patch.read(PatchHelper.PATCH_READ_BYTES)
                 if not buf:
                     break
-                f.write(buf)
+                diff.append(buf.decode("utf-8"))
+
+            return "".join(diff)
         finally:
             self.patch.seek(0)
+
+    def parse_author_information(self) -> tuple[str, str]:
+        """Return the author name and email from the patch."""
+        user = self.get_header("User")
+        if not user:
+            raise ValueError(
+                "Could not determine patch author information from header."
+            )
+
+        return parse_git_author_information(user)
+
+    def get_timestamp(self) -> str:
+        """Return an `hg export` formatted timestamp."""
+        date = self.get_header("Date")
+        if not date:
+            raise ValueError("Could not determine patch timestamp from header.")
+
+        return get_timestamp_from_hg_date_header(date)
+
+
+class GitPatchHelper(PatchHelper):
+    """Helper class for parsing Mercurial patches/exports."""
+
+    def __init__(self, fileobj: io.BytesIO):
+        super().__init__(fileobj)
+        self.message = email.message_from_bytes(
+            self.patch.read(), policy=default_email_policy
+        )
+        self.commit_message, self.diff = self.parse_email_body(
+            self.message.get_content()
+        )
+
+    def get_header(self, name: bytes | str) -> Optional[str]:
+        """Get the headers from the message."""
+        if isinstance(name, bytes):
+            name = name.decode("utf-8")
+
+        # `EmailMessage` will return `None` if the header isn't found.
+        return self.message[name]
+
+    def parse_email_body(self, content: str) -> tuple[str, str]:
+        """Parse the patch email's body, returning the commit message and diff.
+
+        The commit message is composed of the `Subject` header and the contents of
+        the email message before the diff.
+        """
+        subject_header = self.get_header("Subject")
+        if not subject_header:
+            raise ValueError("No valid subject header for commit message.")
+
+        # Start the commit message from the stripped subject line.
+        commit_message_lines = [
+            subject_header.removeprefix("[PATCH] ").removesuffix("\n")
+        ]
+
+        # Create an iterator for the lines of the patch.
+        line_iterator = iter(content.splitlines())
+
+        # Add each line to the commit message until we hit `---`.
+        for i, line in enumerate(line_iterator):
+            if line == "---":
+                break
+
+            # Add a newline after the subject line if this is a multi-line
+            # commit message.
+            if i == 0:
+                commit_message_lines += [""]
+
+            commit_message_lines.append(line)
+
+        commit_message = "\n".join(commit_message_lines)
+
+        # Move through the patch until we find the start of the diff.
+        # Add the diff start line to the diff.
+        diff_lines = []
+        for line in line_iterator:
+            if GitPatchHelper._is_diff_line(line):
+                diff_lines.append(line)
+                break
+        else:
+            raise ValueError("Patch is malformed, could not find start of patch diff.")
+
+        # The diff is the remainder of the patch, except the last two lines of Git version info.
+        remaining_lines = list(line_iterator)
+        diff_lines += list(remaining_lines[:-2])
+        diff = "\n".join(diff_lines)
+
+        return commit_message, diff
+
+    def get_commit_description(self) -> str:
+        """Returns the commit description."""
+        return self.commit_message
+
+    def get_diff(self) -> str:
+        """Return the patch diff."""
+        return self.diff
+
+    def parse_author_information(self) -> tuple[str, str]:
+        """Return the author name and email from the patch."""
+        from_header = self.get_header("From")
+        if not from_header:
+            raise ValueError("Patch does not have a `From:` header.")
+
+        return parse_git_author_information(from_header)
+
+    def get_timestamp(self) -> str:
+        """Return an `hg export` formatted timestamp."""
+        date = self.get_header("Date")
+        if not date:
+            raise ValueError("Patch does not have a `Date:` header.")
+
+        return get_timestamp_from_git_date_header(date)

@@ -128,7 +128,7 @@ class LandingWorker(Worker):
             logger.info("Finished processing landing job", extra={"id": job.id})
 
     @staticmethod
-    def notify_user_of_landing_failure(job):
+    def notify_user_of_landing_failure(job: LandingJob):
         """Wrapper around notify_user_of_landing_failure for convenience.
 
         Args:
@@ -136,7 +136,7 @@ class LandingWorker(Worker):
                 notification parameters.
         """
         notify_user_of_landing_failure(
-            job.requester_email, job.head_revision, job.error, job.id
+            job.requester_email, job.landing_job_identifier, job.error, job.id
         )
 
     def process_merge_conflict(
@@ -197,7 +197,7 @@ class LandingWorker(Worker):
         return breakdown
 
     @staticmethod
-    def notify_user_of_bug_update_failure(job, exception):
+    def notify_user_of_bug_update_failure(job: LandingJob, exception: Exception):
         """Wrapper around notify_user_of_bug_update_failure for convenience.
 
         Args:
@@ -206,7 +206,7 @@ class LandingWorker(Worker):
         """
         notify_user_of_bug_update_failure(
             job.requester_email,
-            job.head_revision,
+            job.landing_job_identifier,
             f"Failed to update Bugzilla after landing uplift revisions: {str(exception)}",
             job.id,
         )
@@ -278,7 +278,7 @@ class LandingWorker(Worker):
         with hgrepo.for_push(job.requester_email):
             # Update local repo.
             try:
-                hgrepo.update_repo(repo.pull_path)
+                hgrepo.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
             except Exception as e:
                 message = f"Unexpected error while fetching repo from {repo.pull_path}."
                 logger.exception(message)
@@ -385,7 +385,11 @@ class LandingWorker(Worker):
 
             repo_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
-                hgrepo.push(repo.push_path, bookmark=repo.push_bookmark or None)
+                hgrepo.push(
+                    repo.push_path,
+                    bookmark=repo.push_bookmark or None,
+                    force_push=repo.force_push,
+                )
             except (TreeClosed, TreeApprovalRequired, LostPushRace) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
@@ -427,6 +431,7 @@ class LandingWorker(Worker):
 
         # Trigger update of repo in Phabricator so patches are closed quicker.
         # Especially useful on low-traffic repositories.
-        self.phab_trigger_repo_update(repo.phab_identifier)
+        if repo.phab_identifier:
+            self.phab_trigger_repo_update(repo.phab_identifier)
 
         return True

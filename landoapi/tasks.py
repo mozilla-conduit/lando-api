@@ -34,7 +34,9 @@ logger = logging.getLogger(__name__)
     # no emails.
     acks_late=True,
 )
-def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg: str):
+def send_landing_failure_email(
+    recipient_email: str, landing_job_identifier: str, error_msg: str
+):
     """Tell a user that the Transplant service couldn't land their code.
 
     Args:
@@ -60,7 +62,7 @@ def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg
             make_failure_email(
                 smtp.default_from,
                 recipient_email,
-                revision_id,
+                landing_job_identifier,
                 error_msg,
                 current_app.config["LANDO_UI_URL"],
             )
@@ -88,7 +90,7 @@ def send_landing_failure_email(recipient_email: str, revision_id: str, error_msg
     acks_late=True,
 )
 def send_bug_update_failure_email(
-    recipient_email: str, revision_id: str, error_msg: str
+    recipient_email: str, landing_job_identifier: str, error_msg: str
 ):
     """Tell a user that Lando couldn't update bugs post-uplift.
 
@@ -115,7 +117,7 @@ def send_bug_update_failure_email(
             make_failure_email(
                 smtp.default_from,
                 recipient_email,
-                revision_id,
+                landing_job_identifier,
                 error_msg,
                 current_app.config["LANDO_UI_URL"],
             )

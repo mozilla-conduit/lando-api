@@ -69,3 +69,21 @@ CANNED_USERINFO["NO_EMAIL"].pop("email")
 
 CANNED_USERINFO["UNVERIFIED_EMAIL"] = copy.deepcopy(CANNED_USERINFO_STANDARD)
 CANNED_USERINFO["UNVERIFIED_EMAIL"].update({"email_verified": False})
+
+CANNED_USERINFO["MISSING_L1"] = copy.deepcopy(CANNED_USERINFO_STANDARD)
+CANNED_USERINFO["MISSING_L1"].update({"https://sso.mozilla.com/claim/groups": []})
+
+CANNED_USERINFO["EXPIRED_L1"] = copy.deepcopy(CANNED_USERINFO_STANDARD)
+CANNED_USERINFO["EXPIRED_L1"].update(
+    {
+        "https://sso.mozilla.com/claim/groups": [
+            "all_scm_level_1",
+            "expired_scm_level_1",
+        ]
+    }
+)
+
+CANNED_USERINFO["MISSING_ACTIVE_L1"] = copy.deepcopy(CANNED_USERINFO_STANDARD)
+CANNED_USERINFO["MISSING_ACTIVE_L1"].update(
+    {"https://sso.mozilla.com/claim/groups": ["all_scm_level_1"]}
+)

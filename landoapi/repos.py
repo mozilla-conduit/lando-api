@@ -23,6 +23,9 @@ AccessGroup = namedtuple(
     (
         # LDAP group for active members. Required for landing.
         "active_group",
+        # LDAP group for expired members. Indicates the user had the
+        # permissions but has lost them due to inactivity.
+        "expired_group",
         # LDAP group for all members. If a user is in
         # membership_group but not active_group, their access
         # has expired.
@@ -60,6 +63,9 @@ class Repo:
             the commit message at landing time (e.g. `[("DONTBUILD", "help text")]`).
         product_details_url (str): The URL which contains product-related information
             relevant to the repo. Defaults to an empty string.
+        is_phabricator_repo (bool): Boolean indicating if the repo is available on
+            Phabricator or not.
+        force_push (bool): Boolean that controls the use of force pushes for a repo.
     """
 
     tree: str
@@ -74,6 +80,8 @@ class Repo:
     autoformat_enabled: bool = False
     commit_flags: list[tuple[str, str]] = field(default_factory=list)
     product_details_url: str = ""
+    is_phabricator_repo: bool = True
+    force_push: bool = False
 
     def __post_init__(self):
         """Set defaults based on initial values.
@@ -91,53 +99,65 @@ class Repo:
             self.short_name = self.tree
 
     @property
-    def phab_identifier(self) -> str:
+    def phab_identifier(self) -> str | None:
         """Return a valid Phabricator identifier as a `str`."""
+        if not self.is_phabricator_repo:
+            return None
+
         return self.short_name if self.short_name else self.tree
 
 
 SCM_ALLOW_DIRECT_PUSH = AccessGroup(
     active_group="active_scm_allow_direct_push",
+    expired_group="expired_scm_allow_direct_push",
     membership_group="all_scm_allow_direct_push",
     display_name="Above Level 3 Commit Access",
 )
 SCM_LEVEL_3 = AccessGroup(
     active_group="active_scm_level_3",
+    expired_group="expired_scm_level_3",
     membership_group="all_scm_level_3",
     display_name="Level 3 Commit Access",
 )
 SCM_LEVEL_2 = AccessGroup(
     active_group="active_scm_level_2",
+    expired_group="expired_scm_level_2",
     membership_group="all_scm_level_2",
     display_name="Level 2 Commit Access",
 )
 SCM_LEVEL_1 = AccessGroup(
     active_group="active_scm_level_1",
+    expired_group="expired_scm_level_1",
     membership_group="all_scm_level_1",
     display_name="Level 1 Commit Access",
 )
 SCM_VERSIONCONTROL = AccessGroup(
     active_group="active_scm_versioncontrol",
+    expired_group="expired_scm_versioncontrol",
     membership_group="all_scm_versioncontrol",
     display_name="scm_versioncontrol",
 )
 SCM_CONDUIT = AccessGroup(
     active_group="active_scm_conduit",
+    expired_group="expired_scm_conduit",
     membership_group="all_scm_conduit",
     display_name="scm_conduit",
 )
 SCM_L10N_INFRA = AccessGroup(
     active_group="active_scm_l10n_infra",
+    expired_group="expired_scm_l10n_infra",
     membership_group="all_scm_l10n_infra",
     display_name="scm_l10n_infra",
 )
 SCM_NSS = AccessGroup(
     active_group="active_scm_nss",
+    expired_group="expired_scm_nss",
     membership_group="all_scm_nss",
     display_name="scm_nss",
 )
 SCM_FIREFOXCI = AccessGroup(
     active_group="active_scm_firefoxci",
+    expired_group="expired_scm_firefoxci",
     membership_group="all_scm_firefoxci",
     display_name="scm_firefoxci",
 )
@@ -224,6 +244,8 @@ REPO_CONFIG = {
             pull_path="https://hg.mozilla.org/mozilla-unified",
             access_group=SCM_LEVEL_1,
             short_name="try",
+            is_phabricator_repo=False,
+            force_push=True,
         ),
     },
     "devsvcstage": {
@@ -240,6 +262,8 @@ REPO_CONFIG = {
             pull_path="https://hg.mozilla.org/mozilla-unified",
             access_group=SCM_LEVEL_1,
             short_name="try",
+            is_phabricator_repo=False,
+            force_push=True,
         ),
     },
     "devsvcprod": {
@@ -283,6 +307,20 @@ REPO_CONFIG = {
             product_details_url="https://product-details.mozilla.org"
             "/1.0/firefox_versions.json",
             autoformat_enabled=True,
+        ),
+        # Try uses `mozilla-unified` as the `pull_path` as using try
+        # proper is exceptionally slow. `mozilla-unified` includes both
+        # autoland and central and is the most likely to contain the passed
+        # base commit.
+        "try": Repo(
+            tree="try",
+            url="https://hg.mozilla.org/try",
+            push_path="ssh://hg.mozilla.org/try",
+            pull_path="https://hg.mozilla.org/mozilla-unified",
+            access_group=SCM_LEVEL_1,
+            short_name="try",
+            is_phabricator_repo=False,
+            force_push=True,
         ),
         "comm-central": Repo(
             tree="comm-central",

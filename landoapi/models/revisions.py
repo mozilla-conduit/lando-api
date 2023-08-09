@@ -49,15 +49,17 @@ revision_landing_job = db.Table(
 
 class Revision(Base):
     """
-    A representation of a revision in the database referencing a Phabricator revision.
+    A representation of a revision in the database.
+
+    Includes a reference to the related Phabricator revision and diff ID if one exists.
     """
 
     # revision_id and diff_id map to Phabricator IDs (integers).
-    revision_id = db.Column(db.Integer, nullable=False, unique=True)
+    revision_id = db.Column(db.Integer, nullable=True, unique=True)
 
     # diff_id is that of the latest diff on the revision at landing request time. It
     # does not track all diffs.
-    diff_id = db.Column(db.Integer, nullable=False)
+    diff_id = db.Column(db.Integer, nullable=True)
 
     # The actual patch.
     patch_bytes = db.Column(db.LargeBinary, nullable=False, default=b"")
@@ -71,15 +73,26 @@ class Revision(Base):
 
     def __repr__(self):
         """Return a human-readable representation of the instance."""
-        return (
-            f"<{self.__class__.__name__}: {self.id} "
-            f"[D{self.revision_id}-{self.diff_id}]>"
+        # Add an identifier for the Phabricator revision if it exists.
+        phab_identifier = (
+            f" [D{self.revision_id}-{self.diff_id}]>" if self.revision_id else ""
         )
+        return f"<{self.__class__.__name__}: {self.id}{phab_identifier}>"
 
     @classmethod
     def get_from_revision_id(cls, revision_id: int) -> "Revision" | None:
         """Return a Revision object from a given ID."""
         return cls.query.filter(Revision.revision_id == revision_id).one_or_none()
+
+    @classmethod
+    def new_from_patch(cls, raw_diff: str, patch_data: dict[str, str]) -> Revision:
+        """Construct a new Revision from patch data."""
+        rev = Revision()
+        db.session.add(rev)
+        db.session.commit()
+        rev.set_patch(raw_diff, patch_data)
+        db.session.commit()
+        return rev
 
     def set_patch(self, raw_diff: str, patch_data: dict[str, str]):
         """Given a raw_diff and patch data, build the patch and store it."""

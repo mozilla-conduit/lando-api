@@ -125,6 +125,9 @@ class LandingJob(Base):
     #    ["", ""]
     formatted_replacements = db.Column(JSONB, nullable=True)
 
+    # Identifier of the published commit which this job should land on top of.
+    target_commit_hash = db.Column(db.Text(), nullable=True)
+
     revisions = db.relationship(
         "Revision",
         secondary=revision_landing_job,
@@ -166,9 +169,33 @@ class LandingJob(Base):
             ]
 
     @property
-    def head_revision(self) -> str:
-        """Human-readable representation of the branch head's Phabricator revision ID."""
-        return f"D{self.revisions[-1].revision_id}"
+    def landing_job_identifier(self) -> str:
+        """Human-readable representation of the branch head.
+
+        Returns a Phabricator revision ID if the revisions are associated with a Phabricator
+        repo, otherwise the first line of the commit message.
+        """
+        if not self.revisions:
+            raise ValueError(
+                "Job must be associated with a revision to have a head revision."
+            )
+
+        head = self.revisions[-1]
+        if head.revision_id:
+            # Return the Phabricator identifier if the head revision has one.
+            return f"D{head.revision_id}"
+
+        # If there is no Phabricator identifier, return the first line of the
+        # non-try-syntax commit's message for the patch.
+        if len(self.revisions) > 1:
+            head = self.revisions[-2]
+
+        commit_message = head.patch_data.get("commit_message")
+        if commit_message:
+            return commit_message.splitlines()[0]
+
+        # Return a placeholder in the event neither exists.
+        return "unknown"
 
     @classmethod
     def revisions_query(cls, revisions: Iterable[str]) -> flask_sqlalchemy.BaseQuery:
@@ -227,7 +254,7 @@ class LandingJob(Base):
 
     @classmethod
     def next_job_for_update_query(
-        cls, repositories: Optional[str] = None
+        cls, repositories: Optional[Iterable[str]] = None
     ) -> flask_sqlalchemy.BaseQuery:
         """Return a query which selects the next job and locks the row."""
         query = cls.job_queue_query(repositories=repositories)

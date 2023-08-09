@@ -21,6 +21,7 @@ from jose import jwt
 
 from landoapi.cache import cache
 from landoapi.mocks.auth import MockAuth0
+from landoapi.repos import AccessGroup
 from landoapi.systems import Subsystem
 
 logger = logging.getLogger(__name__)
@@ -491,6 +492,42 @@ class require_auth0:
             f = self._require_scopes(f)
 
         return self._require_access_token(f)
+
+
+def ensure_user_has_scm_level(auth0_user: A0User, access_group: AccessGroup):
+    """Raise an appropriate `ProblemException` if the user is missing `scm_level_1`."""
+    if not auth0_user.is_in_groups(access_group.membership_group):
+        raise ProblemException(
+            403,
+            f"{access_group.display_name} is required.",
+            f"You do not have {access_group.display_name}.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+        )
+
+    # Check that user has active_scm_level_1 and not `expired_scm_level_1`.
+    if auth0_user.is_in_groups(
+        access_group.expired_group
+    ) or not auth0_user.is_in_groups(access_group.active_group):
+        raise ProblemException(
+            401,
+            f"Your {access_group.display_name} has expired.",
+            f"Your {access_group.display_name} has expired.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
+        )
+
+
+def enforce_request_scm_level(access_group: AccessGroup):
+    """Decorator to enforce `active_scm_level_1` membership with error messaging."""
+
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrap_api(*args, **kwargs):
+            ensure_user_has_scm_level(g.auth0_user, access_group)
+            return func(*args, **kwargs)
+
+        return wrap_api
+
+    return decorator
 
 
 class Auth0Subsystem(Subsystem):
