@@ -99,8 +99,8 @@ def get_timestamp_from_git_date_header(date_header: str) -> str:
 def get_timestamp_from_hg_date_header(date_header: str) -> str:
     """Return the first part of the `hg export` date header.
 
-    >>> get_timestamp_from_hg_date_header(b"1686621879 14400")
-    b"1686621879"
+    >>> get_timestamp_from_hg_date_header("1686621879 14400")
+    "1686621879"
     """
     return date_header.split(" ")[0]
 
