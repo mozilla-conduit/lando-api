@@ -40,6 +40,18 @@ class PatchFormat(enum.Enum):
     GitFormatPatch = "git-format-patch"
     HgExport = "hgexport"
 
+    def patch_helper(self, patch_io: io.BytesIO) -> PatchHelper:
+        """Return the `PatchHelper` subclass associated with this patch format."""
+        if self == PatchFormat.GitFormatPatch:
+            return GitPatchHelper(patch_io)
+
+        if self == PatchFormat.HgExport:
+            return HgPatchHelper(patch_io)
+
+        raise ValueError(
+            f"Patch format {self.value} has not been mapped to a patch helper."
+        )
+
 
 def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
     author, email = helper.parse_author_information()
@@ -82,18 +94,13 @@ def parse_revisions_from_request(
         io.BytesIO(convert_json_patch_to_bytes(patch)) for patch in patches
     )
 
-    try:
-        if patch_format == PatchFormat.HgExport:
-            return [
-                build_revision_from_patch_helper(HgPatchHelper(patch))
-                for patch in patches_bytes
-            ]
+    patch_helpers = (patch_format.patch_helper(patch) for patch in patches_bytes)
 
-        if patch_format == PatchFormat.GitFormatPatch:
-            return [
-                build_revision_from_patch_helper(GitPatchHelper(patch))
-                for patch in patches_bytes
-            ]
+    try:
+        return [
+            build_revision_from_patch_helper(patch_helper)
+            for patch_helper in patch_helpers
+        ]
     except ValueError as exc:
         raise ProblemException(
             400,
