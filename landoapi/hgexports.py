@@ -8,6 +8,7 @@ import email
 import io
 import math
 import re
+from datetime import datetime
 from email.policy import (
     default as default_email_policy,
 )
@@ -17,8 +18,6 @@ from email.utils import (
 from typing import (
     Optional,
 )
-
-from dateutil.parser import parse as dateparse
 
 HG_HEADER_NAMES = (
     "User",
@@ -92,7 +91,7 @@ def parse_git_author_information(user_header: str) -> tuple[str, str]:
 
 def get_timestamp_from_git_date_header(date_header: str) -> str:
     """Convert a Git patch date header into a timestamp."""
-    header_datetime = dateparse(date_header)
+    header_datetime = datetime.strptime(date_header, "%a, %d %b %Y %H:%M:%S %z")
     return str(math.floor(header_datetime.timestamp()))
 
 

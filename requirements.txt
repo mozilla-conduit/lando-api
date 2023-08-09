@@ -380,10 +380,6 @@ pytest-flask==1.2.0 \
     --hash=sha256:46fde652f77777bf02dc91205aec4ce20cdf2acbbbd66a918ab91f5c14693d3d \
     --hash=sha256:fe25b39ad0db09c3d1fe728edecf97ced85e774c775db259a6d25f0270a4e7c9
     # via -r requirements.in
-python-dateutil==2.8.2 \
-    --hash=sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86 \
-    --hash=sha256:961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9
-    # via -r requirements.in
 python-hglib==2.6.2 \
     --hash=sha256:b18bd1ed53c90ee57d5714d66ad6bb72b64e930d4aeca9830892c08bb28da608
     # via -r requirements.in
@@ -495,7 +491,6 @@ six==1.16.0 \
     --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254
     # via
     #   ecdsa
-    #   python-dateutil
     #   requests-mock
 sqlalchemy==1.4.35 \
     --hash=sha256:093b3109c2747d5dc0fa4314b1caf4c7ca336d5c8c831e3cfbec06a7e861e1e6 \
