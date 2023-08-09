@@ -40,7 +40,7 @@ class PatchFormat(enum.Enum):
     GitFormatPatch = "git-format-patch"
     HgExport = "hgexport"
 
-    def patch_helper(self, patch_io: io.BytesIO) -> PatchHelper:
+    def get_patch_helper(self, patch_io: io.BytesIO) -> PatchHelper:
         """Return the `PatchHelper` subclass associated with this patch format."""
         if self == PatchFormat.GitFormatPatch:
             return GitPatchHelper(patch_io)
@@ -94,7 +94,7 @@ def parse_revisions_from_request(
         io.BytesIO(convert_json_patch_to_bytes(patch)) for patch in patches
     )
 
-    patch_helpers = (patch_format.patch_helper(patch) for patch in patches_bytes)
+    patch_helpers = (patch_format.get_patch_helper(patch) for patch in patches_bytes)
 
     try:
         return [
