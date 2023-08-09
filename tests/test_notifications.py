@@ -93,10 +93,10 @@ def test_notify_user_of_landing_failure(
     # celery_worker fixture causes the test to cross threads.  We only ensure the
     # happy-path runs cleanly.
     job = LandingJob(revision_order=["1"])
-    job.revisions.append(Revision())
+    job.revisions.append(Revision(patch_data={}))
     notify_user_of_landing_failure(
         job.requester_email,
-        job.head_revision,
+        job.landing_job_identifier,
         job.error,
         job.id,
     )

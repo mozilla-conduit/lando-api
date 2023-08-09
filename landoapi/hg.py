@@ -20,7 +20,7 @@ from typing import (
 import hglib
 
 from landoapi.commit_message import bug_list_to_commit_string
-from landoapi.hgexports import PatchHelper
+from landoapi.hgexports import HgPatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -302,11 +302,11 @@ class HgRepo:
                 pass
 
     def apply_patch(self, patch_io_buf):
-        patch_helper = PatchHelper(patch_io_buf)
+        patch_helper = HgPatchHelper(patch_io_buf)
         if not patch_helper.diff_start_line:
             raise NoDiffStartLine()
 
-        self.patch_header = patch_helper.header
+        self.patch_header = patch_helper.get_header
 
         # Import the diff to apply the changes then commit separately to
         # ensure correct parsing of the commit message.
@@ -330,7 +330,7 @@ class HgRepo:
             import_cmd = ["import", "--no-commit"] + similarity_args
 
             try:
-                if patch_helper.header("Fail HG Import") == b"FAIL":
+                if patch_helper.get_header("Fail HG Import") == b"FAIL":
                     # For testing, force a PatchConflict exception if this header is
                     # defined.
                     raise hglib.error.CommandError(
@@ -361,8 +361,8 @@ class HgRepo:
 
             # Commit using the extracted date, user, and commit desc.
             # --landing_system is provided by the set_landing_system hgext.
-            date = patch_helper.header("Date")
-            user = patch_helper.header("User")
+            date = patch_helper.get_header("Date")
+            user = patch_helper.get_header("User")
 
             if not user:
                 raise ValueError("Missing `User` header!")
@@ -545,7 +545,7 @@ class HgRepo:
                 details=exc.stdout,
             )
 
-    def push(self, target, bookmark=None):
+    def push(self, target, bookmark=None, force_push: bool = False):
         if not os.getenv(REQUEST_USER_ENV_VAR):
             raise ValueError(f"{REQUEST_USER_ENV_VAR} not set while attempting to push")
 
@@ -553,22 +553,32 @@ class HgRepo:
         # defined.
         if (
             self.patch_header
-            and self.patch_header("Fail HG Import") == b"LOSE_PUSH_RACE"
+            and self.patch_header("Fail HG Import") == "LOSE_PUSH_RACE"
         ):
             raise LostPushRace()
+
+        extra_args = []
+
+        if force_push:
+            extra_args.append("-f")
+
         try:
             if bookmark is None:
-                self.run_hg(["push", "-r", "tip", target])
+                self.run_hg(["push", "-r", "tip", target] + extra_args)
             else:
                 self.run_hg_cmds(
-                    [["bookmark", bookmark], ["push", "-B", bookmark, target]]
+                    [
+                        ["bookmark", bookmark],
+                        ["push", "-B", bookmark, target] + extra_args,
+                    ]
                 )
         except hglib.error.CommandError as exc:
             raise HgException.from_hglib_error(exc) from exc
 
-    def update_repo(self, source):
-        # Obtain remote tip. We assume there is only a single head.
-        target_cset = self.get_remote_head(source)
+    def update_repo(self, source, target_cset: Optional[bytes] = None):
+        # Obtain remote tip if not provided. We assume there is only a single head.
+        if not target_cset:
+            target_cset = self.get_remote_head(source)
 
         # Strip any lingering changes.
         self.clean_repo()
