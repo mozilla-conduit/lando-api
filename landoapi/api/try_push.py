@@ -26,7 +26,6 @@ from landoapi.models.landing_job import (
 )
 from landoapi.models.revisions import Revision
 from landoapi.repos import (
-    SCM_LEVEL_1,
     get_repos_for_env,
 )
 
@@ -107,7 +106,9 @@ def parse_revisions_from_request(
 
 
 @auth.require_auth0(scopes=("openid", "lando", "profile", "email"), userinfo=True)
-@auth.enforce_request_scm_level(SCM_LEVEL_1)
+# Re-enable this check once our Auth0 instance returns group membership for access
+# tokens granted via the Device Authorization flow.
+# @auth.enforce_request_scm_level(SCM_LEVEL_1)
 def post_patches(data: dict):
     base_commit = data["base_commit"]
     patches = data["patches"]
