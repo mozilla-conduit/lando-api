@@ -151,10 +151,7 @@ class PatchHelper:
     def write(self, f: io.BytesIO):
         """Writes whole patch to the specified file object."""
         try:
-            while 1:
-                buf = self.patch.read(PatchHelper.PATCH_READ_BYTES)
-                if not buf:
-                    break
+            while buf := self.patch.read(PatchHelper.PATCH_READ_BYTES):
                 f.write(buf)
         finally:
             self.patch.seek(0)
