@@ -151,10 +151,7 @@ class PatchHelper:
     def write(self, f: io.BytesIO):
         """Writes whole patch to the specified file object."""
         try:
-            while 1:
-                buf = self.patch.read(PatchHelper.PATCH_READ_BYTES)
-                if not buf:
-                    break
+            while buf := self.patch.read(PatchHelper.PATCH_READ_BYTES):
                 f.write(buf)
         finally:
             self.patch.seek(0)
@@ -214,25 +211,25 @@ class HgPatchHelper(PatchHelper):
 
     def get_commit_description(self) -> str:
         """Returns the commit description."""
-        try:
-            line_no = 0
-            commit_desc = []
-            for line in self.patch:
-                line_no += 1
+        commit_desc = []
 
-                if line_no <= self.header_end_line_no:
+        try:
+            for i, line in enumerate(self.patch, start=1):
+                if i <= self.header_end_line_no:
                     continue
 
                 line_str = line.decode("utf-8")
 
-                if self.diff_start_line:
-                    if line_no == self.diff_start_line:
-                        break
-                    commit_desc.append(line_str)
-                else:
-                    if self._is_diff_line(line_str):
-                        break
-                    commit_desc.append(line_str)
+                # If we found a `Diff Start Line` header and we have parsed to that line,
+                # the commit description has been parsed and we can break.
+                # If there was no `Diff Start Line` header, iterate through each line until
+                # we find a `diff` line, then break as we have parsed the commit description.
+                if (self.diff_start_line and i == self.diff_start_line) or (
+                    not self.diff_start_line and self._is_diff_line(line_str)
+                ):
+                    break
+
+                commit_desc.append(line_str)
 
             return "".join(commit_desc).strip()
         finally:
@@ -240,27 +237,23 @@ class HgPatchHelper(PatchHelper):
 
     def get_diff(self) -> str:
         """Return the diff for this patch."""
-        try:
-            diff = []
-            line_no = 0
-            for line in self.patch:
-                line_no += 1
+        diff = []
 
+        try:
+            for i, line in enumerate(self.patch, start=1):
                 line_str = line.decode("utf-8")
 
-                if self.diff_start_line:
-                    if line_no == self.diff_start_line:
-                        diff.append(line_str)
-                        break
-                else:
-                    if self._is_diff_line(line_str):
-                        diff.append(line_str)
-                        break
-
-            while 1:
-                buf = self.patch.read(PatchHelper.PATCH_READ_BYTES)
-                if not buf:
+                # If we found a `Diff Start Line` header, parse the diff until that line.
+                # If there was no `Diff Start Line` header, iterate through each line until
+                # we find a `diff` line.
+                if (not self.diff_start_line and self._is_diff_line(line_str)) or (
+                    self.diff_start_line and i == self.diff_start_line
+                ):
+                    diff.append(line_str)
                     break
+
+            # Iterate through the remaining lines in the patch.
+            while buf := self.patch.read(PatchHelper.PATCH_READ_BYTES):
                 diff.append(buf.decode("utf-8"))
 
             return "".join(diff)
