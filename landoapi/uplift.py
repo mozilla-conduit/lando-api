@@ -4,6 +4,7 @@
 
 import json
 import logging
+import re
 import time
 from typing import (
     Any,
@@ -166,6 +167,22 @@ def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> R
     return local_repo
 
 
+DEPENDS_ON_RE = re.compile(r"^Depends on D\d+$")
+
+
+def strip_depends_on_from_commit_message(commit_message: str) -> str:
+    """Strip any found `Depends on` lines from the passed commit message.
+
+    `moz-phab` still adds the `Depends on` lines to commit messages, which were
+    previously the only method of specifying revision dependencies. Nowadays we
+    have specific Conduit API calls which handle this functionality, and having
+    the legacy `Depends on` values causes issues with uplift requests.
+    """
+    return "\n".join(
+        line for line in commit_message.splitlines() if not DEPENDS_ON_RE.match(line)
+    )
+
+
 def create_uplift_revision(
     phab: PhabricatorClient,
     local_repo: Repo,
@@ -227,7 +244,9 @@ def create_uplift_revision(
                     "authorEmail": phab.expect(commit, "author", "email"),
                     "time": 0,
                     "summary": phab.expect(commit, "message").splitlines()[0],
-                    "message": phab.expect(commit, "message"),
+                    "message": strip_depends_on_from_commit_message(
+                        phab.expect(commit, "message")
+                    ),
                     "commit": phab.expect(commit, "identifier"),
                     "rev": phab.expect(commit, "identifier"),
                     "parents": phab.expect(commit, "parents"),
@@ -244,6 +263,7 @@ def create_uplift_revision(
     # second train.
     uri = str(phab.expect(source_revision, "fields", "uri"))
     summary = add_original_revision_line_if_needed(summary, uri)
+    summary = strip_depends_on_from_commit_message(summary)
 
     transactions = [
         {"type": "update", "value": new_diff_phid},

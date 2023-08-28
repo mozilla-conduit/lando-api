@@ -18,6 +18,7 @@ from landoapi.uplift import (
     create_uplift_bug_update_payload,
     get_revisions_without_bugs,
     parse_milestone_version,
+    strip_depends_on_from_commit_message,
 )
 
 MILESTONE_TEST_CONTENTS_1 = """
@@ -65,6 +66,27 @@ def test_parse_milestone_version():
     bad_milestone_contents = "blahblahblah"
     with pytest.raises(ValueError, match=bad_milestone_contents):
         parse_milestone_version(bad_milestone_contents)
+
+
+DEPENDS_ON_MESSAGE = """
+bug 123: testing r?sheehan
+
+Something something Depends on D1234
+
+Differential Revision: http://phab.test/D234
+
+Depends on D567
+""".strip()
+
+
+def test_strip_depends_on_from_commit_message():
+    assert strip_depends_on_from_commit_message(DEPENDS_ON_MESSAGE) == (
+        "bug 123: testing r?sheehan\n"
+        "\n"
+        "Something something Depends on D1234\n"
+        "\n"
+        "Differential Revision: http://phab.test/D234\n"
+    ), "`Depends on` line should be stripped from commit message."
 
 
 @pytest.mark.xfail
