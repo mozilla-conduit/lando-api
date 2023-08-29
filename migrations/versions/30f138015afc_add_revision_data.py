@@ -1,8 +1,8 @@
 """add revision data
 
-Revision ID: 2610406c9364
-Revises: 50ffadceca83
-Create Date: 2023-06-06 15:29:45.635067
+Revision ID: 30f138015afc
+Revises: 06cc1c6a04b5
+Create Date: 2023-08-29 19:56:50.013421
 
 """
 import sqlalchemy as sa
@@ -10,8 +10,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "2610406c9364"
-down_revision = "50ffadceca83"
+revision = "30f138015afc"
+down_revision = "06cc1c6a04b5"
 branch_labels = None
 depends_on = None
 
