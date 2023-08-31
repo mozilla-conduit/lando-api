@@ -134,7 +134,7 @@ services:
       - lando-api.db
       - redis.queue
   lando-api.db:
-    image: postgres:9.6-alpine
+    image: postgres:14
     environment:
       - POSTGRES_PASSWORD=password
       - POSTGRES_USER=postgres
