@@ -733,6 +733,29 @@ class PhabricatorDouble:
     def conduit_ping(self):
         return "ip-123-123-123-123.us-west-2.compute.internal"
 
+    @conduit_method("bugzilla.account.search")
+    def bugzilla_account_search(self, phids=None, ids=None):
+        """Return a list of Bugzilla IDs and Phabricator phids, given phids or ids."""
+        if ids:
+            raise NotImplementedError(
+                "Searching by Bugzilla ID is not implemented in this mock."
+            )
+        if not phids:
+            return []
+
+        # NOTE: for the purposes of testing, a made-up number based on the Phabricator
+        # user ID should suffice. In this case, an arbitrary integer is added to the
+        # ID and returned as the Bugzilla user ID.
+
+        phid_to_id_mapping = {
+            user["phid"]: 100 + int(user["id"]) for user in self._users
+        }
+        result = []
+        for phid in phids:
+            if phid in phid_to_id_mapping:
+                result.append({"phid": phid, "id": phid_to_id_mapping[phid]})
+        return result
+
     @conduit_method("project.search")
     def project_search(
         self,
