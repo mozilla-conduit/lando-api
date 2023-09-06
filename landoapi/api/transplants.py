@@ -36,6 +36,7 @@ from landoapi.repos import (
 )
 from landoapi.reviews import (
     approvals_for_commit_message,
+    get_approved_by_ids,
     get_collated_reviewers,
     reviewers_for_commit_message,
 )
@@ -311,6 +312,7 @@ def post(phab: PhabricatorClient, data: dict):
     }
 
     lando_revisions = []
+    revision_reviewers = {}
 
     # Build the patches to land.
     for revision, diff in to_land:
@@ -356,6 +358,11 @@ def post(phab: PhabricatorClient, data: dict):
         lando_revision.diff_id = diff_id
         db.session.commit()
 
+        revision_reviewers[lando_revision.id] = get_approved_by_ids(
+            phab,
+            PhabricatorClient.expect(revision, "attachments", "reviewers", "reviewers"),
+        )
+
         patch_data = {
             "author_name": author_name,
             "author_email": author_email,
@@ -397,6 +404,9 @@ def post(phab: PhabricatorClient, data: dict):
             repository_url=landing_repo.url,
         )
     add_revisions_to_job(lando_revisions, job)
+    logger.info(f"Setting {revision_reviewers} reviewer data on each revision.")
+    for revision in lando_revisions:
+        revision.data = {"approved_by": revision_reviewers[revision.id]}
 
     # Submit landing job.
     job.status = LandingJobStatus.SUBMITTED

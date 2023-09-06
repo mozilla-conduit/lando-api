@@ -34,6 +34,73 @@ from landoapi.tasks import celery
 from landoapi.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
+PATCH_NORMAL_1 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip()
+
+PATCH_NORMAL_2 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,2 +1,3 @@
+ TEST
+ adding another line
++adding one more line
+""".strip()
+
+PATCH_NORMAL_3 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+deleted file mode 100644
+--- a/test.txt
++++ /dev/null
+@@ -1,1 +0,0 @@
+-TEST
+diff --git a/blah.txt b/blah.txt
+new file mode 100644
+--- /dev/null
++++ b/blah.txt
+@@ -0,0 +1,1 @@
++TEST
+""".strip()
+
+
+@pytest.fixture
+def normal_patch():
+    """Return one of several "normal" patches."""
+    _patches = [
+        PATCH_NORMAL_1,
+        PATCH_NORMAL_2,
+        PATCH_NORMAL_3,
+    ]
+
+    def _patch(number=0):
+        return _patches[number]
+
+    return _patch
+
 
 class JSONClient(flask.testing.FlaskClient):
     """Custom Flask test client that sends JSON by default.

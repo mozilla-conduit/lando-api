@@ -5,6 +5,7 @@ import datetime
 import enum
 import logging
 import os
+from pathlib import Path
 from typing import (
     Any,
     Iterable,
@@ -12,9 +13,12 @@ from typing import (
 )
 
 import flask_sqlalchemy
+from mots.config import FileConfig
+from mots.directory import Directory
 from sqlalchemy import or_
 from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.dialects.postgresql.json import JSONB
+from sqlalchemy.orm.attributes import flag_modified
 
 from landoapi.models.base import Base
 from landoapi.models.revisions import Revision, revision_landing_job
@@ -298,6 +302,28 @@ class LandingJob(Base):
                 )
                 .values(diff_id=revision.diff_id)
             )
+
+    def set_landed_reviewers(self, path: Path):
+        """Set approving peers and owners at time of landing."""
+        directory = Directory(FileConfig(path))
+        for revision in self.revisions:
+            approved_by = revision.data.get("approved_by")
+            if not approved_by:
+                continue
+
+            if "peers_and_owners" not in revision.data:
+                revision.data["peers_and_owners"] = []
+
+            for reviewer in approved_by:
+                if (
+                    reviewer in directory.peers_and_owners
+                    and reviewer not in revision.data["peers_and_owners"]
+                ):
+                    revision.data["peers_and_owners"].append(reviewer)
+
+            # Mark revision.data as "modified" since SQLAlchemy does not seem to
+            # be detecting changes on JSONB fields.
+            flag_modified(revision, "data")
 
     def transition_status(
         self,

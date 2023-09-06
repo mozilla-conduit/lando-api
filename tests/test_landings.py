@@ -20,10 +20,12 @@ from landoapi.workers.landing_worker import LandingWorker
 
 
 @pytest.fixture
-def create_patch_revision(db):
+def create_patch_revision(db, normal_patch):
     """A fixture that fake uploads a patch"""
 
-    def _create_patch_revision(number, patch=PATCH_NORMAL_1):
+    normal_patch_0 = normal_patch(0)
+
+    def _create_patch_revision(number, patch=normal_patch_0):
         revision = Revision()
         revision.revision_id = number
         revision.diff_id = number
@@ -34,58 +36,6 @@ def create_patch_revision(db):
 
     return _create_patch_revision
 
-
-PATCH_NORMAL_1 = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-add another file.
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,1 +1,2 @@
- TEST
-+adding another line
-""".strip()
-
-PATCH_NORMAL_2 = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-add another file.
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,2 +1,3 @@
- TEST
- adding another line
-+adding one more line
-""".strip()
-
-PATCH_NORMAL_3 = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-add another file.
-diff --git a/test.txt b/test.txt
-deleted file mode 100644
---- a/test.txt
-+++ /dev/null
-@@ -1,1 +0,0 @@
--TEST
-diff --git a/blah.txt b/blah.txt
-new file mode 100644
---- /dev/null
-+++ b/blah.txt
-@@ -0,0 +1,1 @@
-+TEST
-""".strip()
 
 PATCH_PUSH_LOSER = r"""
 # HG changeset patch
@@ -251,6 +201,7 @@ def test_integrated_execute_job(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    normal_patch,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
@@ -284,7 +235,7 @@ def test_integrated_execute_job(
     )
 
     assert worker.run_job(job, repo, hgrepo, treestatus)
-    assert job.status == LandingJobStatus.LANDED
+    assert job.status == LandingJobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
         mock_trigger_update.call_count == 1
@@ -533,6 +484,7 @@ def test_format_patch_success_unchanged(
     treestatusdouble,
     monkeypatch,
     create_patch_revision,
+    normal_patch,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
     tree = "mozilla-central"
@@ -551,7 +503,7 @@ def test_format_patch_success_unchanged(
 
     revisions = [
         create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
-        create_patch_revision(2, patch=PATCH_NORMAL_3),
+        create_patch_revision(2, patch=normal_patch(2)),
     ]
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
