@@ -48,7 +48,7 @@ class HgException(Exception):
             PatchConflict,
             TreeClosed,
             TreeApprovalRequired,
-            TryPushTimeoutException,
+            PushTimeoutException,
         ):
             for s in cls.SNIPPETS:
                 if s in err or s in out:
@@ -86,10 +86,10 @@ class LostPushRace(HgException):
     )
 
 
-class TryPushTimeoutException(HgException):
+class PushTimeoutException(HgException):
     """Exception when pushing failed due to a timeout on the Try repo."""
 
-    SNIPPETS = (b"abort: working directory of /repo/hg/mozilla/try: timed out waiting",)
+    SNIPPETS = (b"timed out waiting for lock held by",)
 
 
 class PatchApplicationFailure(HgException):

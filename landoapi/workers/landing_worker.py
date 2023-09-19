@@ -21,9 +21,9 @@ from landoapi.hg import (
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
+    PushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
-    TryPushTimeoutException,
 )
 from landoapi.models.configuration import ConfigurationKey
 from landoapi.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
@@ -396,7 +396,7 @@ class LandingWorker(Worker):
                 TreeClosed,
                 TreeApprovalRequired,
                 LostPushRace,
-                TryPushTimeoutException,
+                PushTimeoutException,
             ) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
