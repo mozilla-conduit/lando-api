@@ -23,6 +23,7 @@ from landoapi.hg import (
     PatchConflict,
     TreeApprovalRequired,
     TreeClosed,
+    TryPushTimeoutException,
 )
 from landoapi.models.configuration import ConfigurationKey
 from landoapi.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
@@ -391,7 +392,12 @@ class LandingWorker(Worker):
                     bookmark=repo.push_bookmark or None,
                     force_push=repo.force_push,
                 )
-            except (TreeClosed, TreeApprovalRequired, LostPushRace) as e:
+            except (
+                TreeClosed,
+                TreeApprovalRequired,
+                LostPushRace,
+                TryPushTimeoutException,
+            ) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
                     f"encountered while pushing to {repo_info}"

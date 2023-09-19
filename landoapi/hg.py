@@ -43,7 +43,13 @@ class HgException(Exception):
             err.decode(errors="replace"),
         ).rstrip()
 
-        for cls in (LostPushRace, PatchConflict, TreeClosed, TreeApprovalRequired):
+        for cls in (
+            LostPushRace,
+            PatchConflict,
+            TreeClosed,
+            TreeApprovalRequired,
+            TryPushTimeoutException,
+        ):
             for s in cls.SNIPPETS:
                 if s in err or s in out:
                     return cls(msg)
@@ -78,6 +84,12 @@ class LostPushRace(HgException):
         b"abort: push creates new remote head",
         b"repository changed while pushing",
     )
+
+
+class TryPushTimeoutException(HgException):
+    """Exception when pushing failed due to a timeout on the Try repo."""
+
+    SNIPPETS = (b"abort: working directory of /repo/hg/mozilla/try: timed out waiting",)
 
 
 class PatchApplicationFailure(HgException):

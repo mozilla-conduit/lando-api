@@ -16,6 +16,7 @@ from landoapi.hg import (
     PatchConflict,
     TreeApprovalRequired,
     TreeClosed,
+    TryPushTimeoutException,
     hglib,
 )
 
@@ -233,6 +234,7 @@ def test_hg_exceptions():
         b"APPROVAL REQUIRED!": TreeApprovalRequired,
         b"is CLOSED!": TreeClosed,
         b"unresolved conflicts (see hg resolve": PatchConflict,
+        b"abort: working directory of /repo/hg/mozilla/try: timed out waiting for lock": TryPushTimeoutException,
     }
 
     for snippet, exception in snippet_exception_mapping.items():
