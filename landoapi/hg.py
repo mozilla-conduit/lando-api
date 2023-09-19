@@ -43,7 +43,13 @@ class HgException(Exception):
             err.decode(errors="replace"),
         ).rstrip()
 
-        for cls in (LostPushRace, PatchConflict, TreeClosed, TreeApprovalRequired):
+        for cls in (
+            LostPushRace,
+            PatchConflict,
+            TreeClosed,
+            TreeApprovalRequired,
+            PushTimeoutException,
+        ):
             for s in cls.SNIPPETS:
                 if s in err or s in out:
                     return cls(msg)
@@ -78,6 +84,12 @@ class LostPushRace(HgException):
         b"abort: push creates new remote head",
         b"repository changed while pushing",
     )
+
+
+class PushTimeoutException(HgException):
+    """Exception when pushing failed due to a timeout on the repo."""
+
+    SNIPPETS = (b"timed out waiting for lock held by",)
 
 
 class PatchApplicationFailure(HgException):
