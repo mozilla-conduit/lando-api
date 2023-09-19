@@ -87,7 +87,7 @@ class LostPushRace(HgException):
 
 
 class PushTimeoutException(HgException):
-    """Exception when pushing failed due to a timeout on the Try repo."""
+    """Exception when pushing failed due to a timeout on the repo."""
 
     SNIPPETS = (b"timed out waiting for lock held by",)
 
