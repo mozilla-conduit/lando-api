@@ -158,3 +158,11 @@ def test_landing_job_acquire_job_job_queue_query(db):
     assert queue_items[0] is jobs[2]
     assert queue_items[1] is jobs[0]
     assert jobs[1] not in queue_items
+
+
+def test_stats_validate_date(db, client, landing_job):
+    landing_job(LandingJobStatus.SUBMITTED)
+
+    response = client.get("/stats?end_date=@@B41w8&start_date=test")
+
+    assert response.status_code == 400

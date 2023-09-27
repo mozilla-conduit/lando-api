@@ -74,6 +74,22 @@ def put(landing_job_id: str, data: dict):
         )
 
 
+def try_convert_datetime(date: str) -> datetime:
+    """Attempt to convert a `str` version of a date to a `datetime`.
+
+    Raise a `ProblemException` on error.
+    """
+    try:
+        return datetime.fromisoformat(date)
+    except ValueError:
+        raise ProblemException(
+            400,
+            f"Passed date value {date} is not a valid date.",
+            f"Passed date value {date} is not a valid date.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
+
+
 def get_stats(start_date: str = "", end_date: str = "") -> dict:
     """Return landing job statistics between given dates.
 
@@ -87,12 +103,12 @@ def get_stats(start_date: str = "", end_date: str = "") -> dict:
     if not start_date:
         start_date_datetime = datetime.now()
     else:
-        start_date_datetime = datetime.fromisoformat(start_date)
+        start_date_datetime = try_convert_datetime(start_date)
 
     if not end_date:
         end_date_datetime = datetime.now()
     else:
-        end_date_datetime = datetime.fromisoformat(end_date)
+        end_date_datetime = try_convert_datetime(end_date)
 
     start_date_datetime = start_date_datetime.replace(
         hour=0, minute=0, second=0, microsecond=0
