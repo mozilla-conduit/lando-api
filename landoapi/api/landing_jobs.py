@@ -74,7 +74,7 @@ def put(landing_job_id: str, data: dict):
         )
 
 
-def try_convert_datetime(date: str) -> datetime:
+def datetime_from_string(date: str) -> datetime:
     """Attempt to convert a `str` version of a date to a `datetime`.
 
     Raise a `ProblemException` on error.
