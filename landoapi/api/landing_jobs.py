@@ -2,11 +2,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
-from datetime import datetime
 
 from connexion import ProblemException
 from flask import g
-from sqlalchemy import Date, func
 
 from landoapi import auth
 from landoapi.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
@@ -72,60 +70,3 @@ def put(landing_job_id: str, data: dict):
             f"Landing job status ({landing_job.status}) does not allow cancelling.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
-
-
-def get_stats(start_date: str = "", end_date: str = "") -> dict:
-    """Return landing job statistics between given dates.
-
-    Args:
-        start_date: A string representing the start date (e.g. 2020-01-23).
-        end_date: A string representing the end date.
-
-    Returns:
-        Some meta data and the aggregated statistics.
-    """
-    if not start_date:
-        start_date_datetime = datetime.now()
-    else:
-        start_date_datetime = datetime.fromisoformat(start_date)
-
-    if not end_date:
-        end_date_datetime = datetime.now()
-    else:
-        end_date_datetime = datetime.fromisoformat(end_date)
-
-    start_date_datetime = start_date_datetime.replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-    end_date_datetime = end_date_datetime.replace(
-        hour=23, minute=59, second=59, microsecond=999999
-    )
-
-    if start_date_datetime > end_date_datetime:
-        raise ProblemException(
-            400,
-            "start_date must be on or before end_date.",
-            (
-                f"start_date provided: {start_date_datetime}, "
-                f"end_date provided: {end_date_datetime}."
-            ),
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
-        )
-
-    result = (
-        db.session.query(
-            func.avg(LandingJob.duration_seconds).label("duration_seconds__avg"),
-            func.avg(LandingJob.attempts).label("attempts__avg"),
-            func.sum(LandingJob.duration_seconds).label("duration_seconds__sum"),
-            func.count(LandingJob.id).label("id__count"),
-            LandingJob.created_at.cast(Date).label("day"),
-        )
-        .filter(
-            LandingJob.status == LandingJobStatus.LANDED,
-            LandingJob.created_at <= end_date_datetime,
-            LandingJob.created_at >= start_date_datetime,
-        )
-        .group_by("day")
-    )
-
-    return {"data": [r._asdict() for r in result.all()]}
