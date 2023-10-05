@@ -107,7 +107,7 @@ def get_timestamp_from_hg_date_header(date_header: str) -> str:
 class PatchHelper:
     """Base class for parsing patches/exports."""
 
-    def __init__(self, fileobj: io.BytesIO):
+    def __init__(self, fileobj: io.StringIO):
         self.patch = fileobj
         self.headers = {}
 
@@ -137,15 +137,15 @@ class PatchHelper:
         """Return the patch diff."""
         raise NotImplementedError("`get_diff` not implemented.")
 
-    def write_commit_description(self, f: io.BytesIO):
+    def write_commit_description(self, f: io.StringIO):
         """Writes the commit description to the specified file object."""
-        f.write(self.get_commit_description().encode("utf-8"))
+        f.write(self.get_commit_description())
 
-    def write_diff(self, file_obj: io.BytesIO):
+    def write_diff(self, file_obj: io.StringIO):
         """Writes the diff to the specified file object."""
-        file_obj.write(self.get_diff().encode("utf-8"))
+        file_obj.write(self.get_diff())
 
-    def write(self, f: io.BytesIO):
+    def write(self, f: io.StringIO):
         """Writes whole patch to the specified file object."""
         try:
             buf = self.patch.read()
@@ -165,7 +165,7 @@ class PatchHelper:
 class HgPatchHelper(PatchHelper):
     """Helper class for parsing Mercurial patches/exports."""
 
-    def __init__(self, fileobj: io.BytesIO):
+    def __init__(self, fileobj: io.StringIO):
         super().__init__(fileobj)
         self.header_end_line_no = 0
         self._parse_header()
@@ -194,12 +194,11 @@ class HgPatchHelper(PatchHelper):
         self.patch.seek(0)
         try:
             for line in self.patch:
-                if not line.startswith(b"# "):
+                if not line.startswith("# "):
                     break
                 self.header_end_line_no += 1
-                line_str = line.decode("utf-8")
                 for name in HG_HEADER_NAMES:
-                    value = self._header_value(line_str, name)
+                    value = self._header_value(line, name)
                     if value:
                         self.set_header(name, value)
                         break
@@ -215,18 +214,16 @@ class HgPatchHelper(PatchHelper):
                 if i <= self.header_end_line_no:
                     continue
 
-                line_str = line.decode("utf-8")
-
                 # If we found a `Diff Start Line` header and we have parsed to that line,
                 # the commit description has been parsed and we can break.
                 # If there was no `Diff Start Line` header, iterate through each line until
                 # we find a `diff` line, then break as we have parsed the commit description.
                 if (self.diff_start_line and i == self.diff_start_line) or (
-                    not self.diff_start_line and self._is_diff_line(line_str)
+                    not self.diff_start_line and self._is_diff_line(line)
                 ):
                     break
 
-                commit_desc.append(line_str)
+                commit_desc.append(line)
 
             return "".join(commit_desc).strip()
         finally:
@@ -238,19 +235,17 @@ class HgPatchHelper(PatchHelper):
 
         try:
             for i, line in enumerate(self.patch, start=1):
-                line_str = line.decode("utf-8")
-
                 # If we found a `Diff Start Line` header, parse the diff until that line.
                 # If there was no `Diff Start Line` header, iterate through each line until
                 # we find a `diff` line.
-                if (not self.diff_start_line and self._is_diff_line(line_str)) or (
+                if (not self.diff_start_line and self._is_diff_line(line)) or (
                     self.diff_start_line and i == self.diff_start_line
                 ):
-                    diff.append(line_str)
+                    diff.append(line)
                     break
 
             buf = self.patch.read()
-            diff.append(buf.decode("utf-8"))
+            diff.append(buf)
 
             return "".join(diff)
         finally:
@@ -278,9 +273,9 @@ class HgPatchHelper(PatchHelper):
 class GitPatchHelper(PatchHelper):
     """Helper class for parsing Mercurial patches/exports."""
 
-    def __init__(self, fileobj: io.BytesIO):
+    def __init__(self, fileobj: io.StringIO):
         super().__init__(fileobj)
-        self.message = email.message_from_bytes(
+        self.message = email.message_from_string(
             self.patch.read(), policy=default_email_policy
         )
         self.commit_message, self.diff = self.parse_email_body(

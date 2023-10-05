@@ -57,7 +57,7 @@ diff --git a/hello.c b/hello.c
  }
 """
 
-GIT_PATCH = rb"""
+GIT_PATCH = r"""
 From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 6 Jul 2022 16:36:09 -0400
@@ -153,8 +153,8 @@ def test_patchhelper_is_diff_line(line, expected):
 
 def test_patchhelper_vanilla_export():
     patch = HgPatchHelper(
-        io.BytesIO(
-            b"""
+        io.StringIO(
+            """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -181,8 +181,8 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 def test_patchhelper_start_line():
     patch = HgPatchHelper(
-        io.BytesIO(
-            b"""
+        io.StringIO(
+            """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -207,8 +207,8 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 def test_patchhelper_no_header():
     patch = HgPatchHelper(
-        io.BytesIO(
-            b"""
+        io.StringIO(
+            """
 WIP transplant and diff-start-line
 
 diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
@@ -226,8 +226,8 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 def test_patchhelper_diff_injection_no_start_line():
     patch = HgPatchHelper(
-        io.BytesIO(
-            b"""
+        io.StringIO(
+            """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -254,8 +254,8 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 def test_patchhelper_diff_injection_start_line():
     patch = HgPatchHelper(
-        io.BytesIO(
-            b"""
+        io.StringIO(
+            """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -288,7 +288,7 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 
 
 def test_patchhelper_write_start_line():
-    header = b"""
+    header = """
 # HG changeset patch
 # User byron jones <glob@mozilla.com>
 # Date 1523427125 -28800
@@ -297,10 +297,10 @@ def test_patchhelper_write_start_line():
 # Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
 # Diff Start Line 10
 """.strip()
-    commit_desc = b"""
+    commit_desc = """
 WIP transplant and diff-start-line
 """.strip()
-    diff = b"""
+    diff = """
 diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 --- a/autoland/autoland/transplant.py
 +++ b/autoland/autoland/transplant.py
@@ -308,13 +308,13 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 # instead of passing the url to 'hg import' to make
 ...
 """.strip()
-    patch = HgPatchHelper(io.BytesIO(b"%s\n%s\n\n%s" % (header, commit_desc, diff)))
+    patch = HgPatchHelper(io.StringIO("%s\n%s\n\n%s" % (header, commit_desc, diff)))
 
-    buf = io.BytesIO(b"")
+    buf = io.StringIO("")
     patch.write_commit_description(buf)
     assert buf.getvalue() == commit_desc
 
-    buf = io.BytesIO(b"")
+    buf = io.StringIO("")
     patch.write_diff(buf)
     assert buf.getvalue() == diff
 
@@ -339,23 +339,21 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
 # instead of passing the url to 'hg import' to make
 ...
 """.strip()
-    patch = HgPatchHelper(
-        io.BytesIO(f"{header}\n{commit_desc}\n\n{diff}".encode("utf-8"))
-    )
+    patch = HgPatchHelper(io.StringIO(f"{header}\n{commit_desc}\n\n{diff}"))
 
-    buf = io.BytesIO(b"")
+    buf = io.StringIO("")
     patch.write_commit_description(buf)
-    assert buf.getvalue().decode("utf-8") == commit_desc
+    assert buf.getvalue() == commit_desc
 
     assert patch.get_diff() == diff
 
-    buf = io.BytesIO(b"")
+    buf = io.StringIO("")
     patch.write_diff(buf)
-    assert buf.getvalue().decode("utf-8") == diff
+    assert buf.getvalue() == diff
 
 
 def test_git_formatpatch_helper_parse():
-    patch = GitPatchHelper(io.BytesIO(GIT_PATCH))
+    patch = GitPatchHelper(io.StringIO(GIT_PATCH))
     assert (
         patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
     ), "`From` header should contain author information."

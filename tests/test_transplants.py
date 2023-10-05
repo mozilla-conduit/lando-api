@@ -1188,10 +1188,9 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     assert response == 202
 
     # Check the transplanted patch for our alternate commit message.
-    patch_text = Revision.get_from_revision_id(revision["id"]).patch_bytes.decode(
-        "utf-8"
-    )
-    assert sec_approval_project["name"] not in patch_text
+    transplanted_patch = Revision.get_from_revision_id(revision["id"])
+    assert transplanted_patch is not None, "Transplanted patch should be retrievable."
+    assert sec_approval_project["name"] not in transplanted_patch.patch_string
 
 
 def test_warning_wip_commit_message(phabdouble):

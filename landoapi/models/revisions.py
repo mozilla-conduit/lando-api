@@ -82,6 +82,11 @@ class Revision(Base):
         )
         return f"<{self.__class__.__name__}: {self.id}{phab_identifier}>"
 
+    @property
+    def patch_string(self) -> str:
+        """Return the patch as a UTF-8 encoded string."""
+        return self.patch_bytes.decode("utf-8")
+
     @classmethod
     def get_from_revision_id(cls, revision_id: int) -> "Revision" | None:
         """Return a Revision object from a given ID."""
