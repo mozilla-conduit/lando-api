@@ -107,9 +107,6 @@ def get_timestamp_from_hg_date_header(date_header: str) -> str:
 class PatchHelper:
     """Base class for parsing patches/exports."""
 
-    # Read 16KiB at a time.
-    PATCH_READ_BYTES = 16 * 1024
-
     def __init__(self, fileobj: io.BytesIO):
         self.patch = fileobj
         self.headers = {}
@@ -151,8 +148,8 @@ class PatchHelper:
     def write(self, f: io.BytesIO):
         """Writes whole patch to the specified file object."""
         try:
-            while buf := self.patch.read(PatchHelper.PATCH_READ_BYTES):
-                f.write(buf)
+            buf = self.patch.read()
+            f.write(buf)
         finally:
             self.patch.seek(0)
 
@@ -252,9 +249,8 @@ class HgPatchHelper(PatchHelper):
                     diff.append(line_str)
                     break
 
-            # Iterate through the remaining lines in the patch.
-            while buf := self.patch.read(PatchHelper.PATCH_READ_BYTES):
-                diff.append(buf.decode("utf-8"))
+            buf = self.patch.read()
+            diff.append(buf.decode("utf-8"))
 
             return "".join(diff)
         finally:
