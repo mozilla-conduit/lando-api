@@ -37,6 +37,25 @@ def create_patch_revision(db, normal_patch):
     return _create_patch_revision
 
 
+LARGE_UTF8_THING = "😁" * 1000000
+
+LARGE_PATCH = rf"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++{LARGE_UTF8_THING}
+""".strip()
+
+
 PATCH_PUSH_LOSER = r"""
 # HG changeset patch
 # User Test User <test@example.com>
@@ -192,6 +211,16 @@ aDd oNe mOrE LiNe
 """.lstrip()
 
 
+@pytest.mark.parametrize(
+    "revisions_params",
+    [
+        [
+            (1, {}),
+            (2, {}),
+        ],
+        [(1, {"patch": LARGE_PATCH})],
+    ],
+)
 def test_integrated_execute_job(
     app,
     db,
@@ -202,6 +231,7 @@ def test_integrated_execute_job(
     monkeypatch,
     create_patch_revision,
     normal_patch,
+    revisions_params,
 ):
     treestatus = treestatusdouble.get_treestatus_client()
     treestatusdouble.open_tree("mozilla-central")
@@ -214,8 +244,7 @@ def test_integrated_execute_job(
     )
     hgrepo = HgRepo(hg_clone.strpath)
     revisions = [
-        create_patch_revision(1),
-        create_patch_revision(2),
+        create_patch_revision(number, **kwargs) for number, kwargs in revisions_params
     ]
     job_params = {
         "status": LandingJobStatus.IN_PROGRESS,
