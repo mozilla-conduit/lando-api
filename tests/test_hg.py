@@ -14,6 +14,7 @@ from landoapi.hg import (
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
+    PullFailureException,
     PushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
@@ -234,6 +235,7 @@ def test_hg_exceptions():
         b"is CLOSED!": TreeClosed,
         b"unresolved conflicts (see hg resolve": PatchConflict,
         b"timed out waiting for lock held by": PushTimeoutException,
+        b"Unexpected error while fetching repo from localhost": PullFailureException,
     }
 
     for snippet, exception in snippet_exception_mapping.items():

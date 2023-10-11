@@ -21,6 +21,7 @@ from landoapi.hg import (
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
+    PullFailureException,
     PushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
@@ -279,8 +280,20 @@ class LandingWorker(Worker):
 
         with hgrepo.for_push(job.requester_email):
             # Update local repo.
+            repo_pull_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
                 hgrepo.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
+            except PullFailureException as e:
+                message = (
+                    f"`Temporary error ({e.__class__}) "
+                    f"encountered while pulling from {repo_pull_info}"
+                )
+                job.transition_status(
+                    LandingJobAction.DEFER, message=message, commit=True, db=db
+                )
+
+                # Try again, this is a temporary failure.
+                return False
             except Exception as e:
                 message = f"Unexpected error while fetching repo from {repo.pull_path}."
                 logger.exception(message)
@@ -385,7 +398,7 @@ class LandingWorker(Worker):
                 "utf-8"
             )
 
-            repo_info = f"tree: {repo.tree}, push path: {repo.push_path}"
+            repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
                 hgrepo.push(
                     repo.push_path,
@@ -400,7 +413,7 @@ class LandingWorker(Worker):
             ) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
-                    f"encountered while pushing to {repo_info}"
+                    f"encountered while pushing to {repo_push_info}"
                 )
                 job.transition_status(
                     LandingJobAction.DEFER, message=message, commit=True, db=db
