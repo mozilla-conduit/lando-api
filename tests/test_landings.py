@@ -589,7 +589,7 @@ def test_format_single_success_changed(
     # Push the `mach` formatting patch.
     hgrepo = HgRepo(hg_clone.strpath)
     with hgrepo.for_push("test@example.com"):
-        hgrepo.apply_patch(io.BytesIO(PATCH_FORMATTING_PATTERN_PASS.encode("utf-8")))
+        hgrepo.apply_patch(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
         hgrepo.push(repo.push_path)
         pre_landing_tip = hgrepo.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
             "utf-8"

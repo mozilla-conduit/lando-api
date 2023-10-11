@@ -7,7 +7,7 @@ import logging
 import re
 from contextlib import contextmanager
 from datetime import datetime
-from io import BytesIO
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -295,7 +295,7 @@ class LandingWorker(Worker):
 
             # Run through the patches one by one and try to apply them.
             for revision in job.revisions:
-                patch_buf = BytesIO(revision.patch_bytes)
+                patch_buf = StringIO(revision.patch_string)
 
                 try:
                     hgrepo.apply_patch(patch_buf)

@@ -66,10 +66,10 @@ def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
     )
 
 
-def convert_json_patch_to_bytes(patch: str) -> bytes:
-    """Convert from the base64 encoded patch to `bytes`."""
+def decode_json_patch_to_text(patch: str) -> str:
+    """Decode from the base64 encoded patch to `str`."""
     try:
-        return base64.b64decode(patch.encode("ascii"))
+        return base64.b64decode(patch.encode("ascii")).decode("utf-8")
     except binascii.Error:
         raise ProblemException(
             400,
@@ -83,13 +83,9 @@ def parse_revisions_from_request(
     patches: list[str], patch_format: PatchFormat
 ) -> list[Revision]:
     """Convert a set of base64 encoded patches to `Revision` objects."""
-    patches_bytes = (
-        io.BytesIO(convert_json_patch_to_bytes(patch)) for patch in patches
-    )
+    patches_io = (io.StringIO(decode_json_patch_to_text(patch)) for patch in patches)
 
-    patch_helpers = (
-        PATCH_HELPER_MAPPING[patch_format](patch) for patch in patches_bytes
-    )
+    patch_helpers = (PATCH_HELPER_MAPPING[patch_format](patch) for patch in patches_io)
 
     try:
         return [

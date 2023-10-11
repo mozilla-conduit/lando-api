@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import configparser
 import copy
+import io
 import logging
 import os
 import shlex
@@ -313,7 +314,7 @@ class HgRepo:
             except hglib.error.CommandError:
                 pass
 
-    def apply_patch(self, patch_io_buf):
+    def apply_patch(self, patch_io_buf: io.StringIO):
         patch_helper = HgPatchHelper(patch_io_buf)
         if not patch_helper.diff_start_line:
             raise NoDiffStartLine()
@@ -322,8 +323,8 @@ class HgRepo:
 
         # Import the diff to apply the changes then commit separately to
         # ensure correct parsing of the commit message.
-        f_msg = tempfile.NamedTemporaryFile()
-        f_diff = tempfile.NamedTemporaryFile()
+        f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
+        f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
         with f_msg, f_diff:
             patch_helper.write_commit_description(f_msg)
             f_msg.flush()
