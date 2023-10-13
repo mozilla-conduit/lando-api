@@ -4,7 +4,7 @@
 
 import json
 
-from tests.utils import phab_url, trans_url
+from tests.utils import phab_url
 
 
 def test_dockerflow_lb_endpoint_returns_200(client):
@@ -23,14 +23,13 @@ def test_dockerflow_version_matches_disk_contents(client, versionfile):
 
 
 def test_heartbeat_returns_200(
-    client, db, phabdouble, request_mocker, redis_cache, s3, jwks
+    client, db, phabdouble, request_mocker, redis_cache, jwks
 ):
-    request_mocker.get(trans_url(""), status_code=200, text="Welcome to Autoland")
     assert client.get("/__heartbeat__").status_code == 200
 
 
 def test_heartbeat_returns_http_502_if_phabricator_ping_returns_error(
-    client, request_mocker, redis_cache, s3, jwks
+    client, request_mocker, redis_cache, jwks
 ):
     error_json = {
         "result": None,
@@ -38,7 +37,6 @@ def test_heartbeat_returns_http_502_if_phabricator_ping_returns_error(
         "error_info": "BOOM",
     }
 
-    request_mocker.get(trans_url(""), status_code=200, text="Welcome to Autoland")
     request_mocker.get(phab_url("conduit.ping"), status_code=500, json=error_json)
     response = client.get("/__heartbeat__")
 

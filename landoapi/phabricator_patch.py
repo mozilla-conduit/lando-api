@@ -4,10 +4,13 @@
 # Largely inspired by moz-phab:
 # https://github.com/mozilla-conduit/review/blob/1.40/moz-phab#L1187
 import enum
+
 import rs_parsepatch
 
 
 class FileType(enum.Enum):
+    """Enum representing the possible filetypes in the Phabricator format."""
+
     TEXT = 1
     IMAGE = 2
     BINARY = 3
@@ -18,6 +21,8 @@ class FileType(enum.Enum):
 
 
 class ChangeKind(enum.Enum):
+    """Enum representing the possible change kinds in the Phabricator format."""
+
     ADD = 1
     CHANGE = 2
     DELETE = 3
@@ -28,32 +33,46 @@ class ChangeKind(enum.Enum):
     MULTICOPY = 8
 
 
+class DiffOperation(enum.Enum):
+    """Enum representing the different types of line operations in diffs."""
+
+    NOOP = " "
+    ADD = "+"
+    DELETE = "-"
+
+
 def serialize_hunk(hunk: list) -> dict:
     """Convert a list of diff hunks into a dict representation."""
-    prev_op = " "
+    prev_op = DiffOperation.NOOP
     old_eof_newline, new_eof_newline = True, True
     corpus = []
-    olds = [l[0] for l in hunk if l[0] is not None]
-    news = [l[1] for l in hunk if l[1] is not None]
+    olds = []
+    news = []
     add_lines, del_lines = 0, 0
-    for (old, new, line) in hunk:
+    for old, new, line in hunk:
+        # Collect all the old and new lines.
+        if old is not None:
+            olds.append(old)
+        if new is not None:
+            news.append(new)
+
         line = line.decode("utf-8")
 
-        # Rebuild each line as patch
-        op = " "
+        # Rebuild each line as patch.
+        op = DiffOperation.NOOP
         if old is None and new is not None:
-            op = "+"
+            op = DiffOperation.ADD
             add_lines += 1
         elif old is not None and new is None:
-            op = "-"
+            op = DiffOperation.DELETE
             del_lines += 1
-        corpus.append(f"{op}{line}")
+        corpus.append(f"{op.value}{line}")
 
-        # Detect end of lines
+        # Detect end of lines.
         if line.endswith("No newline at end of file"):
-            if prev_op != "+":
+            if prev_op != DiffOperation.ADD:
                 old_eof_newline = False
-            if prev_op != "-":
+            if prev_op != DiffOperation.DELETE:
                 new_eof_newline = False
         prev_op = op
 

@@ -3,20 +3,18 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import datetime
-
 from unittest import mock
 
 import pytest
-
 from connexion import ProblemException
 
-from landoapi.treestatus import (
-    is_open,
-)
 from landoapi.api.treestatus import (
     CombinedTree,
     get_combined_tree,
     get_tree,
+)
+from landoapi.treestatus import (
+    is_open,
 )
 
 

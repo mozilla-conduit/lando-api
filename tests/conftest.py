@@ -9,20 +9,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
-import redis
-import requests
-import sqlalchemy
-import boto3
 import flask.testing
 import pytest
+import redis
+import requests
 import requests_mock
+import sqlalchemy
 from flask import current_app
-from moto import mock_s3
 from pytest_flask.plugin import JSONResponse
 
-from landoapi.app import construct_app, load_config, SUBSYSTEMS
-from landoapi.cache import cache, cache_subsystem
-from landoapi.mocks.auth import MockAuth0, TEST_JWKS
+from landoapi.app import SUBSYSTEMS, construct_app, load_config
+from landoapi.cache import cache
+from landoapi.mocks.auth import TEST_JWKS, MockAuth0
 from landoapi.models.treestatus import (
     Tree,
 )
@@ -33,13 +31,78 @@ from landoapi.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from landoapi.repos import Repo, SCM_LEVEL_3
-from landoapi.storage import db as _db, db_subsystem
+from landoapi.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
+from landoapi.storage import db as _db
 from landoapi.tasks import celery
-from landoapi.transplants import tokens_are_equal, CODE_FREEZE_OFFSET
-
-from tests.factories import TransResponseFactory
+from landoapi.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
 from tests.mocks import PhabricatorDouble
+
+PATCH_NORMAL_1 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,1 +1,2 @@
+ TEST
++adding another line
+""".strip()
+
+PATCH_NORMAL_2 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+--- a/test.txt
++++ b/test.txt
+@@ -1,2 +1,3 @@
+ TEST
+ adding another line
++adding one more line
+""".strip()
+
+PATCH_NORMAL_3 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+add another file.
+diff --git a/test.txt b/test.txt
+deleted file mode 100644
+--- a/test.txt
++++ /dev/null
+@@ -1,1 +0,0 @@
+-TEST
+diff --git a/blah.txt b/blah.txt
+new file mode 100644
+--- /dev/null
++++ b/blah.txt
+@@ -0,0 +1,1 @@
++TEST
+""".strip()
+
+
+@pytest.fixture
+def normal_patch():
+    """Return one of several "normal" patches."""
+    _patches = [
+        PATCH_NORMAL_1,
+        PATCH_NORMAL_2,
+        PATCH_NORMAL_3,
+    ]
+
+    def _patch(number=0):
+        return _patches[number]
+
+    return _patch
 
 
 class JSONClient(flask.testing.FlaskClient):
@@ -97,15 +160,6 @@ def docker_env_vars(versionfile, monkeypatch):
     )
     monkeypatch.setenv("BUGZILLA_URL", "http://bmo.test")
     monkeypatch.setenv("BUGZILLA_URL", "asdfasdfasdfasdfasdfasdf")
-    monkeypatch.setenv("TRANSPLANT_URL", "http://autoland.test")
-    monkeypatch.setenv("TRANSPLANT_API_KEY", "someapikey")
-    monkeypatch.setenv("TRANSPLANT_USERNAME", "autoland")
-    monkeypatch.setenv("TRANSPLANT_PASSWORD", "autoland")
-    monkeypatch.setenv("PINGBACK_ENABLED", "y")
-    monkeypatch.setenv("PINGBACK_HOST_URL", "http://lando-api.test")
-    monkeypatch.setenv("PATCH_BUCKET_NAME", "landoapi.test.bucket")
-    monkeypatch.delenv("AWS_ACCESS_KEY", raising=False)
-    monkeypatch.delenv("AWS_SECRET_KEY", raising=False)
     monkeypatch.setenv("OIDC_IDENTIFIER", "lando-api")
     monkeypatch.setenv("OIDC_DOMAIN", "lando-api.auth0.test")
     # Explicitly shut off cache use for all tests.  Tests can re-enable the cache
@@ -155,12 +209,6 @@ def release_management_project(phabdouble):
 
 
 @pytest.fixture
-def transfactory(request_mocker):
-    """Mock Transplant service."""
-    yield TransResponseFactory(request_mocker)
-
-
-@pytest.fixture
 def versionfile(tmpdir):
     """Provide a temporary version.json on disk."""
     v = tmpdir.mkdir("app").join("version.json")
@@ -198,6 +246,7 @@ def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     # We need the TESTING setting turned on to get tracebacks when testing API
     # endpoints with the TestClient.
     config["TESTING"] = True
+    config["CACHE_DISABLED"] = True
     app = construct_app(config)
     flask_app = app.app
     flask_app.test_client_class = JSONClient
@@ -210,31 +259,17 @@ def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
 @pytest.fixture
 def db(app):
     """Reset database for each test."""
-    with app.app_context():
-        db_subsystem.init_app(app)
-        try:
-            _db.engine.connect()
-        except sqlalchemy.exc.OperationalError:
-            if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
-                raise
-            else:
-                pytest.skip("Could not connect to PostgreSQL")
-        _db.create_all()
-        yield _db
-        _db.session.remove()
-        _db.drop_all()
-
-
-@pytest.fixture
-def s3(docker_env_vars):
-    """Provide s3 mocked connection."""
-    bucket = os.getenv("PATCH_BUCKET_NAME")
-    with mock_s3():
-        s3 = boto3.resource("s3")
-        # We need to create the bucket since this is all in Moto's
-        # 'virtual' AWS account
-        s3.create_bucket(Bucket=bucket)
-        yield s3
+    try:
+        _db.engine.connect()
+    except sqlalchemy.exc.OperationalError:
+        if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
+            raise
+        else:
+            pytest.skip("Could not connect to PostgreSQL")
+    _db.create_all()
+    yield _db
+    _db.session.remove()
+    _db.drop_all()
 
 
 @pytest.fixture
@@ -272,20 +307,28 @@ def mocked_repo_config(mock_repo_config):
                     url="http://hg.test",
                     access_group=SCM_LEVEL_3,
                     approval_required=False,
-                    legacy_transplant=True,
                 ),
                 "mozilla-uplift": Repo(
                     tree="mozilla-uplift",
                     url="http://hg.test/uplift",
                     access_group=SCM_LEVEL_3,
                     approval_required=True,
-                    legacy_transplant=True,
                 ),
                 "mozilla-new": Repo(
                     tree="mozilla-new",
                     url="http://hg.test/new",
                     access_group=SCM_LEVEL_3,
                     commit_flags=[("VALIDFLAG1", "testing"), ("VALIDFLAG2", "testing")],
+                ),
+                "try": Repo(
+                    tree="try",
+                    url="http://hg.test/try",
+                    push_path="http://hg.test/try",
+                    pull_path="http://hg.test",
+                    access_group=SCM_LEVEL_1,
+                    short_name="try",
+                    is_phabricator_repo=False,
+                    force_push=True,
                 ),
             }
         }
@@ -318,23 +361,19 @@ def get_phab_client(app):
 
 @pytest.fixture
 def redis_cache(app):
-    with app.app_context():
-        cache_subsystem.init_app(app)
-        cache.init_app(
-            app, config={"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": "redis.cache"}
-        )
-        try:
-            cache.clear()
-        except redis.exceptions.ConnectionError:
-            if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
-                raise
-            else:
-                pytest.skip("Could not connect to Redis")
-        yield cache
+    cache.init_app(
+        app, config={"CACHE_TYPE": "redis", "CACHE_REDIS_HOST": "redis.cache"}
+    )
+    try:
         cache.clear()
-        cache.init_app(
-            app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True}
-        )
+    except redis.exceptions.ConnectionError:
+        if EXTERNAL_SERVICES_SHOULD_BE_PRESENT:
+            raise
+        else:
+            pytest.skip("Could not connect to Redis")
+    yield cache
+    cache.clear()
+    cache.init_app(app, config={"CACHE_TYPE": "null", "CACHE_NO_NULL_WARNING": True})
 
 
 @pytest.fixture

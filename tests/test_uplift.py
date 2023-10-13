@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import pytest
-
 from packaging.version import (
     Version,
 )
@@ -19,6 +18,7 @@ from landoapi.uplift import (
     create_uplift_bug_update_payload,
     get_revisions_without_bugs,
     parse_milestone_version,
+    strip_depends_on_from_commit_message,
 )
 
 MILESTONE_TEST_CONTENTS_1 = """
@@ -66,6 +66,27 @@ def test_parse_milestone_version():
     bad_milestone_contents = "blahblahblah"
     with pytest.raises(ValueError, match=bad_milestone_contents):
         parse_milestone_version(bad_milestone_contents)
+
+
+DEPENDS_ON_MESSAGE = """
+bug 123: testing r?sheehan
+
+Something something Depends on D1234
+
+Differential Revision: http://phab.test/D234
+
+Depends on D567
+""".strip()
+
+
+def test_strip_depends_on_from_commit_message():
+    assert strip_depends_on_from_commit_message(DEPENDS_ON_MESSAGE) == (
+        "bug 123: testing r?sheehan\n"
+        "\n"
+        "Something something Depends on D1234\n"
+        "\n"
+        "Differential Revision: http://phab.test/D234\n"
+    ), "`Depends on` line should be stripped from commit message."
 
 
 @pytest.mark.xfail
@@ -298,7 +319,9 @@ def test_create_uplift_bug_update_payload():
         "keywords": [],
         "whiteboard": "[checkin-needed-beta]",
     }
-    payload = create_uplift_bug_update_payload(bug, "beta", 100)
+    payload = create_uplift_bug_update_payload(
+        bug, "beta", 100, "cf_status_firefox{milestone}"
+    )
 
     assert payload["ids"] == [123], "Passed bug ID should be present in the payload."
     assert (
@@ -314,7 +337,9 @@ def test_create_uplift_bug_update_payload():
         "keywords": ["leave-open"],
         "whiteboard": "[checkin-needed-beta]",
     }
-    payload = create_uplift_bug_update_payload(bug, "beta", 100)
+    payload = create_uplift_bug_update_payload(
+        bug, "beta", 100, "cf_status_firefox{milestone}"
+    )
 
     assert (
         "cf_status_firefox100" not in payload

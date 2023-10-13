@@ -7,13 +7,14 @@ import os
 import pytest
 
 from landoapi.hg import (
+    REQUEST_USER_ENV_VAR,
     HgCommandError,
     HgException,
     HgRepo,
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
-    REQUEST_USER_ENV_VAR,
+    PushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
     hglib,
@@ -77,7 +78,7 @@ def test_integrated_hgrepo_can_log(hg_clone):
         assert repo.run_hg_cmds([["log"]])
 
 
-PATCH_WITHOUT_STARTLINE = rb"""
+PATCH_WITHOUT_STARTLINE = r"""
 # HG changeset patch
 # User Test User <test@example.com>
 # Date 0 0
@@ -92,7 +93,7 @@ diff --git a/test.txt b/test.txt
 """.strip()
 
 
-PATCH_WITH_CONFLICT = rb"""
+PATCH_WITH_CONFLICT = r"""
 # HG changeset patch
 # User Test User <test@example.com>
 # Date 0 0
@@ -108,7 +109,7 @@ diff --git a/not-real.txt b/not-real.txt
 """.strip()
 
 
-PATCH_DELETE_NO_NEWLINE_FILE = b"""
+PATCH_DELETE_NO_NEWLINE_FILE = """
 # HG changeset patch
 # User Test User <test@example.com>
 # Date 0 0
@@ -125,7 +126,7 @@ deleted file mode 100644
 \\ No newline at end of file
 """.strip()
 
-PATCH_NORMAL = rb"""
+PATCH_NORMAL = r"""
 # HG changeset patch
 # User Test User <test@example.com>
 # Date 0 0
@@ -153,11 +154,10 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +adding another line
-""".strip().encode(
-    "utf-8"
-)
+""".strip()
 
-PATCH_FAIL_HEADER = b"""
+
+PATCH_FAIL_HEADER = """
 # HG changeset patch
 # User Test User <test@example.com>
 # Date 0 0
@@ -180,19 +180,19 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
     # We should refuse to apply patches that are missing a
     # Diff Start Line header.
     with pytest.raises(NoDiffStartLine), repo.for_pull():
-        repo.apply_patch(io.BytesIO(PATCH_WITHOUT_STARTLINE))
+        repo.apply_patch(io.StringIO(PATCH_WITHOUT_STARTLINE))
 
     # Patches with conflicts should raise a proper PatchConflict exception.
     with pytest.raises(PatchConflict), repo.for_pull():
-        repo.apply_patch(io.BytesIO(PATCH_WITH_CONFLICT))
+        repo.apply_patch(io.StringIO(PATCH_WITH_CONFLICT))
 
     with repo.for_pull():
-        repo.apply_patch(io.BytesIO(PATCH_NORMAL))
+        repo.apply_patch(io.StringIO(PATCH_NORMAL))
         # Commit created.
         assert repo.run_hg(["outgoing"])
 
     with repo.for_pull():
-        repo.apply_patch(io.BytesIO(PATCH_UNICODE))
+        repo.apply_patch(io.StringIO(PATCH_UNICODE))
         # Commit created.
 
         log_output = repo.run_hg(["log"])
@@ -200,7 +200,7 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
         assert repo.run_hg(["outgoing"])
 
     with repo.for_pull():
-        repo.apply_patch(io.BytesIO(PATCH_FAIL_HEADER))
+        repo.apply_patch(io.StringIO(PATCH_FAIL_HEADER))
         # Commit created.
         assert repo.run_hg(["outgoing"])
 
@@ -221,7 +221,7 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
         repo.run_hg_cmds(
             [["add", new_file.strpath], ["commit", "-m", "adding file"], ["push"]]
         )
-        repo.apply_patch(io.BytesIO(PATCH_DELETE_NO_NEWLINE_FILE))
+        repo.apply_patch(io.StringIO(PATCH_DELETE_NO_NEWLINE_FILE))
         # Commit created.
         assert "file removed" in str(repo.run_hg(["outgoing"]))
 
@@ -233,6 +233,7 @@ def test_hg_exceptions():
         b"APPROVAL REQUIRED!": TreeApprovalRequired,
         b"is CLOSED!": TreeClosed,
         b"unresolved conflicts (see hg resolve": PatchConflict,
+        b"timed out waiting for lock held by": PushTimeoutException,
     }
 
     for snippet, exception in snippet_exception_mapping.items():

@@ -28,10 +28,10 @@ def test(ctx, testargs="", keep=False):
     )
 
 
-@task(name="flake8")
-def lint_flake8(ctx):
-    """Run flake8."""
-    run("docker-compose run --rm lando-api lint", pty=USE_PTY, echo=True)
+@task(name="ruff")
+def lint_ruff(ctx):
+    """Run ruff."""
+    run("docker-compose run --rm lando-api ruff", pty=USE_PTY, echo=True)
 
 
 @task(name="black")
@@ -40,7 +40,7 @@ def lint_black(ctx):
     run("docker-compose run --rm lando-api format", pty=USE_PTY, echo=True)
 
 
-@task(default=True, name="all", post=[lint_flake8, lint_black])
+@task(default=True, name="all", post=[lint_ruff, lint_black])
 def lint_all(ctx):
     """Lint project sourcecode."""
     pass
@@ -71,7 +71,7 @@ def upgrade(ctx):
 
 
 namespace = Collection(
-    Collection("lint", lint_all, lint_flake8, lint_black),
+    Collection("lint", lint_all, lint_ruff, lint_black),
     add_migration,
     format,
     setup_db,

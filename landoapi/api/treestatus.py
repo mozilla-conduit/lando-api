@@ -8,7 +8,6 @@ import datetime
 import functools
 import json
 import logging
-
 from typing import (
     Any,
     Callable,
@@ -17,7 +16,6 @@ from typing import (
 
 import pytz
 import sqlalchemy as sa
-
 from connexion import ProblemException
 from flask import g
 
@@ -398,7 +396,7 @@ def update_trees(body: dict):
 
     # Check that we fetched all the trees.
     if len(trees) != len(body["trees"]):
-        trees_diff = set(body["trees"]) - set(tree.tree for tree in trees)
+        trees_diff = set(body["trees"]) - {tree.tree for tree in trees}
         raise ProblemException(
             404,
             f"Could not fetch the following trees: {trees_diff}"

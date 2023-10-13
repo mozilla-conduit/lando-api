@@ -3,7 +3,6 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 from collections import Counter
-
 from typing import (
     Any,
     Callable,
@@ -11,19 +10,19 @@ from typing import (
 )
 
 from landoapi.models import SecApprovalRequest
-from landoapi.reviews import get_collated_reviewers
 from landoapi.phabricator import (
-    ReviewerStatus,
     PhabricatorAPIException,
     PhabricatorClient,
-    RevisionStatus,
+    PhabricatorRevisionStatus,
+    ReviewerStatus,
 )
+from landoapi.reviews import get_collated_reviewers
 from landoapi.secapproval import (
     CommentParseError,
     CommitDescription,
+    TransactionSearchError,
     parse_comment,
     search_sec_approval_request_for_comment,
-    TransactionSearchError,
 )
 from landoapi.uplift import (
     stack_uplift_form_submitted,
@@ -87,9 +86,9 @@ def serialize_diff(diff: dict) -> dict[str, Any]:
 
 def serialize_status(revision: dict) -> dict:
     status_value = PhabricatorClient.expect(revision, "fields", "status", "value")
-    status = RevisionStatus.from_status(status_value)
+    status = PhabricatorRevisionStatus.from_status(status_value)
 
-    if status is RevisionStatus.UNEXPECTED_STATUS:
+    if status is PhabricatorRevisionStatus.UNEXPECTED_STATUS:
         logger.warning(
             "Revision had unexpected status",
             extra={
@@ -134,10 +133,10 @@ def check_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
 
 
 def check_author_planned_changes(*, revision, **kwargs):
-    status = RevisionStatus.from_status(
+    status = PhabricatorRevisionStatus.from_status(
         PhabricatorClient.expect(revision, "fields", "status", "value")
     )
-    if status is not RevisionStatus.CHANGES_PLANNED:
+    if status is not PhabricatorRevisionStatus.CHANGES_PLANNED:
         return None
 
     return "The author has indicated they are planning changes to this revision."
@@ -147,7 +146,6 @@ def check_uplift_approval(relman_phid, supported_repos, stack_data) -> Callable:
     """Check that Release Managers group approved a revision"""
 
     def _check(*, revision, repo, **kwargs) -> Optional[str]:
-
         # Check if this repository needs an approval from relman
         local_repo = supported_repos.get(repo["fields"]["shortName"])
         assert local_repo is not None, "Unsupported repository"

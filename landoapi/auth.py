@@ -6,12 +6,9 @@ from __future__ import annotations
 
 import functools
 import hashlib
-import hmac
 import logging
 import os
-
 from collections.abc import Iterable
-
 from typing import (
     Callable,
     Optional,
@@ -24,8 +21,8 @@ from jose import jwt
 
 from landoapi.cache import cache
 from landoapi.mocks.auth import MockAuth0
+from landoapi.repos import AccessGroup
 from landoapi.systems import Subsystem
-
 
 logger = logging.getLogger(__name__)
 
@@ -377,14 +374,10 @@ class require_auth0:
 
     def __init__(
         self,
+        scopes: Iterable[str],
         groups: Optional[Iterable[str]] = None,
-        scopes: Optional[Iterable[str]] = None,
         userinfo: bool = False,
     ):
-        assert scopes is not None, (
-            "`scopes` must be provided. If this endpoint truly does not "
-            "require any scopes, explicilty pass an empty tuple `()`"
-        )
         assert not groups or userinfo, "Requiring `groups` implies `userinfo`."
 
         self.groups = groups
@@ -550,87 +543,40 @@ class require_auth0:
         return self._require_access_token(f)
 
 
-def _not_authorized_problem_exception() -> ProblemException:
-    return ProblemException(
-        403,
-        "Not Authorized",
-        "You're not authorized to proceed.",
-        type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
-    )
+def ensure_user_has_scm_level(auth0_user: A0User, access_group: AccessGroup):
+    """Raise an appropriate `ProblemException` if the user is missing `scm_level_1`."""
+    if not auth0_user.is_in_groups(access_group.membership_group):
+        raise ProblemException(
+            403,
+            f"{access_group.display_name} is required.",
+            f"You do not have {access_group.display_name}.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
+        )
+
+    # Check that user has active_scm_level_1 and not `expired_scm_level_1`.
+    if auth0_user.is_in_groups(
+        access_group.expired_group
+    ) or not auth0_user.is_in_groups(access_group.active_group):
+        raise ProblemException(
+            401,
+            f"Your {access_group.display_name} has expired.",
+            f"Your {access_group.display_name} has expired.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401",
+        )
 
 
-def require_transplant_authentication(f: Callable) -> Callable:
-    """Decorator which authenticates requests to only allow Transplant."""
+def enforce_request_scm_level(access_group: AccessGroup):
+    """Decorator to enforce `active_scm_level_1` membership with error messaging."""
 
-    @functools.wraps(f)
-    def wrapped(*args, **kwargs):
-        if current_app.config["PINGBACK_ENABLED"] != "y":
-            try:
-                # First try to log any arguments that were going to
-                # the endpoint (could fail json serialization).
-                logger.warning(
-                    "Attempt to access a disabled pingback",
-                    extra={
-                        "arguments": args,
-                        "kw_arguments": kwargs,
-                        "remote_addr": request.remote_addr,
-                    },
-                )
-            except TypeError:
-                # Reattempt logging without the arguments.
-                logger.warning(
-                    "Attempt to access a disabled pingback",
-                    extra={"remote_addr": request.remote_addr},
-                )
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrap_api(*args, **kwargs):
+            ensure_user_has_scm_level(g.auth0_user, access_group)
+            return func(*args, **kwargs)
 
-            raise _not_authorized_problem_exception()
+        return wrap_api
 
-        passed_key = request.headers.get("API-Key")
-        if not passed_key:
-            try:
-                # First try to log any arguments that were going to
-                # the endpoint (could fail json serialization).
-                logger.critical(
-                    "Attempt to pingback without API-Key header",
-                    extra={
-                        "arguments": args,
-                        "kw_arguments": kwargs,
-                        "remote_addr": request.remote_addr,
-                    },
-                )
-            except TypeError:
-                # Reattempt logging without the arguments.
-                logger.critical(
-                    "Attempt to pingback without API-Key header",
-                    extra={"remote_addr": request.remote_addr},
-                )
-
-            raise _not_authorized_problem_exception()
-
-        required_key = current_app.config["TRANSPLANT_API_KEY"]
-        if not hmac.compare_digest(passed_key, required_key):
-            try:
-                # First try to log any arguments that were going to
-                # the endpoint (could fail json serialization).
-                logger.critical(
-                    "Attempt to pingback with incorrect API-Key",
-                    extra={
-                        "arguments": args,
-                        "kw_arguments": kwargs,
-                        "remote_addr": request.remote_addr,
-                    },
-                )
-            except TypeError:
-                # Reattempt logging without the arguments.
-                logger.critical(
-                    "Attempt to pingback with incorrect API-Key",
-                    extra={"remote_addr": request.remote_addr},
-                )
-            raise _not_authorized_problem_exception()
-
-        return f(*args, **kwargs)
-
-    return wrapped
+    return decorator
 
 
 class Auth0Subsystem(Subsystem):

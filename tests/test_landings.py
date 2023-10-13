@@ -3,191 +3,58 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import io
-
-import pytest
 import textwrap
 import unittest.mock as mock
 
-from landoapi import patches
+import pytest
+
 from landoapi.hg import AUTOFORMAT_COMMIT_MESSAGE, HgRepo
-from landoapi.landing_worker import LandingWorker
-from landoapi.models.landing_job import LandingJob, LandingJobStatus
-from landoapi.models.transplant import Transplant, TransplantStatus
-from landoapi.repos import Repo, SCM_LEVEL_3
+from landoapi.models.landing_job import (
+    LandingJob,
+    LandingJobStatus,
+    add_job_with_revisions,
+)
+from landoapi.models.revisions import Revision
+from landoapi.repos import SCM_LEVEL_3, Repo
+from landoapi.workers.landing_worker import LandingWorker
 
 
 @pytest.fixture
-def upload_patch():
+def create_patch_revision(db, normal_patch):
     """A fixture that fake uploads a patch"""
 
-    def _upload_patch(number, patch=PATCH_NORMAL_1):
-        patches.upload(
-            number,
-            number,
-            patch,
-            "landoapi.test.bucket",
-            aws_access_key=None,
-            aws_secret_key=None,
-        )
+    normal_patch_0 = normal_patch(0)
 
-    return _upload_patch
+    def _create_patch_revision(number, patch=normal_patch_0):
+        revision = Revision()
+        revision.revision_id = number
+        revision.diff_id = number
+        revision.patch_bytes = patch.encode("utf-8")
+        db.session.add(revision)
+        db.session.commit()
+        return revision
 
-
-def test_update_landing(db, client):
-    _create_transplant(db, 1, 1, 1, status=TransplantStatus.submitted)
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 1, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "someapikey")],
-    )
-
-    assert response.status_code == 200
-
-    # Ensure DB access isn't using uncommitted data.
-    db.session.close()
-
-    transplant = Transplant.query.get(1)
-    assert transplant.status == TransplantStatus.landed
+    return _create_patch_revision
 
 
-def test_update_landing_bad_request_id(db, client):
-    _create_transplant(db, 1, 1, 1, status=TransplantStatus.submitted)
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 2, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "someapikey")],
-    )
+LARGE_UTF8_THING = "😁" * 1000000
 
-    assert response.status_code == 404
-
-
-def test_update_landing_bad_api_key(db, client):
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 1, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "wrongapikey")],
-    )
-
-    assert response.status_code == 403
-
-
-def test_update_landing_no_api_key(db, client):
-    response = client.post(
-        "/landings/update", json={"request_id": 1, "landed": True, "result": "sha123"}
-    )
-
-    assert response.status_code == 400
-
-
-def test_pingback_disabled(db, client, config):
-    config["PINGBACK_ENABLED"] = "n"
-
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 1, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "someapikey")],
-    )
-
-    assert response.status_code == 403
-
-
-def test_pingback_no_api_key_header(db, client, config):
-    config["PINGBACK_ENABLED"] = "y"
-
-    response = client.post(
-        "/landings/update", json={"request_id": 1, "landed": True, "result": "sha123"}
-    )
-
-    assert response.status_code == 400
-
-
-def test_pingback_incorrect_api_key(db, client, config):
-    config["PINGBACK_ENABLED"] = "y"
-
-    response = client.post(
-        "/landings/update",
-        json={"request_id": 1, "landed": True, "result": "sha123"},
-        headers=[("API-Key", "thisisanincorrectapikey")],
-    )
-
-    assert response.status_code == 403
-
-
-def _create_transplant(
-    db,
-    request_id=1,
-    revision_id=1,
-    diff_id=1,
-    requester_email="tuser@example.com",
-    tree="mozilla-central",
-    repository_url="http://hg.test",
-    status=TransplantStatus.submitted,
-):
-    transplant = Transplant(
-        request_id=request_id,
-        revision_to_diff_id={str(revision_id): diff_id},
-        revision_order=[str(revision_id)],
-        requester_email=requester_email,
-        tree=tree,
-        repository_url=repository_url,
-        status=status,
-    )
-    db.session.add(transplant)
-    db.session.commit()
-    return transplant
-
-
-PATCH_NORMAL_1 = r"""
+LARGE_PATCH = rf"""
 # HG changeset patch
 # User Test User <test@example.com>
 # Date 0 0
 #      Thu Jan 01 00:00:00 1970 +0000
 # Diff Start Line 7
 add another file.
+
 diff --git a/test.txt b/test.txt
 --- a/test.txt
 +++ b/test.txt
 @@ -1,1 +1,2 @@
  TEST
-+adding another line
++{LARGE_UTF8_THING}
 """.strip()
 
-PATCH_NORMAL_2 = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-add another file.
-diff --git a/test.txt b/test.txt
---- a/test.txt
-+++ b/test.txt
-@@ -1,2 +1,3 @@
- TEST
- adding another line
-+adding one more line
-""".strip()
-
-PATCH_NORMAL_3 = r"""
-# HG changeset patch
-# User Test User <test@example.com>
-# Date 0 0
-#      Thu Jan 01 00:00:00 1970 +0000
-# Diff Start Line 7
-add another file.
-diff --git a/test.txt b/test.txt
-deleted file mode 100644
---- a/test.txt
-+++ /dev/null
-@@ -1,1 +0,0 @@
--TEST
-diff --git a/blah.txt b/blah.txt
-new file mode 100644
---- /dev/null
-+++ b/blah.txt
-@@ -0,0 +1,1 @@
-+TEST
-""".strip()
 
 PATCH_PUSH_LOSER = r"""
 # HG changeset patch
@@ -344,16 +211,27 @@ aDd oNe mOrE LiNe
 """.lstrip()
 
 
+@pytest.mark.parametrize(
+    "revisions_params",
+    [
+        [
+            (1, {}),
+            (2, {}),
+        ],
+        [(1, {"patch": LARGE_PATCH})],
+    ],
+)
 def test_integrated_execute_job(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
     monkeypatch,
-    upload_patch,
     new_treestatus_tree,
+    create_patch_revision,
+    normal_patch,
+    revisions_params,
 ):
     new_treestatus_tree(tree="mozilla-central", status="open")
 
@@ -363,46 +241,136 @@ def test_integrated_execute_job(
         access_group=SCM_LEVEL_3,
         push_path=hg_server,
         pull_path=hg_server,
-        legacy_transplant=False,
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    upload_patch(1)
-    upload_patch(2)
-    job = LandingJob(
-        status=LandingJobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        repository_name="mozilla-central",
-        revision_to_diff_id={"1": 1, "2": 2},
-        revision_order=["1", "2"],
-        attempts=1,
-    )
+    revisions = [
+        create_patch_revision(number, **kwargs) for number, kwargs in revisions_params
+    ]
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
 
     worker = LandingWorker(sleep_seconds=0.01)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo, "landoapi.test.bucket")
-    assert job.status == LandingJobStatus.LANDED
+    assert worker.run_job(job, repo, hgrepo)
+    assert job.status == LandingJobStatus.LANDED, job.error
     assert len(job.landed_commit_id) == 40
     assert (
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
 
 
-def test_lose_push_race(
+def test_integrated_execute_job_with_force_push(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
-    upload_patch,
     new_treestatus_tree,
+    monkeypatch,
+    create_patch_revision,
+):
+    new_treestatus_tree(tree="mozilla-central", status="open")
+    repo = Repo(
+        tree="mozilla-central",
+        url=hg_server,
+        access_group=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        force_push=True,
+    )
+    hgrepo = HgRepo(hg_clone.strpath)
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions([create_patch_revision(1)], **job_params)
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    # We don't care about repo update in this test, however if we don't mock
+    # this, the test will fail since there is no celery instance.
+    monkeypatch.setattr(
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock.MagicMock(),
+    )
+
+    hgrepo.push = mock.MagicMock()
+    assert worker.run_job(job, repo, hgrepo)
+    assert hgrepo.push.call_count == 1
+    assert len(hgrepo.push.call_args) == 2
+    assert len(hgrepo.push.call_args[0]) == 1
+    assert hgrepo.push.call_args[0][0] == hg_server
+    assert hgrepo.push.call_args[1] == {"bookmark": None, "force_push": True}
+
+
+def test_integrated_execute_job_with_bookmark(
+    app,
+    db,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    new_treestatus_tree,
+    monkeypatch,
+    create_patch_revision,
+):
+    new_treestatus_tree(tree="mozilla-central", status="open")
+    repo = Repo(
+        tree="mozilla-central",
+        url=hg_server,
+        access_group=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+        push_bookmark="@",
+    )
+    hgrepo = HgRepo(hg_clone.strpath)
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions([create_patch_revision(1)], **job_params)
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    # We don't care about repo update in this test, however if we don't mock
+    # this, the test will fail since there is no celery instance.
+    monkeypatch.setattr(
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock.MagicMock(),
+    )
+
+    hgrepo.push = mock.MagicMock()
+    assert worker.run_job(job, repo, hgrepo)
+    assert hgrepo.push.call_count == 1
+    assert len(hgrepo.push.call_args) == 2
+    assert len(hgrepo.push.call_args[0]) == 1
+    assert hgrepo.push.call_args[0][0] == hg_server
+    assert hgrepo.push.call_args[1] == {"bookmark": "@", "force_push": False}
+
+
+def test_lose_push_race(
+    app,
+    db,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    new_treestatus_tree,
+    create_patch_revision,
 ):
     new_treestatus_tree(tree="mozilla-central", status="open")
     repo = Repo(
@@ -413,33 +381,32 @@ def test_lose_push_race(
         pull_path=hg_server,
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    upload_patch(1, patch=PATCH_PUSH_LOSER)
-    job = LandingJob(
-        id=1234,
-        status=LandingJobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        repository_name="mozilla-central",
-        revision_to_diff_id={"1": 1},
-        revision_order=["1"],
-        attempts=1,
+    job_params = {
+        "id": 1234,
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(
+        [create_patch_revision(1, patch=PATCH_PUSH_LOSER)], **job_params
     )
 
     worker = LandingWorker(sleep_seconds=0)
 
-    assert not worker.run_job(job, repo, hgrepo, "landoapi.test.bucket")
+    assert not worker.run_job(job, repo, hgrepo)
     assert job.status == LandingJobStatus.DEFERRED
 
 
 def test_failed_landing_job_notification(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
     monkeypatch,
-    upload_patch,
     new_treestatus_tree,
+    create_patch_revision,
 ):
     """Ensure that a failed landings triggers a user notification."""
     new_treestatus_tree(tree="mozilla-central", status="open")
@@ -447,16 +414,17 @@ def test_failed_landing_job_notification(
         "mozilla-central", SCM_LEVEL_3, "", hg_server, hg_server, True, hg_server, False
     )
     hgrepo = HgRepo(hg_clone.strpath)
-    upload_patch(1)
-    upload_patch(2)
-    job = LandingJob(
-        status=LandingJobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        repository_name="mozilla-central",
-        revision_to_diff_id={"1": 1, "2": 2},
-        revision_order=["1", "2"],
-        attempts=1,
-    )
+    revisions = [
+        create_patch_revision(1),
+        create_patch_revision(2),
+    ]
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
 
     worker = LandingWorker(sleep_seconds=0.01)
 
@@ -468,10 +436,10 @@ def test_failed_landing_job_notification(
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.notify_user_of_landing_failure", mock_notify
+        "landoapi.workers.landing_worker.notify_user_of_landing_failure", mock_notify
     )
 
-    assert worker.run_job(job, repo, hgrepo, "landoapi.test.bucket")
+    assert worker.run_job(job, repo, hgrepo)
     assert job.status == LandingJobStatus.FAILED
     assert mock_notify.call_count == 1
 
@@ -535,13 +503,13 @@ def test_landing_worker__extract_error_data():
 def test_format_patch_success_unchanged(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
     monkeypatch,
-    upload_patch,
     new_treestatus_tree,
+    create_patch_revision,
+    normal_patch,
 ):
     """Tests automated formatting happy path where formatters made no changes."""
     tree = "mozilla-central"
@@ -557,27 +525,28 @@ def test_format_patch_success_unchanged(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    upload_patch(1, patch=PATCH_FORMATTING_PATTERN_PASS)
-    upload_patch(2, patch=PATCH_NORMAL_3)
-    job = LandingJob(
-        status=LandingJobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        repository_name=tree,
-        revision_to_diff_id={"1": 1, "2": 2},
-        revision_order=["1", "2"],
-        attempts=1,
-    )
+    revisions = [
+        create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
+        create_patch_revision(2, patch=normal_patch(2)),
+    ]
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": tree,
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
 
     worker = LandingWorker(sleep_seconds=0.01)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
-    assert worker.run_job(job, repo, hgrepo, "landoapi.test.bucket")
+    assert worker.run_job(job, repo, hgrepo)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Successful landing should set `LANDED` status."
@@ -592,13 +561,12 @@ def test_format_patch_success_unchanged(
 def test_format_single_success_changed(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
     monkeypatch,
-    upload_patch,
     new_treestatus_tree,
+    create_patch_revision,
 ):
     """Test formatting a single commit via amending."""
     tree = "mozilla-central"
@@ -615,21 +583,21 @@ def test_format_single_success_changed(
     # Push the `mach` formatting patch.
     hgrepo = HgRepo(hg_clone.strpath)
     with hgrepo.for_push("test@example.com"):
-        hgrepo.apply_patch(io.BytesIO(PATCH_FORMATTING_PATTERN_PASS.encode("utf-8")))
+        hgrepo.apply_patch(io.StringIO(PATCH_FORMATTING_PATTERN_PASS))
         hgrepo.push(repo.push_path)
         pre_landing_tip = hgrepo.run_hg(["log", "-r", "tip", "-T", "{node}"]).decode(
             "utf-8"
         )
 
     # Upload a patch for formatting.
-    upload_patch(2, patch=PATCH_FORMATTED_1)
-    job = LandingJob(
-        status=LandingJobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        repository_name=tree,
-        revision_to_diff_id={"2": 2},
-        revision_order=["2"],
-        attempts=1,
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": tree,
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(
+        [create_patch_revision(2, patch=PATCH_FORMATTED_1)], **job_params
     )
 
     worker = LandingWorker(sleep_seconds=0.01)
@@ -637,12 +605,12 @@ def test_format_single_success_changed(
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
     assert worker.run_job(
-        job, repo, hgrepo, "landoapi.test.bucket"
+        job, repo, hgrepo
     ), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -681,13 +649,12 @@ def test_format_single_success_changed(
 def test_format_stack_success_changed(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
     monkeypatch,
-    upload_patch,
     new_treestatus_tree,
+    create_patch_revision,
 ):
     """Test formatting a stack via an autoformat tip commit."""
     tree = "mozilla-central"
@@ -703,29 +670,30 @@ def test_format_stack_success_changed(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    upload_patch(1, patch=PATCH_FORMATTING_PATTERN_PASS)
-    upload_patch(2, patch=PATCH_FORMATTED_1)
-    upload_patch(3, patch=PATCH_FORMATTED_2)
-    job = LandingJob(
-        status=LandingJobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        repository_name=tree,
-        revision_to_diff_id={"1": 1, "2": 2, "3": 3},
-        revision_order=["1", "2", "3"],
-        attempts=1,
-    )
+    revisions = [
+        create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_PASS),
+        create_patch_revision(2, patch=PATCH_FORMATTED_1),
+        create_patch_revision(3, patch=PATCH_FORMATTED_2),
+    ]
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": tree,
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
 
     worker = LandingWorker(sleep_seconds=0.01)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
     assert worker.run_job(
-        job, repo, hgrepo, "landoapi.test.bucket"
+        job, repo, hgrepo
     ), "`run_job` should return `True` on a successful run."
     assert (
         job.status == LandingJobStatus.LANDED
@@ -761,13 +729,12 @@ def test_format_stack_success_changed(
 def test_format_patch_fail(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
     monkeypatch,
-    upload_patch,
     new_treestatus_tree,
+    create_patch_revision,
 ):
     """Tests automated formatting failures before landing."""
     tree = "mozilla-central"
@@ -783,28 +750,29 @@ def test_format_patch_fail(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    upload_patch(1, patch=PATCH_FORMATTING_PATTERN_FAIL)
-    upload_patch(2)
-    upload_patch(3)
-    job = LandingJob(
-        status=LandingJobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        repository_name=tree,
-        revision_to_diff_id={"1": 1, "2": 2, "3": 3},
-        revision_order=["1", "2", "3"],
-        attempts=1,
-    )
+    revisions = [
+        create_patch_revision(1, patch=PATCH_FORMATTING_PATTERN_FAIL),
+        create_patch_revision(2),
+        create_patch_revision(3),
+    ]
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": tree,
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
 
     worker = LandingWorker(sleep_seconds=0.01)
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.notify_user_of_landing_failure", mock_notify
+        "landoapi.workers.landing_worker.notify_user_of_landing_failure", mock_notify
     )
 
     assert not worker.run_job(
-        job, repo, hgrepo, "landoapi.test.bucket"
+        job, repo, hgrepo
     ), "`run_job` should return `False` when autoformatting fails."
     assert (
         job.status == LandingJobStatus.FAILED
@@ -820,13 +788,12 @@ def test_format_patch_fail(
 def test_format_patch_no_landoini(
     app,
     db,
-    s3,
     mock_repo_config,
     hg_server,
     hg_clone,
     monkeypatch,
-    upload_patch,
     new_treestatus_tree,
+    create_patch_revision,
 ):
     """Tests behaviour of Lando when the `.lando.ini` file is missing."""
     new_treestatus_tree(tree="mozilla-central", status="open")
@@ -841,33 +808,34 @@ def test_format_patch_no_landoini(
 
     hgrepo = HgRepo(hg_clone.strpath)
 
-    upload_patch(1)
-    upload_patch(2)
-    job = LandingJob(
-        status=LandingJobStatus.IN_PROGRESS,
-        requester_email="test@example.com",
-        repository_name="mozilla-central",
-        revision_to_diff_id={"1": 1, "2": 2},
-        revision_order=["1", "2"],
-        attempts=1,
-    )
+    revisions = [
+        create_patch_revision(1),
+        create_patch_revision(2),
+    ]
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
 
     worker = LandingWorker(sleep_seconds=0.01)
 
     # Mock `phab_trigger_repo_update` so we can make sure that it was called.
     mock_trigger_update = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.LandingWorker.phab_trigger_repo_update",
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
         mock_trigger_update,
     )
 
     # Mock `notify_user_of_landing_failure` so we can make sure that it was called.
     mock_notify = mock.MagicMock()
     monkeypatch.setattr(
-        "landoapi.landing_worker.notify_user_of_landing_failure", mock_notify
+        "landoapi.workers.landing_worker.notify_user_of_landing_failure", mock_notify
     )
 
-    assert worker.run_job(job, repo, hgrepo, "landoapi.test.bucket")
+    assert worker.run_job(job, repo, hgrepo)
     assert (
         job.status == LandingJobStatus.LANDED
     ), "Missing `.lando.ini` should not inhibit landing."
@@ -877,3 +845,29 @@ def test_format_patch_no_landoini(
     assert (
         mock_trigger_update.call_count == 1
     ), "Successful landing should trigger Phab repo update."
+
+
+def test_landing_job_revisions_sorting(
+    app,
+    db,
+    create_patch_revision,
+):
+    revisions = [
+        create_patch_revision(1),
+        create_patch_revision(2),
+        create_patch_revision(3),
+    ]
+    job_params = {
+        "status": LandingJobStatus.SUBMITTED,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
+
+    assert job.revisions == revisions
+    new_ordering = [revisions[2], revisions[0], revisions[1]]
+    job.sort_revisions(new_ordering)
+    db.session.commit()
+    job = LandingJob.query.get(job.id)
+    assert job.revisions == new_ordering

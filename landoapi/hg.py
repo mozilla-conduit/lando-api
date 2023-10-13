@@ -1,8 +1,9 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
-import copy
 import configparser
+import copy
+import io
 import logging
 import os
 import shlex
@@ -10,15 +11,17 @@ import shutil
 import subprocess
 import tempfile
 import uuid
-
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional
+from typing import (
+    Iterable,
+    Optional,
+)
 
 import hglib
 
 from landoapi.commit_message import bug_list_to_commit_string
-from landoapi.hgexports import PatchHelper
+from landoapi.hgexports import HgPatchHelper
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +44,13 @@ class HgException(Exception):
             err.decode(errors="replace"),
         ).rstrip()
 
-        for cls in (LostPushRace, PatchConflict, TreeClosed, TreeApprovalRequired):
+        for cls in (
+            LostPushRace,
+            PatchConflict,
+            TreeClosed,
+            TreeApprovalRequired,
+            PushTimeoutException,
+        ):
             for s in cls.SNIPPETS:
                 if s in err or s in out:
                     return cls(msg)
@@ -76,6 +85,12 @@ class LostPushRace(HgException):
         b"abort: push creates new remote head",
         b"repository changed while pushing",
     )
+
+
+class PushTimeoutException(HgException):
+    """Exception when pushing failed due to a timeout on the repo."""
+
+    SNIPPETS = (b"timed out waiting for lock held by",)
 
 
 class PatchApplicationFailure(HgException):
@@ -299,17 +314,17 @@ class HgRepo:
             except hglib.error.CommandError:
                 pass
 
-    def apply_patch(self, patch_io_buf):
-        patch_helper = PatchHelper(patch_io_buf)
+    def apply_patch(self, patch_io_buf: io.StringIO):
+        patch_helper = HgPatchHelper(patch_io_buf)
         if not patch_helper.diff_start_line:
             raise NoDiffStartLine()
 
-        self.patch_header = patch_helper.header
+        self.patch_header = patch_helper.get_header
 
         # Import the diff to apply the changes then commit separately to
         # ensure correct parsing of the commit message.
-        f_msg = tempfile.NamedTemporaryFile()
-        f_diff = tempfile.NamedTemporaryFile()
+        f_msg = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
+        f_diff = tempfile.NamedTemporaryFile(encoding="utf-8", mode="w+")
         with f_msg, f_diff:
             patch_helper.write_commit_description(f_msg)
             f_msg.flush()
@@ -328,7 +343,7 @@ class HgRepo:
             import_cmd = ["import", "--no-commit"] + similarity_args
 
             try:
-                if patch_helper.header("Fail HG Import") == b"FAIL":
+                if patch_helper.get_header("Fail HG Import") == b"FAIL":
                     # For testing, force a PatchConflict exception if this header is
                     # defined.
                     raise hglib.error.CommandError(
@@ -359,8 +374,8 @@ class HgRepo:
 
             # Commit using the extracted date, user, and commit desc.
             # --landing_system is provided by the set_landing_system hgext.
-            date = patch_helper.header("Date")
-            user = patch_helper.header("User")
+            date = patch_helper.get_header("Date")
+            user = patch_helper.get_header("User")
 
             if not user:
                 raise ValueError("Missing `User` header!")
@@ -464,7 +479,7 @@ class HgRepo:
 
             raise exc
 
-    def format_stack_tip(self, bug_ids: list[str]) -> Optional[list[str]]:
+    def format_stack_tip(self, bug_ids: Iterable[str]) -> Optional[list[str]]:
         """Add an autoformat commit to the top of the patch stack.
 
         Return the commit hash of the autoformat commit as a `str`,
@@ -492,7 +507,9 @@ class HgRepo:
 
             raise exc
 
-    def format_stack(self, stack_size: int, bug_ids: list[str]) -> Optional[list[str]]:
+    def format_stack(
+        self, stack_size: int, bug_ids: Iterable[str]
+    ) -> Optional[list[str]]:
         """Format the patch stack for landing.
 
         Return a list of `str` commit hashes where autoformatting was applied,
@@ -541,7 +558,7 @@ class HgRepo:
                 details=exc.stdout,
             )
 
-    def push(self, target, bookmark=None):
+    def push(self, target, bookmark=None, force_push: bool = False):
         if not os.getenv(REQUEST_USER_ENV_VAR):
             raise ValueError(f"{REQUEST_USER_ENV_VAR} not set while attempting to push")
 
@@ -549,22 +566,32 @@ class HgRepo:
         # defined.
         if (
             self.patch_header
-            and self.patch_header("Fail HG Import") == b"LOSE_PUSH_RACE"
+            and self.patch_header("Fail HG Import") == "LOSE_PUSH_RACE"
         ):
             raise LostPushRace()
+
+        extra_args = []
+
+        if force_push:
+            extra_args.append("-f")
+
         try:
             if bookmark is None:
-                self.run_hg(["push", "-r", "tip", target])
+                self.run_hg(["push", "-r", "tip", target] + extra_args)
             else:
                 self.run_hg_cmds(
-                    [["bookmark", bookmark], ["push", "-B", bookmark, target]]
+                    [
+                        ["bookmark", bookmark],
+                        ["push", "-B", bookmark, target] + extra_args,
+                    ]
                 )
         except hglib.error.CommandError as exc:
             raise HgException.from_hglib_error(exc) from exc
 
-    def update_repo(self, source):
-        # Obtain remote tip. We assume there is only a single head.
-        target_cset = self.get_remote_head(source)
+    def update_repo(self, source, target_cset: Optional[bytes] = None):
+        # Obtain remote tip if not provided. We assume there is only a single head.
+        if not target_cset:
+            target_cset = self.get_remote_head(source)
 
         # Strip any lingering changes.
         self.clean_repo()

@@ -4,24 +4,23 @@
 
 import json
 import logging
+import re
 import time
-
-from packaging.version import (
-    InvalidVersion,
-    Version,
-)
 from typing import (
     Any,
     Optional,
 )
 
 import requests
-
 from flask import current_app
+from packaging.version import (
+    InvalidVersion,
+    Version,
+)
 
 from landoapi import bmo
-from landoapi.cache import cache, DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
-from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
+from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
+from landoapi.phabricator import PhabricatorClient
 from landoapi.phabricator_patch import patch_to_changes
 from landoapi.repos import (
     Repo,
@@ -33,7 +32,6 @@ from landoapi.stacks import (
     build_stack_graph,
     request_extended_revision_data,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -127,17 +125,9 @@ def get_uplift_conduit_state(
     if not revision:
         raise ValueError(f"No revision found with id {revision_id}")
 
-    try:
-        nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
-    except PhabricatorAPIException as e:
-        # If a revision within the stack causes an API exception, treat the whole stack
-        # as not found.
-        logger.exception(
-            f"Phabricator returned an error searching for {revision_id}: {str(e)}"
-        )
-        raise ValueError(f"Missing revision info for stack ending in {revision_id}")
+    nodes, edges = build_stack_graph(revision)
 
-    stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
+    stack_data = request_extended_revision_data(phab, list(nodes))
 
     if len(stack_data.revisions) > MAX_UPLIFT_STACK_SIZE:
         raise ValueError(
@@ -175,6 +165,22 @@ def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> R
         raise ValueError(f"No approval required for {repo_shortname}")
 
     return local_repo
+
+
+DEPENDS_ON_RE = re.compile(r"^Depends on D\d+$")
+
+
+def strip_depends_on_from_commit_message(commit_message: str) -> str:
+    """Strip any found `Depends on` lines from the passed commit message.
+
+    `moz-phab` still adds the `Depends on` lines to commit messages, which were
+    previously the only method of specifying revision dependencies. Nowadays we
+    have specific Conduit API calls which handle this functionality, and having
+    the legacy `Depends on` values causes issues with uplift requests.
+    """
+    return "\n".join(
+        line for line in commit_message.splitlines() if not DEPENDS_ON_RE.match(line)
+    )
 
 
 def create_uplift_revision(
@@ -238,7 +244,9 @@ def create_uplift_revision(
                     "authorEmail": phab.expect(commit, "author", "email"),
                     "time": 0,
                     "summary": phab.expect(commit, "message").splitlines()[0],
-                    "message": phab.expect(commit, "message"),
+                    "message": strip_depends_on_from_commit_message(
+                        phab.expect(commit, "message")
+                    ),
                     "commit": phab.expect(commit, "identifier"),
                     "rev": phab.expect(commit, "identifier"),
                     "parents": phab.expect(commit, "parents"),
@@ -255,6 +263,7 @@ def create_uplift_revision(
     # second train.
     uri = str(phab.expect(source_revision, "fields", "uri"))
     summary = add_original_revision_line_if_needed(summary, uri)
+    summary = strip_depends_on_from_commit_message(summary)
 
     transactions = [
         {"type": "update", "value": new_diff_phid},
@@ -313,7 +322,7 @@ def stack_uplift_form_submitted(stack_data: RevisionData) -> bool:
 
 
 def create_uplift_bug_update_payload(
-    bug: dict, repo_name: str, milestone: int
+    bug: dict, repo_name: str, milestone: int, milestone_tracking_flag_template: str
 ) -> dict[str, Any]:
     """Create a payload for updating a bug using the BMO REST API.
 
@@ -329,9 +338,12 @@ def create_uplift_bug_update_payload(
         "ids": [int(bug["id"])],
     }
 
-    milestone_tracking_flag = f"cf_status_firefox{milestone}"
+    milestone_tracking_flag = milestone_tracking_flag_template.format(
+        milestone=milestone
+    )
     if (
-        "keywords" in bug
+        milestone_tracking_flag
+        and "keywords" in bug
         and "leave-open" not in bug["keywords"]
         and milestone_tracking_flag in bug
     ):
@@ -350,6 +362,7 @@ def create_uplift_bug_update_payload(
 def update_bugs_for_uplift(
     repo_name: str,
     milestone_file_contents: str,
+    milestone_tracking_flag_template: str,
     bug_ids: list[str],
 ):
     """Update Bugzilla bugs for uplift."""
@@ -368,7 +381,9 @@ def update_bugs_for_uplift(
 
     # Create bug update payloads.
     payloads = [
-        create_uplift_bug_update_payload(bug, repo_name, milestone.major)
+        create_uplift_bug_update_payload(
+            bug, repo_name, milestone.major, milestone_tracking_flag_template
+        )
         for bug in bugs
     ]
 

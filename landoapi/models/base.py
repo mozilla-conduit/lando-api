@@ -7,7 +7,6 @@ from sqlalchemy.ext.declarative import declared_attr
 
 from landoapi.storage import db
 
-
 # Regex to parse various forms of capitalizations/camel case into snake case.
 table_name_re = re.compile("((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))")
 
@@ -43,3 +42,13 @@ class Base(db.Model):
         For example, `<Transplant: 1235>`.
         """
         return f"<{self.__class__.__name__}: {self.id}>"
+
+    @classmethod
+    def lock_table(cls, mode: str = "SHARE ROW EXCLUSIVE MODE"):
+        """Lock the table for the model with the given mode.
+
+        Args:
+            mode (str): the lock mode to apply to the table when locking
+        """
+        query = f"LOCK TABLE {cls.__table__.name} IN {mode};"
+        db.session.execute(query)

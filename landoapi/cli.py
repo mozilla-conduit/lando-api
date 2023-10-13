@@ -3,26 +3,20 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import logging
 import os
+import subprocess
 import sys
-
-from typing import (
-    Optional,
-)
+from typing import Optional
 
 import click
 import connexion
 from flask.cli import FlaskGroup
 
-from landoapi import (
-    patches,
-)
 from landoapi.models.configuration import (
-    ConfigurationVariable,
     ConfigurationKey,
+    ConfigurationVariable,
     VariableType,
 )
 from landoapi.systems import Subsystem
-
 
 LINT_PATHS = ("setup.py", "tasks.py", "landoapi", "migrations", "tests")
 
@@ -57,19 +51,7 @@ def cli():
     """Lando API cli."""
 
 
-@cli.command()
-def init_s3():
-    """Initialize fake S3 bucket for development purposes."""
-    # Create a fake S3 bucket, ie for moto.
-    s3 = patches.create_s3(
-        aws_access_key=os.environ["AWS_ACCESS_KEY"],
-        aws_secret_key=os.environ["AWS_SECRET_KEY"],
-        endpoint_url=os.environ["S3_ENDPOINT_URL"],
-    )
-    s3.create_bucket(Bucket=os.environ["PATCH_BUCKET_NAME"])
-
-
-@cli.command(context_settings=dict(ignore_unknown_options=True))
+@cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def worker(celery_arguments):
     """Initialize a Celery worker for this app."""
@@ -91,7 +73,7 @@ def landing_worker():
     for system in get_subsystems(exclude=exclusions):
         system.ensure_ready()
 
-    from landoapi.landing_worker import LandingWorker
+    from landoapi.workers.landing_worker import LandingWorker
 
     worker = LandingWorker()
     worker.start()
@@ -125,7 +107,7 @@ def run_post_deploy_sequence():
     )
 
 
-@cli.command(context_settings=dict(ignore_unknown_options=True))
+@cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def celery(celery_arguments):
     """Run the celery base command for this app."""
@@ -162,12 +144,15 @@ def format_code(in_place):
 
 
 @cli.command(with_appcontext=False)
-def lint():
-    """Lint python code with flake8"""
-    os.execvp("flake8", ("flake8",) + LINT_PATHS)
+def ruff():
+    """Run ruff on lint paths."""
+    for lint_path in LINT_PATHS:
+        subprocess.call(
+            ("ruff", "check", "--fix", "--target-version", "py39", lint_path)
+        )
 
 
-@cli.command(with_appcontext=False, context_settings=dict(ignore_unknown_options=True))
+@cli.command(with_appcontext=False, context_settings={"ignore_unknown_options": True})
 @click.argument("pytest_arguments", nargs=-1, type=click.UNPROCESSED)
 def test(pytest_arguments):
     """Run the tests."""

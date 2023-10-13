@@ -12,10 +12,14 @@ import requests
 from connexion import ProblemException
 from flask import current_app
 
-from landoapi.repos import Repo, get_repos_for_env
-from landoapi.models.transplant import Transplant, TransplantStatus
+from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
-from landoapi.phabricator import PhabricatorClient, ReviewerStatus, RevisionStatus
+from landoapi.phabricator import (
+    PhabricatorClient,
+    PhabricatorRevisionStatus,
+    ReviewerStatus,
+)
+from landoapi.repos import Repo, get_repos_for_env
 from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (
     check_author_planned_changes,
@@ -210,19 +214,26 @@ def warning_previously_landed(*, revision, diff, **kwargs):
     revision_id = PhabricatorClient.expect(revision, "id")
     diff_id = PhabricatorClient.expect(diff, "id")
 
-    landed_transplant = (
-        Transplant.revisions_query([revision_id])
-        .filter_by(status=TransplantStatus.landed)
-        .order_by(Transplant.updated_at.desc())
+    job = (
+        LandingJob.revisions_query([revision_id])
+        .filter_by(status=LandingJobStatus.LANDED)
+        .order_by(LandingJob.updated_at.desc())
         .first()
     )
 
-    if landed_transplant is None:
+    if job is None:
         return None
 
-    landed_diff_id = landed_transplant.revision_to_diff_id[str(revision_id)]
+    revision_to_diff_id = job.landed_revisions
+    if job.revision_to_diff_id:
+        legacy_data = {
+            int(legacy_revision_id): int(legacy_diff_id)
+            for legacy_revision_id, legacy_diff_id in job.revision_to_diff_id.items()
+        }
+        revision_to_diff_id.update(legacy_data)
+    landed_diff_id = revision_to_diff_id[revision_id]
     same = diff_id == landed_diff_id
-    only_revision = len(landed_transplant.revision_order) == 1
+    only_revision = len(job.revisions) == 1
 
     return (
         "Already landed with {is_same_string} diff ({landed_diff_id}), "
@@ -230,17 +241,17 @@ def warning_previously_landed(*, revision, diff, **kwargs):
             is_same_string=("the same" if same else "an older"),
             landed_diff_id=landed_diff_id,
             push_string=("as" if only_revision else "with new tip"),
-            commit_sha=landed_transplant.result,
+            commit_sha=job.landed_commit_id,
         )
     )
 
 
 @RevisionWarningCheck(2, "Is not Accepted.")
 def warning_not_accepted(*, revision, **kwargs):
-    status = RevisionStatus.from_status(
+    status = PhabricatorRevisionStatus.from_status(
         PhabricatorClient.expect(revision, "fields", "status", "value")
     )
-    if status is RevisionStatus.ACCEPTED:
+    if status is PhabricatorRevisionStatus.ACCEPTED:
         return None
 
     return status.output_name
@@ -476,10 +487,19 @@ def check_landing_blockers(
 
     # Check if there is already a landing for something in the stack.
     if (
-        Transplant.revisions_query(
+        LandingJob.revisions_query(
             [PhabricatorClient.expect(r, "id") for r in stack_data.revisions.values()]
         )
-        .filter_by(status=TransplantStatus.submitted)
+        .filter(
+            LandingJob.status.in_(
+                (
+                    LandingJobStatus.SUBMITTED,
+                    LandingJobStatus.DEFERRED,
+                    LandingJobStatus.IN_PROGRESS,
+                    None,
+                )
+            )
+        )
         .first()
         is not None
     ):
@@ -507,7 +527,7 @@ def get_blocker_checks(
     repositories: dict, relman_group_phid: str, stack_data: RevisionData
 ):
     """Build all transplant blocker checks that need extra Phabricator data"""
-    assert all(map(lambda r: isinstance(r, Repo), repositories.values()))
+    assert all((isinstance(r, Repo) for r in repositories.values()))
 
     return DEFAULT_OTHER_BLOCKER_CHECKS + [
         # Configure uplift check with extra data.

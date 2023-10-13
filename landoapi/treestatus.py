@@ -7,7 +7,6 @@ from landoapi.api.treestatus import (
     get_tree_by_name,
 )
 
-
 logger = logging.getLogger(__name__)
 
 # A repo is considered open for landing when either of these

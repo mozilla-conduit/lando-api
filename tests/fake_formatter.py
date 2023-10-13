@@ -8,7 +8,7 @@ import sys
 
 
 def split_chars(string) -> list:
-    return [char for char in string]
+    return list(string)
 
 
 if __name__ == "__main__":

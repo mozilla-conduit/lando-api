@@ -5,17 +5,12 @@
 from unittest.mock import Mock
 
 import redis
-import requests
-import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
 from landoapi.auth import auth0_subsystem
 from landoapi.cache import cache_subsystem
 from landoapi.phabricator import PhabricatorAPIException, phabricator_subsystem
 from landoapi.storage import db_subsystem
-from landoapi.transplant_client import transplant_subsystem
-
-from tests.utils import trans_url
 
 
 def test_database_healthy(db):
@@ -42,18 +37,6 @@ def test_phabricator_unhealthy(app, monkeypatch):
     assert phabricator_subsystem.healthy() is not True
 
 
-@pytest.mark.xfail
-def test_transplant_healthy(app, request_mocker):
-    request_mocker.get(trans_url(""), status_code=200, text="Welcome to Autoland")
-    assert transplant_subsystem.healthy() is True
-
-
-@pytest.mark.xfail
-def test_transplant_unhealthy(app, request_mocker):
-    request_mocker.get(trans_url(""), exc=requests.ConnectTimeout)
-    assert transplant_subsystem.healthy() is not True
-
-
 def test_cache_healthy(redis_cache):
     assert cache_subsystem.healthy() is True
 
@@ -64,7 +47,7 @@ def test_cache_unhealthy_configuration():
 
 def test_cache_unhealthy_service(redis_cache, monkeypatch):
     mock_cache = Mock(redis_cache)
-    mock_cache.cache._read_clients.ping.side_effect = redis.TimeoutError
+    mock_cache.cache._read_client.ping.side_effect = redis.TimeoutError
     monkeypatch.setattr("landoapi.cache.cache", mock_cache)
     monkeypatch.setattr("landoapi.cache.RedisCache", type(mock_cache.cache))
 

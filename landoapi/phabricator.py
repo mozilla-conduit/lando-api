@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-
 from datetime import (
     datetime,
     timezone,
@@ -19,8 +18,8 @@ from enum import (
 from json.decoder import JSONDecodeError
 from typing import (
     Any,
-    Optional,
     Iterable,
+    Optional,
 )
 
 import requests
@@ -33,7 +32,7 @@ PHAB_API_KEY_RE = re.compile(r"^api-.{28}$")
 
 
 @unique
-class RevisionStatus(Enum):
+class PhabricatorRevisionStatus(Enum):
     """Enumeration of statuses a revision may have.
 
     These statuses were exhaustive at the time of creation, but
@@ -51,7 +50,7 @@ class RevisionStatus(Enum):
     UNEXPECTED_STATUS = None
 
     @classmethod
-    def from_status(cls, value: str) -> RevisionStatus:
+    def from_status(cls, value: str) -> PhabricatorRevisionStatus:
         try:
             return cls(value)
         except ValueError:

@@ -7,21 +7,19 @@ This module provides the definitions for Treestatus data.
 """
 
 import json
-
 from typing import (
     Any,
     Optional,
 )
 
 import sqlalchemy.ext.hybrid
-
 from sqlalchemy.orm import (
     relationship,
 )
 
 from landoapi.models.base import (
-    db,
     Base,
+    db,
 )
 
 DEFAULT_TREE = {"reason": "New tree", "status": "closed", "tags": [], "log_id": None}

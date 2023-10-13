@@ -85,7 +85,7 @@ def test_cancel_landing_job_fails_not_owner(db, client, landing_job, auth0_mock)
 def test_cancel_landing_job_fails_not_found(db, client, landing_job, auth0_mock):
     """Test trying to cancel a job that does not exist."""
     response = client.put(
-        f"/landing_jobs/1",
+        "/landing_jobs/1",
         json={"status": LandingJobStatus.CANCELLED.value},
         headers=auth0_mock.mock_headers,
     )

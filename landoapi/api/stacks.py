@@ -6,9 +6,11 @@ import urllib.parse
 
 from connexion import problem
 from flask import current_app
+
 from landoapi.commit_message import format_commit_message
 from landoapi.decorators import require_phabricator_api_key
-from landoapi.phabricator import PhabricatorClient, PhabricatorAPIException
+from landoapi.models.revisions import Revision
+from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     get_release_managers,
     get_sec_approval_project_phid,
@@ -67,13 +69,11 @@ def get(phab: PhabricatorClient, revision_id: str):
     if revision is None:
         return not_found_problem
 
+    nodes, edges = build_stack_graph(revision)
     try:
-        nodes, edges = build_stack_graph(phab, phab.expect(revision, "phid"))
-    except PhabricatorAPIException:
-        # If a revision within the stack causes an API exception, treat the whole stack
-        # as not found.
+        stack_data = request_extended_revision_data(phab, list(nodes))
+    except ValueError:
         return not_found_problem
-    stack_data = request_extended_revision_data(phab, [phid for phid in nodes])
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
@@ -118,19 +118,25 @@ def get(phab: PhabricatorClient, revision_id: str):
     }
 
     revisions_response = []
-    for revision_phid, revision in stack_data.revisions.items():
-        fields = PhabricatorClient.expect(revision, "fields")
+    for _phid, phab_revision in stack_data.revisions.items():
+        lando_revision = Revision.query.filter(
+            Revision.revision_id == phab_revision["id"]
+        ).one_or_none()
+        revision_phid = PhabricatorClient.expect(phab_revision, "phid")
+        fields = PhabricatorClient.expect(phab_revision, "fields")
         diff_phid = PhabricatorClient.expect(fields, "diffPHID")
         repo_phid = PhabricatorClient.expect(fields, "repositoryPHID")
         diff = stack_data.diffs[diff_phid]
-        human_revision_id = "D{}".format(PhabricatorClient.expect(revision, "id"))
+        human_revision_id = "D{}".format(PhabricatorClient.expect(phab_revision, "id"))
         revision_url = urllib.parse.urljoin(
             current_app.config["PHABRICATOR_URL"], human_revision_id
         )
-        secure = revision_is_secure(revision, secure_project_phid)
-        commit_description = find_title_and_summary_for_display(phab, revision, secure)
-        bug_id = get_bugzilla_bug(revision)
-        reviewers = get_collated_reviewers(revision)
+        secure = revision_is_secure(phab_revision, secure_project_phid)
+        commit_description = find_title_and_summary_for_display(
+            phab, phab_revision, secure
+        )
+        bug_id = get_bugzilla_bug(phab_revision)
+        reviewers = get_collated_reviewers(phab_revision)
         accepted_reviewers = reviewers_for_commit_message(
             reviewers, users, projects, sec_approval_project_phid
         )
@@ -165,16 +171,16 @@ def get(phab: PhabricatorClient, revision_id: str):
             {
                 "id": human_revision_id,
                 "phid": revision_phid,
-                "status": serialize_status(revision),
+                "status": serialize_status(phab_revision),
                 "blocked_reason": blocked.get(revision_phid, ""),
                 "bug_id": bug_id,
                 "title": commit_description.title,
                 "url": revision_url,
                 "date_created": PhabricatorClient.to_datetime(
-                    PhabricatorClient.expect(revision, "fields", "dateCreated")
+                    PhabricatorClient.expect(phab_revision, "fields", "dateCreated")
                 ).isoformat(),
                 "date_modified": PhabricatorClient.to_datetime(
-                    PhabricatorClient.expect(revision, "fields", "dateModified")
+                    PhabricatorClient.expect(phab_revision, "fields", "dateModified")
                 ).isoformat(),
                 "summary": commit_description.summary,
                 "commit_message_title": commit_message_title,
@@ -185,6 +191,9 @@ def get(phab: PhabricatorClient, revision_id: str):
                 "reviewers": serialize_reviewers(reviewers, users, projects, diff_phid),
                 "is_secure": secure,
                 "is_using_secure_commit_message": commit_description.sanitized,
+                "lando_revision": lando_revision.serialize()
+                if lando_revision
+                else None,
             }
         )
 
@@ -216,7 +225,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     return {
         "repositories": repositories,
         "revisions": revisions_response,
-        "edges": [e for e in edges],
+        "edges": list(edges),
         "landable_paths": landable,
         "uplift_repositories": uplift_repos,
     }

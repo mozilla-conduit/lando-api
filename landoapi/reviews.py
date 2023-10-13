@@ -212,3 +212,15 @@ def approvals_for_commit_message(
     ]
 
     return accepted_reviewers, approvals
+
+
+def get_approved_by_ids(phab: PhabricatorClient, reviewers: list[dict]) -> list[str]:
+    """Return a list of phids of reviewers who approved the revision."""
+    phids = []
+    for reviewer in reviewers:
+        status = reviewer["status"]
+        if status == ReviewerStatus.ACCEPTED.value:
+            phids.append(reviewer["reviewerPHID"])
+    result = phab.call_conduit("bugzilla.account.search", phids=phids)
+    bugzilla_ids = [int(user["id"]) for user in result]
+    return bugzilla_ids

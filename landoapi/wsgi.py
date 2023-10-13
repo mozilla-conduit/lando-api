@@ -4,7 +4,7 @@
 """
 Construct an application instance that can be referenced by a WSGI server.
 """
-from .app import construct_app, load_config, SUBSYSTEMS
+from .app import SUBSYSTEMS, construct_app, load_config
 
 config = load_config()
 app = construct_app(config)

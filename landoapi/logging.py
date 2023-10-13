@@ -39,32 +39,30 @@ class MozLogFormatter(logging.Formatter):
         "CRITICAL": SL_CRIT,
     }
 
-    BUILTIN_LOGRECORD_ATTRIBUTES = set(
-        (
-            "args",
-            "asctime",
-            "created",
-            "exc_info",
-            "exc_text",
-            "filename",
-            "funcName",
-            "levelname",
-            "levelno",
-            "lineno",
-            "module",
-            "msecs",
-            "message",
-            "msg",
-            "name",
-            "pathname",
-            "process",
-            "processName",
-            "relativeCreated",
-            "stack_info",
-            "thread",
-            "threadName",
-        )
-    )
+    BUILTIN_LOGRECORD_ATTRIBUTES = {
+        "args",
+        "asctime",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "module",
+        "msecs",
+        "message",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "thread",
+        "threadName",
+    }
 
     def __init__(self, *args, mozlog_logger=None, **kwargs):
         self.mozlog_logger = mozlog_logger or "Dockerflow"

@@ -13,12 +13,13 @@ from flask import g
 
 from landoapi.auth import (
     A0User,
+    ensure_user_has_scm_level,
     fetch_auth0_userinfo,
     require_auth0,
-    require_transplant_authentication,
 )
-from landoapi.mocks.auth import create_access_token, TEST_KEY_PRIV
+from landoapi.mocks.auth import TEST_KEY_PRIV, create_access_token
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
+from landoapi.repos import SCM_LEVEL_1
 
 
 def noop(*args, **kwargs):
@@ -409,32 +410,45 @@ def test_require_access_scopes_valid(jwks, app, scopes, token_kwargs):
     assert resp.status_code == 200
 
 
-@pytest.mark.parametrize(
-    "pingback_enabled,headers,status",
-    [
-        (False, [("API-Key", "someapikey")], 403),
-        (False, [("API-Key", "thisisanincorrectapikey")], 403),
-        (False, [], 403),
-        (True, [], 403),
-        (True, [("API-Key", "thisisanincorrectapikey")], 403),
-    ],
-)
-def test_require_transplant_authentication_failures(
-    config, app, pingback_enabled, headers, status
-):
-    config["PINGBACK_ENABLED"] = "y" if pingback_enabled else "n"
+def test_scm_level_enforce():
+    """Test scm_level_1 enforcement and error handling."""
+    token = create_access_token()
 
-    with app.test_request_context("/", headers=headers):
-        with pytest.raises(ProblemException) as exc_info:
-            require_transplant_authentication(noop)()
+    # Test `all_scm_level_1` is missing.
+    userinfo = CANNED_USERINFO["MISSING_L1"]
+    user = A0User(token, userinfo)
+    with pytest.raises(ProblemException) as exc_info:
+        ensure_user_has_scm_level(user, SCM_LEVEL_1)
+    assert exc_info.value.status == 403, "Lack of level 1 permission should return 403."
+    assert (
+        exc_info.value.title == "Level 1 Commit Access is required."
+    ), "Lack of level 1 permissions should return appropriate error."
 
-    assert exc_info.value.status == status
+    # Test `expired_scm_level_1` is present.
+    userinfo = CANNED_USERINFO["EXPIRED_L1"]
+    user = A0User(token, userinfo)
+    with pytest.raises(ProblemException) as exc_info:
+        ensure_user_has_scm_level(user, SCM_LEVEL_1)
+    assert exc_info.value.status == 401, "Expired level 1 permission should return 401."
+    assert (
+        exc_info.value.title == "Your Level 1 Commit Access has expired."
+    ), "Expired level 1 permissions should return appropriate error."
 
+    # Test `active_scm_level_1` is not present.
+    userinfo = CANNED_USERINFO["MISSING_ACTIVE_L1"]
+    user = A0User(token, userinfo)
+    with pytest.raises(ProblemException) as exc_info:
+        ensure_user_has_scm_level(user, SCM_LEVEL_1)
+    assert (
+        exc_info.value.status == 401
+    ), "Lack of active level 1 permission should return 401."
+    assert (
+        exc_info.value.title == "Your Level 1 Commit Access has expired."
+    ), "Lack of active level 1 permissions should return appropriate error."
 
-def test_require_transplant_authentication_success(config, app):
-    config["PINGBACK_ENABLED"] = "y"
-    headers = [("API-Key", "someapikey")]
-    with app.test_request_context("/", headers=headers):
-        resp = require_transplant_authentication(noop)()
-
-    assert resp.status_code == 200
+    # Test happy path.
+    userinfo = CANNED_USERINFO["STANDARD"]
+    user = A0User(token, userinfo)
+    assert (
+        ensure_user_has_scm_level(user, SCM_LEVEL_1) is None
+    ), "Proper level 1 permissions should return without exception."

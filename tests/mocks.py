@@ -3,15 +3,15 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import hashlib
 import json
+from collections import defaultdict
 from copy import deepcopy
 
 from landoapi.phabricator import (
     PhabricatorAPIException,
     PhabricatorClient,
-    RevisionStatus,
+    PhabricatorRevisionStatus,
     ReviewerStatus,
 )
-
 from tests.canned_responses.phabricator.diffs import (
     CANNED_DEFAULT_DIFF_CHANGES,
     CANNED_RAW_DEFAULT_DIFF,
@@ -58,7 +58,7 @@ def validate_hunk(hunk):
     assert isinstance(hunk["corpus"], str)
     lines = hunk["corpus"].splitlines()
     assert len(lines) > 0
-    assert all([l[0] in (" ", "-", "+") for l in lines])
+    assert all(line[0] in (" ", "-", "+") for line in lines)
 
     return True
 
@@ -93,6 +93,51 @@ def validate_change(change):
     assert all(map(validate_hunk, change["hunks"]))
 
     return True
+
+
+def get_stack(phid, phabdouble):
+    phids = set()
+    new_phids = {phid}
+    edges = []
+
+    # Repeatedly request all related edges, adding connected revisions
+    # each time until no new revisions are found.
+    # NOTE: this was adapted from previous implementation of build_stack_graph.
+    while new_phids:
+        phids.update(new_phids)
+        edges = [
+            edge
+            for edge in phabdouble._edges
+            if edge["sourcePHID"] in phids
+            and edge["edgeType"] in ("revision.parent", "revision.child")
+        ]
+        new_phids = set()
+        for edge in edges:
+            new_phids.add(edge["sourcePHID"])
+            new_phids.add(edge["destinationPHID"])
+
+        new_phids = new_phids - phids
+
+    # Treat the stack like a commit DAG, we only care about edges going
+    # from child to parent. This is enough to represent the graph.
+    edges = {
+        (edge["sourcePHID"], edge["destinationPHID"])
+        for edge in edges
+        if edge["edgeType"] == "revision.parent"
+    }
+
+    stack_graph = defaultdict(list)
+    sources = [source for source, dest in edges]
+    for source, dest in edges:
+        # Check that destination phid has a corresponding source phid.
+        if dest not in sources:
+            # We are at a root node.
+            stack_graph[dest] = []
+        stack_graph[source].append(dest)
+    if not stack_graph:
+        # There is only one node, the root node.
+        stack_graph[phid] = []
+    return dict(stack_graph)
 
 
 class PhabricatorDouble:
@@ -189,13 +234,38 @@ class PhabricatorDouble:
     def get_phabricator_client():
         return PhabricatorClient("https://localhost", "DOESNT-MATTER")
 
+    def update_revision_dependencies(self, phid: str, depends_on: list[str]):
+        """Updates edges of `phid` so they match `depends_on`."""
+
+        # Remove all previous edges related to this revision.
+        def philter(edge):
+            return phid not in (edge["sourcePHID"], edge["destinationPHID"])
+
+        self._edges = list(filter(philter, self._edges))
+
+        for rev in depends_on:
+            self._edges.append(
+                {
+                    "edgeType": "revision.parent",
+                    "sourcePHID": phid,
+                    "destinationPHID": rev["phid"],
+                }
+            )
+            self._edges.append(
+                {
+                    "edgeType": "revision.child",
+                    "sourcePHID": rev["phid"],
+                    "destinationPHID": phid,
+                }
+            )
+
     def revision(
         self,
         *,
         diff=None,
         author=None,
         repo=None,
-        status=RevisionStatus.ACCEPTED,
+        status=PhabricatorRevisionStatus.ACCEPTED,
         depends_on=[],
         bug_id=None,
         projects=[],
@@ -662,6 +732,29 @@ class PhabricatorDouble:
     def conduit_ping(self):
         return "ip-123-123-123-123.us-west-2.compute.internal"
 
+    @conduit_method("bugzilla.account.search")
+    def bugzilla_account_search(self, phids=None, ids=None):
+        """Return a list of Bugzilla IDs and Phabricator phids, given phids or ids."""
+        if ids:
+            raise NotImplementedError(
+                "Searching by Bugzilla ID is not implemented in this mock."
+            )
+        if not phids:
+            return []
+
+        # NOTE: for the purposes of testing, a made-up number based on the Phabricator
+        # user ID should suffice. In this case, an arbitrary integer is added to the
+        # ID and returned as the Bugzilla user ID.
+
+        phid_to_id_mapping = {
+            user["phid"]: 100 + int(user["id"]) for user in self._users
+        }
+        result = []
+        for phid in phids:
+            if phid in phid_to_id_mapping:
+                result.append({"phid": phid, "id": phid_to_id_mapping[phid]})
+        return result
+
     @conduit_method("project.search")
     def project_search(
         self,
@@ -705,11 +798,14 @@ class PhabricatorDouble:
                 }
             )
 
-        items = [p for p in self._projects]
+        items = list(self._projects)
 
         if "ids" in constraints:
             if not constraints["ids"]:
-                error_info = 'Error while reading "ids": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "ids": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -718,7 +814,10 @@ class PhabricatorDouble:
 
         if "phids" in constraints:
             if not constraints["phids"]:
-                error_info = 'Error while reading "phids": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "phids": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -727,7 +826,10 @@ class PhabricatorDouble:
 
         if "slugs" in constraints:
             if not constraints["slugs"]:
-                error_info = 'Error while reading "slugs": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "slugs": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -783,7 +885,7 @@ class PhabricatorDouble:
 
             return deepcopy(resp)
 
-        items = [r for r in self._diffs]
+        items = list(self._diffs)
 
         if constraints and "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]
@@ -829,7 +931,10 @@ class PhabricatorDouble:
             )
 
         if not sourcePHIDs:
-            error_info = "Edge object query must be executed with a nonempty list of source PHIDs."  # noqa
+            error_info = (
+                "Edge object query must be executed with a "
+                "nonempty list of source PHIDs."
+            )
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
@@ -840,30 +945,28 @@ class PhabricatorDouble:
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
 
-        if not set(types) <= set(
-            (
-                "commit.revision",
-                "commit.task",
-                "mention",
-                "mentioned-in",
-                "revision.child",
-                "revision.commit",
-                "revision.parent",
-                "revision.task",
-                "task.commit",
-                "task.duplicate",
-                "task.merged-in",
-                "task.parent",
-                "task.revision",
-                "task.subtask",
-            )
-        ):
+        if not set(types) <= {
+            "commit.revision",
+            "commit.task",
+            "mention",
+            "mentioned-in",
+            "revision.child",
+            "revision.commit",
+            "revision.parent",
+            "revision.task",
+            "task.commit",
+            "task.duplicate",
+            "task.merged-in",
+            "task.parent",
+            "task.revision",
+            "task.subtask",
+        }:
             error_info = 'Edge type "<type-is-here>" is not a recognized edge type.'
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
 
-        items = [e for e in self._edges]
+        items = list(self._edges)
         items = [i for i in items if i["sourcePHID"] in sourcePHIDs]
         items = [i for i in items if i["edgeType"] in types]
 
@@ -904,6 +1007,7 @@ class PhabricatorDouble:
                 "fields": {
                     "title": i["title"],
                     "authorPHID": i["authorPHID"],
+                    "stackGraph": i["stackGraph"],
                     "status": {
                         "value": i["status"].value,
                         "name": i["status"].output_name,
@@ -912,6 +1016,7 @@ class PhabricatorDouble:
                     },
                     "repositoryPHID": i["repositoryPHID"],
                     "diffPHID": diffs[-1]["phid"],
+                    "diffID": diffs[-1]["id"],
                     "summary": i["summary"],
                     "dateCreated": i["dateCreated"],
                     "dateModified": i["dateModified"],
@@ -954,7 +1059,10 @@ class PhabricatorDouble:
 
             return deepcopy(resp)
 
-        items = [r for r in self._revisions]
+        items = []
+        for revision in self._revisions:
+            revision["stackGraph"] = get_stack(revision["phid"], self)
+            items.append(revision)
 
         if constraints and "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]
@@ -969,8 +1077,9 @@ class PhabricatorDouble:
                 status_set.update(
                     {
                         s.value
-                        for s in RevisionStatus
-                        if not s.closed and s is not RevisionStatus.UNEXPECTED_STATUS
+                        for s in PhabricatorRevisionStatus
+                        if not s.closed
+                        and s is not PhabricatorRevisionStatus.UNEXPECTED_STATUS
                     }
                 )
             if "closed()" in status_set:
@@ -978,8 +1087,9 @@ class PhabricatorDouble:
                 status_set.update(
                     {
                         s.value
-                        for s in RevisionStatus
-                        if s.closed and s is not RevisionStatus.UNEXPECTED_STATUS
+                        for s in PhabricatorRevisionStatus
+                        if s.closed
+                        and s is not PhabricatorRevisionStatus.UNEXPECTED_STATUS
                     }
                 )
 
@@ -1037,7 +1147,8 @@ class PhabricatorDouble:
             "edit",
             "projects.add",
             "projects.remove",
-            "projects.set," "subscribers.add",
+            "projects.set",
+            "subscribers.add",
             "subscribers.remove",
             "subscribers.set",
             "phabricator:auditors",
@@ -1060,18 +1171,25 @@ class PhabricatorDouble:
         if isinstance(transactions, list):
             transactions = list(enumerate(transactions))
         elif isinstance(transactions, dict):
-            transactions = list((k, v) for k, v, in transactions.items())
+            transactions = [(k, v) for k, v, in transactions.items()]
 
         # Validate each transaction.
         for key, t in transactions:
             if not isinstance(t, dict):
-                error_info = f'Parameter "transactions" must contain a list of transaction descriptions, but item with key "{key}" is not a dictionary.'  # noqa
+                error_info = (
+                    'Parameter "transactions" must contain a list of transaction '
+                    f'descriptions, but item with key "{key}" is not a dictionary.'
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
 
             if "type" not in t:
-                error_info = f'Parameter "transactions" must contain a list of transaction descriptions, but item with key "{key}" is missing a "type" field. Each transaction must have a type field.'  # noqa
+                error_info = (
+                    'Parameter "transactions" must contain a list of transaction '
+                    'descriptions, but item with key "{key}" is missing a "type" '
+                    "field. Each transaction must have a type field."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1079,7 +1197,10 @@ class PhabricatorDouble:
             if t["type"] not in TRANSACTION_TYPES:
                 given_type = t["type"]
                 valid_types = " ,".join(TRANSACTION_TYPES)
-                error_info = f'Transaction with key "{key}" has invalid type "{given_type}". This type is not recognized. Valid types are: {valid_types}.'  # noqa
+                error_info = (
+                    f'Transaction with key "{key}" has invalid type "{given_type}". '
+                    f"This type is not recognized. Valid types are: {valid_types}."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1256,7 +1377,7 @@ class PhabricatorDouble:
                 }
             )
 
-        items = [r for r in self._repos]
+        items = list(self._repos)
 
         if "ids" in constraints:
             items = [i for i in items if i["id"] in constraints["ids"]]
@@ -1394,7 +1515,10 @@ class PhabricatorDouble:
         items = list(self._transactions)
 
         if not objectIdentifier:
-            error_info = 'When calling "transaction.search", you must provide an object to retrieve transactions for.'  # noqa
+            error_info = (
+                'When calling "transaction.search", you must provide an '
+                "object to retrieve transactions for."
+            )
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
@@ -1416,7 +1540,10 @@ class PhabricatorDouble:
         # Transactions are special. You can't retrieve them directly using search. I
         # don't know why. You have to retrieve the transaction's parent object instead.
         if objectIdentifier.startswith("PHID-XACT-"):
-            error_info = '[Invalid Translation!] Object "%s" does not implement "%s", so transactions can not be loaded for it.'  # noqa
+            error_info = (
+                '[Invalid Translation!] Object "%s" does not implement "%s", '
+                "so transactions can not be loaded for it."
+            )
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
@@ -1434,7 +1561,10 @@ class PhabricatorDouble:
         if constraints and "phids" in constraints:
             phids = constraints["phids"]
             if not phids:
-                error_info = 'Constraint "phids" to "transaction.search" requires nonempty list, empty list provided.'  # noqa
+                error_info = (
+                    'Constraint "phids" to "transaction.search" requires nonempty list, '
+                    "empty list provided."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1496,11 +1626,14 @@ class PhabricatorDouble:
                 }
             )
 
-        items = [u for u in self._users]
+        items = list(self._users)
 
         if "ids" in constraints:
             if not constraints["ids"]:
-                error_info = 'Error while reading "ids": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "ids": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1509,7 +1642,10 @@ class PhabricatorDouble:
 
         if "phids" in constraints:
             if not constraints["phids"]:
-                error_info = 'Error while reading "phids": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "phids": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1518,7 +1654,10 @@ class PhabricatorDouble:
 
         if "usernames" in constraints:
             if not constraints["usernames"]:
-                error_info = 'Error while reading "usernames": Expected a nonempty list, but value is an empty list.'  # noqa
+                error_info = (
+                    'Error while reading "usernames": Expected a nonempty list, '
+                    "but value is an empty list."
+                )
                 raise PhabricatorAPIException(
                     error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
                 )
@@ -1564,7 +1703,7 @@ class PhabricatorDouble:
                 }
             )
 
-        items = [u for u in self._users]
+        items = list(self._users)
 
         if usernames:
             items = [i for i in items if i["userName"] in usernames]
@@ -1607,7 +1746,12 @@ class PhabricatorDouble:
     @conduit_method("phid.query")
     def phid_query(self, *, phids=None):
         if phids is None:
-            error_info = "Argument 1 passed to PhabricatorHandleQuery::withPHIDs() must be of the type array, null given, called in /app/phabricator/src/applications/phid/conduit/PHIDQueryConduitAPIMethod.php on line 28 and defined"  # noqa
+            error_info = (
+                "Argument 1 passed to PhabricatorHandleQuery::withPHIDs() must be "
+                "of the type array, null given, called in "
+                "/app/phabricator/src/applications/phid/conduit/PHIDQueryConduitAPIMethod.php "
+                "on line 28 and defined"
+            )
             raise PhabricatorAPIException(
                 error_info, error_code="ERR-CONDUIT-CORE", error_info=error_info
             )
