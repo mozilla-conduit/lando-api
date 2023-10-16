@@ -280,7 +280,7 @@ class LandingWorker(Worker):
 
         with hgrepo.for_push(job.requester_email):
             # Update local repo.
-            repo_pull_info = f"tree: {repo.tree}, push path: {repo.push_path}"
+            repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
                 hgrepo.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
             except PullFailureException as e:
