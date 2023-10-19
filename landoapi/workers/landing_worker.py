@@ -17,11 +17,11 @@ from landoapi.commit_message import parse_bugs
 from landoapi.hg import (
     REJECTS_PATH,
     AutoformattingException,
+    HgmoInternalServerError,
     HgRepo,
     LostPushRace,
     NoDiffStartLine,
     PatchConflict,
-    PullFailureException,
     PushTimeoutException,
     TreeApprovalRequired,
     TreeClosed,
@@ -283,7 +283,7 @@ class LandingWorker(Worker):
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
                 hgrepo.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
-            except PullFailureException as e:
+            except HgmoInternalServerError as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
                     f"encountered while pulling from {repo_pull_info}"
@@ -410,6 +410,7 @@ class LandingWorker(Worker):
                 TreeApprovalRequired,
                 LostPushRace,
                 PushTimeoutException,
+                HgmoInternalServerError,
             ) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
