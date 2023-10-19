@@ -18,6 +18,7 @@ from landoapi.commit_message import parse_bugs
 from landoapi.hg import (
     REJECTS_PATH,
     AutoformattingException,
+    HgmoInternalServerError,
     HgRepo,
     LostPushRace,
     NoDiffStartLine,
@@ -274,8 +275,20 @@ class LandingWorker(Worker):
 
         with hgrepo.for_push(job.requester_email):
             # Update local repo.
+            repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
                 hgrepo.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
+            except HgmoInternalServerError as e:
+                message = (
+                    f"`Temporary error ({e.__class__}) "
+                    f"encountered while pulling from {repo_pull_info}"
+                )
+                job.transition_status(
+                    LandingJobAction.DEFER, message=message, commit=True, db=db
+                )
+
+                # Try again, this is a temporary failure.
+                return False
             except Exception as e:
                 message = f"Unexpected error while fetching repo from {repo.pull_path}."
                 logger.exception(message)
@@ -380,7 +393,7 @@ class LandingWorker(Worker):
                 "utf-8"
             )
 
-            repo_info = f"tree: {repo.tree}, push path: {repo.push_path}"
+            repo_push_info = f"tree: {repo.tree}, push path: {repo.push_path}"
             try:
                 hgrepo.push(
                     repo.push_path,
@@ -392,10 +405,11 @@ class LandingWorker(Worker):
                 TreeApprovalRequired,
                 LostPushRace,
                 PushTimeoutException,
+                HgmoInternalServerError,
             ) as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "
-                    f"encountered while pushing to {repo_info}"
+                    f"encountered while pushing to {repo_push_info}"
                 )
                 job.transition_status(
                     LandingJobAction.DEFER, message=message, commit=True, db=db

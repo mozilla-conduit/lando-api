@@ -50,6 +50,7 @@ class HgException(Exception):
             TreeClosed,
             TreeApprovalRequired,
             PushTimeoutException,
+            HgmoInternalServerError,
         ):
             for s in cls.SNIPPETS:
                 if s in err or s in out:
@@ -91,6 +92,12 @@ class PushTimeoutException(HgException):
     """Exception when pushing failed due to a timeout on the repo."""
 
     SNIPPETS = (b"timed out waiting for lock held by",)
+
+
+class HgmoInternalServerError(HgException):
+    """Exception when pulling changes from the upstream repo fails."""
+
+    SNIPPETS = (b"abort: HTTP Error 500:",)
 
 
 class PatchApplicationFailure(HgException):
