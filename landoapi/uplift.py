@@ -110,6 +110,8 @@ def get_uplift_conduit_state(
     # Load target repo from Phabricator
     target_repo = phab.call_conduit(
         "diffusion.repository.search",
+        # Attach `metrics` to get the most recent commit in the repo.
+        attachments={"metrics": True},
         constraints={"shortNames": [target_repository_name]},
     )
     target_repo = phab.single(target_repo, "data")
@@ -189,6 +191,7 @@ def create_uplift_revision(
     source_revision: dict,
     source_diff: dict,
     parent_phid: Optional[str],
+    base_revision: str,
     target_repository: dict,
 ) -> dict[str, str]:
     """Create a new revision on a repository, cloning a diff from another repo.
@@ -199,10 +202,6 @@ def create_uplift_revision(
     raw_diff = phab.call_conduit("differential.getrawdiff", diffID=source_diff["id"])
     if not raw_diff:
         raise Exception("Missing raw source diff, cannot uplift revision.")
-
-    # Base revision hash is available on the diff fields.
-    refs = {ref["type"]: ref for ref in phab.expect(source_diff, "fields", "refs")}
-    base_revision = refs["base"]["identifier"] if "base" in refs else None
 
     # The first commit in the attachment list is the current HEAD of stack
     # we can use the HEAD to mark the changes being created.
@@ -249,7 +248,7 @@ def create_uplift_revision(
                     ),
                     "commit": phab.expect(commit, "identifier"),
                     "rev": phab.expect(commit, "identifier"),
-                    "parents": phab.expect(commit, "parents"),
+                    "parents": [base_revision],
                 }
                 for commit in commits
             }
