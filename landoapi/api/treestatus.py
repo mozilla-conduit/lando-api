@@ -299,7 +299,7 @@ def update_stack(id: int, body: dict) -> tuple[None, int]:
 
     session.commit()
 
-    return None, 200
+    return change.status, 200
 
 
 def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
@@ -337,7 +337,7 @@ def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
     session.delete(status_change)
     session.commit()
 
-    return None, 204
+    return status_change.status, 200
 
 
 @auth.require_auth0(
