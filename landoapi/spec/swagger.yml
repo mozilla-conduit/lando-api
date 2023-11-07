@@ -493,7 +493,9 @@ paths:
         200:
           description: Tree
           schema:
-            type: string
+            type: array
+            items:
+              $ref: '#/definitions/Tree'
 
   /treestatus/trees/{tree}:
     get:

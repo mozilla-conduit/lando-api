@@ -471,7 +471,15 @@ def update_trees(body: dict):
 
     session.commit()
 
-    return None, 204
+    return [
+        {
+            "tree": tree.tree,
+            "status": new_status,
+            "reason": new_reason,
+            "message_of_the_day": new_motd,
+        }
+        for tree in trees
+    ], 200
 
 
 @result_object_wrap
