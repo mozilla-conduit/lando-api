@@ -572,7 +572,7 @@ def update_log(id: int, body: dict):
 
     session.commit()
 
-    return None, 200
+    return {"tags": tags, "reason": reason}, 200
 
 
 def get_logs_for_tree(tree_name: str, limit_logs: bool = True) -> list[dict]:
