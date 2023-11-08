@@ -6,6 +6,7 @@
 This module provides the definitions for Treestatus data.
 """
 
+import enum
 import json
 from typing import (
     Any,
@@ -49,6 +50,20 @@ def load_last_state(last_state_str: str) -> dict:
     return last_state
 
 
+class TreeCategory(enum.Enum):
+    """Categories of the various trees.
+
+    Note: the definition order is in order of importance for display in the UI.
+    Note: this class also exists in Lando-UI, and should be updated in both places.
+    """
+
+    DEVELOPMENT = "development"
+    RELEASE_STABILIZATION = "release_stabilization"
+    TRY = "try"
+    COMM_REPOS = "comm_repos"
+    OTHER = "other"
+
+
 class Tree(Base):
     """A Tree that is managed via Treestatus."""
 
@@ -64,8 +79,14 @@ class Tree(Base):
     # A temporary message attached to the tree.
     message_of_the_day = db.Column(db.Text, default="", nullable=False)
 
+    # A category assigned to the tree.
+    category = db.Column(
+        db.Enum(TreeCategory), default=TreeCategory.OTHER, nullable=False
+    )
+
     def to_dict(self) -> dict[str, Any]:
         return {
+            "category": self.category.value,
             "message_of_the_day": self.message_of_the_day,
             "reason": self.reason,
             "status": self.status,

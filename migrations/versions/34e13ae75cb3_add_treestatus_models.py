@@ -1,15 +1,15 @@
 """add Treestatus models
 
-Revision ID: 0d07c93123c7
+Revision ID: 34e13ae75cb3
 Revises: 56c6748ee7cf
-Create Date: 2023-11-02 16:31:55.418066
+Create Date: 2023-11-08 22:51:44.945171
 
 """
 import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0d07c93123c7"
+revision = "34e13ae75cb3"
 down_revision = "56c6748ee7cf"
 branch_labels = None
 depends_on = None
@@ -36,6 +36,18 @@ def upgrade():
         sa.Column("status", sa.String(length=64), nullable=False),
         sa.Column("reason", sa.Text(), nullable=False),
         sa.Column("message_of_the_day", sa.Text(), nullable=False),
+        sa.Column(
+            "category",
+            sa.Enum(
+                "DEVELOPMENT",
+                "RELEASE_STABILIZATION",
+                "TRY",
+                "COMM_REPOS",
+                "OTHER",
+                name="treecategory",
+            ),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_tree_tree"), "tree", ["tree"], unique=True)

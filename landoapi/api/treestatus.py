@@ -27,6 +27,7 @@ from landoapi.models.treestatus import (
     StatusChange,
     StatusChangeTree,
     Tree,
+    TreeCategory,
     load_last_state,
 )
 from landoapi.storage import db
@@ -38,7 +39,16 @@ TREE_SUMMARY_LOG_LIMIT = 5
 
 CombinedTree = collections.namedtuple(
     "CombinedTree",
-    ["tree", "message_of_the_day", "tags", "status", "reason", "log_id", "model"],
+    [
+        "tree",
+        "message_of_the_day",
+        "tags",
+        "status",
+        "reason",
+        "category",
+        "log_id",
+        "model",
+    ],
 )
 
 
@@ -515,6 +525,7 @@ def make_tree(tree: str, body: dict):
         status=body["status"],
         reason=body["reason"],
         message_of_the_day=body["message_of_the_day"],
+        category=TreeCategory(body["category"]),
     )
     try:
         session.add(new_tree)

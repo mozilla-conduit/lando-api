@@ -706,6 +706,7 @@ definitions:
       - status
       - reason
       - message_of_the_day
+      - category
     properties:
       tree:
         type: string
@@ -719,6 +720,9 @@ definitions:
       message_of_the_day:
         type: string
         description: even more information about the status
+      category:
+        type: string
+        description: Category of the tree.
 
   TreeWithTags:
     type: object
