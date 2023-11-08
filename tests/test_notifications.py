@@ -98,7 +98,6 @@ def test_email_content_try():
     )
     expected_body = (
         "Your request to land try push with tip commit 'testing 123' failed.\n\n"
-        "See below for details.\n\n"
         "Reason:\n"
         "Rebase failed!"
     )
