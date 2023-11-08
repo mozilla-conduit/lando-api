@@ -181,7 +181,7 @@ class LandingJob(Base):
         """
         if not self.revisions:
             raise ValueError(
-                "Job must be associated with a revision to have a head revision."
+                "Job must be associated with a revision to have a relevant identifier."
             )
 
         head = self.revisions[-1]
@@ -196,7 +196,7 @@ class LandingJob(Base):
 
         commit_message = head.patch_data.get("commit_message")
         if commit_message:
-            return commit_message.splitlines()[0]
+            return f"try push with tip commit '{commit_message.splitlines()[0]}'"
 
         # Return a placeholder in the event neither exists.
         return "unknown"

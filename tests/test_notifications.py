@@ -64,7 +64,7 @@ def test_send_failure_notification_email_task(app, smtp):
     assert len(smtp.outbox) == 1
 
 
-def test_email_content():
+def test_email_content_phabricator():
     email = make_failure_email(
         "mozphab-prod@mozilla.com",
         "sadpanda@failure.test",
@@ -77,6 +77,28 @@ def test_email_content():
     expected_body = (
         "Your request to land D54321 failed.\n\n"
         "See https://lando.test/D54321/ for details.\n\n"
+        "Reason:\n"
+        "Rebase failed!"
+    )
+    assert email.get_content() == expected_body + "\n"
+
+
+def test_email_content_try():
+    email = make_failure_email(
+        "mozphab-prod@mozilla.com",
+        "sadpanda@failure.test",
+        "try push with tip commit 'testing 123'",
+        "Rebase failed!",
+        "https://lando.test",
+    )
+    assert email["To"] == "sadpanda@failure.test"
+    assert (
+        email["Subject"]
+        == "Lando: Landing of try push with tip commit 'testing 123' failed!"
+    )
+    expected_body = (
+        "Your request to land try push with tip commit 'testing 123' failed.\n\n"
+        "See below for details.\n\n"
         "Reason:\n"
         "Rebase failed!"
     )

@@ -4,12 +4,14 @@
 import logging
 from email.message import EmailMessage
 
+from landoapi.validation import REVISION_ID_RE
+
 logger = logging.getLogger(__name__)
 
 LANDING_FAILURE_EMAIL_TEMPLATE = """
 Your request to land {landing_job_identifier} failed.
 
-See {lando_revision_url} for details.
+See {error_details_location} for details.
 
 Reason:
 {reason}
@@ -35,11 +37,20 @@ def make_failure_email(
     msg["From"] = from_email
     msg["To"] = recipient_email
     msg["Subject"] = f"Lando: Landing of {landing_job_identifier} failed!"
-    lando_revision_url = f"{lando_ui_url}/{landing_job_identifier}/"
+
+    if REVISION_ID_RE.match(landing_job_identifier):
+        # If the landing job identifier looks like a Phab revision,
+        # link to the relevant view page.
+        error_details_location = f"{lando_ui_url}/{landing_job_identifier}/"
+    else:
+        # If there is no relevant URL to show the user in the email, the error
+        # details in the bottom of the email is all we have to show them for now.
+        error_details_location = "below"
+
     msg.set_content(
         LANDING_FAILURE_EMAIL_TEMPLATE.format(
             landing_job_identifier=landing_job_identifier,
-            lando_revision_url=lando_revision_url,
+            error_details_location=error_details_location,
             reason=error_msg,
         )
     )
