@@ -99,9 +99,9 @@ def result_object_wrap(f: Callable) -> Callable:
     """
 
     @functools.wraps(f)
-    def wrap_output(*args, **kwargs) -> dict[str, Any]:
+    def wrap_output(*args, **kwargs) -> tuple[dict[str, Any], int]:
         result = f(*args, **kwargs)
-        return {"result": result}
+        return {"result": result}, 200
 
     return wrap_output
 

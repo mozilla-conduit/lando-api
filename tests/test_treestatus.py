@@ -78,8 +78,9 @@ def test_get_tree_exists(db, new_treestatus_tree):
     tree = new_treestatus_tree(
         tree="mozilla-central", status="open", reason="reason", motd="message"
     )
-    response = get_tree("mozilla-central")
+    response, status = get_tree("mozilla-central")
     assert "result" in response, "Response should be contained in the `result` key."
+    assert status == 200, "Response status code should be 200."
 
     tree_response = response["result"]
     assert (
