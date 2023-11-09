@@ -92,9 +92,9 @@ def combinedtree_as_dict(tree: CombinedTree) -> dict[str, Any]:
 
 
 def result_object_wrap(f: Callable) -> Callable:
-    """Wrap the value returned from `f` in a result object.
+    """Wrap the value returned from `f` in a result dict.
 
-    Return a result wrapped in an object with a `result` key, like so:
+    Return a result wrapped in a dict with a `result` key, like so:
         {"result": ...}
     """
 
