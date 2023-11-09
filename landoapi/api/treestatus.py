@@ -238,8 +238,7 @@ def update_tree_status(
 
     Note that this does not commit the session.
     """
-    if not tags:
-        tags = []
+    tags = tags or []
 
     if status is not None:
         tree.status = status
