@@ -64,6 +64,7 @@ def test_get_combined_tree(new_treestatus_tree):
     )
 
     assert get_combined_tree(tree) == CombinedTree(
+        category="other",
         log_id=None,
         message_of_the_day="message",
         model=tree,
@@ -118,6 +119,7 @@ def test_api_get_trees2(db, client, new_treestatus_tree):
     assert "result" in response.json, "Response should contain `result` key."
     assert response.json["result"] == [
         {
+            "category": "other",
             "log_id": None,
             "message_of_the_day": "",
             "reason": "",
@@ -143,6 +145,7 @@ def test_api_get_logs(_now_mock, db, client, auth0_mock):
         "/treestatus/trees/tree",
         headers=auth0_mock.mock_headers,
         json={
+            "category": "other",
             "status": "closed",
             "message_of_the_day": "",
             "tree": "tree",
@@ -415,6 +418,7 @@ def test_api_put_trees_name_mismatch(db, client, auth0_mock):
         "/treestatus/trees/wrongname",
         headers=auth0_mock.mock_headers,
         json={
+            "category": "other",
             "status": "closed",
             "message_of_the_day": "",
             "tree": "tree",
@@ -433,6 +437,7 @@ def test_api_put_trees(db, client, auth0_mock):
         "/treestatus/trees/tree",
         headers=auth0_mock.mock_headers,
         json={
+            "category": "other",
             "status": "closed",
             "message_of_the_day": "",
             "tree": "tree",
@@ -443,6 +448,7 @@ def test_api_put_trees(db, client, auth0_mock):
         response.status_code == 200
     ), "Response code should be 200 when new tree is created."
     assert response.json == {
+        "category": "other",
         "tree": "tree",
         "status": "closed",
         "reason": "",
@@ -455,6 +461,7 @@ def test_api_put_trees(db, client, auth0_mock):
         response.status_code == 200
     ), "Retrieving tree after addition should return 200 status code."
     assert response.json["result"] == {
+        "category": "other",
         "log_id": None,
         "message_of_the_day": "",
         "reason": "",
@@ -468,6 +475,7 @@ def test_api_put_trees(db, client, auth0_mock):
         "/treestatus/trees/tree",
         headers=auth0_mock.mock_headers,
         json={
+            "category": "other",
             "status": "closed",
             "message_of_the_day": "",
             "tree": "tree",
@@ -509,6 +517,7 @@ def test_api_get_trees_single_exists(db, client, new_treestatus_tree):
     ), "Response code when a tree is found should be `200`."
     assert "result" in response.json, "Response JSON should contain `result` key."
     assert response.json["result"] == {
+        "category": "other",
         "log_id": None,
         "message_of_the_day": "",
         "reason": "",
@@ -655,6 +664,7 @@ def test_api_patch_trees_success_remember(
     response = client.get("/treestatus/trees")
     assert response.json["result"] == {
         "autoland": {
+            "category": "other",
             "log_id": 2,
             "message_of_the_day": "",
             "reason": "somereason",
@@ -663,6 +673,7 @@ def test_api_patch_trees_success_remember(
             "tree": "autoland",
         },
         "mozilla-central": {
+            "category": "other",
             "log_id": 1,
             "message_of_the_day": "",
             "reason": "somereason",
@@ -740,6 +751,7 @@ def test_api_patch_trees_success_no_remember(
     response = client.get("/treestatus/trees")
     assert response.json["result"] == {
         "autoland": {
+            "category": "other",
             "log_id": 2,
             "message_of_the_day": "",
             "reason": "somereason",
@@ -748,6 +760,7 @@ def test_api_patch_trees_success_no_remember(
             "tree": "autoland",
         },
         "mozilla-central": {
+            "category": "other",
             "log_id": 1,
             "message_of_the_day": "",
             "reason": "somereason",
@@ -781,6 +794,7 @@ def test_api_get_trees(db, client, new_treestatus_tree):
     assert "result" in response.json, "Response should contain `result` key."
     assert response.json["result"] == {
         "mozilla-central": {
+            "category": "other",
             "log_id": None,
             "message_of_the_day": "",
             "reason": "",
@@ -957,6 +971,7 @@ def test_api_delete_stack2_restore(
     response = client.get("/treestatus/trees/autoland")
     assert response.status_code == 200
     assert response.json["result"] == {
+        "category": "other",
         "log_id": 6,
         "message_of_the_day": "",
         "reason": "some reason for opening",
@@ -1131,6 +1146,7 @@ def test_api_delete_stack2_discard(
     response = client.get("/treestatus/trees/autoland")
     assert response.status_code == 200
     assert response.json["result"] == {
+        "category": "other",
         "log_id": 4,
         "message_of_the_day": "",
         "reason": "some reason to close",
