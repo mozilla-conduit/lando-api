@@ -12,6 +12,10 @@ amqp==2.6.1 \
     --hash=sha256:70cdb10628468ff14e57ec2f751c7aa9e48e7e3651cfd62d431213c0c4e58f21 \
     --hash=sha256:aa7f313fb887c91f15474c1229907a04dac0b8135822d6603437803424c0aa59
     # via kombu
+async-timeout==4.0.3 \
+    --hash=sha256:4640d96be84d82d02ed59ea2b7105a0f7b33abe8703703cd0ab0bf87c427522f \
+    --hash=sha256:7405140ff1230c310e51dc27b3145b9092d659ce68ff733fb0cefe3ee42be028
+    # via redis
 attrs==23.1.0 \
     --hash=sha256:1f28b4522cdc2fb4256ac1a020c78acf9cba2c6b461ccd2c126f3aa8e8335d04 \
     --hash=sha256:6279836d581513a26f1bf235f9acd333bc9115683f14f7e8fae46c98fc50e015
@@ -435,9 +439,9 @@ pyyaml==6.0.1 \
     # via
     #   clickclick
     #   connexion
-redis==3.2.1 \
-    --hash=sha256:6946b5dca72e86103edc8033019cc3814c031232d339d5f4533b02ea85685175 \
-    --hash=sha256:8ca418d2ddca1b1a850afa1680a7d2fd1f3322739271de4b704e0d4668449273
+redis==5.0.1 \
+    --hash=sha256:0dab495cd5753069d3bc650a0dde8a8f9edde16fc5691b689a566eda58100d0f \
+    --hash=sha256:ed4802971884ae19d640775ba3b03aa2e7bd5e8fb8dfaed2decce4d0fc48391f
     # via -r requirements.in
 referencing==0.30.2 \
     --hash=sha256:449b6669b6121a9e96a7f9e410b245d471e8d48964c67113ce9afe50c8dd7bdf \
