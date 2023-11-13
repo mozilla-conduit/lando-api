@@ -97,7 +97,10 @@ class PushTimeoutException(HgException):
 class HgmoInternalServerError(HgException):
     """Exception when pulling changes from the upstream repo fails."""
 
-    SNIPPETS = (b"abort: HTTP Error 500:",)
+    SNIPPETS = (
+        b"abort: HTTP Error 500:",
+        b"abort: push failed on remote",
+    )
 
 
 class PatchApplicationFailure(HgException):
