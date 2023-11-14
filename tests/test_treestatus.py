@@ -395,7 +395,7 @@ def test_api_delete_trees_known(db, client, auth0_mock, new_treestatus_tree):
     """API test for `DELETE /trees/{tree}` with a known tree."""
     new_treestatus_tree(tree="mozilla-central")
 
-    # Delete the tree
+    # Delete the tree.
     response = client.delete(
         "/treestatus/trees/mozilla-central", headers=auth0_mock.mock_headers
     )
@@ -413,7 +413,7 @@ def test_api_delete_trees_known(db, client, auth0_mock, new_treestatus_tree):
 
 def test_api_put_trees_name_mismatch(db, client, auth0_mock):
     """API test for `PUT /trees/{tree}` when body and URL name do not match."""
-    # Tree name in URL doesn't match body
+    # Tree name in URL doesn't match body.
     response = client.put(
         "/treestatus/trees/wrongname",
         headers=auth0_mock.mock_headers,
