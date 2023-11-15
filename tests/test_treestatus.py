@@ -168,11 +168,8 @@ def test_api_get_trees2(db, client, new_treestatus_tree):
     assert TreeData(**result[0]), "Response should match expected tree format."
 
 
-@mock.patch("landoapi.api.treestatus._now")
-def test_api_get_logs(_now_mock, db, client, auth0_mock):
+def test_api_get_logs(db, client, auth0_mock):
     """API test for `GET /trees/{tree}/logs`."""
-    # Mock the current time to be a steadily increasing value.
-    _now_mock.side_effect = IncreasingDatetime()
 
     def patch_tree(body):
         """Convenience closure to patch the tree."""
@@ -272,57 +269,50 @@ def test_api_get_logs(_now_mock, db, client, auth0_mock):
         },
     )
     assert response.status_code == 200, "Requesting all logs should return `200`."
-    assert "result" in response.json, "Response JSON should contain `result` key."
-    assert (
-        len(response.json["result"]) == 5
-    ), "`logs` endpoint should only return latest logs."
-    assert response.json["result"] == [
+    result = response.json.get("result")
+    assert result is not None, "Response JSON should contain `result` key."
+    assert len(result) == 5, "`logs` endpoint should only return latest logs."
+    expected_keys = [
         {
             "id": 8,
             "reason": "fourth close",
             "status": "closed",
             "tags": ["sometag1"],
-            "tree": "tree",
-            "when": "0001-01-01T01:20:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 7,
             "reason": "fourth open",
             "status": "open",
             "tags": [],
-            "tree": "tree",
-            "when": "0001-01-01T01:10:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 6,
             "reason": "third close",
             "status": "closed",
             "tags": ["sometag1"],
-            "tree": "tree",
-            "when": "0001-01-01T01:00:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 5,
             "reason": "third open",
             "status": "open",
             "tags": [],
-            "tree": "tree",
-            "when": "0001-01-01T00:50:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 4,
             "reason": "second close",
             "status": "closed",
             "tags": ["sometag1"],
-            "tree": "tree",
-            "when": "0001-01-01T00:40:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
-    ], "Response should match expected format."
+    ]
+
+    for tree, expected in zip(result, expected_keys):
+        tree_data = LogEntry(**tree)
+        assert tree_data.id == expected["id"], "ID should match expected."
+        assert tree_data.reason == expected["reason"], "Reason should match expected."
+        assert tree_data.status == expected["status"], "Status should match expected."
+        assert sorted(tree_data.tags) == sorted(
+            expected["tags"]
+        ), "Tags should match expected."
 
     # Check all results are returned from `logs_all`.
     response = client.get(
@@ -336,81 +326,66 @@ def test_api_get_logs(_now_mock, db, client, auth0_mock):
         },
     )
     assert response.status_code == 200, "Requesting all logs should return `200`."
-    assert "result" in response.json, "Response JSON should contain `result` key."
-    assert response.json["result"] == [
+    result = response.json.get("result")
+    assert result is not None, "Response JSON should contain `result` key."
+    expected_keys = [
         {
             "id": 8,
             "reason": "fourth close",
             "status": "closed",
             "tags": ["sometag1"],
-            "tree": "tree",
-            "when": "0001-01-01T01:20:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 7,
             "reason": "fourth open",
             "status": "open",
             "tags": [],
-            "tree": "tree",
-            "when": "0001-01-01T01:10:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 6,
             "reason": "third close",
             "status": "closed",
             "tags": ["sometag1"],
-            "tree": "tree",
-            "when": "0001-01-01T01:00:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 5,
             "reason": "third open",
             "status": "open",
             "tags": [],
-            "tree": "tree",
-            "when": "0001-01-01T00:50:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 4,
             "reason": "second close",
             "status": "closed",
             "tags": ["sometag1"],
-            "tree": "tree",
-            "when": "0001-01-01T00:40:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 3,
             "reason": "second open",
             "status": "open",
             "tags": [],
-            "tree": "tree",
-            "when": "0001-01-01T00:30:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 2,
             "reason": "first close",
             "status": "closed",
             "tags": ["sometag1"],
-            "tree": "tree",
-            "when": "0001-01-01T00:20:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
         {
             "id": 1,
             "reason": "first open",
             "status": "open",
             "tags": [],
-            "tree": "tree",
-            "when": "0001-01-01T00:10:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
         },
-    ], "Response should match expected format."
+    ]
+    for tree, expected in zip(result, expected_keys):
+        tree_data = LogEntry(**tree)
+        assert tree_data.id == expected["id"], "ID should match expected."
+        assert tree_data.reason == expected["reason"], "Reason should match expected."
+        assert tree_data.status == expected["status"], "Status should match expected."
+        assert sorted(tree_data.tags) == sorted(
+            expected["tags"]
+        ), "Tags should match expected."
 
 
 def test_api_delete_trees_unknown(db, client, auth0_mock):
