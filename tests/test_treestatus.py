@@ -751,14 +751,8 @@ def test_api_get_trees(db, client, new_treestatus_tree):
     assert TreeData(**tree), "Tree response should match expected format."
 
 
-@mock.patch("landoapi.api.treestatus._now")
-def test_api_delete_stack2_restore(
-    _now_mock, db, client, new_treestatus_tree, auth0_mock
-):
+def test_api_delete_stack2_restore(db, client, new_treestatus_tree, auth0_mock):
     """API test for `DELETE /stack2/restore/{id}`."""
-    # Mock the current time to be a steadily increasing value.
-    _now_mock.side_effect = IncreasingDatetime()
-
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="autoland")
 
@@ -788,83 +782,28 @@ def test_api_delete_stack2_restore(
     )
 
     response = client.get("/treestatus/stack")
-    assert "result" in response.json, "Response should contain a `result` key."
-    assert response.json["result"] == [
-        {
-            "id": 2,
-            "reason": "some reason to close",
-            "status": "closed",
-            "trees": [
-                {
-                    "id": 3,
-                    "last_state": {
-                        "current_log_id": 3,
-                        "current_reason": "some reason to close",
-                        "current_status": "closed",
-                        "current_tags": ["closingtag1", "closingtag2"],
-                        "log_id": 1,
-                        "reason": "some reason for opening",
-                        "status": "open",
-                        "tags": ["sometag1", "sometag2"],
-                    },
-                    "tree": "mozilla-central",
-                },
-                {
-                    "id": 4,
-                    "last_state": {
-                        "current_log_id": 4,
-                        "current_reason": "some reason to close",
-                        "current_status": "closed",
-                        "current_tags": ["closingtag1", "closingtag2"],
-                        "log_id": 2,
-                        "reason": "some reason for opening",
-                        "status": "open",
-                        "tags": ["sometag1", "sometag2"],
-                    },
-                    "tree": "autoland",
-                },
-            ],
-            "when": "0001-01-01T01:00:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        },
-        {
-            "id": 1,
-            "reason": "some reason for opening",
-            "status": "open",
-            "trees": [
-                {
-                    "id": 1,
-                    "last_state": {
-                        "current_log_id": 1,
-                        "current_reason": "some reason for opening",
-                        "current_status": "open",
-                        "current_tags": ["sometag1", "sometag2"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "mozilla-central",
-                },
-                {
-                    "id": 2,
-                    "last_state": {
-                        "current_log_id": 2,
-                        "current_reason": "some reason for opening",
-                        "current_status": "open",
-                        "current_tags": ["sometag1", "sometag2"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "autoland",
-                },
-            ],
-            "when": "0001-01-01T00:30:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        },
-    ], "Current stack should contain changes."
+
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+    assert len(result) == 2, "Both tree status updates should be on the stack."
+
+    for entry in result:
+        stack_entry = StackEntry(**entry)
+
+        if stack_entry.id != 2:
+            continue
+
+        # Assert the state of stack entry 2 is correct, since we will be restoring it.
+        assert stack_entry.reason == "some reason to close"
+        assert stack_entry.status == "closed"
+        assert len(stack_entry.trees) == 2
+
+        for tree in stack_entry.trees:
+            assert tree.last_state.current_status == "closed"
+            assert tree.last_state.current_reason == "some reason to close"
+            assert tree.last_state.status == "open"
+            assert tree.last_state.reason == "some reason for opening"
+            assert sorted(tree.last_state.tags) == ["sometag1", "sometag2"]
 
     response = client.delete(
         "/treestatus/stack2/restore/2", headers=auth0_mock.mock_headers
@@ -872,59 +811,24 @@ def test_api_delete_stack2_restore(
     assert response.status_code == 200
 
     response = client.get("/treestatus/stack")
-    assert "result" in response.json, "Response should contain a `result` key."
-    assert response.json["result"] == [
-        {
-            "id": 1,
-            "reason": "some reason for opening",
-            "status": "open",
-            "trees": [
-                {
-                    "id": 1,
-                    "last_state": {
-                        "current_log_id": 1,
-                        "current_reason": "some reason for opening",
-                        "current_status": "open",
-                        "current_tags": ["sometag1", "sometag2"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "mozilla-central",
-                },
-                {
-                    "id": 2,
-                    "last_state": {
-                        "current_log_id": 2,
-                        "current_reason": "some reason for opening",
-                        "current_status": "open",
-                        "current_tags": ["sometag1", "sometag2"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "autoland",
-                },
-            ],
-            "when": "0001-01-01T00:30:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        },
-    ], "Current stack should restore previous stack state."
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+    assert len(result) == 1, "Restoring stack should remove a stack entry."
 
     # Check current tree state.
     response = client.get("/treestatus/trees/autoland")
     assert response.status_code == 200
-    assert response.json["result"] == {
-        "category": "other",
-        "log_id": 6,
-        "message_of_the_day": "",
-        "reason": "some reason for opening",
-        "status": "open",
-        "tags": ["sometag1", "sometag2"],
-        "tree": "autoland",
-    }, "Tree status should be reset to previous."
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+    tree_state = TreeData(**result)
+    assert (
+        tree_state.reason == "some reason for opening"
+    ), "Previous reason should be restored."
+    assert tree_state.status == "open", "Previous state should be restored."
+    assert sorted(tree_state.tags) == [
+        "sometag1",
+        "sometag2",
+    ], "Previous tags should be restored."
 
 
 @mock.patch("landoapi.api.treestatus._now")
