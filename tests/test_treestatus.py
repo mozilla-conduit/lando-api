@@ -33,6 +33,8 @@ class IncreasingDatetime:
 
 
 class TreeData(BaseModel):
+    """Expected schema of a tree."""
+
     category: str
     log_id: Optional[int]
     message_of_the_day: str
@@ -43,6 +45,8 @@ class TreeData(BaseModel):
 
 
 class LogEntry(BaseModel):
+    """Expected schema of a log entry."""
+
     id: int
     reason: str
     status: str
@@ -53,6 +57,8 @@ class LogEntry(BaseModel):
 
 
 class LastState(BaseModel):
+    """Expected schema for a "last state" object."""
+
     log_id: Optional[int]
     reason: str
     status: str
@@ -64,12 +70,15 @@ class LastState(BaseModel):
 
 
 class TreesEntry(BaseModel):
+    """Expected schema for a "trees" entry in the stack."""
+
     id: int
     last_state: LastState
     tree: str
 
 
 class StackEntry(BaseModel):
+    """Expected schema of a stack entry."""
     id: Optional[int]
     reason: str
     status: str
