@@ -23,6 +23,7 @@ from landoapi.cache import cache
 from landoapi.mocks.auth import TEST_JWKS, MockAuth0
 from landoapi.models.treestatus import (
     Tree,
+    TreeStatus,
 )
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
@@ -506,10 +507,12 @@ def codefreeze_datetime(request_mocker):
 def new_treestatus_tree(db):
     """Create a new tree in the test db."""
 
-    def _new_tree(tree: str = "", status: str = "", reason: str = "", motd: str = ""):
+    def _new_tree(
+        tree: str = "", status: str = "open", reason: str = "", motd: str = ""
+    ):
         new_tree = Tree(
             tree=tree,
-            status=status,
+            status=TreeStatus(status),
             reason=reason,
             message_of_the_day=motd,
         )

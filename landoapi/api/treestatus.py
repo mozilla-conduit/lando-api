@@ -28,6 +28,7 @@ from landoapi.models.treestatus import (
     StatusChangeTree,
     Tree,
     TreeCategory,
+    TreeStatus,
     load_last_state,
 )
 from landoapi.storage import db
@@ -55,7 +56,7 @@ CombinedTree = collections.namedtuple(
 def get_combined_tree(
     tree: Tree,
     tags: Optional[str] = None,
-    status: Optional[str] = None,
+    status: Optional[TreeStatus] = None,
     reason: Optional[str] = None,
     log_id: Optional[int] = None,
 ) -> CombinedTree:
@@ -114,7 +115,7 @@ def serialize_last_state(old_tree: dict, new_tree: CombinedTree) -> str:
             "reason": old_tree["reason"],
             "tags": old_tree["tags"],
             "log_id": old_tree["log_id"],
-            "current_status": new_tree.status,
+            "current_status": new_tree.status.value,
             "current_reason": new_tree.reason,
             "current_tags": new_tree.tags,
             "current_log_id": new_tree.log_id,
@@ -224,7 +225,7 @@ def get_combined_trees(trees: Optional[list[Tree]] = None) -> list[CombinedTree]
 def update_tree_status(
     session: sa.orm.Session,
     tree: Tree,
-    status: Optional[str] = None,
+    status: Optional[TreeStatus] = None,
     reason: Optional[str] = None,
     tags: Optional[list[str]] = None,
     message_of_the_day: Optional[str] = None,
@@ -253,7 +254,7 @@ def update_tree_status(
         log = Log(
             tree=tree.tree,
             changed_by=g.auth0_user.user_id(),
-            status=status,
+            status=TreeStatus(status),
             reason=reason,
             tags=tags,
         )
@@ -424,7 +425,7 @@ def update_trees(body: dict):
         )
 
     # Update the trees as requested.
-    new_status = body.get("status")
+    new_status = TreeStatus(body.get("status")) if "status" in body else None
     new_reason = body.get("reason")
     new_motd = body.get("message_of_the_day")
     new_tags = body.get("tags", [])
@@ -452,7 +453,7 @@ def update_trees(body: dict):
         status_change = StatusChange(
             changed_by=g.auth0_user.user_id(),
             reason=body["reason"],
-            status=body["status"],
+            status=TreeStatus(body["status"]),
         )
 
         # Re-fetch new updated trees.
@@ -508,7 +509,7 @@ def make_tree(tree: str, body: dict):
 
     new_tree = Tree(
         tree=tree,
-        status=body["status"],
+        status=TreeStatus(body["status"]),
         reason=body["reason"],
         message_of_the_day=body["message_of_the_day"],
         category=TreeCategory(body["category"]),

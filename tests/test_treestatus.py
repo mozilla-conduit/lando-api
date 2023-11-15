@@ -15,6 +15,9 @@ from landoapi.api.treestatus import (
     get_combined_tree,
     get_tree,
 )
+from landoapi.models.treestatus import (
+    TreeStatus,
+)
 from landoapi.treestatus import (
     is_open,
 )
@@ -117,7 +120,7 @@ def test_get_combined_tree(new_treestatus_tree):
     tree = new_treestatus_tree(
         motd="message",
         reason="reason",
-        status="status",
+        status="open",
         tree="mozilla-central",
     )
 
@@ -127,7 +130,7 @@ def test_get_combined_tree(new_treestatus_tree):
         message_of_the_day="message",
         model=tree,
         reason="reason",
-        status="status",
+        status=TreeStatus.OPEN,
         tags=[],
         tree="mozilla-central",
     ), "Combined tree does not match expected."
@@ -149,7 +152,9 @@ def test_get_tree_exists(db, new_treestatus_tree):
         tree_response.message_of_the_day == tree.message_of_the_day
     ), "Returned `message_of_the_day` should be `message`."
     assert tree_response.reason == tree.reason, "Returned `reason` should be `reason`."
-    assert tree_response.status == tree.status, "Returned `status` should be `open`."
+    assert (
+        tree_response.status == tree.status.value
+    ), "Returned `status` should be `open`."
 
 
 def test_get_tree_missing(db):

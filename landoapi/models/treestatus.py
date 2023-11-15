@@ -64,6 +64,14 @@ class TreeCategory(enum.Enum):
     OTHER = "other"
 
 
+class TreeStatus(enum.Enum):
+    """Allowable statuses of a tree."""
+
+    OPEN = "open"
+    CLOSED = "closed"
+    APPROVAL_REQUIRED = "approval required"
+
+
 class Tree(Base):
     """A Tree that is managed via Treestatus."""
 
@@ -71,7 +79,15 @@ class Tree(Base):
     tree = db.Column(db.String(64), index=True, unique=True, nullable=False)
 
     # The current status of the tree.
-    status = db.Column(db.String(64), default="open", nullable=False)
+    status = db.Column(
+        db.Enum(
+            TreeStatus,
+            # Use the values of the enum in the DB instead of the keys.
+            values_callable=lambda x: [i.value for i in x],
+        ),
+        default=TreeStatus.OPEN,
+        nullable=False,
+    )
 
     # A string indicating the reason behind the current tree status.
     reason = db.Column(db.Text, default="", nullable=False)
@@ -89,7 +105,7 @@ class Tree(Base):
             "category": self.category.value,
             "message_of_the_day": self.message_of_the_day,
             "reason": self.reason,
-            "status": self.status,
+            "status": self.status.value,
             "tree": self.tree,
         }
 
@@ -106,7 +122,14 @@ class Log(Base):
     changed_by = db.Column(db.Text, nullable=False)
 
     # The status which the tree has been set to.
-    status = db.Column(db.String(64), nullable=False)
+    status = db.Column(
+        db.Enum(
+            TreeStatus,
+            # Use the values of the enum in the DB instead of the keys.
+            values_callable=lambda x: [i.value for i in x],
+        ),
+        nullable=False,
+    )
 
     # A string describing why the status has changed.
     reason = db.Column(db.Text, nullable=False)
@@ -129,7 +152,7 @@ class Log(Base):
         return {
             "id": self.id,
             "reason": self.reason,
-            "status": self.status,
+            "status": self.status.value,
             "tags": self.tags,
             "tree": self.tree,
             "when": self.created_at.isoformat(),
@@ -147,7 +170,14 @@ class StatusChange(Base):
     reason = db.Column(db.Text, nullable=False)
 
     # The status the trees were changed to.
-    status = db.Column(db.String(64), nullable=False)
+    status = db.Column(
+        db.Enum(
+            TreeStatus,
+            # Use the values of the enum in the DB instead of the keys.
+            values_callable=lambda x: [i.value for i in x],
+        ),
+        nullable=False,
+    )
 
     # A back references to a `StatusChangeTree` list.
     trees: list["StatusChangeTree"] = relationship(
@@ -158,7 +188,7 @@ class StatusChange(Base):
         return {
             "id": self.id,
             "reason": self.reason,
-            "status": self.status,
+            "status": self.status.value,
             "trees": [tree.to_dict() for tree in self.trees],
             "when": self.created_at.isoformat(),
             "who": self.changed_by,
