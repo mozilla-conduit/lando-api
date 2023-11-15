@@ -3,10 +3,12 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import datetime
+from typing import Optional
 from unittest import mock
 
 import pytest
 from connexion import ProblemException
+from pydantic import BaseModel
 
 from landoapi.api.treestatus import (
     CombinedTree,
@@ -28,6 +30,52 @@ class IncreasingDatetime:
         increased_datetime = self.current_datetime + datetime.timedelta(minutes=10)
         self.current_datetime = increased_datetime
         return increased_datetime
+
+
+class TreeData(BaseModel):
+    category: str
+    log_id: Optional[int]
+    message_of_the_day: str
+    reason: str
+    status: str
+    tags: list[str]
+    tree: str
+
+
+class LogEntry(BaseModel):
+    id: int
+    reason: str
+    status: str
+    tags: list[str]
+    tree: str
+    when: datetime.datetime
+    who: str
+
+
+class LastState(BaseModel):
+    log_id: Optional[str]
+    reason: str
+    status: str
+    tags: list[str]
+    current_log_id: Optional[str]
+    current_reason: str
+    current_status: str
+    current_tags: list[str]
+
+
+class TreesEntry(BaseModel):
+    id: int
+    last_state: LastState
+    tree: str
+
+
+class StackEntry(BaseModel):
+    id: int
+    reason: str
+    status: str
+    tree: list[TreesEntry]
+    when: datetime.datetime
+    who: str
 
 
 def test_is_open_assumes_true_on_unknown_tree(db):
