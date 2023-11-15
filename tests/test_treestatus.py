@@ -992,12 +992,8 @@ def test_api_patch_stack(db, client, new_treestatus_tree, auth0_mock):
         ]
 
 
-@mock.patch("landoapi.api.treestatus._now")
-def test_api_patch_log(_now_mock, client, new_treestatus_tree, auth0_mock):
+def test_api_patch_log(client, new_treestatus_tree, auth0_mock):
     """API test for `PATCH /log/{id}`."""
-    # Mock the current time to be a steadily increasing value.
-    _now_mock.side_effect = IncreasingDatetime()
-
     new_treestatus_tree(tree="autoland")
     response = client.patch(
         "/treestatus/trees",
@@ -1014,10 +1010,13 @@ def test_api_patch_log(_now_mock, client, new_treestatus_tree, auth0_mock):
 
     response = client.get("/treestatus/trees/autoland/logs")
 
-    log_id = response.json["result"][0]["id"]
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+
+    log = LogEntry(**result[0])
 
     response = client.patch(
-        f"/treestatus/log/{log_id}",
+        f"/treestatus/log/{log.id}",
         headers=auth0_mock.mock_headers,
         json={"reason": "new log reason"},
     )
@@ -1026,7 +1025,7 @@ def test_api_patch_log(_now_mock, client, new_treestatus_tree, auth0_mock):
     ), "Response code should be `200` on successful update."
 
     response = client.patch(
-        f"/treestatus/log/{log_id}",
+        f"/treestatus/log/{log.id}",
         headers=auth0_mock.mock_headers,
         json={"tags": ["new tag 1", "new tag 2"]},
     )
@@ -1036,22 +1035,28 @@ def test_api_patch_log(_now_mock, client, new_treestatus_tree, auth0_mock):
 
     response = client.get("/treestatus/trees/autoland/logs")
     assert response.status_code == 200
-    log_result = response.json["result"][0]
-    assert (
-        log_result["reason"] == "new log reason"
-    ), "Fetching logs should show updated reason."
-    assert log_result["tags"] == [
+
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+
+    log = LogEntry(**result[0])
+    assert log.reason == "new log reason", "Fetching logs should show updated reason."
+    assert log.tags == [
         "new tag 1",
         "new tag 2",
     ], "Fetching logs should show updated tags."
 
     response = client.get("/treestatus/stack")
     assert response.status_code == 200
-    stack_tree = response.json["result"][0]["trees"][0]["last_state"]
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+
+    stack_entry = StackEntry(**result[0])
+    stack_tree = stack_entry.trees[0].last_state
     assert (
-        stack_tree["current_reason"] == "new log reason"
+        stack_tree.current_reason == "new log reason"
     ), "Stack should show updated log reason."
-    assert stack_tree["current_tags"] == [
+    assert stack_tree.current_tags == [
         "new tag 1",
         "new tag 2",
     ], "Stack should show updated log tags."
