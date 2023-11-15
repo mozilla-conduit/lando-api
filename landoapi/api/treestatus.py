@@ -528,7 +528,7 @@ def make_tree(tree: str, body: dict):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    return new_tree.to_json(), 200
+    return new_tree.to_json(), 201
 
 
 @auth.require_auth0(

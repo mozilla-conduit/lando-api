@@ -473,8 +473,8 @@ def test_api_put_trees(db, client, auth0_mock):
         },
     )
     assert (
-        response.status_code == 200
-    ), "Response code should be 200 when new tree is created."
+        response.status_code == 201
+    ), "Response code should be 201 when new tree is created."
     assert response.json["tree"] == "tree", "Tree name should match expected."
     assert response.json["status"] == "open", "Tree status should match expected."
 

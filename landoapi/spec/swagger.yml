@@ -538,7 +538,7 @@ paths:
           schema:
             $ref: '#/definitions/Tree'
       responses:
-        200:
+        201:
           description: Tree
           schema:
             type: string
