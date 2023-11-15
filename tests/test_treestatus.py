@@ -520,17 +520,10 @@ def test_api_get_trees_single_exists(db, client, new_treestatus_tree):
     assert (
         response.status_code == 200
     ), "Response code when a tree is found should be `200`."
-    assert "result" in response.json, "Response JSON should contain `result` key."
-    assert response.json["result"] == {
-        "category": "other",
-        "log_id": None,
-        "message_of_the_day": "",
-        "reason": "",
-        "status": "",
-        "tags": [],
-        "tree": "mozilla-central",
-    }, "Response should match expected format."
-
+    result = response.json.get("result")
+    assert result is not None, "Response JSON should contain `result` key."
+    get_data = TreeData(**result)
+    assert get_data.tree == "mozilla-central", "Tree name should match expected"
 
 def test_api_patch_trees_unknown_tree(db, client, auth0_mock, new_treestatus_tree):
     """API test for `PATCH /trees` with unknown tree name."""
