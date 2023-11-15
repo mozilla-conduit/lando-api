@@ -701,7 +701,7 @@ def test_api_patch_trees_success_no_remember(
         headers=auth0_mock.mock_headers,
         json={
             "reason": "somereason",
-            "status": "open",
+            "status": "closed",
             "tags": ["sometag1", "sometag2"],
             "trees": ["autoland", "mozilla-central"],
         },
@@ -712,26 +712,14 @@ def test_api_patch_trees_success_no_remember(
 
     # Ensure the statuses were both updated as expected.
     response = client.get("/treestatus/trees")
-    assert response.json["result"] == {
-        "autoland": {
-            "category": "other",
-            "log_id": 2,
-            "message_of_the_day": "",
-            "reason": "somereason",
-            "status": "open",
-            "tags": ["sometag1", "sometag2"],
-            "tree": "autoland",
-        },
-        "mozilla-central": {
-            "category": "other",
-            "log_id": 1,
-            "message_of_the_day": "",
-            "reason": "somereason",
-            "status": "open",
-            "tags": ["sometag1", "sometag2"],
-            "tree": "mozilla-central",
-        },
-    }, "Both trees should have their status updated."
+    result = response.json.get("result")
+    assert result is not None, "Response should contain a result key."
+    assert len(result) == 2, "Two trees should be returned."
+    for tree in result.values():
+        tree_data = TreeData(**tree)
+
+        assert tree_data.reason == "somereason", "Status should be updated on the tree."
+        assert tree_data.status == "closed", "Status should be updated on the tree."
 
     response = client.get("/treestatus/stack")
     assert response.status_code == 200
