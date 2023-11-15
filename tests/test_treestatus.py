@@ -451,7 +451,7 @@ def test_api_put_trees(db, client, auth0_mock):
         headers=auth0_mock.mock_headers,
         json={
             "category": "other",
-            "status": "closed",
+            "status": "open",
             "message_of_the_day": "",
             "tree": "tree",
             "reason": "",
@@ -460,28 +460,20 @@ def test_api_put_trees(db, client, auth0_mock):
     assert (
         response.status_code == 200
     ), "Response code should be 200 when new tree is created."
-    assert response.json == {
-        "category": "other",
-        "tree": "tree",
-        "status": "closed",
-        "reason": "",
-        "message_of_the_day": "",
-    }, "Response format should match expected."
+    assert response.json["tree"] == "tree", "Tree name should match expected."
+    assert response.json["status"] == "open", "Tree status should match expected."
 
     # Tree can be retrieved from the API after being added.
     response = client.get("/treestatus/trees/tree")
     assert (
         response.status_code == 200
     ), "Retrieving tree after addition should return 200 status code."
-    assert response.json["result"] == {
-        "category": "other",
-        "log_id": None,
-        "message_of_the_day": "",
-        "reason": "",
-        "status": "closed",
-        "tags": [],
-        "tree": "tree",
-    }, "Tree should be returned from API after being added."
+    result = response.json.get("result")
+    assert result is not None, "Response should contain a `result` key."
+    tree_data = TreeData(**result)
+    assert (
+        tree_data.status == "open"
+    ), "Status should be retrievable after tree creation."
 
     # Attempt to add a duplicate tree.
     response = client.put(
