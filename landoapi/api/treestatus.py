@@ -4,7 +4,6 @@
 
 import collections
 import copy
-import datetime
 import functools
 import json
 import logging
@@ -15,7 +14,6 @@ from typing import (
     Optional,
 )
 
-import pytz
 import sqlalchemy as sa
 from connexion import ProblemException
 from flask import g

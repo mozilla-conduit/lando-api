@@ -4,7 +4,6 @@
 
 import datetime
 from typing import Optional
-from unittest import mock
 
 import pytest
 from connexion import ProblemException
@@ -677,7 +676,7 @@ def test_api_patch_trees_success_remember(db, client, auth0_mock, new_treestatus
 
     assert all(tree in result for tree in tree_names), "Both trees should be returned."
 
-    for tree, info in result.items():
+    for info in result.values():
         tree_data = TreeData(**info)
 
         assert tree_data.status == "closed", "Tree status should be set to closed."
