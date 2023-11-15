@@ -422,6 +422,7 @@ class LandingWorker(Worker):
                 return False  # Try again, this is a temporary failure.
             except Exception as e:
                 message = f"Unexpected error while pushing to {repo.push_path}.\n{e}"
+                logger.exception(message)
                 job.transition_status(
                     LandingJobAction.FAIL,
                     message=message,
