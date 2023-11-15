@@ -131,17 +131,15 @@ def test_get_tree_exists(db, new_treestatus_tree):
     assert "result" in response, "Response should be contained in the `result` key."
     assert status == 200, "Response status code should be 200."
 
-    tree_response = response["result"]
+    tree_response = TreeData(**response["result"])
     assert (
-        tree_response["tree"] == tree.tree
+        tree_response.tree == tree.tree
     ), "Returned `tree` should be `mozilla-central`."
     assert (
-        tree_response["message_of_the_day"] == tree.message_of_the_day
+        tree_response.message_of_the_day == tree.message_of_the_day
     ), "Returned `message_of_the_day` should be `message`."
-    assert (
-        tree_response["reason"] == tree.reason
-    ), "Returned `reason` should be `reason`."
-    assert tree_response["status"] == tree.status, "Returned `status` should be `open`."
+    assert tree_response.reason == tree.reason, "Returned `reason` should be `reason`."
+    assert tree_response.status == tree.status, "Returned `status` should be `open`."
 
 
 def test_get_tree_missing(db):
