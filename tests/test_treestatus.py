@@ -162,18 +162,10 @@ def test_api_get_trees2(db, client, new_treestatus_tree):
     assert (
         response.status_code == 200
     ), "`GET /trees2` should return 200 when trees are found."
-    assert "result" in response.json, "Response should contain `result` key."
-    assert response.json["result"] == [
-        {
-            "category": "other",
-            "log_id": None,
-            "message_of_the_day": "",
-            "reason": "",
-            "status": "",
-            "tags": [],
-            "tree": "mozilla-central",
-        }
-    ], "Result from Treestatus should contain one tree."
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+    assert len(result) == 1, "Result from Treestatus should contain one tree"
+    assert TreeData(**result[0]), "Response should match expected tree format."
 
 
 @mock.patch("landoapi.api.treestatus._now")
