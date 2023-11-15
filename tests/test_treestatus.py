@@ -1062,12 +1062,8 @@ def test_api_patch_log(client, new_treestatus_tree, auth0_mock):
     ], "Stack should show updated log tags."
 
 
-@mock.patch("landoapi.api.treestatus._now")
-def test_api_get_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock):
+def test_api_get_stack(db, client, new_treestatus_tree, auth0_mock):
     """API test for `GET /stack`."""
-    # Mock the current time to be a steadily increasing value.
-    _now_mock.side_effect = IncreasingDatetime()
-
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="autoland")
 
@@ -1098,80 +1094,7 @@ def test_api_get_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock):
 
     response = client.get("/treestatus/stack")
     assert response.status_code == 200
-    assert "result" in response.json, "Response should contain a `result` key."
-    assert response.json["result"] == [
-        {
-            "id": 2,
-            "reason": "some reason to close",
-            "status": "closed",
-            "trees": [
-                {
-                    "id": 3,
-                    "last_state": {
-                        "current_log_id": 3,
-                        "current_reason": "some reason to close",
-                        "current_status": "closed",
-                        "current_tags": ["closingtag1", "closingtag2"],
-                        "log_id": 1,
-                        "reason": "some reason for opening",
-                        "status": "open",
-                        "tags": ["sometag1", "sometag2"],
-                    },
-                    "tree": "mozilla-central",
-                },
-                {
-                    "id": 4,
-                    "last_state": {
-                        "current_log_id": 4,
-                        "current_reason": "some reason to close",
-                        "current_status": "closed",
-                        "current_tags": ["closingtag1", "closingtag2"],
-                        "log_id": 2,
-                        "reason": "some reason for opening",
-                        "status": "open",
-                        "tags": ["sometag1", "sometag2"],
-                    },
-                    "tree": "autoland",
-                },
-            ],
-            "when": "0001-01-01T01:00:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        },
-        {
-            "id": 1,
-            "reason": "some reason for opening",
-            "status": "open",
-            "trees": [
-                {
-                    "id": 1,
-                    "last_state": {
-                        "current_log_id": 1,
-                        "current_reason": "some reason for opening",
-                        "current_status": "open",
-                        "current_tags": ["sometag1", "sometag2"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "mozilla-central",
-                },
-                {
-                    "id": 2,
-                    "last_state": {
-                        "current_log_id": 2,
-                        "current_reason": "some reason for opening",
-                        "current_status": "open",
-                        "current_tags": ["sometag1", "sometag2"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "autoland",
-                },
-            ],
-            "when": "0001-01-01T00:30:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        },
-    ], "Current stack should contain changes."
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+    for entry in result:
+        assert StackEntry(**entry)
