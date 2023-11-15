@@ -16,6 +16,7 @@ from landoapi.api.treestatus import (
     get_tree,
 )
 from landoapi.models.treestatus import (
+    TreeCategory,
     TreeStatus,
 )
 from landoapi.treestatus import (
@@ -125,7 +126,7 @@ def test_get_combined_tree(new_treestatus_tree):
     )
 
     assert get_combined_tree(tree) == CombinedTree(
-        category="other",
+        category=TreeCategory.OTHER,
         log_id=None,
         message_of_the_day="message",
         model=tree,
@@ -701,7 +702,7 @@ def test_api_patch_trees_success_remember(db, client, auth0_mock, new_treestatus
         assert tree.last_state.current_reason == "somereason"
         assert tree.last_state.current_status == "closed"
         assert tree.last_state.reason == ""
-        assert tree.last_state.status == ""
+        assert tree.last_state.status == "open"
 
 
 def test_api_patch_trees_success_no_remember(

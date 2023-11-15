@@ -8,6 +8,7 @@ import datetime
 import functools
 import json
 import logging
+from enum import Enum
 from typing import (
     Any,
     Callable,
@@ -90,7 +91,7 @@ def combinedtree_as_dict(tree: CombinedTree) -> dict[str, Any]:
     Removes the `model` field as part of the conversion.
     """
     return {
-        field: (value.value if field == "status" else value)
+        field: (value.value if isinstance(value, Enum) else value)
         for field, value in tree._asdict().items()
         if field != "model"
     }
@@ -342,7 +343,7 @@ def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
     db.session.delete(status_change)
     db.session.commit()
 
-    return status_change.status, 200
+    return status_change.status.value, 200
 
 
 @auth.require_auth0(
@@ -529,7 +530,7 @@ def make_tree(tree: str, body: dict):
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
-    return new_tree.to_dict(), 200
+    return new_tree.to_json(), 200
 
 
 @auth.require_auth0(

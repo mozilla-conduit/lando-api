@@ -9,11 +9,6 @@ from landoapi.api.treestatus import (
 
 logger = logging.getLogger(__name__)
 
-# A repo is considered open for landing when either of these
-# statuses are present.
-# For the "approval required" status Lando will enforce the appropriate
-# Phabricator group review for approval (`release-managers`) and the hg
-# hook will enforce `a=<reviewer>` is present in the commit message.
 OPEN_STATUSES = {"approval required", "open"}
 
 
@@ -28,4 +23,4 @@ def is_open(tree_name: str) -> bool:
         # We assume missing trees are open.
         return True
 
-    return tree.status in OPEN_STATUSES
+    return tree.status.is_open()

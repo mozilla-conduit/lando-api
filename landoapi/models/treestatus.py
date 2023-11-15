@@ -23,7 +23,46 @@ from landoapi.models.base import (
     db,
 )
 
-DEFAULT_TREE = {"reason": "New tree", "status": "closed", "tags": [], "log_id": None}
+
+class TreeCategory(enum.Enum):
+    """Categories of the various trees.
+
+    Note: the definition order is in order of importance for display in the UI.
+    Note: this class also exists in Lando-UI, and should be updated in both places.
+    """
+
+    DEVELOPMENT = "development"
+    RELEASE_STABILIZATION = "release_stabilization"
+    TRY = "try"
+    COMM_REPOS = "comm_repos"
+    OTHER = "other"
+
+
+class TreeStatus(enum.Enum):
+    """Allowable statuses of a tree."""
+
+    OPEN = "open"
+    CLOSED = "closed"
+    APPROVAL_REQUIRED = "approval required"
+
+    def is_open(self) -> bool:
+        """Return `True` if Lando should consider this status as open for landing.
+
+        A repo is considered open for landing when the state is "open" or
+        "approval required". For the "approval required" status Lando will enforce
+        the appropriate Phabricator group review for approval (`release-managers`)
+        and the hg hook will enforce `a=<reviewer>` is present in the commit message.
+        """
+        return self != TreeStatus.CLOSED
+
+
+DEFAULT_TREE = {
+    "category": TreeCategory.OTHER,
+    "reason": "New tree",
+    "status": TreeStatus.CLOSED,
+    "tags": [],
+    "log_id": None,
+}
 
 
 def load_last_state(last_state_str: str) -> dict:
@@ -48,28 +87,6 @@ def load_last_state(last_state_str: str) -> dict:
             last_state[field] = DEFAULT_TREE[field]
 
     return last_state
-
-
-class TreeCategory(enum.Enum):
-    """Categories of the various trees.
-
-    Note: the definition order is in order of importance for display in the UI.
-    Note: this class also exists in Lando-UI, and should be updated in both places.
-    """
-
-    DEVELOPMENT = "development"
-    RELEASE_STABILIZATION = "release_stabilization"
-    TRY = "try"
-    COMM_REPOS = "comm_repos"
-    OTHER = "other"
-
-
-class TreeStatus(enum.Enum):
-    """Allowable statuses of a tree."""
-
-    OPEN = "open"
-    CLOSED = "closed"
-    APPROVAL_REQUIRED = "approval required"
 
 
 class Tree(Base):
@@ -101,6 +118,17 @@ class Tree(Base):
     )
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert a `Tree` into a `dict`, preserving `Enum` types."""
+        return {
+            "category": self.category,
+            "message_of_the_day": self.message_of_the_day,
+            "reason": self.reason,
+            "status": self.status,
+            "tree": self.tree,
+        }
+
+    def to_json(self) -> dict[str, Any]:
+        """Convert a `Tree` into a JSON representation, converting enums to strings."""
         return {
             "category": self.category.value,
             "message_of_the_day": self.message_of_the_day,
