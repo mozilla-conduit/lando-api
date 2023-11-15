@@ -54,7 +54,7 @@ CombinedTree = collections.namedtuple(
 
 def get_combined_tree(
     tree: Tree,
-    tags: Optional[list[str]] = None,
+    tags: Optional[str] = None,
     status: Optional[str] = None,
     reason: Optional[str] = None,
     log_id: Optional[int] = None,
