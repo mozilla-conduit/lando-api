@@ -71,7 +71,7 @@ def get_combined_tree(
         result["tags"] = json.loads(tags)
 
     if status is not None:
-        result["status"] = status
+        result["status"] = TreeStatus(status)
 
     if reason is not None:
         result["reason"] = reason
@@ -89,7 +89,11 @@ def combinedtree_as_dict(tree: CombinedTree) -> dict[str, Any]:
 
     Removes the `model` field as part of the conversion.
     """
-    return {field: value for field, value in tree._asdict().items() if field != "model"}
+    return {
+        field: (value.value if field == "status" else value)
+        for field, value in tree._asdict().items()
+        if field != "model"
+    }
 
 
 def result_object_wrap(f: Callable) -> Callable:
@@ -111,7 +115,7 @@ def serialize_last_state(old_tree: dict, new_tree: CombinedTree) -> str:
     """Serialize a `last_state` value for a `StatusChangeTree`."""
     return json.dumps(
         {
-            "status": old_tree["status"],
+            "status": old_tree["status"].value,
             "reason": old_tree["reason"],
             "tags": old_tree["tags"],
             "log_id": old_tree["log_id"],
@@ -301,7 +305,7 @@ def update_stack(id: int, body: dict) -> tuple[None, int]:
 
     db.session.commit()
 
-    return change.status, 200
+    return change.status.value, 200
 
 
 def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
@@ -434,7 +438,7 @@ def update_trees(body: dict):
 
     for tree in trees:
         old_trees[tree.tree] = {}
-        old_trees[tree.tree]["status"] = tree.status
+        old_trees[tree.tree]["status"] = TreeStatus(tree.status)
         old_trees[tree.tree]["reason"] = tree.reason
         old_trees[tree.tree]["tags"] = tree.tags
         old_trees[tree.tree]["log_id"] = tree.log_id
@@ -472,7 +476,7 @@ def update_trees(body: dict):
     return [
         {
             "tree": tree.tree,
-            "status": new_status,
+            "status": new_status.value,
             "reason": new_reason,
             "message_of_the_day": new_motd,
         }
