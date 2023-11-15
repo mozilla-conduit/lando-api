@@ -154,7 +154,6 @@ def remove_tree_by_name(tree_name: str):
 
     Note: this function commits the session.
     """
-    session = db.session
     tree = Tree.query.filter_by(tree=tree_name).one_or_none()
     if not tree:
         raise ProblemException(
@@ -163,12 +162,12 @@ def remove_tree_by_name(tree_name: str):
             "The tree does not exist.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
-    session.delete(tree)
+    db.session.delete(tree)
 
     # Delete from logs and change stack, too.
     Log.query.filter_by(tree=tree_name).delete()
     StatusChangeTree.query.filter_by(tree=tree_name).delete()
-    session.commit()
+    db.session.commit()
     cache.delete_memoized(get_tree_by_name, tree_name)
 
 
@@ -277,8 +276,6 @@ def get_stack() -> list[dict]:
 )
 def update_stack(id: int, body: dict) -> tuple[None, int]:
     """Handler for `PATCH /stack/{id}`."""
-    session = db.session
-
     change = StatusChange.query.get(id)
     if not change:
         raise ProblemException(
@@ -301,7 +298,7 @@ def update_stack(id: int, body: dict) -> tuple[None, int]:
 
     change.reason = body.get("reason", change.reason)
 
-    session.commit()
+    db.session.commit()
 
     return change.status, 200
 
@@ -312,7 +309,6 @@ def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
     If `revert` is passed, also revert the updated trees statuses to their
     previous values.
     """
-    session = db.session
     status_change = StatusChange.query.get(id)
     if not status_change:
         raise ProblemException(
@@ -331,15 +327,15 @@ def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
 
             last_state = load_last_state(changed_tree.last_state)
             update_tree_status(
-                session,
+                db.session,
                 tree.model,
                 status=last_state["status"],
                 reason=last_state["reason"],
                 tags=last_state.get("tags", []),
             )
 
-    session.delete(status_change)
-    session.commit()
+    db.session.delete(status_change)
+    db.session.commit()
 
     return status_change.status, 200
 
@@ -393,8 +389,6 @@ def get_trees() -> dict:
 )
 def update_trees(body: dict):
     """Handler for `PATCH /trees`."""
-    session = db.session
-
     # Fetch all trees.
     trees = get_combined_trees(body["trees"])
 
@@ -445,7 +439,7 @@ def update_trees(body: dict):
         old_trees[tree.tree]["log_id"] = tree.log_id
 
         update_tree_status(
-            session,
+            db.session,
             tree.model,
             status=new_status,
             reason=new_reason,
@@ -470,9 +464,9 @@ def update_trees(body: dict):
             )
             status_change.trees.append(status_change_tree)
 
-        session.add(status_change)
+        db.session.add(status_change)
 
-    session.commit()
+    db.session.commit()
 
     return [
         {
@@ -504,7 +498,6 @@ def get_tree(tree: str) -> dict:
 )
 def make_tree(tree: str, body: dict):
     """Handler for `PUT /trees/{tree}`."""
-    session = db.session
     if body["tree"] != tree:
         raise ProblemException(
             400,
@@ -521,8 +514,8 @@ def make_tree(tree: str, body: dict):
         category=TreeCategory(body["category"]),
     )
     try:
-        session.add(new_tree)
-        session.commit()
+        db.session.add(new_tree)
+        db.session.commit()
     except (sa.exc.IntegrityError, sa.exc.ProgrammingError):
         raise ProblemException(
             400,
@@ -548,8 +541,6 @@ def delete_tree(tree: str) -> tuple[str, int]:
 )
 def update_log(id: int, body: dict):
     """Handler for `PATCH /log/{id}`."""
-    session = db.session
-
     tags = body.get("tags")
     reason = body.get("reason")
 
@@ -574,7 +565,7 @@ def update_log(id: int, body: dict):
 
             tree.last_state = json.dumps(last_state)
 
-    session.commit()
+    db.session.commit()
 
     return {"tags": tags, "reason": reason}, 200
 
