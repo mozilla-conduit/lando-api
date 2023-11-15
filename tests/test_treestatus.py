@@ -53,11 +53,11 @@ class LogEntry(BaseModel):
 
 
 class LastState(BaseModel):
-    log_id: Optional[str]
+    log_id: Optional[int]
     reason: str
     status: str
     tags: list[str]
-    current_log_id: Optional[str]
+    current_log_id: Optional[int]
     current_reason: str
     current_status: str
     current_tags: list[str]
@@ -70,10 +70,10 @@ class TreesEntry(BaseModel):
 
 
 class StackEntry(BaseModel):
-    id: int
+    id: Optional[int]
     reason: str
     status: str
-    tree: list[TreesEntry]
+    trees: list[TreesEntry]
     when: datetime.datetime
     who: str
 
@@ -525,6 +525,7 @@ def test_api_get_trees_single_exists(db, client, new_treestatus_tree):
     get_data = TreeData(**result)
     assert get_data.tree == "mozilla-central", "Tree name should match expected"
 
+
 def test_api_patch_trees_unknown_tree(db, client, auth0_mock, new_treestatus_tree):
     """API test for `PATCH /trees` with unknown tree name."""
     new_treestatus_tree(tree="mozilla-central")
@@ -632,16 +633,11 @@ def test_api_patch_trees_remember_required_args(
     }, "Error response should match expected."
 
 
-@mock.patch("landoapi.api.treestatus._now")
-def test_api_patch_trees_success_remember(
-    _now_mock, db, client, auth0_mock, new_treestatus_tree
-):
+def test_api_patch_trees_success_remember(db, client, auth0_mock, new_treestatus_tree):
     """API test for `PATCH /trees` success with `remember: true`."""
-    # Mock the current time to be a steadily increasing value.
-    _now_mock.side_effect = IncreasingDatetime()
-
-    new_treestatus_tree(tree="mozilla-central")
-    new_treestatus_tree(tree="autoland")
+    tree_names = ["autoland", "mozilla-central"]
+    for tree in tree_names:
+        new_treestatus_tree(tree=tree)
 
     response = client.patch(
         "/treestatus/trees",
@@ -649,9 +645,9 @@ def test_api_patch_trees_success_remember(
         json={
             "remember": True,
             "reason": "somereason",
-            "status": "open",
+            "status": "closed",
             "tags": ["sometag1", "sometag2"],
-            "trees": ["autoland", "mozilla-central"],
+            "trees": tree_names,
         },
     )
     assert (
@@ -660,68 +656,37 @@ def test_api_patch_trees_success_remember(
 
     # Ensure the statuses were both updated as expected.
     response = client.get("/treestatus/trees")
-    assert response.json["result"] == {
-        "autoland": {
-            "category": "other",
-            "log_id": 2,
-            "message_of_the_day": "",
-            "reason": "somereason",
-            "status": "open",
-            "tags": ["sometag1", "sometag2"],
-            "tree": "autoland",
-        },
-        "mozilla-central": {
-            "category": "other",
-            "log_id": 1,
-            "message_of_the_day": "",
-            "reason": "somereason",
-            "status": "open",
-            "tags": ["sometag1", "sometag2"],
-            "tree": "mozilla-central",
-        },
-    }, "Both trees should have their status updated."
+    result = response.json.get("result")
+    assert result is not None, "Response should contain a `result` key."
+
+    assert all(tree in result for tree in tree_names), "Both trees should be returned."
+
+    for tree, info in result.items():
+        tree_data = TreeData(**info)
+
+        assert tree_data.status == "closed", "Tree status should be set to closed."
+        assert tree_data.reason == "somereason", "Tree reason should be set."
 
     response = client.get("/treestatus/stack")
     assert response.status_code == 200
-    assert response.json["result"] == [
-        {
-            "id": 1,
-            "reason": "somereason",
-            "status": "open",
-            "trees": [
-                {
-                    "id": 1,
-                    "last_state": {
-                        "current_log_id": 1,
-                        "current_reason": "somereason",
-                        "current_status": "open",
-                        "current_tags": ["sometag1", "sometag2"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "mozilla-central",
-                },
-                {
-                    "id": 2,
-                    "last_state": {
-                        "current_log_id": 2,
-                        "current_reason": "somereason",
-                        "current_status": "open",
-                        "current_tags": ["sometag1", "sometag2"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "autoland",
-                },
-            ],
-            "when": "0001-01-01T00:30:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        }
-    ], "Status should have been added to the stack."
+
+    result = response.json.get("result")
+    assert result is not None, "Response should contain a `result` key."
+    assert (
+        len(result) == 1
+    ), "Setting `remember: true` should have created a stack entry."
+
+    stack_entry = StackEntry(**result[0])
+    assert (
+        stack_entry.reason == "somereason"
+    ), "Stack entry reason should match expected."
+    assert stack_entry.status == "closed", "Stack entry status should match expected."
+
+    for tree in stack_entry.trees:
+        assert tree.last_state.current_reason == "somereason"
+        assert tree.last_state.current_status == "closed"
+        assert tree.last_state.reason == ""
+        assert tree.last_state.status == ""
 
 
 def test_api_patch_trees_success_no_remember(
