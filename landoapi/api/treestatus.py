@@ -222,10 +222,6 @@ def get_combined_trees(trees: Optional[list[Tree]] = None) -> list[CombinedTree]
     return [get_combined_tree(*result) for result in query.all()]
 
 
-def _now() -> datetime.datetime:
-    return datetime.datetime.utcnow().replace(tzinfo=pytz.UTC)
-
-
 def update_tree_status(
     session: sa.orm.Session,
     tree: Tree,
@@ -257,7 +253,6 @@ def update_tree_status(
             reason = "no change"
         log = Log(
             tree=tree.tree,
-            created_at=_now(),
             changed_by=g.auth0_user.user_id(),
             status=status,
             reason=reason,
@@ -463,7 +458,6 @@ def update_trees(body: dict):
         status_change = StatusChange(
             changed_by=g.auth0_user.user_id(),
             reason=body["reason"],
-            created_at=_now(),
             status=body["status"],
         )
 
