@@ -766,8 +766,8 @@ def test_api_get_trees(db, client, new_treestatus_tree):
     assert TreeData(**tree), "Tree response should match expected format."
 
 
-def test_api_delete_stack2_restore(db, client, new_treestatus_tree, auth0_mock):
-    """API test for `DELETE /stack2/restore/{id}`."""
+def test_api_delete_stack_revert(db, client, new_treestatus_tree, auth0_mock):
+    """API test for `DELETE /stack/{id}` with `revert=1`."""
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="autoland")
 
@@ -821,7 +821,9 @@ def test_api_delete_stack2_restore(db, client, new_treestatus_tree, auth0_mock):
             assert sorted(tree.last_state.tags) == ["sometag1", "sometag2"]
 
     response = client.delete(
-        "/treestatus/stack2/restore/2", headers=auth0_mock.mock_headers
+        "/treestatus/stack/2",
+        headers=auth0_mock.mock_headers,
+        query_string={"revert": 1},
     )
     assert response.status_code == 200
 
@@ -846,8 +848,8 @@ def test_api_delete_stack2_restore(db, client, new_treestatus_tree, auth0_mock):
     ], "Previous tags should be restored."
 
 
-def test_api_delete_stack2_discard(db, client, new_treestatus_tree, auth0_mock):
-    """API test for `DELETE /stack2/discard/{id}`."""
+def test_api_delete_stack_no_revert(db, client, new_treestatus_tree, auth0_mock):
+    """API test for `DELETE /stack/{id}` with `revert=0`."""
     new_treestatus_tree(tree="mozilla-central")
     new_treestatus_tree(tree="autoland")
 
@@ -901,7 +903,9 @@ def test_api_delete_stack2_discard(db, client, new_treestatus_tree, auth0_mock):
             assert sorted(tree.last_state.tags) == ["sometag1", "sometag2"]
 
     response = client.delete(
-        "/treestatus/stack2/discard/2", headers=auth0_mock.mock_headers
+        "/treestatus/stack/2",
+        headers=auth0_mock.mock_headers,
+        query_string={"revert": 0},
     )
     assert response.status_code == 200
 

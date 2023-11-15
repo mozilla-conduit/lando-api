@@ -360,28 +360,6 @@ def delete_stack(id: int, revert: Optional[int] = None):
     return revert_change(id, revert=bool(revert))
 
 
-@auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS), scopes=("lando", "profile", "email"), userinfo=True
-)
-def discard_change(id: int):
-    """Handler for `DELETE /stack2/discard/{id}`.
-
-    Remove the change from the stack without changing the settings on the tree.
-    """
-    return revert_change(id, revert=False)
-
-
-@auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS), scopes=("lando", "profile", "email"), userinfo=True
-)
-def restore_change(id: int):
-    """Handler for `DELETE /stack2/restore/{id}`.
-
-    Applies the settings that were present before the change to the affected trees.
-    """
-    return revert_change(id, revert=True)
-
-
 @result_object_wrap
 def get_trees() -> dict:
     """Handler for `GET /trees`."""

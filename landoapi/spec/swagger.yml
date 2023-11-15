@@ -422,40 +422,6 @@ paths:
           schema:
             type: string
 
-  /treestatus/stack2/discard/{id}:
-    delete:
-      operationId: landoapi.api.treestatus.discard_change
-      description: |
-        Removes the change from the stack without changing the settings on the
-        tree.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          type: integer
-      responses:
-        200:
-          description: Status
-          schema:
-            type: string
-
-  /treestatus/stack2/restore/{id}:
-    delete:
-      operationId: landoapi.api.treestatus.restore_change
-      description: |
-        Remove the given change from the undo stack that were present before
-        the change to the affected trees.
-      parameters:
-        - name: id
-          in: path
-          required: true
-          type: integer
-      responses:
-        200:
-          description: Status
-          schema:
-            type: string
-
   /treestatus/trees:
     get:
       operationId: landoapi.api.treestatus.get_trees
