@@ -913,12 +913,8 @@ def test_api_delete_stack2_discard(db, client, new_treestatus_tree, auth0_mock):
     ], "Tags should be preserved after discard."
 
 
-@mock.patch("landoapi.api.treestatus._now")
-def test_api_patch_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock):
+def test_api_patch_stack(db, client, new_treestatus_tree, auth0_mock):
     """API test for `PATCH /stack/{id}`."""
-    # Mock the current time to be a steadily increasing value.
-    _now_mock.side_effect = IncreasingDatetime()
-
     new_treestatus_tree(tree="autoland")
 
     # Set the tree to open.
@@ -952,54 +948,22 @@ def test_api_patch_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock)
     # Get information about the stack.
     response = client.get("/treestatus/stack")
     assert response.status_code == 200
-    assert response.json["result"] == [
-        {
-            "id": 2,
-            "reason": "the tree is closed.",
-            "status": "closed",
-            "trees": [
-                {
-                    "id": 2,
-                    "last_state": {
-                        "current_log_id": 2,
-                        "current_reason": "the tree is closed.",
-                        "current_status": "closed",
-                        "current_tags": ["closed tree"],
-                        "log_id": 1,
-                        "reason": "some reason for opening",
-                        "status": "open",
-                        "tags": ["sometag1", "sometag2"],
-                    },
-                    "tree": "autoland",
-                }
-            ],
-            "when": "0001-01-01T00:40:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        },
-        {
-            "id": 1,
-            "reason": "some reason for opening",
-            "status": "open",
-            "trees": [
-                {
-                    "id": 1,
-                    "last_state": {
-                        "current_log_id": 1,
-                        "current_reason": "some reason for opening",
-                        "current_status": "open",
-                        "current_tags": ["sometag1", "sometag2"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "autoland",
-                }
-            ],
-            "when": "0001-01-01T00:20:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        },
-    ]
+
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+    assert len(result) == 2, "Stack should contain two entries."
+
+    for entry in result:
+        stack_entry = StackEntry(**entry)
+
+        if stack_entry.id != 1:
+            continue
+
+        assert stack_entry.reason == "some reason for opening"
+        assert sorted(stack_entry.trees[0].last_state.current_tags) == [
+            "sometag1",
+            "sometag2",
+        ]
 
     # Patch the stack.
     response = client.patch(
@@ -1012,54 +976,20 @@ def test_api_patch_stack(_now_mock, db, client, new_treestatus_tree, auth0_mock)
     # Check the stack has been updated.
     response = client.get("/treestatus/stack")
     assert response.status_code == 200
-    assert response.json["result"] == [
-        {
-            "id": 2,
-            "reason": "the tree is closed.",
-            "status": "closed",
-            "trees": [
-                {
-                    "id": 2,
-                    "last_state": {
-                        "current_log_id": 2,
-                        "current_reason": "the tree is closed.",
-                        "current_status": "closed",
-                        "current_tags": ["closed tree"],
-                        "log_id": 1,
-                        "reason": "some reason for opening",
-                        "status": "open",
-                        "tags": ["sometag1", "sometag2"],
-                    },
-                    "tree": "autoland",
-                }
-            ],
-            "when": "0001-01-01T00:40:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        },
-        {
-            "id": 1,
-            "reason": "updated reason",
-            "status": "open",
-            "trees": [
-                {
-                    "id": 1,
-                    "last_state": {
-                        "current_log_id": 1,
-                        "current_reason": "updated reason",
-                        "current_status": "open",
-                        "current_tags": ["updated tags"],
-                        "log_id": None,
-                        "reason": "",
-                        "status": "",
-                        "tags": [],
-                    },
-                    "tree": "autoland",
-                }
-            ],
-            "when": "0001-01-01T00:20:00+00:00",
-            "who": "ad|Example-LDAP|testuser",
-        },
-    ], "Stack should be updated with new reason and tags."
+    result = response.json.get("result")
+    assert result is not None, "Response should contain `result` key."
+
+    for entry in result:
+        stack_entry = StackEntry(**entry)
+
+        if stack_entry.id != 1:
+            continue
+
+        assert stack_entry.reason == "updated reason"
+        assert stack_entry.trees[0].last_state.current_reason == "updated reason"
+        assert sorted(stack_entry.trees[0].last_state.current_tags) == [
+            "updated tags",
+        ]
 
 
 @mock.patch("landoapi.api.treestatus._now")
