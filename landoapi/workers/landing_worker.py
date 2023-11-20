@@ -288,6 +288,7 @@ class LandingWorker(Worker):
                     f"`Temporary error ({e.__class__}) "
                     f"encountered while pulling from {repo_pull_info}"
                 )
+                logger.exception(message)
                 job.transition_status(
                     LandingJobAction.DEFER, message=message, commit=True, db=db
                 )
@@ -322,6 +323,7 @@ class LandingWorker(Worker):
                         f"Problem while applying patch in revision {revision.revision_id}:\n\n"
                         f"{str(exc)}"
                     )
+                    logger.exception(message)
                     job.transition_status(
                         LandingJobAction.FAIL, message=message, commit=True, db=db
                     )
@@ -416,6 +418,7 @@ class LandingWorker(Worker):
                     f"`Temporary error ({e.__class__}) "
                     f"encountered while pushing to {repo_push_info}"
                 )
+                logger.exception(message)
                 job.transition_status(
                     LandingJobAction.DEFER, message=message, commit=True, db=db
                 )
