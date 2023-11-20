@@ -563,7 +563,7 @@ def get_logs_for_tree(tree_name: str, limit_logs: bool = True) -> list[dict]:
         raise ProblemException(
             404,
             f"No tree {tree_name} found.",
-            "Could not find the requested tree.",
+            f"Could not find the requested tree {tree_name}.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
 
