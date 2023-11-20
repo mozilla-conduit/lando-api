@@ -132,7 +132,7 @@ class LandingJob(Base):
     # Identifier of the published commit which this job should land on top of.
     target_commit_hash = db.Column(db.Text(), nullable=True)
 
-    revisions = db.relationship(
+    revisions: list[Revision] = db.relationship(
         "Revision",
         secondary=revision_landing_job,
         back_populates="landing_jobs",
