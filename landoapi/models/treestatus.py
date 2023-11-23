@@ -13,7 +13,7 @@ from typing import (
     Optional,
 )
 
-import sqlalchemy.ext.hybrid
+from sqlalchemy.dialects.postgresql.json import JSONB
 from sqlalchemy.orm import (
     relationship,
 )
@@ -164,17 +164,7 @@ class Log(Base):
 
     # A set of tags (strings) which are attached to this log entry.
     # The field is a JSON-encoded list.
-    _tags = db.Column("tags", db.Text, nullable=False)
-
-    def __init__(self, tags: Optional[list[str]] = None, **kwargs):
-        if tags is not None:
-            kwargs["_tags"] = json.dumps(tags)
-        super(Log, self).__init__(**kwargs)
-
-    @sqlalchemy.ext.hybrid.hybrid_property
-    def tags(self) -> list[str]:
-        """Handle conversion of the `tags` column to a list."""
-        return json.loads(self._tags)
+    tags = db.Column(JSONB, nullable=False)
 
     def to_dict(self) -> dict[str, Any]:
         return {

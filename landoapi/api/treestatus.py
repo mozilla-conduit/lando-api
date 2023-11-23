@@ -67,7 +67,7 @@ def get_combined_tree(
     result.update(tree.to_dict())
 
     if tags is not None:
-        result["tags"] = json.loads(tags)
+        result["tags"] = tags
 
     if status is not None:
         result["status"] = TreeStatus(status)
@@ -135,7 +135,7 @@ def get_tree_by_name(tree: str) -> Optional[CombinedTree]:
     query = (
         Tree.query.distinct(Tree.tree)
         .add_columns(
-            Log._tags,
+            Log.tags,
             Log.status,
             Log.reason,
             Log.id,
@@ -193,7 +193,7 @@ def update_tree_log(
         )
 
     if tags is not None:
-        log._tags = json.dumps(tags)
+        log.tags = tags
     if reason is not None:
         log.reason = reason
 
@@ -207,7 +207,7 @@ def get_combined_trees(trees: Optional[list[Tree]] = None) -> list[CombinedTree]
     query = (
         Tree.query.distinct(Tree.tree)
         .add_columns(
-            Log._tags,
+            Log.tags,
             Log.status,
             Log.reason,
             Log.id,
