@@ -51,6 +51,13 @@ class CombinedTree:
     log_id: Optional[int]
     model: Tree
 
+    def to_dict(self) -> dict:
+        return {
+            field: (value.value if isinstance(value, Enum) else value)
+            for field, value in asdict(self).items()
+            if field != "model"
+        }
+
 
 def get_combined_tree(
     tree: Tree,
@@ -83,18 +90,6 @@ def get_combined_tree(
     return CombinedTree(**result)
 
 
-def combinedtree_as_dict(tree: CombinedTree) -> dict[str, Any]:
-    """Convert a `CombinedTree` to a dict.
-
-    Removes the `model` field as part of the conversion.
-    """
-    return {
-        field: (value.value if isinstance(value, Enum) else value)
-        for field, value in asdict(tree).items()
-        if field != "model"
-    }
-
-
 def result_object_wrap(f: Callable) -> Callable:
     """Wrap the value returned from `f` in a result dict.
 
@@ -110,7 +105,7 @@ def result_object_wrap(f: Callable) -> Callable:
     return wrap_output
 
 
-def serialize_last_state(old_tree: dict, new_tree: CombinedTree) -> dict[str, str]:
+def serialize_last_state(old_tree: dict, new_tree: CombinedTree) -> dict[str, Any]:
     """Serialize a `last_state` value for a `StatusChangeTree`."""
     return {
         "status": old_tree["status"].value,
@@ -360,7 +355,7 @@ def delete_stack(id: int, revert: Optional[int] = None):
 @result_object_wrap
 def get_trees() -> dict:
     """Handler for `GET /trees`."""
-    return {tree.tree: combinedtree_as_dict(tree) for tree in get_combined_trees()}
+    return {tree.tree: tree.to_dict() for tree in get_combined_trees()}
 
 
 @auth.require_auth0(
@@ -469,7 +464,7 @@ def get_tree(tree: str) -> dict:
             "The tree does not exist.",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
         )
-    return combinedtree_as_dict(result)
+    return result.to_dict()
 
 
 @auth.require_auth0(
@@ -586,4 +581,4 @@ def get_logs(tree: str) -> list[dict]:
 @result_object_wrap
 def get_trees2() -> list[dict]:
     """Handler for `GET /trees2`."""
-    return [combinedtree_as_dict(tree) for tree in get_combined_trees()]
+    return [tree.to_dict() for tree in get_combined_trees()]
