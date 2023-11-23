@@ -166,8 +166,7 @@ def remove_tree_by_name(tree_name: str):
         )
     db.session.delete(tree)
 
-    # Delete from logs and change stack, too.
-    Log.query.filter_by(tree=tree_name).delete()
+    # Delete from change stack.
     StatusChangeTree.query.filter_by(tree=tree_name).delete()
     db.session.commit()
     cache.delete_memoized(get_tree_by_name, tree_name)
