@@ -2,11 +2,13 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import collections
 import copy
 import functools
-import json
 import logging
+from dataclasses import (
+    asdict,
+    dataclass,
+)
 from enum import Enum
 from typing import (
     Any,
@@ -37,19 +39,17 @@ logger = logging.getLogger(__name__)
 
 TREE_SUMMARY_LOG_LIMIT = 5
 
-CombinedTree = collections.namedtuple(
-    "CombinedTree",
-    [
-        "tree",
-        "message_of_the_day",
-        "tags",
-        "status",
-        "reason",
-        "category",
-        "log_id",
-        "model",
-    ],
-)
+
+@dataclass
+class CombinedTree:
+    tree: str
+    message_of_the_day: str
+    tags: list[str]
+    status: TreeStatus
+    reason: str
+    category: TreeCategory
+    log_id: Optional[int]
+    model: Tree
 
 
 def get_combined_tree(
@@ -90,7 +90,7 @@ def combinedtree_as_dict(tree: CombinedTree) -> dict[str, Any]:
     """
     return {
         field: (value.value if isinstance(value, Enum) else value)
-        for field, value in tree._asdict().items()
+        for field, value in asdict(tree).items()
         if field != "model"
     }
 
