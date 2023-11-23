@@ -1,8 +1,8 @@
 """add treestatus models
 
-Revision ID: 79019017061d
+Revision ID: f51d4746effa
 Revises: 56c6748ee7cf
-Create Date: 2023-11-16 01:22:41.716669
+Create Date: 2023-11-23 18:41:56.699341
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = '79019017061d'
+revision = 'f51d4746effa'
 down_revision = '56c6748ee7cf'
 branch_labels = None
 depends_on = None
@@ -58,7 +58,7 @@ def upgrade():
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('stack_id', sa.Integer(), nullable=True),
     sa.Column('tree', sa.String(length=64), nullable=False),
-    sa.Column('last_state', sa.Text(), nullable=False),
+    sa.Column('last_state', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.ForeignKeyConstraint(['stack_id'], ['status_change.id'], ),
     sa.ForeignKeyConstraint(['tree'], ['tree.tree'], ),
     sa.PrimaryKeyConstraint('id')

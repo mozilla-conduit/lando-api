@@ -54,7 +54,7 @@ CombinedTree = collections.namedtuple(
 
 def get_combined_tree(
     tree: Tree,
-    tags: Optional[str] = None,
+    tags: Optional[list[str]] = None,
     status: Optional[TreeStatus] = None,
     reason: Optional[str] = None,
     log_id: Optional[int] = None,
@@ -110,20 +110,18 @@ def result_object_wrap(f: Callable) -> Callable:
     return wrap_output
 
 
-def serialize_last_state(old_tree: dict, new_tree: CombinedTree) -> str:
+def serialize_last_state(old_tree: dict, new_tree: CombinedTree) -> dict[str, str]:
     """Serialize a `last_state` value for a `StatusChangeTree`."""
-    return json.dumps(
-        {
-            "status": old_tree["status"].value,
-            "reason": old_tree["reason"],
-            "tags": old_tree["tags"],
-            "log_id": old_tree["log_id"],
-            "current_status": new_tree.status.value,
-            "current_reason": new_tree.reason,
-            "current_tags": new_tree.tags,
-            "current_log_id": new_tree.log_id,
-        }
-    )
+    return {
+        "status": old_tree["status"].value,
+        "reason": old_tree["reason"],
+        "tags": old_tree["tags"],
+        "log_id": old_tree["log_id"],
+        "current_status": new_tree.status.value,
+        "current_reason": new_tree.reason,
+        "current_tags": new_tree.tags,
+        "current_log_id": new_tree.log_id,
+    }
 
 
 @cache.memoize()
@@ -298,7 +296,7 @@ def update_stack(id: int, body: dict) -> tuple[None, int]:
             last_state["current_tags"],
             last_state["current_reason"],
         )
-        tree.last_state = json.dumps(last_state)
+        tree.last_state = last_state
 
     change.reason = body.get("reason", change.reason)
 
@@ -545,7 +543,7 @@ def update_log(id: int, body: dict):
             if tags:
                 last_state["current_tags"] = tags
 
-            tree.last_state = json.dumps(last_state)
+            tree.last_state = last_state
 
     db.session.commit()
 

@@ -6,11 +6,10 @@
 This module provides the definitions for Treestatus data.
 """
 
+import copy
 import enum
-import json
 from typing import (
     Any,
-    Optional,
 )
 
 from sqlalchemy.dialects.postgresql.json import JSONB
@@ -65,9 +64,9 @@ DEFAULT_TREE = {
 }
 
 
-def load_last_state(last_state_str: str) -> dict:
+def load_last_state(last_state_orig: dict) -> dict:
     """Ensure that structure of last_state is backwards compatible."""
-    last_state = json.loads(last_state_str)
+    last_state = copy.deepcopy(last_state_orig)
 
     for field in [
         "status",
@@ -226,7 +225,7 @@ class StatusChangeTree(Base):
 
     # A JSON encoded string containing the previous state of the tree before
     # applying this change.
-    last_state = db.Column(db.Text, nullable=False)
+    last_state = db.Column(JSONB, nullable=False)
 
     # A backreference to the `StatusChange` model.
     stack: "StatusChange" = relationship("StatusChange", back_populates="trees")
