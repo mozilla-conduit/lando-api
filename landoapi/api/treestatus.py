@@ -398,7 +398,7 @@ def update_trees(body: dict):
         )
 
     # Update the trees as requested.
-    new_status = TreeStatus(body.get("status")) if "status" in body else None
+    new_status = TreeStatus(body["status"]) if "status" in body else None
     new_reason = body.get("reason")
     new_motd = body.get("message_of_the_day")
     new_tags = body.get("tags", [])
