@@ -321,6 +321,7 @@ def revert_change(id: int, revert: bool = False) -> tuple[dict, int]:
     if revert:
         for changed_tree in status_change.trees:
             tree = get_tree_by_name(changed_tree.tree)
+
             if tree is None:
                 # If there's no tree to update we just continue.
                 continue
@@ -329,7 +330,7 @@ def revert_change(id: int, revert: bool = False) -> tuple[dict, int]:
             update_tree_status(
                 db.session,
                 tree.model,
-                status=last_state["status"],
+                status=TreeStatus(last_state["status"]),
                 reason=last_state["reason"],
                 tags=last_state.get("tags", []),
             )

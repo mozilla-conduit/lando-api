@@ -1,8 +1,8 @@
 """add treestatus models
 
-Revision ID: f51d4746effa
+Revision ID: a9abebd1aff3
 Revises: 56c6748ee7cf
-Create Date: 2023-11-23 18:41:56.699341
+Create Date: 2023-11-24 17:14:05.685680
 
 """
 import sqlalchemy as sa
@@ -10,7 +10,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "f51d4746effa"
+revision = "a9abebd1aff3"
 down_revision = "56c6748ee7cf"
 branch_labels = None
 depends_on = None
@@ -27,7 +27,7 @@ def upgrade():
         sa.Column("reason", sa.Text(), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("open", "closed", "approval required", name="treestatus"),
+            sa.Enum("OPEN", "CLOSED", "APPROVAL_REQUIRED", name="treestatus"),
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id"),
@@ -40,7 +40,7 @@ def upgrade():
         sa.Column("tree", sa.String(length=64), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("open", "closed", "approval required", name="treestatus"),
+            sa.Enum("OPEN", "CLOSED", "APPROVAL_REQUIRED", name="treestatus"),
             nullable=False,
         ),
         sa.Column("reason", sa.Text(), nullable=False),
@@ -69,7 +69,7 @@ def upgrade():
         sa.Column("changed_by", sa.Text(), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("open", "closed", "approval required", name="treestatus"),
+            sa.Enum("OPEN", "CLOSED", "APPROVAL_REQUIRED", name="treestatus"),
             nullable=False,
         ),
         sa.Column("reason", sa.Text(), nullable=False),
