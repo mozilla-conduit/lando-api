@@ -52,7 +52,7 @@ class TreeStatus(enum.Enum):
         the appropriate Phabricator group review for approval (`release-managers`)
         and the hg hook will enforce `a=<reviewer>` is present in the commit message.
         """
-        return self != TreeStatus.CLOSED
+        return self in {TreeStatus.OPEN, TreeStatus.APPROVAL_REQUIRED}
 
 
 DEFAULT_TREE = {
