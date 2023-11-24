@@ -55,18 +55,20 @@ class TreeStatus(enum.Enum):
         return self in {TreeStatus.OPEN, TreeStatus.APPROVAL_REQUIRED}
 
 
-DEFAULT_TREE = {
-    "category": TreeCategory.OTHER,
-    "reason": "New tree",
-    "status": TreeStatus.CLOSED,
-    "tags": [],
-    "log_id": None,
-}
+def get_default_tree():
+    return {
+        "category": TreeCategory.OTHER,
+        "reason": "New tree",
+        "status": TreeStatus.CLOSED,
+        "tags": [],
+        "log_id": None,
+    }
 
 
 def load_last_state(last_state_orig: dict) -> dict:
     """Ensure that structure of last_state is backwards compatible."""
     last_state = copy.deepcopy(last_state_orig)
+    default_tree = get_default_tree()
 
     for field in [
         "status",
@@ -81,9 +83,9 @@ def load_last_state(last_state_orig: dict) -> dict:
         if field in last_state:
             continue
         if field.startswith("current_"):
-            last_state[field] = DEFAULT_TREE[field[len("current_") :]]
+            last_state[field] = default_tree[field[len("current_") :]]
         else:
-            last_state[field] = DEFAULT_TREE[field]
+            last_state[field] = default_tree[field]
 
     return last_state
 

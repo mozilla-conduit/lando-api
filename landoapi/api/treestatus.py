@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import copy
 import functools
 import logging
 from dataclasses import (
@@ -23,13 +22,13 @@ from flask import g
 from landoapi import auth
 from landoapi.cache import cache
 from landoapi.models.treestatus import (
-    DEFAULT_TREE,
     Log,
     StatusChange,
     StatusChangeTree,
     Tree,
     TreeCategory,
     TreeStatus,
+    get_default_tree,
     load_last_state,
 )
 from landoapi.storage import db
@@ -70,7 +69,7 @@ def get_combined_tree(
 
     This also shows status, reason and tags from last Tree Log.
     """
-    result = copy.deepcopy(DEFAULT_TREE)
+    result = get_default_tree()
     result.update(tree.to_dict())
 
     if tags is not None:
