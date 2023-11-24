@@ -431,7 +431,7 @@ def test_api_delete_trees_known(db, client, auth0_mock, new_treestatus_tree):
         response.status_code == 200
     ), "Deleting an unknown tree should return a `200`."
     assert (
-        response.json == "mozilla-central"
+        response.json["removed"] == "mozilla-central"
     ), "API should return the tree name on successful delete."
 
     # Check that tree is deleted.

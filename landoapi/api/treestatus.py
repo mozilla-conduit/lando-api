@@ -270,7 +270,7 @@ def get_stack() -> list[dict]:
 @auth.require_auth0(
     groups=(auth.TREESTATUS_USERS), scopes=("lando", "profile", "email"), userinfo=True
 )
-def update_stack(id: int, body: dict) -> tuple[None, int]:
+def update_stack(id: int, body: dict) -> tuple[dict, int]:
     """Handler for `PATCH /stack/{id}`."""
     change = StatusChange.query.get(id)
     if not change:
@@ -296,10 +296,14 @@ def update_stack(id: int, body: dict) -> tuple[None, int]:
 
     db.session.commit()
 
-    return change.status.value, 200
+    return {
+        "id": change.id,
+        "tags": body.get("tags"),
+        "reason": body.get("reason"),
+    }, 200
 
 
-def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
+def revert_change(id: int, revert: bool = False) -> tuple[dict, int]:
     """Revert the status change with the given ID.
 
     If `revert` is passed, also revert the updated trees statuses to their
@@ -333,7 +337,7 @@ def revert_change(id: int, revert: bool = False) -> tuple[None, int]:
     db.session.delete(status_change)
     db.session.commit()
 
-    return status_change.status.value, 200
+    return {"id": status_change.id, "reverted": revert}, 200
 
 
 @auth.require_auth0(
@@ -504,10 +508,10 @@ def make_tree(tree: str, body: dict):
 @auth.require_auth0(
     groups=(auth.TREESTATUS_ADMIN), scopes=("lando", "profile", "email"), userinfo=True
 )
-def delete_tree(tree: str) -> tuple[str, int]:
+def delete_tree(tree: str) -> tuple[dict, int]:
     """Handler for `DELETE /trees/{tree}`."""
     remove_tree_by_name(tree)
-    return tree, 200
+    return {"removed": tree}, 200
 
 
 @auth.require_auth0(
