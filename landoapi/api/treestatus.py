@@ -105,7 +105,13 @@ def result_object_wrap(f: Callable) -> Callable:
 
 
 def serialize_last_state(old_tree: dict, new_tree: CombinedTree) -> dict[str, Any]:
-    """Serialize a `last_state` value for a `StatusChangeTree`."""
+    """Serialize a `last_state` value for a `StatusChangeTree`.
+
+    Given a `dict` representing the old state of a tree and a `CombinedTree`
+    representing the current state, return a `dict` describing the change in
+    state that can be stored in a `StatusChangeTree` for use in restoring the
+    previous state.
+    """
     return {
         "status": old_tree["status"].value,
         "reason": old_tree["reason"],
