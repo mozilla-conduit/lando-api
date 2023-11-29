@@ -319,6 +319,13 @@ class GitPatchHelper(PatchHelper):
                 commit_message_lines += [""]
 
             commit_message_lines.append(line)
+        else:
+            # We never found the end of the commit message body, so this change
+            # must be an empty commit. Discard the last two lines of the
+            # constructed commit message which are Git version info and return
+            # an empty diff.
+            commit_message = "\n".join(commit_message_lines[:-2])
+            return commit_message, ""
 
         commit_message = "\n".join(commit_message_lines)
 
