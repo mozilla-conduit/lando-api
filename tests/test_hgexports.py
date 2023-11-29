@@ -122,6 +122,21 @@ index f56ba1c..33391ea 100644
          500,
 """.rstrip()
 
+GIT_PATCH_EMPTY = """
+From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
+From: Connor Sheehan <sheehan@mozilla.com>
+Date: Wed, 6 Jul 2022 16:36:09 -0400
+Subject: [PATCH] errors: add a maintenance-mode specific title to serverside
+ error handlers (Bug 1724769)
+
+Adds a conditional to the Lando-API exception handlers that
+shows a maintenance-mode specific title when a 503 error is
+returned from Lando. This should inform users that Lando is
+unavailable at the moment and is not broken.
+--
+2.31.1
+""".strip()
+
 
 def test_build_patch():
     patch = build_patch_for_revision(
@@ -375,3 +390,26 @@ def test_git_formatpatch_helper_parse():
     assert (
         patch.get_diff() == GIT_PATCH_ONLY_DIFF
     ), "`get_diff()` should return the full diff."
+
+
+def test_git_formatpatch_helper_empty_commit():
+    patch = GitPatchHelper(io.StringIO(GIT_PATCH_EMPTY))
+    assert (
+        patch.get_header("From") == "Connor Sheehan <sheehan@mozilla.com>"
+    ), "`From` header should contain author information."
+    assert (
+        patch.get_header("Date") == "Wed, 06 Jul 2022 16:36:09 -0400"
+    ), "`Date` header should contain raw date info."
+    assert patch.get_header("Subject") == (
+        "[PATCH] errors: add a maintenance-mode specific title to serverside error handlers "
+        "(Bug 1724769)"
+    ), "`Subject` header should contain raw subject header."
+    assert patch.get_commit_description() == (
+        "errors: add a maintenance-mode specific title to serverside error handlers "
+        "(Bug 1724769)\n\n"
+        "Adds a conditional to the Lando-API exception handlers that\n"
+        "shows a maintenance-mode specific title when a 503 error is\n"
+        "returned from Lando. This should inform users that Lando is\n"
+        "unavailable at the moment and is not broken."
+    ), "`commit_description()` should return full commit message."
+    assert patch.get_diff() == "", "`get_diff()` should return an empty string."

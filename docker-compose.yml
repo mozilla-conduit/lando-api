@@ -11,7 +11,7 @@ services:
         target: python_base
     volumes:
       - ./:/app
-    command: sh -c "cd /app && pip install pip --upgrade && pip install pip-tools && python -m piptools compile requirements.in --generate-hashes --allow-unsafe"
+    command: sh -c "cd /app && pip install pip --upgrade && pip install pip-tools && python -m piptools compile requirements.in --generate-hashes --allow-unsafe --upgrade"
   lando-api:
     build:
       context: ./
