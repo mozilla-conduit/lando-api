@@ -1,8 +1,8 @@
 """add treestatus models
 
-Revision ID: a9abebd1aff3
+Revision ID: 1dfc5aa9d1b2
 Revises: 56c6748ee7cf
-Create Date: 2023-11-24 17:14:05.685680
+Create Date: 2023-11-29 01:48:07.449510
 
 """
 import sqlalchemy as sa
@@ -10,7 +10,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "a9abebd1aff3"
+revision = "1dfc5aa9d1b2"
 down_revision = "56c6748ee7cf"
 branch_labels = None
 depends_on = None

@@ -150,7 +150,7 @@ class Log(Base):
 
     # A set of tags (strings) which are attached to this log entry.
     # The field is a JSON-encoded list.
-    tags = db.Column(JSONB, nullable=False)
+    tags = db.Column(JSONB, nullable=False, default=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
