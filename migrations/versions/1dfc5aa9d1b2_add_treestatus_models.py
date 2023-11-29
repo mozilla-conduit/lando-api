@@ -73,7 +73,12 @@ def upgrade():
             nullable=False,
         ),
         sa.Column("reason", sa.Text(), nullable=False),
-        sa.Column("tags", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "tags",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+            server_default="[]",
+        ),
         sa.ForeignKeyConstraint(
             ["tree"],
             ["tree.tree"],
