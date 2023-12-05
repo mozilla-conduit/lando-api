@@ -1,10 +1,13 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+import json
 import logging
 import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import Optional
 
 import click
@@ -15,6 +18,12 @@ from landoapi.models.configuration import (
     ConfigurationKey,
     ConfigurationVariable,
     VariableType,
+)
+from landoapi.models.treestatus import (
+    Log,
+    Tree,
+    TreeCategory,
+    TreeStatus,
 )
 from landoapi.systems import Subsystem
 
@@ -157,6 +166,96 @@ def ruff():
 def test(pytest_arguments):
     """Run the tests."""
     os.execvp("pytest", ("pytest",) + pytest_arguments)
+
+
+def get_category_for_tree(tree: str) -> TreeCategory:
+    """Return the `TreeCategory` for a tree given its name."""
+    if tree.startswith("try"):
+        return TreeCategory.TRY
+
+    if tree.startswith("comm-"):
+        return TreeCategory.COMM_REPOS
+
+    if tree in {"autoland", "mozilla-central"}:
+        return TreeCategory.DEVELOPMENT
+
+    if tree in {"mozilla-beta", "mozilla-esr115", "mozilla-release"}:
+        return TreeCategory.RELEASE_STABILIZATION
+
+    return TreeCategory.OTHER
+
+
+def ensure_status_correct(status: str) -> TreeStatus:
+    """Paper over some of bad data in the "status" field.
+
+    The set of values present as `status` in the existing Treestatus is:
+        {'added', 'approval require', 'approval required', 'closed', 'motd', 'open'}
+    """
+    try:
+        return TreeStatus(status)
+    except ValueError:
+        if status == "approval require":
+            return TreeStatus.APPROVAL_REQUIRED
+
+    return TreeStatus.OPEN
+
+
+@cli.command("import-treestatus")
+@click.argument(
+    "treestatus_data_dir",
+    nargs=1,
+    type=click.Path(path_type=Path, exists=True, file_okay=False, dir_okay=True),
+)
+def import_treestatus_data(treestatus_data_dir: Path):
+    """Import Treestatus data into the database."""
+    from landoapi.storage import db_subsystem
+
+    db_subsystem.ensure_ready()
+
+    from landoapi.storage import db
+
+    trees = treestatus_data_dir / "trees.json"
+    if not trees.exists():
+        raise ValueError("trees.json must exist.")
+
+    # Create all new trees.
+    trees_data = json.loads(trees.read_text())
+    for tree in trees_data["result"].keys():
+        print(f"Creating tree {tree}.")
+        new_tree = Tree(
+            tree=tree,
+            status=TreeStatus.OPEN,
+            reason="",
+            message_of_the_day="",
+            category=get_category_for_tree(tree),
+        )
+        db.session.add(new_tree)
+
+    db.session.flush()
+    print("Flushing.")
+
+    # Create log entries for each update in the trees file
+    for log_file in treestatus_data_dir.glob("*_logs.json"):
+        print(f"Importing {log_file}.")
+        logs = json.loads(log_file.read_text())
+
+        for log_entry in reversed(logs["result"]):
+            log = Log(
+                tree=log_entry["tree"],
+                changed_by=log_entry["who"],
+                status=ensure_status_correct(log_entry["status"]),
+                reason=log_entry["reason"],
+                tags=log_entry["tags"],
+                created_at=log_entry["when"],
+                updated_at=log_entry["when"],
+            )
+            db.session.add(log)
+
+        # Commit log entries for this tree.
+        print(f"Created log entries for file {log_file}.")
+
+    db.session.commit()
+    print("Finished importing Treestatus data.")
 
 
 if __name__ == "__main__":
