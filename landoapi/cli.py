@@ -2,16 +2,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import json
 import logging
 import os
 import subprocess
 import sys
-from pathlib import Path
 from typing import Optional
 
 import click
 import connexion
+import requests
 from flask.cli import FlaskGroup
 
 from landoapi.models.configuration import (
@@ -201,12 +200,7 @@ def ensure_status_correct(status: str) -> TreeStatus:
 
 
 @cli.command("import-treestatus")
-@click.argument(
-    "treestatus_data_dir",
-    nargs=1,
-    type=click.Path(path_type=Path, exists=True, file_okay=False, dir_okay=True),
-)
-def import_treestatus_data(treestatus_data_dir: Path):
+def import_treestatus_data():
     """Import Treestatus data into the database."""
     from landoapi.storage import db_subsystem
 
@@ -214,12 +208,11 @@ def import_treestatus_data(treestatus_data_dir: Path):
 
     from landoapi.storage import db
 
-    trees = treestatus_data_dir / "trees.json"
-    if not trees.exists():
-        raise ValueError("trees.json must exist.")
+    trees = requests.get("https://treestatus.mozilla-releng.net/trees")
+    trees_data = trees.json()
+    tree_logs = {}
 
     # Create all new trees.
-    trees_data = json.loads(trees.read_text())
     for tree in trees_data["result"].keys():
         print(f"Creating tree {tree}.")
         new_tree = Tree(
@@ -231,14 +224,18 @@ def import_treestatus_data(treestatus_data_dir: Path):
         )
         db.session.add(new_tree)
 
+        print(f"Saving logs for {tree}.")
+        logs = requests.get(
+            f"https://treestatus.mozilla-releng.net/trees/{tree}/logs_all"
+        ).json()
+        tree_logs[tree] = logs
+
     db.session.flush()
     print("Flushing.")
 
     # Create log entries for each update in the trees file
-    for log_file in treestatus_data_dir.glob("*_logs.json"):
-        print(f"Importing {log_file}.")
-        logs = json.loads(log_file.read_text())
-
+    for tree, logs in tree_logs.items():
+        print(f"Importing logs for {tree}.")
         for log_entry in reversed(logs["result"]):
             log = Log(
                 tree=log_entry["tree"],
@@ -252,7 +249,7 @@ def import_treestatus_data(treestatus_data_dir: Path):
             db.session.add(log)
 
         # Commit log entries for this tree.
-        print(f"Created log entries for file {log_file}.")
+        print(f"Created log entries for {tree}.")
 
     db.session.commit()
     print("Finished importing Treestatus data.")
