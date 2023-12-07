@@ -273,7 +273,7 @@ def get_stack() -> list[dict]:
 
 
 @auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS), scopes=("lando", "profile", "email"), userinfo=True
+    groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
 )
 def update_stack(id: int, body: dict) -> tuple[dict, int]:
     """Handler for `PATCH /stack/{id}`."""
@@ -347,7 +347,7 @@ def revert_change(id: int, revert: bool = False) -> tuple[dict, int]:
 
 
 @auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS), scopes=("lando", "profile", "email"), userinfo=True
+    groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
 )
 def delete_stack(id: int, revert: Optional[int] = None):
     """Handler for `DELETE /stack/{id}`."""
@@ -369,7 +369,7 @@ def get_trees() -> dict:
 
 
 @auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS), scopes=("lando", "profile", "email"), userinfo=True
+    groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
 )
 def update_trees(body: dict):
     """Handler for `PATCH /trees`."""
@@ -478,7 +478,7 @@ def get_tree(tree: str) -> dict:
 
 
 @auth.require_auth0(
-    groups=(auth.TREESTATUS_ADMIN), scopes=("lando", "profile", "email"), userinfo=True
+    groups=(auth.TREESTATUS_ADMIN,), scopes=("lando", "profile", "email"), userinfo=True
 )
 def make_tree(tree: str, body: dict):
     """Handler for `PUT /trees/{tree}`."""
@@ -512,7 +512,7 @@ def make_tree(tree: str, body: dict):
 
 
 @auth.require_auth0(
-    groups=(auth.TREESTATUS_ADMIN), scopes=("lando", "profile", "email"), userinfo=True
+    groups=(auth.TREESTATUS_ADMIN,), scopes=("lando", "profile", "email"), userinfo=True
 )
 def delete_tree(tree: str) -> tuple[dict, int]:
     """Handler for `DELETE /trees/{tree}`."""
@@ -521,7 +521,7 @@ def delete_tree(tree: str) -> tuple[dict, int]:
 
 
 @auth.require_auth0(
-    groups=(auth.TREESTATUS_USERS), scopes=("lando", "profile", "email"), userinfo=True
+    groups=(auth.TREESTATUS_USERS,), scopes=("lando", "profile", "email"), userinfo=True
 )
 def update_log(id: int, body: dict):
     """Handler for `PATCH /log/{id}`."""
