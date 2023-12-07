@@ -359,7 +359,7 @@ def test_require_groups_present(auth0_mock, app):
 
     with app.test_request_context("/", headers=headers):
         resp = require_auth0(
-            groups=("active_scm_level_1"), scopes=("profile",), userinfo=True
+            groups=("active_scm_level_1",), scopes=("profile",), userinfo=True
         )(noop)()
 
         assert resp.status_code == 200, "User request with correct groups should be OK."
@@ -374,7 +374,7 @@ def test_require_groups_missing(app):
 
     with app.test_request_context("/", headers=headers):
         with pytest.raises(ProblemException) as exc_info:
-            require_auth0(groups=("somegroup"), scopes=("profile"), userinfo=True)(
+            require_auth0(groups=("somegroup",), scopes=("profile"), userinfo=True)(
                 noop
             )()
 

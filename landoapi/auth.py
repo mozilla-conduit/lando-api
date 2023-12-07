@@ -431,7 +431,7 @@ class require_auth0:
 
         @functools.wraps(f)
         def wrapped(*args, **kwargs):
-            if self.groups and not g.auth0_user.is_in_groups(self.groups):
+            if self.groups and not g.auth0_user.is_in_groups(*self.groups):
                 missing_groups = {
                     group for group in self.groups if group not in g.auth0_user.groups
                 }
