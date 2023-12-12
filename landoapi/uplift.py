@@ -101,7 +101,7 @@ def get_rev_ids_to_diffs(phab: PhabricatorClient, rev_ids: list[int]) -> dict:
     """Given the list of revision ids, return a mapping of IDs to all associated diffs."""
     # Query all diffs for the revisions with `differential.querydiffs`.
     querydiffs_response = phab.call_conduit(
-        "differential.diff.search", constraints={"revisionIDs": rev_ids}
+        "differential.querydiffs", constraints={"revisionIDs": rev_ids}
     )
 
     rev_ids_to_all_diffs = collections.defaultdict(list)
