@@ -13,6 +13,7 @@ from landoapi.phabricator import PhabricatorClient
 from landoapi.repos import get_repos_for_env
 from landoapi.uplift import (
     create_uplift_revision,
+    get_latest_good_binary_diff,
     get_local_uplift_repo,
     get_uplift_conduit_state,
     get_uplift_repositories,
@@ -67,7 +68,12 @@ def create(phab: PhabricatorClient, data: dict):
                 "target_repository": repo_name,
             },
         )
-        revision_data, revision_stack, target_repository = get_uplift_conduit_state(
+        (
+            revision_data,
+            revision_stack,
+            target_repository,
+            rev_ids_to_all_diffs,
+        ) = get_uplift_conduit_state(
             phab,
             revision_id=revision_id,
             target_repository_name=repo_name,
@@ -103,8 +109,7 @@ def create(phab: PhabricatorClient, data: dict):
         revision = revision_data.revisions[phid]
 
         # Get the relevant diff.
-        diff_phid = phab.expect(revision, "fields", "diffPHID")
-        diff = revision_data.diffs[diff_phid]
+        diff = get_latest_good_binary_diff(rev_ids_to_all_diffs[revision["id"]])
 
         # Get the parent commit PHID from the stack if available.
         parent_phid = commit_stack[-1]["revision_phid"] if commit_stack else None

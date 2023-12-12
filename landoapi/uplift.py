@@ -2,10 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import collections
 import json
 import logging
 import re
 import time
+from operator import itemgetter
 from typing import (
     Any,
     Optional,
@@ -95,9 +97,24 @@ def get_revisions_without_bugs(phab: PhabricatorClient, revisions: dict) -> set[
     return missing_bugs
 
 
+def get_rev_ids_to_diffs(phab: PhabricatorClient, rev_ids: list[int]) -> dict:
+    """Given the list of revision ids, return a mapping of IDs to all associated diffs."""
+    # Query all diffs for the revisions with `differential.querydiffs`.
+    querydiffs_response = phab.call_conduit(
+        "differential.diff.search", constraints={"revisionIDs": rev_ids}
+    )
+
+    rev_ids_to_all_diffs = collections.defaultdict(list)
+    for diff in querydiffs_response.values():
+        rev_id = phab.expect(diff, "revisionID")
+        rev_ids_to_all_diffs[rev_id].append(diff)
+
+    return rev_ids_to_all_diffs
+
+
 def get_uplift_conduit_state(
     phab: PhabricatorClient, revision_id: int, target_repository_name: str
-) -> tuple[RevisionData, RevisionStack, dict]:
+) -> tuple[RevisionData, RevisionStack, dict, dict]:
     """Queries Conduit for repository and stack information about the requested uplift.
 
     Gathers information about:
@@ -143,9 +160,25 @@ def get_uplift_conduit_state(
             f"Every uplifted patch must have an associated bug ID: {missing} do not."
         )
 
+    rev_ids = [revision["id"] for revision in stack_data.revisions.values()]
+    rev_ids_to_all_diffs = get_rev_ids_to_diffs(phab, rev_ids)
+
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
 
-    return stack_data, stack, target_repo
+    return stack_data, stack, target_repo, rev_ids_to_all_diffs
+
+
+def get_latest_good_binary_diff(diffs: list[dict]) -> dict:
+    """Given a list of diff dicts, return the latest diff that avoids bug 1865760."""
+    # Iterate through the diffs in order of the latest IDs.
+    for diff in sorted(diffs, key=itemgetter("id"), reverse=True):
+        # Diffs with a `creationMethod` of `commit` may have bad binary data.
+        if diff["creationMethod"] == "commit":
+            continue
+
+        return diff
+
+    raise Exception("Could not find an appropriate diff to return.")
 
 
 def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> Repo:
