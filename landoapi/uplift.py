@@ -106,6 +106,9 @@ def get_rev_ids_to_diffs(
         "differential.querydiffs", revisionIDs=rev_ids
     )
 
+    if not querydiffs_response:
+        raise Exception(f"Could not find any diffs for revisions {rev_ids}.")
+
     rev_ids_to_all_diffs = collections.defaultdict(list)
     for diff in querydiffs_response.values():
         rev_id = phab.expect(diff, "revisionID")
@@ -162,7 +165,7 @@ def get_uplift_conduit_state(
             f"Every uplifted patch must have an associated bug ID: {missing} do not."
         )
 
-    rev_ids = [revision["id"] for revision in stack_data.revisions.values()]
+    rev_ids = [int(revision["id"]) for revision in stack_data.revisions.values()]
     rev_ids_to_all_diffs = get_rev_ids_to_diffs(phab, rev_ids)
 
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
@@ -185,7 +188,24 @@ def get_latest_non_commit_diff(diffs: list[dict]) -> dict:
 
         return diff
 
-    raise Exception("Could not find an appropriate diff to return.")
+    raise Exception(f"Could not find an appropriate diff to return from {diffs}.")
+
+
+def get_diff_info_if_missing(
+    phab: PhabricatorClient, diff_id: int, existing_diffs: list[dict]
+) -> dict:
+    """Check `existing_diffs` for a diff with `diff_id`, or query Conduit for the data."""
+    existing_diff = [diff for diff in existing_diffs if diff["id"] == diff_id]
+    if existing_diff:
+        return existing_diff[0]
+
+    diffs = phab.call_conduit(
+        "differential.diff.search",
+        constraints={"ids": [diff_id]},
+        attachments={"commits": True},
+    )
+
+    return phab.single(diffs, "data")
 
 
 def get_local_uplift_repo(phab: PhabricatorClient, target_repository: dict) -> Repo:
@@ -230,6 +250,7 @@ def create_uplift_revision(
     local_repo: Repo,
     source_revision: dict,
     source_diff: dict,
+    querydiffs_diff: dict,
     parent_phid: Optional[str],
     base_revision: str,
     target_repository: dict,
@@ -255,7 +276,7 @@ def create_uplift_revision(
     # Upload it on target repo.
     new_diff = phab.call_conduit(
         "differential.creatediff",
-        changes=patch_to_changes(raw_diff, head),
+        changes=patch_to_changes(querydiffs_diff, raw_diff, head),
         sourceMachine=local_repo.url,
         sourceControlSystem=phab.expect(target_repository, "fields", "vcs"),
         sourceControlPath="/",

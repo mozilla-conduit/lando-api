@@ -94,11 +94,30 @@ def unix_file_mode(value: int) -> str:
     return "{:06o}".format(value)
 
 
-def serialize_patched_file(diff: dict, public_node: str) -> dict:
+def serialize_patched_file(querydiffs_diff: dict, diff: dict, public_node: str) -> dict:
     """Convert a patch diff from `rs-parsepatch` format to Phabricator format."""
     # Detect binary or test (not images)
     metadata = {}
-    if diff["binary"] is True:
+    if diff["binary"] is True and querydiffs_diff:
+        file_type = FileType.BINARY
+        # Search the list of changes in the `differential.querydiffs` response for the
+        # change the corresponds to this file.
+        changes = [
+            change
+            for change in querydiffs_diff["changes"]
+            if change["currentPath"] == diff["filename"]
+        ]
+
+        # There should only be one change that corresponds to this file.
+        if not changes or len(changes) > 1:
+            raise Exception("Found more than one change for this diff.")
+
+        # Use the metadata from the original diff for this new diff, since that diff
+        # will already have uploaded the file as binary and will have a PHID that can be
+        # used for reference.
+        metadata = changes[0]["metadata"]
+
+    elif diff["binary"] is True:
         # We cannot detect the mime type from a file in the patch
         # So no support for image file type
         file_type = FileType.BINARY
@@ -156,7 +175,11 @@ def serialize_patched_file(diff: dict, public_node: str) -> dict:
     }
 
 
-def patch_to_changes(patch_content: str, public_node: str) -> list[dict]:
+def patch_to_changes(
+    querydiffs_diff: dict, patch_content: str, public_node: str
+) -> list[dict]:
     """Build a list of Phabricator changes from a raw diff"""
     patch = rs_parsepatch.get_diffs(patch_content, hunks=True)
-    return [serialize_patched_file(diff, public_node) for diff in patch]
+    return [
+        serialize_patched_file(querydiffs_diff, diff, public_node) for diff in patch
+    ]

@@ -18,6 +18,6 @@ def test_patch_to_changes(patch_directory, patch_name):
     patch_path = os.path.join(patch_directory, f"{patch_name}.diff")
     result_path = os.path.join(patch_directory, f"{patch_name}.json")
     with open(patch_path) as p:
-        output = patch_to_changes(p.read(), "deadbeef123")
+        output = patch_to_changes({}, p.read(), "deadbeef123")
 
     assert output == json.load(open(result_path))
