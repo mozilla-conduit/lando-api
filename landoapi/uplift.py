@@ -97,7 +97,9 @@ def get_revisions_without_bugs(phab: PhabricatorClient, revisions: dict) -> set[
     return missing_bugs
 
 
-def get_rev_ids_to_diffs(phab: PhabricatorClient, rev_ids: list[int]) -> dict:
+def get_rev_ids_to_diffs(
+    phab: PhabricatorClient, rev_ids: list[int]
+) -> dict[int, list[dict]]:
     """Given the list of revision ids, return a mapping of IDs to all associated diffs."""
     # Query all diffs for the revisions with `differential.querydiffs`.
     querydiffs_response = phab.call_conduit(
@@ -107,7 +109,7 @@ def get_rev_ids_to_diffs(phab: PhabricatorClient, rev_ids: list[int]) -> dict:
     rev_ids_to_all_diffs = collections.defaultdict(list)
     for diff in querydiffs_response.values():
         rev_id = phab.expect(diff, "revisionID")
-        rev_ids_to_all_diffs[rev_id].append(diff)
+        rev_ids_to_all_diffs[int(rev_id)].append(diff)
 
     return rev_ids_to_all_diffs
 
