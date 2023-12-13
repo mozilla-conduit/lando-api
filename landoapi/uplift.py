@@ -168,7 +168,7 @@ def get_uplift_conduit_state(
     return stack_data, stack, target_repo, rev_ids_to_all_diffs
 
 
-def get_latest_good_binary_diff(diffs: list[dict]) -> dict:
+def get_latest_non_commit_diff(diffs: list[dict]) -> dict:
     """Given a list of diff dicts, return the latest diff that avoids bug 1865760."""
     # Iterate through the diffs in order of the latest IDs.
     for diff in sorted(diffs, key=itemgetter("id"), reverse=True):

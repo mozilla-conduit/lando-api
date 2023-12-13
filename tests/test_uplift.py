@@ -16,7 +16,7 @@ from landoapi.stacks import (
 from landoapi.uplift import (
     add_original_revision_line_if_needed,
     create_uplift_bug_update_payload,
-    get_latest_good_binary_diff,
+    get_latest_non_commit_diff,
     get_revisions_without_bugs,
     parse_milestone_version,
     strip_depends_on_from_commit_message,
@@ -392,7 +392,7 @@ def test_get_revisions_without_bugs(phabdouble):
     }, "Revision without associated bug should be returned."
 
 
-def test_get_latest_good_binary_diff():
+def test_get_latest_non_commit_diff():
     test_data = [
         {"creationMethod": "commit", "id": 3},
         {"creationMethod": "moz-phab-hg", "id": 1},
@@ -401,7 +401,7 @@ def test_get_latest_good_binary_diff():
         {"creationMethod": "commit", "id": 5},
     ]
 
-    diff = get_latest_good_binary_diff(test_data)
+    diff = get_latest_non_commit_diff(test_data)
 
     assert (
         diff["id"] == 2
