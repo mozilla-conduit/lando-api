@@ -171,7 +171,12 @@ def get_uplift_conduit_state(
 
 
 def get_latest_non_commit_diff(diffs: list[dict]) -> dict:
-    """Given a list of diff dicts, return the latest diff that avoids bug 1865760."""
+    """Given a list of diff dicts, return the latest diff with a non-commit creation method.
+
+    Commits with a `creationMethod` of `commit` will have empty binary files, if any
+    are included in the commit. Avoid using them for creating uplift requests and instead
+    use the latest non-commit diff associated with the patch. See bug 1865760 for more.
+    """
     # Iterate through the diffs in order of the latest IDs.
     for diff in sorted(diffs, key=itemgetter("id"), reverse=True):
         # Diffs with a `creationMethod` of `commit` may have bad binary data.
