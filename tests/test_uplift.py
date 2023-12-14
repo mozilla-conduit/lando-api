@@ -16,6 +16,7 @@ from landoapi.stacks import (
 from landoapi.uplift import (
     add_original_revision_line_if_needed,
     create_uplift_bug_update_payload,
+    get_latest_non_commit_diff,
     get_revisions_without_bugs,
     parse_milestone_version,
     strip_depends_on_from_commit_message,
@@ -389,3 +390,22 @@ def test_get_revisions_without_bugs(phabdouble):
     assert get_revisions_without_bugs(phab, revisions) == {
         rev2["id"]
     }, "Revision without associated bug should be returned."
+
+
+def test_get_latest_non_commit_diff():
+    test_data = [
+        {"creationMethod": "commit", "id": 3},
+        {"creationMethod": "moz-phab-hg", "id": 1},
+        {"creationMethod": "commit", "id": 4},
+        {"creationMethod": "moz-phab-hg", "id": 2},
+        {"creationMethod": "commit", "id": 5},
+    ]
+
+    diff = get_latest_non_commit_diff(test_data)
+
+    assert (
+        diff["id"] == 2
+    ), "Returned diff should have the highest diff ID without `commit`."
+    assert (
+        diff["creationMethod"] != "commit"
+    ), "Diffs with a `creationMethod` of `commit` should be skipped."
