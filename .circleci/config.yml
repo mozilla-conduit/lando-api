@@ -112,12 +112,12 @@ jobs:
                 docker push "${DOCKERHUB_REPO}:${CIRCLE_TAG}"
               elif [[ ${CIRCLE_BRANCH} == develop ]]; then
                 docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
-                docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}:develop-latest"
-                docker push "${DOCKERHUB_REPO}:develop-latest"
+                docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}:develop-${CIRCLE_TAG}"
+                docker push "${DOCKERHUB_REPO}:develop-${CIRCLE_TAG}"
               elif [[ ${CIRCLE_BRANCH} == staging ]]; then
                 docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
-                docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}:staging-latest"
-                docker push "${DOCKERHUB_REPO}:staging-latest"
+                docker tag "mozilla/landoapi" "${DOCKERHUB_REPO}:staging-${CIRCLE_TAG}"
+                docker push "${DOCKERHUB_REPO}:staging-${CIRCLE_TAG}"
               fi
             fi
 
