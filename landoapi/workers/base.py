@@ -10,9 +10,9 @@ import re
 import subprocess
 from time import sleep
 
+from landoapi import treestatus
 from landoapi.models.configuration import ConfigurationKey, ConfigurationVariable
 from landoapi.repos import repo_clone_subsystem
-from landoapi.treestatus import treestatus_subsystem
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class Worker:
         self.enabled_repos = [
             r
             for r in self.applicable_repos
-            if treestatus_subsystem.client.is_open(repo_clone_subsystem.repos[r].tree)
+            if treestatus.is_open(repo_clone_subsystem.repos[r].tree)
         ]
         logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 

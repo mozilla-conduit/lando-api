@@ -7,6 +7,12 @@ from landoapi.models.landing_job import LandingJob
 from landoapi.models.revisions import DiffWarning, Revision
 from landoapi.models.secapproval import SecApprovalRequest
 from landoapi.models.transplant import Transplant
+from landoapi.models.treestatus import (
+    Log,
+    StatusChange,
+    StatusChangeTree,
+    Tree,
+)
 
 __all__ = [
     "LandingJob",
@@ -15,4 +21,8 @@ __all__ = [
     "Transplant",
     "ConfigurationVariable",
     "DiffWarning",
+    "Tree",
+    "Log",
+    "StatusChange",
+    "StatusChangeTree",
 ]

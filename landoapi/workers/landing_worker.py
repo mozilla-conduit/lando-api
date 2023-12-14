@@ -13,6 +13,7 @@ from typing import Any
 
 import kombu
 
+from landoapi import treestatus
 from landoapi.commit_message import parse_bugs
 from landoapi.hg import (
     REJECTS_PATH,
@@ -38,10 +39,6 @@ from landoapi.repos import (
 )
 from landoapi.storage import SQLAlchemy, db
 from landoapi.tasks import phab_trigger_repo_update
-from landoapi.treestatus import (
-    TreeStatus,
-    treestatus_subsystem,
-)
 from landoapi.uplift import (
     update_bugs_for_uplift,
 )
@@ -126,7 +123,6 @@ class LandingWorker(Worker):
                 job,
                 repo,
                 hgrepo,
-                treestatus_subsystem.client,
             )
             logger.info("Finished processing landing job", extra={"id": job.id})
 
@@ -254,7 +250,6 @@ class LandingWorker(Worker):
         job: LandingJob,
         repo: Repo,
         hgrepo: HgRepo,
-        treestatus: TreeStatus,
     ) -> bool:
         """Run a given LandingJob and return appropriate boolean state.
 

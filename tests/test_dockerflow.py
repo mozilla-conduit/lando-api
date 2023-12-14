@@ -23,13 +23,13 @@ def test_dockerflow_version_matches_disk_contents(client, versionfile):
 
 
 def test_heartbeat_returns_200(
-    client, db, phabdouble, request_mocker, redis_cache, jwks, treestatusdouble
+    client, db, phabdouble, request_mocker, redis_cache, jwks
 ):
     assert client.get("/__heartbeat__").status_code == 200
 
 
 def test_heartbeat_returns_http_502_if_phabricator_ping_returns_error(
-    client, request_mocker, redis_cache, jwks, treestatusdouble
+    client, request_mocker, redis_cache, jwks
 ):
     error_json = {
         "result": None,

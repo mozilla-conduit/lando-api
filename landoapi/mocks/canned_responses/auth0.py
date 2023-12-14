@@ -23,6 +23,8 @@ CANNED_USERINFO_STANDARD = {
         "all_scm_level_3",
         "active_scm_level_2",
         "all_scm_level_2",
+        "mozilliansorg_treestatus_users",
+        "mozilliansorg_treestatus_admins",
     ],
     "https://sso.mozilla.com/claim/emails": ["tuser@example.com", "test@example.com"],
     "https://sso.mozilla.com/claim/dn": "mail=tuser@example.com,o=com,dc=example",

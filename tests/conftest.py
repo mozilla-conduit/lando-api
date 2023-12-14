@@ -21,6 +21,10 @@ from pytest_flask.plugin import JSONResponse
 from landoapi.app import SUBSYSTEMS, construct_app, load_config
 from landoapi.cache import cache
 from landoapi.mocks.auth import TEST_JWKS, MockAuth0
+from landoapi.models.treestatus import (
+    Tree,
+    TreeStatus,
+)
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -32,7 +36,7 @@ from landoapi.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
 from landoapi.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
-from tests.mocks import PhabricatorDouble, TreeStatusDouble
+from tests.mocks import PhabricatorDouble
 
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
@@ -180,12 +184,6 @@ def request_mocker():
 def phabdouble(monkeypatch):
     """Mock the Phabricator service and build fake response objects."""
     yield PhabricatorDouble(monkeypatch)
-
-
-@pytest.fixture
-def treestatusdouble(monkeypatch, treestatus_url):
-    """Mock the Tree Status service and build fake responses."""
-    yield TreeStatusDouble(monkeypatch, treestatus_url)
 
 
 @pytest.fixture
@@ -503,3 +501,23 @@ def codefreeze_datetime(request_mocker):
             return dates[f"{date_string}"]
 
     return Mockdatetime
+
+
+@pytest.fixture
+def new_treestatus_tree(db):
+    """Create a new tree in the test db."""
+
+    def _new_tree(
+        tree: str = "", status: str = "open", reason: str = "", motd: str = ""
+    ):
+        new_tree = Tree(
+            tree=tree,
+            status=TreeStatus(status),
+            reason=reason,
+            message_of_the_day=motd,
+        )
+        db.session.add(new_tree)
+        db.session.commit()
+        return new_tree
+
+    return _new_tree
