@@ -1172,7 +1172,7 @@ class PhabricatorDouble:
         if isinstance(transactions, list):
             transactions = list(enumerate(transactions))
         elif isinstance(transactions, dict):
-            transactions = [(k, v) for k, v, in transactions.items()]
+            transactions = list(transactions)
 
         # Validate each transaction.
         for key, t in transactions:
