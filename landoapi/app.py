@@ -9,7 +9,7 @@ from typing import Any
 import connexion
 from connexion.resolver import RestyResolver
 
-import landoapi.models  # noqa, makes sure alembic knows about the models.
+import landoapi.models  # noqa: F401
 from landoapi.auth import auth0_subsystem
 from landoapi.cache import cache_subsystem
 from landoapi.celery import celery_subsystem
