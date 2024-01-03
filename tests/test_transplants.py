@@ -740,7 +740,7 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     r3 = phabdouble.revision(diff=d3, repo=phabrepo, depends_on=[r2])
     phabdouble.reviewer(r3, user)
 
-    # Request a transplant, but only for the first revision in the stack.
+    # Request a transplant, but only for 2/3 revisions in the stack.
     response = client.post(
         "/transplants",
         json={
