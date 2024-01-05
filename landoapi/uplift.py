@@ -23,7 +23,6 @@ from packaging.version import (
 from landoapi import bmo
 from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
 from landoapi.phabricator import PhabricatorClient
-from landoapi.phabricator_patch import patch_to_changes
 from landoapi.repos import (
     Repo,
     get_repos_for_env,
@@ -245,6 +244,34 @@ def strip_depends_on_from_commit_message(commit_message: str) -> str:
     )
 
 
+def filter_diff_changes(changes: list[dict]) -> list[dict]:
+    """Remove unnecessary fields from `differential.querydiffs` response.
+
+    Removes field from the existing response that are created server-side, such as
+    `dateCreated`, leaving only the required components for creating a new diff.
+    """
+    return [
+        {
+            key: val
+            for key, val in change.items()
+            if key
+            in {
+                "awayPaths",
+                "commitHash",
+                "currentPath",
+                "fileType",
+                "hunks",
+                "metadata",
+                "newProperties",
+                "oldPath",
+                "oldProperties",
+                "type",
+            }
+        }
+        for change in changes
+    ]
+
+
 def create_uplift_revision(
     phab: PhabricatorClient,
     local_repo: Repo,
@@ -271,12 +298,10 @@ def create_uplift_revision(
     if not commits or "identifier" not in commits[0]:
         raise ValueError("Source diff does not have commit information attached.")
 
-    head = commits[0]["identifier"]
-
     # Upload it on target repo.
     new_diff = phab.call_conduit(
         "differential.creatediff",
-        changes=patch_to_changes(querydiffs_diff, raw_diff, head),
+        changes=filter_diff_changes(querydiffs_diff["changes"]),
         sourceMachine=local_repo.url,
         sourceControlSystem=phab.expect(target_repository, "fields", "vcs"),
         sourceControlPath="/",
