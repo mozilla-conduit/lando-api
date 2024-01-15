@@ -13,7 +13,9 @@ from landoapi.tasks import (
 logger = logging.getLogger(__name__)
 
 
-def notify_user_of_landing_failure(email, landing_job_identifier, error, request_id):
+def notify_user_of_landing_failure(
+    email: str, landing_job_identifier: str, error: str, request_id: int
+):
     """Send out user notifications that a Landing failed.
 
     Args:
@@ -53,7 +55,9 @@ def notify_user_of_landing_failure(email, landing_job_identifier, error, request
         raise
 
 
-def notify_user_of_bug_update_failure(email, revision, error, request_id):
+def notify_user_of_bug_update_failure(
+    email: str, revision: str, error: str, request_id: int
+):
     """Send out user notifications that a bug update failed.
 
     Args:
