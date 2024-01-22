@@ -351,6 +351,11 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/projects/elm",
             access_group=SCM_LEVEL_3,
         ),
+        "larch": Repo(
+            tree="larch",
+            url="https://hg.mozilla.org/projects/larch",
+            access_group=SCM_LEVEL_3,
+        ),
         "mozilla-build": Repo(
             tree="mozilla-build",
             url="https://hg.mozilla.org/mozilla-build",
