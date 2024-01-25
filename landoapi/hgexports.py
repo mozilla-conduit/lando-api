@@ -290,6 +290,23 @@ class GitPatchHelper(PatchHelper):
         # `EmailMessage` will return `None` if the header isn't found.
         return self.message[name]
 
+    @classmethod
+    def strip_git_version_info_lines(cls, patch_lines: list[str]) -> list[str]:
+        """Strip the Git version info lines from the end of the given patch lines.
+
+        Assumes the `patch_lines` is the remaining content of a `git format-patch`
+        style patch with Git version info at the base of the patch. Moves backward
+        through the patch to find the `--` barrier between the patch and the version
+        info and strips the version info.
+        """
+        # Collect the lines with the enumerated line numbers in a list, then
+        # iterate through them in reverse order.
+        for i, line in reversed(list(enumerate(patch_lines))):
+            if line.startswith("--"):
+                return patch_lines[:i]
+
+        raise ValueError("Malformed patch: could not find Git version info.")
+
     def parse_email_body(self, content: str) -> tuple[str, str]:
         """Parse the patch email's body, returning the commit message and diff.
 
@@ -340,8 +357,10 @@ class GitPatchHelper(PatchHelper):
             raise ValueError("Patch is malformed, could not find start of patch diff.")
 
         # The diff is the remainder of the patch, except the last two lines of Git version info.
-        remaining_lines = list(line_iterator)
-        diff_lines += list(remaining_lines[:-2])
+        remaining_lines = GitPatchHelper.strip_git_version_info_lines(
+            list(line_iterator)
+        )
+        diff_lines += remaining_lines
         diff = "\n".join(diff_lines)
 
         return commit_message, diff

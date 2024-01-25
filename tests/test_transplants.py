@@ -716,6 +716,60 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     assert job.landed_revisions == {1: 1, 2: 2, 3: 3}
 
 
+def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    register_codefreeze_uri,
+):
+    phabrepo = phabdouble.repo(name="mozilla-central")
+    user = phabdouble.user(username="reviewer")
+
+    # Create a stack with 3 revisions.
+    d1 = phabdouble.diff()
+    r1 = phabdouble.revision(diff=d1, repo=phabrepo)
+    phabdouble.reviewer(r1, user)
+
+    d2 = phabdouble.diff()
+    r2 = phabdouble.revision(diff=d2, repo=phabrepo, depends_on=[r1])
+    phabdouble.reviewer(r2, user)
+
+    d3 = phabdouble.diff()
+    r3 = phabdouble.revision(diff=d3, repo=phabrepo, depends_on=[r2])
+    phabdouble.reviewer(r3, user)
+
+    # Request a transplant, but only for 2/3 revisions in the stack.
+    response = client.post(
+        "/transplants",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r1["id"]), "diff_id": d1["id"]},
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert response.status_code == 202
+    assert response.content_type == "application/json"
+    assert "id" in response.json
+    job_id = response.json["id"]
+
+    # Ensure DB access isn't using uncommitted data.
+    db.session.close()
+
+    # Get LandingJob object by its id
+    job = LandingJob.query.get(job_id)
+    assert job.id == job_id
+    assert [(revision.revision_id, revision.diff_id) for revision in job.revisions] == [
+        (r1["id"], d1["id"]),
+        (r2["id"], d2["id"]),
+    ]
+    assert job.status == LandingJobStatus.SUBMITTED
+    assert job.landed_revisions == {1: 1, 2: 2}
+
+
 def test_integrated_transplant_records_approvers_peers_and_owners(
     app,
     db,

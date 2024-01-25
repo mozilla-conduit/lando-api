@@ -21,7 +21,6 @@ python-jose==3.3.0
 redis==3.2.1
 requests-mock==1.6.0
 requests==2.27.1
-rs-parsepatch==0.3.9
 ruff==0.1.8
 sentry-sdk==1.11.1
 sentry-sdk[flask]==1.11.1

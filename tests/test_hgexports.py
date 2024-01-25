@@ -96,7 +96,9 @@ index f56ba1c..33391ea 100644
          500,
 --
 2.31.1
-""".strip()
+
+
+""".lstrip()
 
 GIT_PATCH_ONLY_DIFF = """diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
 index f56ba1c..33391ea 100644
@@ -413,3 +415,19 @@ def test_git_formatpatch_helper_empty_commit():
         "unavailable at the moment and is not broken."
     ), "`commit_description()` should return full commit message."
     assert patch.get_diff() == "", "`get_diff()` should return an empty string."
+
+
+def test_strip_git_version_info_lines():
+    lines = [
+        "blah",
+        "blah",
+        "--",
+        "git version info",
+        "",
+        "",
+    ]
+
+    assert GitPatchHelper.strip_git_version_info_lines(lines) == [
+        "blah",
+        "blah",
+    ]
