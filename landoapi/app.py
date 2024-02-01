@@ -111,3 +111,19 @@ def construct_app(config: dict[str, Any]) -> connexion.App:
     initialize_hooks(flask_app)
 
     return app
+
+
+def construct_treestatus_app(config: dict[str, Any]) -> connexion.App:
+    app = connexion.App(__name__, specification_dir="spec/")
+
+    app.add_api(
+        "treestatus.yml",
+        resolver=RestyResolver("landoapi.api"),
+        options={"swagger_ui": False},
+    )
+    flask_app = app.app
+    flask_app.config.update(config)
+    flask_app.register_blueprint(dockerflow)
+    initialize_hooks(flask_app)
+
+    return app
