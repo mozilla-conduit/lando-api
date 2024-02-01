@@ -18,7 +18,12 @@ import sqlalchemy
 from flask import current_app
 from pytest_flask.plugin import JSONResponse
 
-from landoapi.app import SUBSYSTEMS, construct_app, load_config
+from landoapi.app import (
+    SUBSYSTEMS,
+    construct_app,
+    construct_treestatus_app,
+    load_config,
+)
 from landoapi.cache import cache
 from landoapi.mocks.auth import TEST_JWKS, MockAuth0
 from landoapi.models.treestatus import (
@@ -249,6 +254,25 @@ def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     config["TESTING"] = True
     config["CACHE_DISABLED"] = True
     app = construct_app(config)
+    flask_app = app.app
+    flask_app.test_client_class = JSONClient
+    for system in SUBSYSTEMS:
+        system.init_app(flask_app)
+
+    return flask_app
+
+
+@pytest.fixture
+def treestatus_app(
+    versionfile, docker_env_vars, disable_migrations, mocked_repo_config
+):
+    """Needed for pytest-flask."""
+    config = load_config()
+    # We need the TESTING setting turned on to get tracebacks when testing API
+    # endpoints with the TestClient.
+    config["TESTING"] = True
+    config["CACHE_DISABLED"] = True
+    app = construct_treestatus_app(config)
     flask_app = app.app
     flask_app.test_client_class = JSONClient
     for system in SUBSYSTEMS:
