@@ -246,33 +246,21 @@ def disable_migrations(monkeypatch):
 
 
 @pytest.fixture
-def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
+def app(request, versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     """Needed for pytest-flask."""
+    module = request.module
+    app_constructor = (
+        construct_app
+        if not hasattr(module, "TREESTATUS_APP")
+        else construct_treestatus_app
+    )
+
     config = load_config()
     # We need the TESTING setting turned on to get tracebacks when testing API
     # endpoints with the TestClient.
     config["TESTING"] = True
     config["CACHE_DISABLED"] = True
-    app = construct_app(config)
-    flask_app = app.app
-    flask_app.test_client_class = JSONClient
-    for system in SUBSYSTEMS:
-        system.init_app(flask_app)
-
-    return flask_app
-
-
-@pytest.fixture
-def treestatus_app(
-    versionfile, docker_env_vars, disable_migrations, mocked_repo_config
-):
-    """Needed for pytest-flask."""
-    config = load_config()
-    # We need the TESTING setting turned on to get tracebacks when testing API
-    # endpoints with the TestClient.
-    config["TESTING"] = True
-    config["CACHE_DISABLED"] = True
-    app = construct_treestatus_app(config)
+    app = app_constructor(config)
     flask_app = app.app
     flask_app.test_client_class = JSONClient
     for system in SUBSYSTEMS:
