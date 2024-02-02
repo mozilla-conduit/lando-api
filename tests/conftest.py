@@ -416,12 +416,6 @@ def celery_app(app):
     return celery
 
 
-@pytest.fixture
-def treestatus_url():
-    """A string holding the Tree Status base URL."""
-    return "http://treestatus.test"
-
-
 def pytest_assertrepr_compare(op, left, right):
     if isinstance(left, JSONResponse) and isinstance(right, int) and op == "==":
         # Hook failures when comparing JSONResponse objects so we get the detailed
