@@ -4,10 +4,19 @@
 """
 Construct an application instance that can be referenced by a WSGI server.
 """
-from .app import SUBSYSTEMS, construct_app, load_config
+import os
+
+from .app import SUBSYSTEMS, construct_app, construct_treestatus_app, load_config
+
+# Determine which app to construct by looking for a Treestatus specific env variable.
+app_constructor = (
+    construct_treestatus_app
+    if os.getenv("TREESTATUS_APP") is not None
+    else construct_app
+)
 
 config = load_config()
-app = construct_app(config)
+app = app_constructor(config)
 for system in SUBSYSTEMS:
     system.init_app(app.app)
 
