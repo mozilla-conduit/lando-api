@@ -107,6 +107,20 @@ def run_post_deploy_sequence():
     )
 
 
+@cli.command(name="clean-landing-job-patches")
+def clean_landing_job_patches():
+    """Iterate over all landed jobs and delete their patches."""
+    from landoapi.models.landing_job import LandingJob, LandingJobStatus
+    from landoapi.storage import db, db_subsystem
+
+    db_subsystem.ensure_ready()
+    jobs = LandingJob.query.filter(LandingJob.status == LandingJobStatus.LANDED).all()
+    for job in jobs:
+        for revision in job.revisions:
+            revision.patch_bytes = b""
+    db.session.commit()
+
+
 @cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def celery(celery_arguments):

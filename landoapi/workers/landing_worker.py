@@ -439,6 +439,11 @@ class LandingWorker(Worker):
             LandingJobAction.LAND, commit_id=commit_id, commit=True, db=db
         )
 
+        # Patches are no longer necessary, delete them.
+        for revision in job.revisions:
+            revision.patch_bytes = b""
+        db.session.commit()
+
         mots_path = Path(hgrepo.path) / "mots.yaml"
         if mots_path.exists():
             logger.info(f"{mots_path} found, setting reviewer data.")
