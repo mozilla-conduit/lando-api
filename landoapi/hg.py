@@ -99,7 +99,7 @@ class HgmoInternalServerError(HgException):
 
     SNIPPETS = (
         b"abort: HTTP Error 500:",
-        b"abort: push failed on remote",
+        b"remote: could not complete push due to pushlog operational errors",
     )
 
 
