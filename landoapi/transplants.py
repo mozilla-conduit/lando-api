@@ -259,10 +259,15 @@ def warning_not_accepted(*, revision, **kwargs):
 
 @RevisionWarningCheck(3, "No reviewer has accepted the current diff.")
 def warning_reviews_not_current(*, diff, reviewers, **kwargs):
-    for _, r in reviewers.items():
-        extra = calculate_review_extra_state(diff["phid"], r["status"], r["diffPHID"])
+    for reviewer in reviewers.values():
+        extra = calculate_review_extra_state(
+            diff["phid"], reviewer["status"], reviewer["diffPHID"]
+        )
 
-        if r["status"] == ReviewerStatus.ACCEPTED and not extra["for_other_diff"]:
+        if (
+            reviewer["status"] == ReviewerStatus.ACCEPTED
+            and not extra["for_other_diff"]
+        ):
             return None
 
     return "Has no accepted review on the current diff."
