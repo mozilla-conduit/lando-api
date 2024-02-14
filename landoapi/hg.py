@@ -95,11 +95,12 @@ class PushTimeoutException(HgException):
 
 
 class HgmoInternalServerError(HgException):
-    """Exception when pulling changes from the upstream repo fails."""
+    """Exception that occurs when hg.mozilla.org encounters a server-side error."""
 
     SNIPPETS = (
         b"abort: HTTP Error 500:",
-        b"abort: push failed on remote",
+        b"remote: Connection to hg.mozilla.org closed by remote host",
+        b"remote: could not complete push due to pushlog operational errors",
     )
 
 
