@@ -5,13 +5,11 @@
 from landoapi.models.configuration import ConfigurationVariable
 from landoapi.models.landing_job import LandingJob
 from landoapi.models.revisions import DiffWarning, Revision
-from landoapi.models.secapproval import SecApprovalRequest
 from landoapi.models.transplant import Transplant
 
 __all__ = [
     "LandingJob",
     "Revision",
-    "SecApprovalRequest",
     "Transplant",
     "ConfigurationVariable",
     "DiffWarning",
