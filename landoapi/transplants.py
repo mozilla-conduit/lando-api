@@ -470,10 +470,7 @@ def check_landing_blockers(
 
     # Check that the provided path is a prefix to, or equal to,
     # a landable path.
-    for path in landable_paths:
-        if revision_path == path[: len(revision_path)]:
-            break
-    else:
+    if not any(revision_path == path[: len(revision_path)] for path in landable_paths):
         return TransplantAssessment(
             blocker="The requested set of revisions are not landable."
         )
