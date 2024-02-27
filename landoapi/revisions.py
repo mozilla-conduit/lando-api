@@ -5,7 +5,6 @@ import logging
 from collections import Counter
 from typing import (
     Any,
-    Callable,
     Optional,
 )
 
@@ -14,9 +13,7 @@ from landoapi.phabricator import (
     PhabricatorAPIException,
     PhabricatorClient,
     PhabricatorRevisionStatus,
-    ReviewerStatus,
 )
-from landoapi.reviews import get_collated_reviewers
 from landoapi.secapproval import (
     CommentParseError,
     CommitDescription,
@@ -136,57 +133,6 @@ def revision_has_needs_data_classification_tag(
     return (
         data_policy_review_phid in revision["attachments"]["projects"]["projectPHIDs"]
     )
-
-
-def check_revision_data_classification(data_policy_review_phid: str) -> Callable:
-    """Check that the `needs-data-classification` tag is not present on a revision."""
-
-    def _check(revision: dict, **kwargs) -> Optional[str]:
-        if revision_has_needs_data_classification_tag(
-            revision, data_policy_review_phid
-        ):
-            return (
-                "Revision makes changes to data collection and "
-                "should have its data classification assessed before landing."
-            )
-
-    return _check
-
-
-def check_author_planned_changes(*, revision, **kwargs):
-    status = PhabricatorRevisionStatus.from_status(
-        PhabricatorClient.expect(revision, "fields", "status", "value")
-    )
-    if status is not PhabricatorRevisionStatus.CHANGES_PLANNED:
-        return None
-
-    return "The author has indicated they are planning changes to this revision."
-
-
-def check_uplift_approval(relman_phid, supported_repos, stack_data) -> Callable:
-    """Check that Release Managers group approved a revision"""
-
-    def _check(*, revision, repo, **kwargs) -> Optional[str]:
-        # Check if this repository needs an approval from relman
-        local_repo = supported_repos.get(repo["fields"]["shortName"])
-        assert local_repo is not None, "Unsupported repository"
-        if local_repo.approval_required is False:
-            return None
-
-        # Check that relman approval was requested and that the
-        # approval was granted.
-        reviewers = get_collated_reviewers(revision)
-        relman_review = reviewers.get(relman_phid)
-        if relman_review is None or relman_review["status"] != ReviewerStatus.ACCEPTED:
-            return (
-                "The release-managers group did not accept the stack: "
-                "you need to wait for a group approval from release-managers, "
-                "or request a new review."
-            )
-
-        return None
-
-    return _check
 
 
 def revision_is_secure(revision: dict, secure_project_phid: str) -> bool:

@@ -1,10 +1,10 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 import logging
 import urllib.parse
 from datetime import datetime
-from typing import Optional
 
 import kombu
 from connexion import ProblemException, problem
@@ -27,12 +27,9 @@ from landoapi.projects import (
     get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
-    get_testing_policy_phid,
-    get_testing_tag_project_phids,
     project_search,
 )
 from landoapi.repos import (
-    Repo,
     get_repos_for_env,
 )
 from landoapi.reviews import (
@@ -49,20 +46,16 @@ from landoapi.revisions import (
     select_diff_author,
 )
 from landoapi.stacks import (
-    RevisionData,
+    RevisionStack,
     build_stack_graph,
-    calculate_landable_subgraphs,
-    get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
 from landoapi.storage import db
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
+    LandingAssessmentState,
     TransplantAssessment,
-    check_landing_blockers,
-    check_landing_warnings,
-    convert_path_id_to_phid,
-    get_blocker_checks,
+    assess_transplant_request,
 )
 from landoapi.users import user_search
 from landoapi.validation import (
@@ -134,87 +127,6 @@ def _find_stack_from_landing_path(
     return build_stack_graph(revision)
 
 
-def _assess_transplant_request(
-    phab: PhabricatorClient,
-    landing_path: list[tuple[int, int]],
-    relman_group_phid: str,
-    data_policy_review_phid: str,
-) -> tuple[
-    TransplantAssessment,
-    Optional[list[tuple[dict, dict]]],
-    Optional[Repo],
-    Optional[RevisionData],
-]:
-    nodes, edges = _find_stack_from_landing_path(phab, landing_path)
-    stack_data = request_extended_revision_data(phab, list(nodes))
-    landing_path_phid = convert_path_id_to_phid(landing_path, stack_data)
-
-    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
-    landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
-
-    other_checks = get_blocker_checks(
-        data_policy_review_phid=data_policy_review_phid,
-        repositories=supported_repos,
-        relman_group_phid=relman_group_phid,
-        stack_data=stack_data,
-    )
-
-    landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos, other_checks=other_checks
-    )
-
-    assessment = check_landing_blockers(
-        g.auth0_user, landing_path_phid, stack_data, landable, landable_repos
-    )
-    if assessment.blocker is not None:
-        return (assessment, None, None, None)
-
-    # We have now verified that landable_path is valid and is indeed
-    # landable (in the sense that it is a landable_subgraph, with no
-    # revisions being blocked). Make this clear by using a different
-    # value, and assume it going forward.
-    valid_path = landing_path_phid
-
-    # Now that we know this is a valid path we can convert it into a list
-    # of (revision, diff) tuples.
-    to_land = [stack_data.revisions[r_phid] for r_phid, _ in valid_path]
-    to_land = [
-        (r, stack_data.diffs[PhabricatorClient.expect(r, "fields", "diffPHID")])
-        for r in to_land
-    ]
-
-    # To be a landable path the entire path must have the same
-    # repository, so we can get away with checking only one.
-    repo = stack_data.repositories[to_land[0][0]["fields"]["repositoryPHID"]]
-    landing_repo = landable_repos[repo["phid"]]
-
-    involved_phids = set()
-    for revision, _ in to_land:
-        involved_phids.update(gather_involved_phids(revision))
-
-    involved_phids = list(involved_phids)
-    users = user_search(phab, involved_phids)
-    projects = project_search(phab, involved_phids)
-    reviewers = {
-        revision["phid"]: get_collated_reviewers(revision) for revision, _ in to_land
-    }
-
-    assessment = check_landing_warnings(
-        phab,
-        g.auth0_user,
-        to_land,
-        repo,
-        landing_repo,
-        reviewers,
-        users,
-        projects,
-        get_secure_project_phid(phab),
-        get_testing_tag_project_phids(phab),
-        get_testing_policy_phid(phab),
-    )
-    return (assessment, to_land, landing_repo, stack_data)
-
-
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 @require_phabricator_api_key(optional=True)
 def dryrun(phab: PhabricatorClient, data: dict):
@@ -230,9 +142,23 @@ def dryrun(phab: PhabricatorClient, data: dict):
             "Could not find `#needs-data-classification` project on Phabricator."
         )
 
+    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+
     relman_group_phid = phab.expect(release_managers, "phid")
-    assessment, *_ = _assess_transplant_request(
-        phab, landing_path, relman_group_phid, data_policy_review_phid
+    nodes, edges = _find_stack_from_landing_path(phab, landing_path)
+    stack_data = request_extended_revision_data(phab, list(nodes))
+    stack = RevisionStack(set(stack_data.revisions.keys()), edges)
+    landing_assessment = LandingAssessmentState.from_landing_path(
+        landing_path, stack_data, g.auth0_user
+    )
+    assessment, transplant_state = assess_transplant_request(
+        phab,
+        supported_repos,
+        stack_data,
+        stack,
+        relman_group_phid,
+        data_policy_review_phid,
+        landing_assessment=landing_assessment,
     )
     return assessment.to_dict()
 
@@ -266,8 +192,27 @@ def post(phab: PhabricatorClient, data: dict):
 
     relman_group_phid = phab.expect(release_managers, "phid")
 
-    assessment, to_land, landing_repo, stack_data = _assess_transplant_request(
-        phab, landing_path, relman_group_phid, data_policy_review_phid
+    supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
+
+    nodes, edges = _find_stack_from_landing_path(phab, landing_path)
+    stack_data = request_extended_revision_data(phab, list(nodes))
+    stack = RevisionStack(set(stack_data.revisions.keys()), edges)
+
+    landing_assessment = LandingAssessmentState.from_landing_path(
+        landing_path, stack_data, g.auth0_user
+    )
+    assessment, transplant_state = assess_transplant_request(
+        phab,
+        supported_repos,
+        stack_data,
+        stack,
+        relman_group_phid,
+        data_policy_review_phid,
+        landing_assessment=landing_assessment,
+    )
+    to_land, landing_repo = (
+        landing_assessment.to_land,
+        landing_assessment.landing_repo,
     )
 
     assessment.raise_if_blocked_or_unacknowledged(confirmation_token)
@@ -397,9 +342,9 @@ def post(phab: PhabricatorClient, data: dict):
     ldap_username = g.auth0_user.email
 
     submitted_assessment = TransplantAssessment(
-        blocker=(
+        blockers=[
             "This stack was submitted for landing by another user at the same time."
-        )
+        ]
     )
     stack_ids = [revision.revision_id for revision in lando_revisions]
     with db.session.begin_nested():
