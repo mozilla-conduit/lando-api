@@ -2,10 +2,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from __future__ import annotations
+
 import json
 import logging
 import socket
 import traceback
+
+from flask import Flask
 
 from landoapi.systems import Subsystem
 
@@ -64,12 +68,12 @@ class MozLogFormatter(logging.Formatter):
         "threadName",
     }
 
-    def __init__(self, *args, mozlog_logger=None, **kwargs):
+    def __init__(self, *args, mozlog_logger: str | None = None, **kwargs):
         self.mozlog_logger = mozlog_logger or "Dockerflow"
         self.hostname = socket.gethostname()
         super().__init__(*args, **kwargs)
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """Formats a log record and serializes to mozlog json"""
 
         mozlog_record = {
@@ -99,7 +103,7 @@ class MozLogFormatter(logging.Formatter):
 
         return self.serialize(mozlog_record)
 
-    def serialize(self, mozlog_record):
+    def serialize(self, mozlog_record: dict) -> str:
         """Serialize a mozlog record."""
         return json.dumps(mozlog_record, sort_keys=True)
 
@@ -107,7 +111,7 @@ class MozLogFormatter(logging.Formatter):
 class PrettyMozLogFormatter(MozLogFormatter):
     """A mozlog logging formatter which pretty prints."""
 
-    def serialize(self, mozlog_record):
+    def serialize(self, mozlog_record: dict) -> str:
         """Serialize a mozlog record."""
         return json.dumps(mozlog_record, sort_keys=True, indent=2)
 
@@ -115,7 +119,7 @@ class PrettyMozLogFormatter(MozLogFormatter):
 class LoggingSubsystem(Subsystem):
     name = "logging"
 
-    def init_app(self, app):
+    def init_app(self, app: Flask):
         self.flask_app = app
         level = self.flask_app.config.get("LOG_LEVEL", "INFO")
 
