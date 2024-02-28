@@ -31,7 +31,7 @@ from landoapi.projects import (
 from landoapi.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
-from landoapi.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
+from landoapi.transplants import CODE_FREEZE_OFFSET
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
 PATCH_NORMAL_1 = r"""
@@ -336,21 +336,6 @@ def mocked_repo_config(mock_repo_config):
             }
         }
     )
-
-
-@pytest.fixture
-def set_confirmation_token_comparison(monkeypatch):
-    mem = {"set": False, "val": None}
-
-    def set_value(val):
-        mem["set"] = True
-        mem["val"] = val
-
-    monkeypatch.setattr(
-        "landoapi.transplants.tokens_are_equal",
-        lambda t1, t2: mem["val"] if mem["set"] else tokens_are_equal(t1, t2),
-    )
-    return set_value
 
 
 @pytest.fixture
