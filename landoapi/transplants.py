@@ -50,15 +50,6 @@ RevisionWarning = namedtuple(
 CODE_FREEZE_OFFSET = "-0800"
 
 
-def tokens_are_equal(t1, t2):
-    """Return whether t1 and t2 are equal.
-
-    This function exists to make mocking or ignoring confirmation token
-    checks very simple.
-    """
-    return t1 == t2
-
-
 class TransplantAssessment:
     """Represents an assessment of issues that may block a revision landing.
 
@@ -120,7 +111,7 @@ class TransplantAssessment:
             )
 
         details = self.to_dict()
-        if not tokens_are_equal(details["confirmation_token"], confirmation_token):
+        if not details["confirmation_token"] == confirmation_token:
             if confirmation_token is None:
                 raise ProblemException(
                     400,
