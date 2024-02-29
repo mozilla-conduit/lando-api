@@ -422,7 +422,18 @@ class HgRepo:
         Changes made by code formatters are applied to the working directory and
         are not committed into version control.
         """
-        return self.run_mach_command(["lint", "--fix", "--outgoing", "--verbose"])
+        supported_formatters = [
+            "black",
+            "clang-format",
+            "eslint",
+            "rustfmt",
+        ]
+
+        linter_args = [f"--linter={formatter}" for formatter in supported_formatters]
+
+        return self.run_mach_command(
+            ["lint", *linter_args, "--fix", "--outgoing", "--verbose"]
+        )
 
     def run_mach_bootstrap(self) -> str:
         """Run `mach bootstrap` to configure the system for code formatting."""
