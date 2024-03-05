@@ -24,6 +24,7 @@ from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
+    check_revision_data_classification,
     check_uplift_approval,
     revision_is_secure,
     revision_needs_testing_tag,
@@ -517,14 +518,19 @@ def check_landing_blockers(
 
 
 def get_blocker_checks(
-    repositories: dict, relman_group_phid: str, stack_data: RevisionData
+    repositories: dict,
+    relman_group_phid: str,
+    stack_data: RevisionData,
+    data_policy_review_phid: str,
 ):
     """Build all transplant blocker checks that need extra Phabricator data"""
     assert all((isinstance(r, Repo) for r in repositories.values()))
 
     return DEFAULT_OTHER_BLOCKER_CHECKS + [
         # Configure uplift check with extra data.
-        check_uplift_approval(relman_group_phid, repositories, stack_data)
+        check_uplift_approval(relman_group_phid, repositories, stack_data),
+        # Configure data policy check with the project PHID.
+        check_revision_data_classification(data_policy_review_phid),
     ]
 
 

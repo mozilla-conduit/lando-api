@@ -86,6 +86,7 @@ def test_integrated_secure_stack_has_alternate_commit_message(
     authed_headers,
     monkeypatch,
     release_management_project,
+    needs_data_classification_project,
     sec_approval_project,
 ):
     sanitized_title = "my secure commit title"
@@ -120,6 +121,7 @@ def test_integrated_secure_stack_without_sec_approval_does_not_use_secure_messag
     mock_repo_config,
     secure_project,
     release_management_project,
+    needs_data_classification_project,
     sec_approval_project,
 ):
     # Build a plain old secure revision, no sec-approval requests made.
@@ -145,6 +147,7 @@ def test_integrated_sec_approval_transplant_uses_alternate_message(
     monkeypatch,
     authed_headers,
     release_management_project,
+    needs_data_classification_project,
     register_codefreeze_uri,
 ):
     sanitized_title = "my secure commit title"
@@ -213,6 +216,7 @@ def test_integrated_sec_approval_problem_halts_landing(
     monkeypatch,
     authed_headers,
     release_management_project,
+    needs_data_classification_project,
     register_codefreeze_uri,
 ):
     sanitized_title = "my secure commit title"
