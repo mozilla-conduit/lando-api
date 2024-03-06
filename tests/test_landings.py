@@ -399,6 +399,7 @@ def test_lose_push_race(
 
     assert not worker.run_job(job, repo, hgrepo, treestatus)
     assert job.status == LandingJobStatus.DEFERRED
+    assert job.priority == -1
 
 
 def test_failed_landing_job_notification(
