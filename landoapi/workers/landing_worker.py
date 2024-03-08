@@ -27,7 +27,11 @@ from landoapi.hg import (
     TreeClosed,
 )
 from landoapi.models.configuration import ConfigurationKey
-from landoapi.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from landoapi.models.landing_job import (
+    LandingJob,
+    LandingJobAction,
+    LandingJobStatus,
+)
 from landoapi.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -71,6 +75,9 @@ def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
 
 
 class LandingWorker(Worker):
+    TOO_MANY_ATTEMPTS_THRESHOLD = 10
+    QUEUE_SIZE_THRESHOLD = 20
+
     @property
     def STOP_KEY(self) -> ConfigurationKey:
         """Return the configuration key that prevents the worker from starting."""
@@ -88,24 +95,19 @@ class LandingWorker(Worker):
 
     def check_landing_worker_warnings(self):
         """Log messages that show various important statistics about the landing worker."""
-        TOO_MANY_ATTEMPTS_THRESHOLD = 10
-        # TODO: should this threshold be different for try landing worker?
-        QUEUE_SIZE_THRESHOLD = 20
-        ACTIVE_STATUSES = (
-            LandingJobStatus.SUBMITTED,
-            LandingJobStatus.DEFERRED,
-            LandingJobStatus.IN_PROGRESS,
-        )
 
         queue_size = LandingJob.query.filter(
-            LandingJob.status.in_(ACTIVE_STATUSES)
+            LandingJob.status.in_(LandingJobStatus.ACTIVE_STATUSES)
         ).count()
-        if queue_size >= QUEUE_SIZE_THRESHOLD:
-            logger.warning(f"The landing queue size of {queue_size} exceeds threshold")
+        if queue_size >= self.QUEUE_SIZE_THRESHOLD:
+            logger.warning(
+                f"The landing queue size of {queue_size} exceeds threshold of "
+                f"{self.QUEUE_SIZE_THRESHOLD}."
+            )
 
         runaway_jobs = LandingJob.query.filter(
-            LandingJob.status.in_(ACTIVE_STATUSES),
-            LandingJob.attempts >= TOO_MANY_ATTEMPTS_THRESHOLD,
+            LandingJob.status.in_(LandingJobStatus.ACTIVE_STATUSES),
+            LandingJob.attempts >= self.TOO_MANY_ATTEMPTS_THRESHOLD,
         )
 
         if runaway_jobs.count() > 0:
