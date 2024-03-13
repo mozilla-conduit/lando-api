@@ -631,6 +631,7 @@ def test_integrated_stack_endpoint_simple(
     phabdouble,
     mocked_repo_config,
     release_management_project,
+    needs_data_classification_project,
     sec_approval_project,
 ):
     repo = phabdouble.repo()
@@ -671,6 +672,7 @@ def test_integrated_stack_endpoint_repos(
     phabdouble,
     mocked_repo_config,
     release_management_project,
+    needs_data_classification_project,
     sec_approval_project,
 ):
     repo = phabdouble.repo()
@@ -703,6 +705,7 @@ def test_integrated_stack_has_revision_security_status(
     mock_repo_config,
     secure_project,
     release_management_project,
+    needs_data_classification_project,
     sec_approval_project,
 ):
     repo = phabdouble.repo()
@@ -725,6 +728,7 @@ def test_integrated_stack_response_mismatch_returns_404(
     phabdouble,
     mock_repo_config,
     release_management_project,
+    needs_data_classification_project,
     sec_approval_project,
 ):
     # If the API response contains a different number of revisions than the

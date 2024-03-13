@@ -24,6 +24,7 @@ from landoapi.mocks.auth import TEST_JWKS, MockAuth0
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
+    NEEDS_DATA_CLASSIFICATION_SLUG,
     RELMAN_PROJECT_SLUG,
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
@@ -209,6 +210,11 @@ def release_management_project(phabdouble):
         RELMAN_PROJECT_SLUG,
         attachments={"members": {"members": [{"phid": "PHID-USER-1"}]}},
     )
+
+
+@pytest.fixture
+def needs_data_classification_project(phabdouble):
+    return phabdouble.project(NEEDS_DATA_CLASSIFICATION_SLUG)
 
 
 @pytest.fixture

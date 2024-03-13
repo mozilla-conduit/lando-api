@@ -12,6 +12,7 @@ from landoapi.decorators import require_phabricator_api_key
 from landoapi.models.revisions import Revision
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
+    get_data_policy_review_phid,
     get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
@@ -82,9 +83,16 @@ def get(phab: PhabricatorClient, revision_id: str):
     if not release_managers:
         raise Exception("Could not find `#release-managers` project on Phabricator.")
 
+    data_policy_review_phid = get_data_policy_review_phid(phab)
+    if not data_policy_review_phid:
+        raise Exception(
+            "Could not find `#needs-data-classification` project on Phabricator."
+        )
+
     relman_group_phid = str(phab.expect(release_managers, "phid"))
 
     other_checks = get_blocker_checks(
+        data_policy_review_phid=data_policy_review_phid,
         relman_group_phid=relman_group_phid,
         repositories=supported_repos,
         stack_data=stack_data,
