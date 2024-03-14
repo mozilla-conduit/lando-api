@@ -24,6 +24,7 @@ from landoapi.reviews import calculate_review_extra_state, reviewer_identity
 from landoapi.revisions import (
     check_author_planned_changes,
     check_diff_author_is_known,
+    check_revision_data_classification,
     check_uplift_approval,
     revision_is_secure,
     revision_needs_testing_tag,
@@ -48,15 +49,6 @@ RevisionWarning = namedtuple(
 
 # The code freeze dates generally correspond to PST work days.
 CODE_FREEZE_OFFSET = "-0800"
-
-
-def tokens_are_equal(t1, t2):
-    """Return whether t1 and t2 are equal.
-
-    This function exists to make mocking or ignoring confirmation token
-    checks very simple.
-    """
-    return t1 == t2
 
 
 class TransplantAssessment:
@@ -120,7 +112,7 @@ class TransplantAssessment:
             )
 
         details = self.to_dict()
-        if not tokens_are_equal(details["confirmation_token"], confirmation_token):
+        if not details["confirmation_token"] == confirmation_token:
             if confirmation_token is None:
                 raise ProblemException(
                     400,
@@ -259,10 +251,15 @@ def warning_not_accepted(*, revision, **kwargs):
 
 @RevisionWarningCheck(3, "No reviewer has accepted the current diff.")
 def warning_reviews_not_current(*, diff, reviewers, **kwargs):
-    for _, r in reviewers.items():
-        extra = calculate_review_extra_state(diff["phid"], r["status"], r["diffPHID"])
+    for reviewer in reviewers.values():
+        extra = calculate_review_extra_state(
+            diff["phid"], reviewer["status"], reviewer["diffPHID"]
+        )
 
-        if r["status"] == ReviewerStatus.ACCEPTED and not extra["for_other_diff"]:
+        if (
+            reviewer["status"] == ReviewerStatus.ACCEPTED
+            and not extra["for_other_diff"]
+        ):
             return None
 
     return "Has no accepted review on the current diff."
@@ -465,10 +462,7 @@ def check_landing_blockers(
 
     # Check that the provided path is a prefix to, or equal to,
     # a landable path.
-    for path in landable_paths:
-        if revision_path == path[: len(revision_path)]:
-            break
-    else:
+    if not any(revision_path == path[: len(revision_path)] for path in landable_paths):
         return TransplantAssessment(
             blocker="The requested set of revisions are not landable."
         )
@@ -524,14 +518,19 @@ def check_landing_blockers(
 
 
 def get_blocker_checks(
-    repositories: dict, relman_group_phid: str, stack_data: RevisionData
+    repositories: dict,
+    relman_group_phid: str,
+    stack_data: RevisionData,
+    data_policy_review_phid: str,
 ):
     """Build all transplant blocker checks that need extra Phabricator data"""
     assert all((isinstance(r, Repo) for r in repositories.values()))
 
     return DEFAULT_OTHER_BLOCKER_CHECKS + [
         # Configure uplift check with extra data.
-        check_uplift_approval(relman_group_phid, repositories, stack_data)
+        check_uplift_approval(relman_group_phid, repositories, stack_data),
+        # Configure data policy check with the project PHID.
+        check_revision_data_classification(data_policy_review_phid),
     ]
 
 

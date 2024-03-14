@@ -99,6 +99,7 @@ def test_uplift_creation(
     auth0_mock,
     mock_repo_config,
     release_management_project,
+    needs_data_classification_project,
 ):
     def _call_conduit(client, method, **kwargs):
         if method == "differential.revision.edit":

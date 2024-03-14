@@ -236,6 +236,10 @@ def test_hg_exceptions():
         b"unresolved conflicts (see hg resolve": PatchConflict,
         b"timed out waiting for lock held by": PushTimeoutException,
         b"abort: HTTP Error 500: Internal Server Error": HgmoInternalServerError,
+        (
+            b"remote: could not complete push due to pushlog operational errors; "
+            b"please retry, and file a bug if the issue persists"
+        ): HgmoInternalServerError,
     }
 
     for snippet, exception in snippet_exception_mapping.items():

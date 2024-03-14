@@ -23,6 +23,7 @@ from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
     get_checkin_project_phid,
+    get_data_policy_review_phid,
     get_release_managers,
     get_sec_approval_project_phid,
     get_secure_project_phid,
@@ -134,7 +135,10 @@ def _find_stack_from_landing_path(
 
 
 def _assess_transplant_request(
-    phab: PhabricatorClient, landing_path: list[tuple[int, int]], relman_group_phid: str
+    phab: PhabricatorClient,
+    landing_path: list[tuple[int, int]],
+    relman_group_phid: str,
+    data_policy_review_phid: str,
 ) -> tuple[
     TransplantAssessment,
     Optional[list[tuple[dict, dict]]],
@@ -149,6 +153,7 @@ def _assess_transplant_request(
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     other_checks = get_blocker_checks(
+        data_policy_review_phid=data_policy_review_phid,
         repositories=supported_repos,
         relman_group_phid=relman_group_phid,
         stack_data=stack_data,
@@ -219,8 +224,16 @@ def dryrun(phab: PhabricatorClient, data: dict):
     if not release_managers:
         raise Exception("Could not find `#release-managers` project on Phabricator.")
 
+    data_policy_review_phid = get_data_policy_review_phid(phab)
+    if not data_policy_review_phid:
+        raise Exception(
+            "Could not find `#needs-data-classification` project on Phabricator."
+        )
+
     relman_group_phid = phab.expect(release_managers, "phid")
-    assessment, *_ = _assess_transplant_request(phab, landing_path, relman_group_phid)
+    assessment, *_ = _assess_transplant_request(
+        phab, landing_path, relman_group_phid, data_policy_review_phid
+    )
     return assessment.to_dict()
 
 
@@ -245,10 +258,16 @@ def post(phab: PhabricatorClient, data: dict):
     if not release_managers:
         raise Exception("Could not find `#release-managers` project on Phabricator.")
 
+    data_policy_review_phid = get_data_policy_review_phid(phab)
+    if not data_policy_review_phid:
+        raise Exception(
+            "Could not find `#needs-data-classification` project on Phabricator."
+        )
+
     relman_group_phid = phab.expect(release_managers, "phid")
 
     assessment, to_land, landing_repo, stack_data = _assess_transplant_request(
-        phab, landing_path, relman_group_phid
+        phab, landing_path, relman_group_phid, data_policy_review_phid
     )
 
     assessment.raise_if_blocked_or_unacknowledged(confirmation_token)

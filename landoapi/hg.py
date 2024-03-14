@@ -95,11 +95,12 @@ class PushTimeoutException(HgException):
 
 
 class HgmoInternalServerError(HgException):
-    """Exception when pulling changes from the upstream repo fails."""
+    """Exception that occurs when hg.mozilla.org encounters a server-side error."""
 
     SNIPPETS = (
         b"abort: HTTP Error 500:",
-        b"abort: push failed on remote",
+        b"remote: Connection to hg.mozilla.org closed by remote host",
+        b"remote: could not complete push due to pushlog operational errors",
     )
 
 
@@ -421,7 +422,18 @@ class HgRepo:
         Changes made by code formatters are applied to the working directory and
         are not committed into version control.
         """
-        return self.run_mach_command(["lint", "--fix", "--outgoing", "--verbose"])
+        supported_formatters = [
+            "black",
+            "clang-format",
+            "eslint",
+            "rustfmt",
+        ]
+
+        linter_args = [f"--linter={formatter}" for formatter in supported_formatters]
+
+        return self.run_mach_command(
+            ["lint", *linter_args, "--fix", "--outgoing", "--verbose"]
+        )
 
     def run_mach_bootstrap(self) -> str:
         """Run `mach bootstrap` to configure the system for code formatting."""

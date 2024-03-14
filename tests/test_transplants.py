@@ -100,7 +100,12 @@ def _create_landing_job_with_no_linked_revisions(
 
 
 def test_dryrun_no_warnings_or_blockers(
-    client, db, phabdouble, auth0_mock, release_management_project
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -124,7 +129,12 @@ def test_dryrun_no_warnings_or_blockers(
 
 
 def test_dryrun_invalid_path_blocks(
-    client, db, phabdouble, auth0_mock, release_management_project
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
 ):
     d1 = phabdouble.diff()
     d2 = phabdouble.diff()
@@ -152,7 +162,12 @@ def test_dryrun_invalid_path_blocks(
 
 
 def test_dryrun_in_progress_transplant_blocks(
-    client, db, phabdouble, auth0_mock, release_management_project
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
 ):
     repo = phabdouble.repo()
 
@@ -199,7 +214,12 @@ def test_dryrun_in_progress_transplant_blocks(
 
 
 def test_dryrun_reviewers_warns(
-    client, db, phabdouble, auth0_mock, release_management_project
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1, repo=phabdouble.repo())
@@ -233,6 +253,7 @@ def test_dryrun_codefreeze_warn(
     monkeypatch,
     request_mocker,
     release_management_project,
+    needs_data_classification_project,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -291,6 +312,7 @@ def test_dryrun_outside_codefreeze(
     monkeypatch,
     request_mocker,
     release_management_project,
+    needs_data_classification_project,
 ):
     product_details = "https://product-details.mozilla.org/1.0/firefox_versions.json"
     request_mocker.register_uri(
@@ -360,6 +382,7 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
     status,
     blocker,
     release_management_project,
+    needs_data_classification_project,
 ):
     auth0_mock.userinfo = userinfo
     d1 = phabdouble.diff()
@@ -668,6 +691,7 @@ def test_integrated_transplant_simple_stack_saves_data_in_db(
     phabdouble,
     auth0_mock,
     release_management_project,
+    needs_data_classification_project,
     register_codefreeze_uri,
 ):
     phabrepo = phabdouble.repo(name="mozilla-central")
@@ -722,6 +746,7 @@ def test_integrated_transplant_simple_partial_stack_saves_data_in_db(
     phabdouble,
     auth0_mock,
     release_management_project,
+    needs_data_classification_project,
     register_codefreeze_uri,
 ):
     phabrepo = phabdouble.repo(name="mozilla-central")
@@ -781,6 +806,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     new_treestatus_tree,
     auth0_mock,
     release_management_project,
+    needs_data_classification_project,
     register_codefreeze_uri,
     monkeypatch,
     normal_patch,
@@ -864,6 +890,7 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
     phabdouble,
     auth0_mock,
     release_management_project,
+    needs_data_classification_project,
     register_codefreeze_uri,
 ):
     """
@@ -958,7 +985,13 @@ def test_integrated_transplant_updated_diff_id_reflected_in_landed_revisions(
 
 
 def test_integrated_transplant_with_flags(
-    db, client, phabdouble, auth0_mock, monkeypatch, release_management_project
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    monkeypatch,
+    release_management_project,
+    needs_data_classification_project,
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -991,7 +1024,13 @@ def test_integrated_transplant_with_flags(
 
 
 def test_integrated_transplant_with_invalid_flags(
-    db, client, phabdouble, auth0_mock, monkeypatch, release_management_project
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    monkeypatch,
+    release_management_project,
+    needs_data_classification_project,
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -1022,6 +1061,7 @@ def test_integrated_transplant_legacy_repo_checkin_project_removed(
     checkin_project,
     monkeypatch,
     release_management_project,
+    needs_data_classification_project,
     register_codefreeze_uri,
 ):
     repo = phabdouble.repo(name="mozilla-central")
@@ -1057,6 +1097,7 @@ def test_integrated_transplant_repo_checkin_project_removed(
     checkin_project,
     monkeypatch,
     release_management_project,
+    needs_data_classification_project,
 ):
     repo = phabdouble.repo(name="mozilla-new")
     user = phabdouble.user(username="reviewer")
@@ -1084,7 +1125,12 @@ def test_integrated_transplant_repo_checkin_project_removed(
 
 
 def test_integrated_transplant_without_auth0_permissions(
-    client, auth0_mock, phabdouble, db, release_management_project
+    client,
+    auth0_mock,
+    phabdouble,
+    db,
+    release_management_project,
+    needs_data_classification_project,
 ):
     auth0_mock.userinfo = CANNED_USERINFO["NO_CUSTOM_CLAIMS"]
 
@@ -1132,7 +1178,12 @@ def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
 
 
 def test_integrated_transplant_diff_not_in_revision(
-    db, client, phabdouble, auth0_mock, release_management_project
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
 ):
     repo = phabdouble.repo()
     d1 = phabdouble.diff()
@@ -1154,7 +1205,12 @@ def test_integrated_transplant_diff_not_in_revision(
 
 
 def test_transplant_nonexisting_revision_returns_404(
-    db, client, phabdouble, auth0_mock, release_management_project
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
 ):
     response = client.post(
         "/transplants",
@@ -1167,7 +1223,12 @@ def test_transplant_nonexisting_revision_returns_404(
 
 
 def test_integrated_transplant_revision_with_no_repo(
-    db, client, phabdouble, auth0_mock, release_management_project
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
 ):
     d1 = phabdouble.diff()
     r1 = phabdouble.revision(diff=d1)
@@ -1189,7 +1250,12 @@ def test_integrated_transplant_revision_with_no_repo(
 
 
 def test_integrated_transplant_revision_with_unmapped_repo(
-    db, client, phabdouble, auth0_mock, release_management_project
+    db,
+    client,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
 ):
     repo = phabdouble.repo(name="notsupported")
     d1 = phabdouble.diff()
@@ -1219,6 +1285,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     auth0_mock,
     sec_approval_project,
     release_management_project,
+    needs_data_classification_project,
     register_codefreeze_uri,
 ):
     repo = phabdouble.repo()
@@ -1274,6 +1341,7 @@ def test_unresolved_comment_warn(
     phabdouble,
     auth0_mock,
     release_management_project,
+    needs_data_classification_project,
 ):
     """Ensure a warning is generated when a revision has unresolved comments.
 
@@ -1345,6 +1413,7 @@ def test_unresolved_comment_stack(
     phabdouble,
     auth0_mock,
     release_management_project,
+    needs_data_classification_project,
 ):
     """
     Ensure a warning is generated when a revision in the stack has unresolved comments.

@@ -33,6 +33,7 @@ from landoapi.models.treestatus import (
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
+    NEEDS_DATA_CLASSIFICATION_SLUG,
     RELMAN_PROJECT_SLUG,
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
@@ -40,7 +41,7 @@ from landoapi.projects import (
 from landoapi.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
-from landoapi.transplants import CODE_FREEZE_OFFSET, tokens_are_equal
+from landoapi.transplants import CODE_FREEZE_OFFSET
 from tests.mocks import PhabricatorDouble
 
 PATCH_NORMAL_1 = r"""
@@ -215,6 +216,11 @@ def release_management_project(phabdouble):
 
 
 @pytest.fixture
+def needs_data_classification_project(phabdouble):
+    return phabdouble.project(NEEDS_DATA_CLASSIFICATION_SLUG)
+
+
+@pytest.fixture
 def versionfile(tmpdir):
     """Provide a temporary version.json on disk."""
     v = tmpdir.mkdir("app").join("version.json")
@@ -346,21 +352,6 @@ def mocked_repo_config(mock_repo_config):
             }
         }
     )
-
-
-@pytest.fixture
-def set_confirmation_token_comparison(monkeypatch):
-    mem = {"set": False, "val": None}
-
-    def set_value(val):
-        mem["set"] = True
-        mem["val"] = val
-
-    monkeypatch.setattr(
-        "landoapi.transplants.tokens_are_equal",
-        lambda t1, t2: mem["val"] if mem["set"] else tokens_are_equal(t1, t2),
-    )
-    return set_value
 
 
 @pytest.fixture

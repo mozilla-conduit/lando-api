@@ -132,6 +132,30 @@ def check_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
     )
 
 
+def revision_has_needs_data_classification_tag(
+    revision: dict, data_policy_review_phid: str
+) -> bool:
+    """Return `True` if the `needs-data-classification` tag is not present on a revision."""
+    return (
+        data_policy_review_phid in revision["attachments"]["projects"]["projectPHIDs"]
+    )
+
+
+def check_revision_data_classification(data_policy_review_phid: str) -> Callable:
+    """Check that the `needs-data-classification` tag is not present on a revision."""
+
+    def _check(revision: dict, **kwargs) -> Optional[str]:
+        if revision_has_needs_data_classification_tag(
+            revision, data_policy_review_phid
+        ):
+            return (
+                "Revision makes changes to data collection and "
+                "should have its data classification assessed before landing."
+            )
+
+    return _check
+
+
 def check_author_planned_changes(*, revision, **kwargs):
     status = PhabricatorRevisionStatus.from_status(
         PhabricatorClient.expect(revision, "fields", "status", "value")

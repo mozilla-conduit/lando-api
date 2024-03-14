@@ -33,6 +33,9 @@ SEC_APPROVAL_PROJECT_SLUG = "sec-approval"
 # Management team, to approve uplift requests
 RELMAN_PROJECT_SLUG = "release-managers"
 
+# The name of the Phabricator project used to tag revisions requiring data classification.
+NEEDS_DATA_CLASSIFICATION_SLUG = "needs-data-classification"
+
 
 def project_search(
     phabricator: PhabricatorClient, project_phids: list[str]
@@ -139,3 +142,8 @@ def get_release_managers(phab: PhabricatorClient) -> Optional[dict]:
         constraints={"slugs": [RELMAN_PROJECT_SLUG]},
     )
     return phab.single(groups, "data")
+
+
+def get_data_policy_review_phid(phab: PhabricatorClient) -> Optional[str]:
+    """Return the PHID for the `#needs-data-classification` project."""
+    return get_project_phid(NEEDS_DATA_CLASSIFICATION_SLUG, phab)
