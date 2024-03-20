@@ -94,7 +94,7 @@ def _create_landing_job_with_no_linked_revisions(
     job.revision_to_diff_id = {
         str(revision.revision_id): revision.diff_id for revision in revisions
     }
-    job.revision_order = [str(revision.revision_id) for r in revisions]
+    job.revision_order = [str(revision.revision_id) for revision in revisions]
     db.session.commit()
     return job
 
