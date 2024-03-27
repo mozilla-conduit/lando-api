@@ -63,12 +63,6 @@ def parse_milestone_version(milestone_contents: str) -> Version:
         ) from e
 
 
-def get_uplift_request_form(revision: dict) -> Optional[str]:
-    """Return the content of the uplift request form or `None` if missing."""
-    bug = PhabricatorClient.expect(revision, "fields").get("uplift.request")
-    return bug
-
-
 @cache.cached(
     key_prefix="uplift-repositories", timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS
 )
@@ -395,15 +389,6 @@ def create_uplift_revision(
         "diff_id": new_diff_id,
         "diff_phid": new_diff_phid,
     }
-
-
-def stack_uplift_form_submitted(stack_data: RevisionData) -> bool:
-    """Return `True` if the stack has a valid uplift request form submitted."""
-    # NOTE: this just checks that any of the revisions in the stack have the uplift form
-    # submitted.
-    return any(
-        get_uplift_request_form(revision) for revision in stack_data.revisions.values()
-    )
 
 
 def create_uplift_bug_update_payload(
