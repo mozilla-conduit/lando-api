@@ -70,7 +70,9 @@ class LandingAssessmentState:
     """Encapsulates the state of a landing request for assessment.
 
     Holds fields that are necessary to assess if a landing is blocked,
-    but are not necessary to run lints on the entire stack.
+    but are not necessary to run lints on the entire stack. This includes
+    checks for permissions on a user to initiate a landing, whether the
+    requested path can land at the current time, etc.
     """
 
     auth0_user: A0User
