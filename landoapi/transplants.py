@@ -801,9 +801,6 @@ WARNING_LINTS = [
 
 def check_landing_lints(
     transplant_state: TransplantAssessmentState,
-    revision_blockers=REVISION_BLOCKER_LINTS,
-    stack_blockers=STACK_BLOCKER_LINTS,
-    revision_warnings=WARNING_LINTS,
 ) -> TransplantAssessment:
     """Build a `TransplantAssessment` by running landing lints.
 
@@ -824,7 +821,7 @@ def check_landing_lints(
     assessment = TransplantAssessment()
 
     # Run stack-level blocker checks.
-    for block in stack_blockers:
+    for block in STACK_BLOCKER_LINTS:
         if reason := block(transplant_state=transplant_state):
             assessment.blockers.append(reason)
 
@@ -834,7 +831,7 @@ def check_landing_lints(
     # Run revision-level blockers checks.
     for revision, diff in revision_check_pairs:
         phid = revision["phid"]
-        for block in revision_blockers:
+        for block in REVISION_BLOCKER_LINTS:
             if reason := block(
                 revision=revision,
                 diff=diff,
@@ -848,7 +845,7 @@ def check_landing_lints(
 
     # Run revision-level warning checks.
     for revision, diff in revision_check_pairs:
-        for check in revision_warnings:
+        for check in WARNING_LINTS:
             if reason := check(
                 revision=revision, diff=diff, transplant_state=transplant_state
             ):
