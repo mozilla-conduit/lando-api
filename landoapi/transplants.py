@@ -75,7 +75,6 @@ class LandingAssessmentState:
 
     auth0_user: A0User
     landing_path_phid: list[tuple[str, int]]
-    revision_to_diff_id: dict[str, int]
     to_land: list[tuple[dict, dict]]
 
     # `landing_repo` is set in the single landing repo check.
@@ -101,16 +100,9 @@ class LandingAssessmentState:
             for revision in to_land
         ]
 
-        revision_path = []
-        revision_to_diff_id = {}
-        for revision_phid, diff_id in landing_path_phid:
-            revision_path.append(revision_phid)
-            revision_to_diff_id[revision_phid] = diff_id
-
         return LandingAssessmentState(
             auth0_user=auth0_user,
             landing_path_phid=landing_path_phid,
-            revision_to_diff_id=revision_to_diff_id,
             to_land=to_land,
         )
 
@@ -577,10 +569,9 @@ def blocker_latest_diffs(
         transplant_state.stack_data.diffs[latest_diff_phid], "id"
     )
 
-    if (
-        latest_diff_id
-        != transplant_state.landing_assessment.revision_to_diff_id[revision_phid]
-    ):
+    revision_to_diff_id = dict(transplant_state.landing_assessment.landing_path_phid)
+
+    if latest_diff_id != revision_to_diff_id[revision_phid]:
         return "A requested diff is not the latest."
 
 
