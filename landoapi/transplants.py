@@ -865,7 +865,6 @@ def assess_transplant_request(
     landing_assessment: Optional[LandingAssessmentState] = None,
 ) -> tuple[TransplantAssessment, TransplantAssessmentState]:
     """Assess the transplant request."""
-    # Get data from Lando.
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     involved_phids = set()
