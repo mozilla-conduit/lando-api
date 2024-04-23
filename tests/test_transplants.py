@@ -114,7 +114,6 @@ def _create_landing_job_with_no_linked_revisions(
 def create_landing_state(**kwargs):
     state = {
         "auth0_user": A0User("", {}),
-        "revision_path": [],
         "revision_to_diff_id": {},
         "to_land": [],
         "landing_repo": None,

@@ -74,7 +74,7 @@ class LandingAssessmentState:
     """
 
     auth0_user: A0User
-    revision_path: list[str]
+    landing_path_phid: list[tuple[str, int]]
     revision_to_diff_id: dict[str, int]
     to_land: list[tuple[dict, dict]]
 
@@ -108,10 +108,10 @@ class LandingAssessmentState:
             revision_to_diff_id[revision_phid] = diff_id
 
         return LandingAssessmentState(
-            to_land=to_land,
-            revision_path=revision_path,
-            revision_to_diff_id=revision_to_diff_id,
             auth0_user=auth0_user,
+            landing_path_phid=landing_path_phid,
+            revision_to_diff_id=revision_to_diff_id,
+            to_land=to_land,
         )
 
 
@@ -620,11 +620,13 @@ def blocker_stack_landable(
         return None
 
     # Check that the provided path is a prefix to, or equal to, a landable path.
+    revision_path = [
+        revision_phid
+        for revision_phid, diff_id in transplant_state.landing_assessment.landing_path_phid
+    ]
     landable_paths = transplant_state.landable_stack.landable_paths()
     if not landable_paths or not any(
-        transplant_state.landing_assessment.revision_path
-        == path[: len(transplant_state.landing_assessment.revision_path)]
-        for path in landable_paths
+        revision_path == path[: len(revision_path)] for path in landable_paths
     ):
         return "The requested set of revisions are not landable."
 
