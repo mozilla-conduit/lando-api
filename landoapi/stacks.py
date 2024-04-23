@@ -120,7 +120,7 @@ class RevisionStack(nx.DiGraph):
 
         A root revision is a revision in a graph with no predecessors.
 
-        For example in this stack, where A has no successors:
+        For example in this stack, where A is the tip revision:
         A
         |\
         B C
@@ -136,7 +136,7 @@ class RevisionStack(nx.DiGraph):
 
         A leaf revision is a revision in a graph with no successors.
 
-        For example in this stack, where A has no successors:
+        For example in this stack, where A is the tip revision:
         A
         |\
         B C
