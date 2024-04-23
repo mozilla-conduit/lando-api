@@ -141,10 +141,10 @@ class TransplantAssessmentState:
         revision in the stack.
         """
         if self.landing_assessment:
-            # Only check the revisions in `to_land` for landing assessments.
+            # Only return the revisions in `landing_assessment.to_land` for checking.
             return self.landing_assessment.to_land
 
-        # Check all revisions for full stack assessments.
+        # Return all revisions for checking.
         return [
             (
                 revision,
