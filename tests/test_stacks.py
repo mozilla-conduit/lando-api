@@ -771,9 +771,9 @@ def test_integrated_stack_endpoint_simple(
     assert r3["phid"] in revisions
     assert r4["phid"] in revisions
 
-    assert revisions[r4["phid"]]["blocked_reason"] == (
+    assert revisions[r4["phid"]]["blocked_reasons"] == [
         "Repository is not supported by Lando."
-    )
+    ]
 
 
 def test_integrated_stack_endpoint_repos(

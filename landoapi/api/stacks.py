@@ -173,20 +173,14 @@ def get(phab: PhabricatorClient, revision_id: str):
         )
         author_response = serialize_author(phab.expect(fields, "authorPHID"), users)
 
-        # Grab the first `blocked` reason until we support displaying multiple blocker
-        # lints in the UI.
-        blocked_reason = (
-            transplant_state.stack.nodes[revision_phid]["blocked"][0]
-            if transplant_state.stack.nodes[revision_phid]["blocked"]
-            else ""
-        )
+        blocked_reasons = transplant_state.stack.nodes[revision_phid].get("blocked")
 
         revisions_response.append(
             {
                 "id": human_revision_id,
                 "phid": revision_phid,
                 "status": serialize_status(phab_revision),
-                "blocked_reason": blocked_reason,
+                "blocked_reasons": blocked_reasons,
                 "bug_id": bug_id,
                 "title": commit_description.title,
                 "url": revision_url,
