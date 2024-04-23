@@ -823,8 +823,7 @@ def check_landing_lints(
 
     # Run stack-level blocker checks.
     for block in stack_blockers:
-        reason = block(transplant_state=transplant_state)
-        if reason is not None:
+        if reason := block(transplant_state=transplant_state):
             assessment.blockers.append(reason)
 
     # Get the appropriate list of pairs to run checks against.
@@ -834,12 +833,11 @@ def check_landing_lints(
     for revision, diff in revision_check_pairs:
         phid = revision["phid"]
         for block in revision_blockers:
-            reason = block(
+            if reason := block(
                 revision=revision,
                 diff=diff,
                 transplant_state=transplant_state,
-            )
-            if reason is not None:
+            ):
                 assessment.blockers.append(reason)
 
                 if phid is not None and phid in transplant_state.landable_stack:
@@ -849,11 +847,9 @@ def check_landing_lints(
     # Run revision-level warning checks.
     for revision, diff in revision_check_pairs:
         for check in revision_warnings:
-            reason = check(
+            if reason := check(
                 revision=revision, diff=diff, transplant_state=transplant_state
-            )
-
-            if reason is not None:
+            ):
                 assessment.warnings.append(reason)
 
     return assessment
