@@ -115,7 +115,7 @@ def get_bugzilla_bug(revision: dict) -> Optional[int]:
     return int(bug) if bug else None
 
 
-def check_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
+def block_diff_author_is_known(*, diff: dict, **kwargs) -> Optional[str]:
     author_name, author_email = select_diff_author(diff)
     if author_name and author_email:
         return None

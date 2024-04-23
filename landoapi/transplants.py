@@ -39,7 +39,7 @@ from landoapi.reviews import (
     reviewer_identity,
 )
 from landoapi.revisions import (
-    check_diff_author_is_known,
+    block_diff_author_is_known,
     gather_involved_phids,
     revision_has_needs_data_classification_tag,
     revision_is_secure,
@@ -681,7 +681,7 @@ def blocker_open_ancestor(
         return "Has an open ancestor revision that is blocked."
 
 
-def check_author_planned_changes(
+def block_author_planned_changes(
     revision: dict, diff: dict, transplant_state: TransplantAssessmentState
 ) -> Optional[str]:
     status = PhabricatorRevisionStatus.from_status(
@@ -693,7 +693,7 @@ def check_author_planned_changes(
     return "The author has indicated they are planning changes to this revision."
 
 
-def check_uplift_approval(
+def block_uplift_approval(
     revision: dict, diff: dict, transplant_state: TransplantAssessmentState
 ) -> Optional[str]:
     """Check that Release Managers group approved a revision"""
@@ -721,7 +721,7 @@ def check_uplift_approval(
     return None
 
 
-def check_revision_data_classification(
+def block_revision_data_classification(
     revision: dict, diff: dict, transplant_state: TransplantAssessmentState
 ) -> Optional[str]:
     """Check that the `needs-data-classification` tag is not present on a revision."""
@@ -775,10 +775,10 @@ REVISION_BLOCKER_LINTS = [
     blocker_open_parents,
     blocker_closed_revisions,
     blocker_latest_diffs,
-    check_author_planned_changes,
-    check_diff_author_is_known,
-    check_uplift_approval,
-    check_revision_data_classification,
+    block_author_planned_changes,
+    block_diff_author_is_known,
+    block_uplift_approval,
+    block_revision_data_classification,
     # This check needs to be last.
     blocker_open_ancestor,
 ]
