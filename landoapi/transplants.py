@@ -70,7 +70,7 @@ class LandingAssessmentState:
     """Encapsulates the state of a landing request for assessment.
 
     Holds fields that are necessary to assess if a landing is blocked,
-    but are not necessary to run lints on the entire stack. This includes
+    but are not necessary to run checks on the entire stack. This includes
     checks for permissions on a user to initiate a landing, whether the
     requested path can land at the current time, etc.
     """
@@ -808,7 +808,7 @@ def blocker_single_landing_repo(
     stack_state.landing_assessment.landing_repo = landing_repo
 
 
-STACK_BLOCKER_LINTS = [
+STACK_BLOCKER_CHECKS = [
     # This check needs to be first.
     blocker_stack_landable,
     blocker_landing_already_requested,
@@ -816,7 +816,7 @@ STACK_BLOCKER_LINTS = [
     blocker_single_landing_repo,
 ]
 
-REVISION_BLOCKER_LINTS = [
+REVISION_BLOCKER_CHECKS = [
     user_block_scm_level,
     blocker_unsupported_repo,
     blocker_open_parents,
@@ -830,7 +830,7 @@ REVISION_BLOCKER_LINTS = [
     blocker_open_ancestor,
 ]
 
-WARNING_LINTS = [
+WARNING_CHECKS = [
     warning_blocking_reviews,
     warning_previously_landed,
     warning_not_accepted,
@@ -844,29 +844,27 @@ WARNING_LINTS = [
 ]
 
 
-def check_landing_lints(
-    stack_state: StackAssessmentState,
-) -> StackAssessment:
-    """Build a `StackAssessment` by running landing lints.
+def run_landing_checks(stack_state: StackAssessmentState) -> StackAssessment:
+    """Build a `StackAssessment` by running landing checks.
 
-    Run each landing lint and append the result to the `StackAssessment`.
-    There are three categories of lint:
-        - `stack_blockers` are lints that inspect the entire state of the stack, and
-          will block landing the stack if the lint does not pass.
-        - `revision_blockers` are lints that inspect each individual revision and diff
-          pair, and will block landing the revision if the lint does not pass.
-        - `revision_warnings` are lints that inspect each individual revision and diff
+    Run each landing check and append the result to the `StackAssessment`.
+    There are three categories of checks:
+        - `stack_blockers` are checks that inspect the entire state of the stack, and
+          will block landing the stack if the check does not pass.
+        - `revision_blockers` are checks that inspect each individual revision and diff
+          pair, and will block landing the revision if the check does not pass.
+        - `revision_warnings` are checks that inspect each individual revision and diff
           pair, and will present a warning that must be acknowledged to land if the
-          lint does not pass.
+          check does not pass.
 
-    Each type of lint takes the `StackAssessmentState` object, and the revision-level
-    blockers and warnings also take each `(revision, diff)` pair as arguments. Lints return
-    `None` on success, and a string reason explaining what went wrong in the lint on error.
+    Each type of check takes the `StackAssessmentState` object, and the revision-level
+    blockers and warnings also take each `(revision, diff)` pair as arguments. Checks return
+    `None` on success, and a string reason explaining what went wrong in the check on error.
     """
     assessment = StackAssessment()
 
     # Run stack-level blocker checks.
-    for block in STACK_BLOCKER_LINTS:
+    for block in STACK_BLOCKER_CHECKS:
         if reason := block(stack_state=stack_state):
             assessment.blockers.append(reason)
 
@@ -876,7 +874,7 @@ def check_landing_lints(
     # Run revision-level blockers checks.
     for revision, diff in revision_check_pairs:
         phid = revision["phid"]
-        for block in REVISION_BLOCKER_LINTS:
+        for block in REVISION_BLOCKER_CHECKS:
             if reason := block(
                 revision=revision,
                 diff=diff,
@@ -890,7 +888,7 @@ def check_landing_lints(
 
     # Run revision-level warning checks.
     for revision, diff in revision_check_pairs:
-        for check in WARNING_LINTS:
+        for check in WARNING_CHECKS:
             if reason := check(revision=revision, diff=diff, stack_state=stack_state):
                 assessment.warnings.append(reason)
 
@@ -941,7 +939,7 @@ def assess_transplant_request(
         landing_assessment=landing_assessment,
     )
     # Where we check the landing blockers.
-    assessment = check_landing_lints(stack_state)
+    assessment = run_landing_checks(stack_state)
 
     return assessment, stack_state
 
