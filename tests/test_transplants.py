@@ -29,8 +29,8 @@ from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
     LandingAssessmentState,
     RevisionWarning,
+    StackAssessment,
     StackAssessmentState,
-    TransplantAssessment,
     block_author_planned_changes,
     block_revision_data_classification,
     block_uplift_approval,
@@ -739,8 +739,8 @@ def test_confirmation_token_warning_order():
     ]
 
     assert all(
-        TransplantAssessment.confirmation_token(warnings_a)
-        == TransplantAssessment.confirmation_token(w)
+        StackAssessment.confirmation_token(warnings_a)
+        == StackAssessment.confirmation_token(w)
         for w in (warnings_b, reversed(warnings_a), reversed(warnings_b))
     )
 

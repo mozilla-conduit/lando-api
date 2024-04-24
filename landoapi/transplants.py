@@ -156,7 +156,7 @@ class StackAssessmentState:
         testing_policy_phid: str,
         landing_assessment: Optional[LandingAssessmentState] = None,
     ) -> StackAssessmentState:
-        """Build a `TransplantAssessmentState` from passed arguments.
+        """Build a `StackAssessmentState` from passed arguments.
 
         Build any fields that are shared between checks but are derived from
         existing fields.
@@ -215,8 +215,8 @@ class StackAssessmentState:
         ]
 
 
-class TransplantAssessment:
-    """Represents an assessment of issues that may block a revision landing.
+class StackAssessment:
+    """Represents an assessment of issues that may block a landing.
 
     Attributes:
         blocker: List of strings outlining why a revision is blocked from landing.
@@ -803,7 +803,7 @@ def blocker_single_landing_repo(
     if not repo_phid:
         return "Landing path has no repository specified."
 
-    # Set the landing repo field on the `TransplantAssessmentState`.
+    # Set the landing repo field on the `LandingAssessmentState`.
     landing_repo = stack_state.landable_repos.get(repo_phid)
     stack_state.landing_assessment.landing_repo = landing_repo
 
@@ -846,10 +846,10 @@ WARNING_LINTS = [
 
 def check_landing_lints(
     stack_state: StackAssessmentState,
-) -> TransplantAssessment:
-    """Build a `TransplantAssessment` by running landing lints.
+) -> StackAssessment:
+    """Build a `StackAssessment` by running landing lints.
 
-    Run each landing lint and append the result to the `TransplantAssessment`.
+    Run each landing lint and append the result to the `StackAssessment`.
     There are three categories of lint:
         - `stack_blockers` are lints that inspect the entire state of the stack, and
           will block landing the stack if the lint does not pass.
@@ -859,11 +859,11 @@ def check_landing_lints(
           pair, and will present a warning that must be acknowledged to land if the
           lint does not pass.
 
-    Each type of lint takes the `TransplantAssessmentState` object, and the revision-level
+    Each type of lint takes the `StackAssessmentState` object, and the revision-level
     blockers and warnings also take each `(revision, diff)` pair as arguments. Lints return
     `None` on success, and a string reason explaining what went wrong in the lint on error.
     """
-    assessment = TransplantAssessment()
+    assessment = StackAssessment()
 
     # Run stack-level blocker checks.
     for block in STACK_BLOCKER_LINTS:
@@ -905,7 +905,7 @@ def assess_transplant_request(
     relman_group_phid: str,
     data_policy_review_phid: str,
     landing_assessment: Optional[LandingAssessmentState] = None,
-) -> tuple[TransplantAssessment, StackAssessmentState]:
+) -> tuple[StackAssessment, StackAssessmentState]:
     """Assess the transplant request."""
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 

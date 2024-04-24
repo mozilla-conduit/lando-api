@@ -54,7 +54,7 @@ from landoapi.storage import db
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
     LandingAssessmentState,
-    TransplantAssessment,
+    StackAssessment,
     assess_transplant_request,
 )
 from landoapi.users import user_search
@@ -341,7 +341,7 @@ def post(phab: PhabricatorClient, data: dict):
 
     ldap_username = g.auth0_user.email
 
-    submitted_assessment = TransplantAssessment(
+    submitted_assessment = StackAssessment(
         blockers=[
             "This stack was submitted for landing by another user at the same time."
         ]
