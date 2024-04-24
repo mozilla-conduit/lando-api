@@ -29,8 +29,8 @@ from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
     LandingAssessmentState,
     RevisionWarning,
+    StackAssessmentState,
     TransplantAssessment,
-    TransplantAssessmentState,
     block_author_planned_changes,
     block_revision_data_classification,
     block_uplift_approval,
@@ -151,7 +151,7 @@ def create_state(**kwargs):
     }
     state.update(kwargs)
 
-    return TransplantAssessmentState(**state)
+    return StackAssessmentState(**state)
 
 
 def test_dryrun_no_warnings_or_blockers(
@@ -548,8 +548,8 @@ def test_warning_previously_landed_no_landings(db, phabdouble):
         r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
-    transplant_state = create_state()
-    assert warning_previously_landed(revision, diff, transplant_state) is None
+    stack_state = create_state()
+    assert warning_previously_landed(revision, diff, stack_state) is None
 
 
 @pytest.mark.parametrize(
@@ -571,9 +571,9 @@ def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    transplant_state = create_state()
+    stack_state = create_state()
 
-    assert warning_previously_landed(revision, diff, transplant_state) is None
+    assert warning_previously_landed(revision, diff, stack_state) is None
 
 
 @pytest.mark.parametrize(
@@ -595,9 +595,9 @@ def test_warning_previously_landed_landed_landing(db, phabdouble, create_landing
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    transplant_state = create_state()
+    stack_state = create_state()
 
-    assert warning_previously_landed(revision, diff, transplant_state) is not None
+    assert warning_previously_landed(revision, diff, stack_state) is not None
 
 
 def test_warning_revision_secure_project_none(phabdouble):
@@ -606,9 +606,9 @@ def test_warning_revision_secure_project_none(phabdouble):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    transplant_state = create_state(secure_project_phid=None)
+    stack_state = create_state(secure_project_phid=None)
 
-    assert warning_revision_secure(revision, {}, transplant_state) is None
+    assert warning_revision_secure(revision, {}, stack_state) is None
 
 
 def test_warning_revision_secure_is_secure(phabdouble, secure_project):
@@ -617,9 +617,9 @@ def test_warning_revision_secure_is_secure(phabdouble, secure_project):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    transplant_state = create_state(secure_project_phid=secure_project["phid"])
+    stack_state = create_state(secure_project_phid=secure_project["phid"])
 
-    assert warning_revision_secure(revision, {}, transplant_state) is not None
+    assert warning_revision_secure(revision, {}, stack_state) is not None
 
 
 def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
@@ -629,9 +629,9 @@ def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    transplant_state = create_state(secure_project_phid=secure_project["phid"])
+    stack_state = create_state(secure_project_phid=secure_project["phid"])
 
-    assert warning_revision_secure(revision, {}, transplant_state) is None
+    assert warning_revision_secure(revision, {}, stack_state) is None
 
 
 @pytest.mark.parametrize(
@@ -648,9 +648,9 @@ def test_warning_not_accepted_warns_on_other_status(phabdouble, status):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    transplant_state = create_state()
+    stack_state = create_state()
 
-    assert warning_not_accepted(revision, {}, transplant_state) is not None
+    assert warning_not_accepted(revision, {}, stack_state) is not None
 
 
 def test_warning_not_accepted_no_warning_when_accepted(phabdouble):
@@ -659,9 +659,9 @@ def test_warning_not_accepted_no_warning_when_accepted(phabdouble):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    transplant_state = create_state()
+    stack_state = create_state()
 
-    assert warning_not_accepted(revision, {}, transplant_state) is None
+    assert warning_not_accepted(revision, {}, stack_state) is None
 
 
 def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
@@ -680,9 +680,9 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
     reviewers = get_collated_reviewers(revision)
     diff = phabdouble.api_object_for(d_new, attachments={"commits": True})
 
-    transplant_state = create_state(reviewers={revision["phid"]: reviewers})
+    stack_state = create_state(reviewers={revision["phid"]: reviewers})
 
-    assert warning_reviews_not_current(revision, diff, transplant_state) is not None
+    assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
 def test_warning_reviews_not_current_warns_on_unreviewed_revision(phabdouble):
@@ -696,9 +696,9 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(phabdouble):
     reviewers = get_collated_reviewers(revision)
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    transplant_state = create_state(reviewers={revision["phid"]: reviewers})
+    stack_state = create_state(reviewers={revision["phid"]: reviewers})
 
-    assert warning_reviews_not_current(revision, diff, transplant_state) is not None
+    assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
 def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
@@ -717,9 +717,9 @@ def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
     reviewers = get_collated_reviewers(revision)
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    transplant_state = create_state(reviewers={revision["phid"]: reviewers})
+    stack_state = create_state(reviewers={revision["phid"]: reviewers})
 
-    assert warning_reviews_not_current(revision, diff, transplant_state) is None
+    assert warning_reviews_not_current(revision, diff, stack_state) is None
 
 
 def test_confirmation_token_warning_order():
@@ -1379,9 +1379,9 @@ def test_warning_wip_commit_message(phabdouble):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    transplant_state = create_state()
+    stack_state = create_state()
 
-    assert warning_wip_commit_message(revision, {}, transplant_state) is not None
+    assert warning_wip_commit_message(revision, {}, stack_state) is not None
 
 
 def test_display_branch_head():
@@ -1552,10 +1552,10 @@ def test_check_author_planned_changes_changes_not_planned(phabdouble, status):
         phabdouble.revision(status=status),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    transplant_state = create_state()
+    stack_state = create_state()
     assert (
         block_author_planned_changes(
-            revision=revision, diff={}, transplant_state=transplant_state
+            revision=revision, diff={}, stack_state=stack_state
         )
         is None
     )
@@ -1566,10 +1566,10 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
         phabdouble.revision(status=PhabricatorRevisionStatus.CHANGES_PLANNED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    transplant_state = create_state()
+    stack_state = create_state()
     assert (
         block_author_planned_changes(
-            revision=revision, diff={}, transplant_state=transplant_state
+            revision=revision, diff={}, stack_state=stack_state
         )
         is not None
     )
@@ -1604,13 +1604,13 @@ def test_relman_approval_status(
     phab_client = phabdouble.get_phabricator_client()
     stack_data = request_extended_revision_data(phab_client, [revision["phid"]])
 
-    transplant_state = create_state(
+    stack_state = create_state(
         relman_group_phid=release_management_project["phid"],
         supported_repos=repos,
         stack_data=stack_data,
     )
     output = block_uplift_approval(
-        revision=phab_revision, diff={}, transplant_state=transplant_state
+        revision=phab_revision, diff={}, stack_state=stack_state
     )
     if status == ReviewerStatus.ACCEPTED:
         assert output is None
@@ -1638,13 +1638,13 @@ def test_relman_approval_missing(
     phab_client = phabdouble.get_phabricator_client()
     stack_data = request_extended_revision_data(phab_client, [revision["phid"]])
 
-    transplant_state = create_state(
+    stack_state = create_state(
         relman_group_phid=release_management_project["phid"],
         supported_repos=repos,
         stack_data=stack_data,
     )
     assert block_uplift_approval(
-        revision=phab_revision, diff={}, transplant_state=transplant_state
+        revision=phab_revision, diff={}, stack_state=stack_state
     ) == (
         "The release-managers group did not accept the stack: "
         "you need to wait for a group approval from release-managers, "
@@ -1664,12 +1664,12 @@ def test_revision_has_data_classification_tag(
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    transplant_state = create_state(
+    stack_state = create_state(
         data_policy_review_phid=needs_data_classification_project["phid"]
     )
 
     assert block_revision_data_classification(
-        revision=phab_revision, diff={}, transplant_state=transplant_state
+        revision=phab_revision, diff={}, stack_state=stack_state
     ) == (
         "Revision makes changes to data collection and "
         "should have its data classification assessed before landing."
@@ -1682,7 +1682,7 @@ def test_revision_has_data_classification_tag(
     )
     assert (
         block_revision_data_classification(
-            revision=phab_revision, diff={}, transplant_state=transplant_state
+            revision=phab_revision, diff={}, stack_state=stack_state
         )
         is None
     ), "Revision with no data classification tag should not be blocked from landing."

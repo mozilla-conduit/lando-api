@@ -90,7 +90,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     relman_group_phid = str(phab.expect(release_managers, "phid"))
 
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
-    assessment, transplant_state = assess_transplant_request(
+    assessment, stack_state = assess_transplant_request(
         phab,
         supported_repos,
         stack_data,
@@ -98,7 +98,7 @@ def get(phab: PhabricatorClient, revision_id: str):
         relman_group_phid,
         data_policy_review_phid,
     )
-    landable = transplant_state.landable_stack.landable_paths()
+    landable = stack_state.landable_stack.landable_paths()
     uplift_repos = [
         name for name, repo in supported_repos.items() if repo.approval_required
     ]
@@ -173,7 +173,7 @@ def get(phab: PhabricatorClient, revision_id: str):
         )
         author_response = serialize_author(phab.expect(fields, "authorPHID"), users)
 
-        blocked_reasons = transplant_state.stack.nodes[revision_phid].get("blocked")
+        blocked_reasons = stack_state.stack.nodes[revision_phid].get("blocked")
 
         revisions_response.append(
             {

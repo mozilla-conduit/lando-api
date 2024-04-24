@@ -151,7 +151,7 @@ def dryrun(phab: PhabricatorClient, data: dict):
     landing_assessment = LandingAssessmentState.from_landing_path(
         landing_path, stack_data, g.auth0_user
     )
-    assessment, transplant_state = assess_transplant_request(
+    assessment, stack_state = assess_transplant_request(
         phab,
         supported_repos,
         stack_data,
@@ -201,7 +201,7 @@ def post(phab: PhabricatorClient, data: dict):
     landing_assessment = LandingAssessmentState.from_landing_path(
         landing_path, stack_data, g.auth0_user
     )
-    assessment, transplant_state = assess_transplant_request(
+    assessment, stack_state = assess_transplant_request(
         phab,
         supported_repos,
         stack_data,
