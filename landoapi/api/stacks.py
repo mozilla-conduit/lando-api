@@ -39,7 +39,7 @@ from landoapi.stacks import (
     build_stack_graph,
     request_extended_revision_data,
 )
-from landoapi.transplants import assess_transplant_request
+from landoapi.transplants import assess_stack_state
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
@@ -90,7 +90,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     relman_group_phid = str(phab.expect(release_managers, "phid"))
 
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         stack_data,

@@ -895,7 +895,7 @@ def run_landing_checks(stack_state: StackAssessmentState) -> StackAssessment:
     return assessment
 
 
-def assess_transplant_request(
+def assess_stack_state(
     phab: PhabricatorClient,
     supported_repos: dict[str, Repo],
     stack_data: RevisionData,

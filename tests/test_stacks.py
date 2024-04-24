@@ -12,7 +12,7 @@ from landoapi.stacks import (
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.transplants import assess_transplant_request
+from landoapi.transplants import assess_stack_state
 
 
 def test_build_stack_graph_single_node(phabdouble):
@@ -293,7 +293,7 @@ def test_calculate_landable_subgraphs_no_edges_open(
 
     nodes, edges = build_stack_graph(revision_obj)
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -323,7 +323,7 @@ def test_calculate_landable_subgraphs_no_edges_closed(
 
     nodes, edges = build_stack_graph(revision_obj)
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -352,7 +352,7 @@ def test_calculate_landable_subgraphs_closed_root(
 
     nodes, edges = build_stack_graph(revision_obj)
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -384,7 +384,7 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(
 
     nodes, edges = build_stack_graph(revision_obj)
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -418,7 +418,7 @@ def test_calculate_landable_subgraphs_stops_multiple_repo_paths(
     )
     nodes, edges = build_stack_graph(revision_obj)
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -453,7 +453,7 @@ def test_calculate_landable_subgraphs_allows_distinct_repo_paths(
         phab, [r1["phid"], r2["phid"], r3["phid"], r4["phid"], r5["phid"]]
     )
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -488,7 +488,7 @@ def test_calculate_landable_subgraphs_different_repo_parents(
     )
 
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -523,7 +523,7 @@ def test_calculate_landable_subgraphs_different_repo_closed_parent(
     )
 
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -571,7 +571,7 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(
     )
 
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -665,7 +665,7 @@ def test_calculate_landable_subgraphs_complex_graph(
     supported_repos = get_repos_for_env("test")
 
     stack = RevisionStack(set(ext_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         ext_data,
@@ -696,7 +696,7 @@ def test_calculate_landable_subgraphs_missing_repo(
     revision_data = request_extended_revision_data(phab, [r1["phid"]])
 
     stack = RevisionStack(set(revision_data.revisions.keys()), edges)
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         revision_data,

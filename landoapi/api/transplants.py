@@ -55,7 +55,7 @@ from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
     LandingAssessmentState,
     StackAssessment,
-    assess_transplant_request,
+    assess_stack_state,
 )
 from landoapi.users import user_search
 from landoapi.validation import (
@@ -151,7 +151,7 @@ def dryrun(phab: PhabricatorClient, data: dict):
     landing_assessment = LandingAssessmentState.from_landing_path(
         landing_path, stack_data, g.auth0_user
     )
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         stack_data,
@@ -201,7 +201,7 @@ def post(phab: PhabricatorClient, data: dict):
     landing_assessment = LandingAssessmentState.from_landing_path(
         landing_path, stack_data, g.auth0_user
     )
-    assessment, stack_state = assess_transplant_request(
+    assessment, stack_state = assess_stack_state(
         phab,
         supported_repos,
         stack_data,
