@@ -135,6 +135,60 @@ class TransplantAssessmentState:
     # State required for assessing landing requests.
     landing_assessment: Optional[LandingAssessmentState] = None
 
+    @classmethod
+    def from_assessment(
+        cls,
+        phab: PhabricatorClient,
+        stack_data: RevisionData,
+        stack: RevisionStack,
+        landable_repos: dict[str, Repo],
+        supported_repos: dict[str, Repo],
+        reviewers: dict,
+        users: dict,
+        projects: dict,
+        data_policy_review_phid: str,
+        relman_group_phid: str,
+        secure_project_phid: str,
+        testing_tag_project_phids: list[str],
+        testing_policy_phid: str,
+        landing_assessment: Optional[LandingAssessmentState] = None,
+    ) -> TransplantAssessmentState:
+        """Build a `TransplantAssessmentState` from passed arguments.
+
+        Build any fields that are shared between checks but are derived from
+        existing fields.
+        """
+        # Create a copy of the stack where we will remove revisions that are blocked from
+        # landing, leaving a graph where each path is landable.
+        landable_stack = copy.deepcopy(stack)
+
+        # Map each revision to its existing status so we can check for closed revisions.
+        statuses = {
+            phid: PhabricatorRevisionStatus.from_status(
+                PhabricatorClient.expect(revision, "fields", "status", "value")
+            )
+            for phid, revision in stack_data.revisions.items()
+        }
+
+        return TransplantAssessmentState(
+            phab=phab,
+            stack_data=stack_data,
+            stack=stack,
+            statuses=statuses,
+            landable_stack=landable_stack,
+            landable_repos=landable_repos,
+            supported_repos=supported_repos,
+            reviewers=reviewers,
+            users=users,
+            projects=projects,
+            data_policy_review_phid=data_policy_review_phid,
+            relman_group_phid=relman_group_phid,
+            secure_project_phid=secure_project_phid,
+            testing_tag_project_phids=testing_tag_project_phids,
+            testing_policy_phid=testing_policy_phid,
+            landing_assessment=landing_assessment,
+        )
+
     def revision_check_pairs(self) -> list[tuple[dict, dict]]:
         """Return the appropriate list of `revision, diff` pairs for assessing.
 
@@ -881,25 +935,10 @@ def assess_transplant_request(
     testing_tag_project_phids = get_testing_tag_project_phids(phab)
     testing_policy_phid = get_testing_policy_phid(phab)
 
-    # Create a copy of the stack where we will remove revisions that are blocked from
-    # landing, leaving a graph where each path is landable.
-    landable_stack = copy.deepcopy(stack)
-
-    # We only want to consider paths starting from the open revisions
-    # do grab the status for all revisions.
-    statuses = {
-        phid: PhabricatorRevisionStatus.from_status(
-            PhabricatorClient.expect(revision, "fields", "status", "value")
-        )
-        for phid, revision in stack_data.revisions.items()
-    }
-
-    transplant_state = TransplantAssessmentState(
+    transplant_state = TransplantAssessmentState.from_assessment(
         phab=phab,
         stack_data=stack_data,
         stack=stack,
-        statuses=statuses,
-        landable_stack=landable_stack,
         landable_repos=landable_repos,
         supported_repos=supported_repos,
         reviewers=reviewers,
@@ -912,7 +951,6 @@ def assess_transplant_request(
         testing_policy_phid=testing_policy_phid,
         landing_assessment=landing_assessment,
     )
-
     # Where we check the landing blockers.
     assessment = check_landing_lints(transplant_state)
 
