@@ -904,7 +904,12 @@ def assess_stack_state(
     data_policy_review_phid: str,
     landing_assessment: Optional[LandingAssessmentState] = None,
 ) -> tuple[StackAssessment, StackAssessmentState]:
-    """Assess the transplant request."""
+    """Assess the state of a given stack.
+
+    Given the required state information for a stack, build a `StackAssessmentState`
+    and run stack checks, returning a `StackAssessment` and the built
+    `StackAssessmentState`.
+    """
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     involved_phids = set()
