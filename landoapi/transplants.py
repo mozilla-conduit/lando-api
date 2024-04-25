@@ -161,8 +161,9 @@ class StackAssessmentState:
         Build any fields that are shared between checks but are derived from
         existing fields.
         """
-        # Create a copy of the stack where we will remove revisions that are blocked from
-        # landing, leaving a graph where each path is landable.
+        # Create a copy of the stack so that revisions that are blocked from landing
+        # can be removed from it when running landing checks. After all checks have run
+        # the landing paths between nodes in this stack should all be landable.
         landable_stack = copy.deepcopy(stack)
 
         # Map each revision to its existing status so we can check for closed revisions.
