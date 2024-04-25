@@ -69,7 +69,7 @@ CODE_FREEZE_OFFSET = "-0800"
 class LandingAssessmentState:
     """Encapsulates the state of a landing request for assessment.
 
-    Holds fields that are necessary to assess if a landing is blocked,
+    Holds fields that are necessary to assess if a landing will be blocked,
     but are not necessary to run checks on the entire stack. This includes
     checks for permissions on a user to initiate a landing, whether the
     requested path can land at the current time, etc.
