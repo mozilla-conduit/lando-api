@@ -5,7 +5,7 @@
 import pytest
 
 from landoapi.revisions import (
-    block_diff_author_is_known,
+    blocker_diff_author_is_known,
     revision_is_secure,
     revision_needs_testing_tag,
 )
@@ -19,7 +19,7 @@ def test_check_diff_author_is_known_with_author(phabdouble):
     phabdouble.revision(diff=d, repo=phabdouble.repo())
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    assert block_diff_author_is_known(diff=diff) is None
+    assert blocker_diff_author_is_known(diff=diff) is None
 
 
 def test_check_diff_author_is_known_with_unknown_author(phabdouble):
@@ -28,7 +28,7 @@ def test_check_diff_author_is_known_with_unknown_author(phabdouble):
     phabdouble.revision(diff=d, repo=phabdouble.repo())
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    assert block_diff_author_is_known(diff=diff) is not None
+    assert blocker_diff_author_is_known(diff=diff) is not None
 
 
 def test_secure_api_flag_on_public_revision_is_false(

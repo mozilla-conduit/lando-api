@@ -39,7 +39,7 @@ from landoapi.reviews import (
     reviewer_identity,
 )
 from landoapi.revisions import (
-    block_diff_author_is_known,
+    blocker_diff_author_is_known,
     gather_involved_phids,
     revision_has_needs_data_classification_tag,
     revision_is_secure,
@@ -561,7 +561,7 @@ def warning_unresolved_comments(
         return "Revision has unresolved comments."
 
 
-def user_block_no_auth0_email(
+def blocker_user_no_auth0_email(
     stack_state: StackAssessmentState,
 ) -> Optional[str]:
     """Check the user has a proper auth0 email."""
@@ -575,7 +575,7 @@ def user_block_no_auth0_email(
     )
 
 
-def user_block_scm_level(
+def blocker_user_scm_level(
     revision: dict,
     diff: dict,
     stack_state: StackAssessmentState,
@@ -729,7 +729,7 @@ def blocker_open_ancestor(
         return "Has an open ancestor revision that is blocked."
 
 
-def block_author_planned_changes(
+def blocker_author_planned_changes(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> Optional[str]:
     status = PhabricatorRevisionStatus.from_status(
@@ -741,7 +741,7 @@ def block_author_planned_changes(
     return "The author has indicated they are planning changes to this revision."
 
 
-def block_uplift_approval(
+def blocker_uplift_approval(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> Optional[str]:
     """Check that Release Managers group approved a revision"""
@@ -769,7 +769,7 @@ def block_uplift_approval(
     return None
 
 
-def block_revision_data_classification(
+def blocker_revision_data_classification(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> Optional[str]:
     """Check that the `needs-data-classification` tag is not present on a revision."""
@@ -813,20 +813,20 @@ STACK_BLOCKER_CHECKS = [
     # This check needs to be first.
     blocker_stack_landable,
     blocker_landing_already_requested,
-    user_block_no_auth0_email,
+    blocker_user_no_auth0_email,
     blocker_single_landing_repo,
 ]
 
 REVISION_BLOCKER_CHECKS = [
-    user_block_scm_level,
+    blocker_user_scm_level,
     blocker_unsupported_repo,
     blocker_open_parents,
     blocker_closed_revisions,
     blocker_latest_diffs,
-    block_author_planned_changes,
-    block_diff_author_is_known,
-    block_uplift_approval,
-    block_revision_data_classification,
+    blocker_author_planned_changes,
+    blocker_diff_author_is_known,
+    blocker_uplift_approval,
+    blocker_revision_data_classification,
     # This check needs to be last.
     blocker_open_ancestor,
 ]

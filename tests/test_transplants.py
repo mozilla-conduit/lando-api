@@ -31,9 +31,9 @@ from landoapi.transplants import (
     RevisionWarning,
     StackAssessment,
     StackAssessmentState,
-    block_author_planned_changes,
-    block_revision_data_classification,
-    block_uplift_approval,
+    blocker_author_planned_changes,
+    blocker_revision_data_classification,
+    blocker_uplift_approval,
     warning_not_accepted,
     warning_previously_landed,
     warning_reviews_not_current,
@@ -1554,7 +1554,7 @@ def test_check_author_planned_changes_changes_not_planned(phabdouble, status):
     )
     stack_state = create_state()
     assert (
-        block_author_planned_changes(
+        blocker_author_planned_changes(
             revision=revision, diff={}, stack_state=stack_state
         )
         is None
@@ -1568,7 +1568,7 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
     )
     stack_state = create_state()
     assert (
-        block_author_planned_changes(
+        blocker_author_planned_changes(
             revision=revision, diff={}, stack_state=stack_state
         )
         is not None
@@ -1609,7 +1609,7 @@ def test_relman_approval_status(
         supported_repos=repos,
         stack_data=stack_data,
     )
-    output = block_uplift_approval(
+    output = blocker_uplift_approval(
         revision=phab_revision, diff={}, stack_state=stack_state
     )
     if status == ReviewerStatus.ACCEPTED:
@@ -1643,7 +1643,7 @@ def test_relman_approval_missing(
         supported_repos=repos,
         stack_data=stack_data,
     )
-    assert block_uplift_approval(
+    assert blocker_uplift_approval(
         revision=phab_revision, diff={}, stack_state=stack_state
     ) == (
         "The release-managers group did not accept the stack: "
@@ -1668,7 +1668,7 @@ def test_revision_has_data_classification_tag(
         data_policy_review_phid=needs_data_classification_project["phid"]
     )
 
-    assert block_revision_data_classification(
+    assert blocker_revision_data_classification(
         revision=phab_revision, diff={}, stack_state=stack_state
     ) == (
         "Revision makes changes to data collection and "
@@ -1681,7 +1681,7 @@ def test_revision_has_data_classification_tag(
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
     assert (
-        block_revision_data_classification(
+        blocker_revision_data_classification(
             revision=phab_revision, diff={}, stack_state=stack_state
         )
         is None
