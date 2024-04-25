@@ -76,7 +76,7 @@ class LandingAssessmentState:
     """
 
     auth0_user: A0User
-    landing_path_phid: list[tuple[str, int]]
+    landing_path_by_phid: list[tuple[str, int]]
     to_land: list[tuple[dict, dict]]
 
     # `landing_repo` is set in the single landing repo check.
@@ -89,9 +89,9 @@ class LandingAssessmentState:
         stack_data: RevisionData,
         auth0_user: A0User,
     ) -> LandingAssessmentState:
-        landing_path_phid = convert_path_id_to_phid(landing_path, stack_data)
+        landing_path_by_phid = convert_path_id_to_phid(landing_path, stack_data)
 
-        to_land = [stack_data.revisions[r_phid] for r_phid, _ in landing_path_phid]
+        to_land = [stack_data.revisions[r_phid] for r_phid, _ in landing_path_by_phid]
         to_land = [
             (
                 revision,
@@ -104,7 +104,7 @@ class LandingAssessmentState:
 
         return LandingAssessmentState(
             auth0_user=auth0_user,
-            landing_path_phid=landing_path_phid,
+            landing_path_by_phid=landing_path_by_phid,
             to_land=to_land,
         )
 
@@ -618,7 +618,7 @@ def blocker_latest_diffs(
         stack_state.stack_data.diffs[latest_diff_phid], "id"
     )
 
-    revision_to_diff_id = dict(stack_state.landing_assessment.landing_path_phid)
+    revision_to_diff_id = dict(stack_state.landing_assessment.landing_path_by_phid)
 
     if latest_diff_id != revision_to_diff_id[revision_phid]:
         return "A requested diff is not the latest."
@@ -662,7 +662,7 @@ def blocker_stack_landable(
     # Check that the provided path is a prefix to, or equal to, a landable path.
     revision_path = [
         revision_phid
-        for revision_phid, diff_id in stack_state.landing_assessment.landing_path_phid
+        for revision_phid, diff_id in stack_state.landing_assessment.landing_path_by_phid
     ]
     landable_paths = stack_state.landable_stack.landable_paths()
     if not landable_paths or not any(
