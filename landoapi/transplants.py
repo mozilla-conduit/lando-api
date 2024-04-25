@@ -67,7 +67,7 @@ CODE_FREEZE_OFFSET = "-0800"
 
 @dataclass
 class LandingAssessmentState:
-    """Encapsulates the state of a landing request for assessment.
+    """Encapsulates the state of a landing assessment.
 
     Holds fields that are necessary to assess if a landing will be blocked,
     but are not necessary to run checks on the entire stack. This includes
