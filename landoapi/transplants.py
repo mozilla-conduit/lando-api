@@ -115,7 +115,7 @@ class StackAssessmentState:
 
     Holds all data relevant to a stack such that the stack blocker/warning checks
     can be run against them. This includes the optional `LandingAssessmentState`
-    which includes extra fields related to an attempt to create a landing job
+    which includes extra fields related to the ability to create a landing job
     for patches in the stack.
     """
 
