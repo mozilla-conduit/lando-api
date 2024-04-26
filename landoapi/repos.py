@@ -354,6 +354,11 @@ REPO_CONFIG = {
         "larch": Repo(
             tree="larch",
             url="https://hg.mozilla.org/projects/larch",
+            access_group=SCM_LEVEL_2,
+        ),
+        "cypress": Repo(
+            tree="cypress",
+            url="https://hg.mozilla.org/projects/cypress",
             access_group=SCM_LEVEL_3,
         ),
         "mozilla-build": Repo(
