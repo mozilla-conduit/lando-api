@@ -24,9 +24,6 @@ from landoapi.secapproval import (
     parse_comment,
     search_sec_approval_request_for_comment,
 )
-from landoapi.uplift import (
-    stack_uplift_form_submitted,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -185,13 +182,6 @@ def check_uplift_approval(relman_phid, supported_repos, stack_data) -> Callable:
                 "The release-managers group did not accept the stack: "
                 "you need to wait for a group approval from release-managers, "
                 "or request a new review."
-            )
-
-        # Check that the uplift request form is filled out for the revision.
-        if not stack_uplift_form_submitted(stack_data):
-            return (
-                "The uplift request form has not been submitted for this stack; "
-                "Please submit an uplift request on the head of the stack."
             )
 
         return None

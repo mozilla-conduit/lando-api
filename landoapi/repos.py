@@ -220,6 +220,15 @@ REPO_CONFIG = {
             url="https://hg.mozilla.org/conduit-testing/test-repo",
             access_group=SCM_CONDUIT,
         ),
+        "large-repo": Repo(
+            tree="large-repo",
+            url="https://hg.mozilla.org/conduit-testing/m-c",
+            access_group=SCM_CONDUIT,
+            commit_flags=[DONTBUILD],
+            milestone_tracking_flag_template="cf_status_firefox{milestone}",
+            product_details_url="https://raw.githubusercontent.com/mozilla-conduit"
+            "/suite/main/docker/product-details/1.0/firefox_versions.json",
+        ),
         "m-c": Repo(
             tree="m-c",
             url="https://hg.mozilla.org/conduit-testing/m-c",
@@ -354,6 +363,11 @@ REPO_CONFIG = {
         "larch": Repo(
             tree="larch",
             url="https://hg.mozilla.org/projects/larch",
+            access_group=SCM_LEVEL_2,
+        ),
+        "cypress": Repo(
+            tree="cypress",
+            url="https://hg.mozilla.org/projects/cypress",
             access_group=SCM_LEVEL_3,
         ),
         "mozilla-build": Repo(
