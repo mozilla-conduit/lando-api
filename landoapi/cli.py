@@ -208,7 +208,12 @@ def ensure_status_correct(status: str) -> TreeStatus:
 
 @cli.command("import-treestatus")
 def import_treestatus_data():
-    """Import Treestatus data into the database."""
+    """Import Treestatus data into the database.
+
+    NOTE: this command is used as a one-time only import of the existing
+    Treestatus data. It should be removed after changes are landed.
+    See bug 1894984.
+    """
     from landoapi.storage import db_subsystem
 
     db_subsystem.ensure_ready()
