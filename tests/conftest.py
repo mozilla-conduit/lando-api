@@ -21,7 +21,6 @@ from pytest_flask.plugin import JSONResponse
 from landoapi.app import (
     SUBSYSTEMS,
     construct_app,
-    construct_treestatus_app,
     load_config,
 )
 from landoapi.cache import cache
@@ -255,18 +254,14 @@ def disable_migrations(monkeypatch):
 def app(request, versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     """Needed for pytest-flask."""
     module = request.module
-    app_constructor = (
-        construct_app
-        if not hasattr(module, "TREESTATUS_APP")
-        else construct_treestatus_app
-    )
+    spec = "swagger.yml" if not hasattr(module, "TREESTATUS_APP") else "treestatus.yml"
 
     config = load_config()
     # We need the TESTING setting turned on to get tracebacks when testing API
     # endpoints with the TestClient.
     config["TESTING"] = True
     config["CACHE_DISABLED"] = True
-    app = app_constructor(config)
+    app = construct_app(config, spec=spec)
     flask_app = app.app
     flask_app.test_client_class = JSONClient
     for system in SUBSYSTEMS:
