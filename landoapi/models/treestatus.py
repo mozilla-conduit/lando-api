@@ -134,7 +134,7 @@ class Tree(Base):
 class Log(Base):
     """A log of changes to a Tree."""
 
-    # The name of the three which this log entry belongs to.
+    # The name of the tree which this log entry belongs to.
     tree = db.Column(
         db.String(64), db.ForeignKey(Tree.tree), nullable=False, index=True
     )
