@@ -18,9 +18,17 @@ import sqlalchemy
 from flask import current_app
 from pytest_flask.plugin import JSONResponse
 
-from landoapi.app import SUBSYSTEMS, construct_app, load_config
+from landoapi.app import (
+    SUBSYSTEMS,
+    construct_app,
+    load_config,
+)
 from landoapi.cache import cache
 from landoapi.mocks.auth import TEST_JWKS, MockAuth0
+from landoapi.models.treestatus import (
+    Tree,
+    TreeStatus,
+)
 from landoapi.phabricator import PhabricatorClient
 from landoapi.projects import (
     CHECKIN_PROJ_SLUG,
@@ -33,7 +41,7 @@ from landoapi.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
 from landoapi.transplants import CODE_FREEZE_OFFSET
-from tests.mocks import PhabricatorDouble, TreeStatusDouble
+from tests.mocks import PhabricatorDouble
 
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
@@ -142,7 +150,7 @@ EXTERNAL_SERVICES_SHOULD_BE_PRESENT = (
 
 
 @pytest.fixture
-def docker_env_vars(versionfile, monkeypatch):
+def docker_env_vars(request, versionfile, monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
     monkeypatch.setenv("ENV", "test")
     monkeypatch.setenv("VERSION_PATH", str(versionfile))
@@ -169,6 +177,9 @@ def docker_env_vars(versionfile, monkeypatch):
     monkeypatch.setenv("MAIL_SERVER", "localhost")
     monkeypatch.delenv("MAIL_SUPPRESS_SEND", raising=False)
 
+    if request.module.__name__ == "tests.test_treestatus":
+        monkeypatch.setenv("TREESTATUS_APP", "1")
+
 
 @pytest.fixture
 def request_mocker():
@@ -181,12 +192,6 @@ def request_mocker():
 def phabdouble(monkeypatch):
     """Mock the Phabricator service and build fake response objects."""
     yield PhabricatorDouble(monkeypatch)
-
-
-@pytest.fixture
-def treestatusdouble(monkeypatch, treestatus_url):
-    """Mock the Tree Status service and build fake responses."""
-    yield TreeStatusDouble(monkeypatch, treestatus_url)
 
 
 @pytest.fixture
@@ -249,14 +254,14 @@ def disable_migrations(monkeypatch):
 
 
 @pytest.fixture
-def app(versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
+def app(request, versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     """Needed for pytest-flask."""
     config = load_config()
     # We need the TESTING setting turned on to get tracebacks when testing API
     # endpoints with the TestClient.
     config["TESTING"] = True
     config["CACHE_DISABLED"] = True
-    app = construct_app(config)
+    app = construct_app(config, spec=config["API_SPEC"])
     flask_app = app.app
     flask_app.test_client_class = JSONClient
     for system in SUBSYSTEMS:
@@ -385,12 +390,6 @@ def celery_app(app):
     return celery
 
 
-@pytest.fixture
-def treestatus_url():
-    """A string holding the Tree Status base URL."""
-    return "http://treestatus.test"
-
-
 def pytest_assertrepr_compare(op, left, right):
     if isinstance(left, JSONResponse) and isinstance(right, int) and op == "==":
         # Hook failures when comparing JSONResponse objects so we get the detailed
@@ -494,3 +493,23 @@ def codefreeze_datetime(request_mocker):
             return dates[f"{date_string}"]
 
     return Mockdatetime
+
+
+@pytest.fixture
+def new_treestatus_tree(db):
+    """Create a new tree in the test db."""
+
+    def _new_tree(
+        tree: str = "", status: str = "open", reason: str = "", motd: str = ""
+    ):
+        new_tree = Tree(
+            tree=tree,
+            status=TreeStatus(status),
+            reason=reason,
+            message_of_the_day=motd,
+        )
+        db.session.add(new_tree)
+        db.session.commit()
+        return new_tree
+
+    return _new_tree

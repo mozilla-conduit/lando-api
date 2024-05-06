@@ -98,14 +98,13 @@ def test_try_api_patch_decode_error(
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     auth0_mock,
     mocked_repo_config,
 ):
     """Test when a patch can't be decoded."""
-    treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -134,7 +133,7 @@ def test_try_api_patch_format_mismatch(
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     auth0_mock,
     mocked_repo_config,
@@ -142,8 +141,7 @@ def test_try_api_patch_format_mismatch(
     patch_content,
 ):
     """Test what happens when a patch does not match the passed format."""
-    treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -169,14 +167,13 @@ def test_try_api_unknown_patch_format(
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     auth0_mock,
     mocked_repo_config,
 ):
     """Test when `patch_format` isn't one of the accepted values."""
-    treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -199,13 +196,12 @@ def test_try_api_success_hgexport(
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     auth0_mock,
     mocked_repo_config,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -245,7 +241,7 @@ def test_try_api_success_hgexport(
     worker = LandingWorker(sleep_seconds=0.01)
     hgrepo = HgRepo(hg_clone.strpath)
 
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo, hgrepo)
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (
@@ -288,13 +284,12 @@ def test_try_api_success_gitformatpatch(
     db,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     client,
     auth0_mock,
     mocked_repo_config,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
 
     try_push_json = {
         # The only node in the test repo.
@@ -335,7 +330,7 @@ def test_try_api_success_gitformatpatch(
     hgrepo = HgRepo(hg_clone.strpath)
 
     # Assert the job landed against the expected commit hash.
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo, hgrepo)
     assert job.status == LandingJobStatus.LANDED
     assert len(job.landed_commit_id) == 40
     assert (

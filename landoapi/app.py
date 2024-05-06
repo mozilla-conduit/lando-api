@@ -22,7 +22,6 @@ from landoapi.sentry import sentry_subsystem
 from landoapi.smtp import smtp_subsystem
 from landoapi.storage import db_subsystem
 from landoapi.systems import Subsystem
-from landoapi.treestatus import treestatus_subsystem
 from landoapi.ui import lando_ui_subsystem
 from landoapi.version import version
 
@@ -40,7 +39,6 @@ SUBSYSTEMS: list[Subsystem] = [
     lando_ui_subsystem,
     phabricator_subsystem,
     smtp_subsystem,
-    treestatus_subsystem,
     repo_clone_subsystem,
 ]
 
@@ -56,6 +54,9 @@ def load_config() -> dict[str, Any]:
         "MAIL_USE_TLS": bool(os.getenv("MAIL_USE_TLS")),
         "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL"),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+        "API_SPEC": "treestatus.yml"
+        if os.getenv("TREESTATUS_APP") == "1"
+        else "swagger.yml",
         "VERSION": version(),
     }
 
@@ -84,7 +85,7 @@ def load_config() -> dict[str, Any]:
         "REPO_CLONES_PATH",
         "REPOS_TO_LAND",
         "SENTRY_DSN",
-        "TREESTATUS_URL",
+        "TREESTATUS_APP",
     )
 
     defaults = {
@@ -92,7 +93,6 @@ def load_config() -> dict[str, Any]:
         "LOG_LEVEL": "INFO",
         "MAIL_FROM": "mozphab-prod@mozilla.com",
         "REPO_CLONES_PATH": "/repos",
-        "TREESTATUS_URL": "https://treestatus.mozilla-releng.net",
     }
 
     for key in config_keys:
@@ -101,11 +101,11 @@ def load_config() -> dict[str, Any]:
     return config
 
 
-def construct_app(config: dict[str, Any]) -> connexion.App:
+def construct_app(config: dict[str, Any], spec: str = "swagger.yml") -> connexion.App:
     app = connexion.App(__name__, specification_dir="spec/")
 
     app.add_api(
-        "swagger.yml",
+        spec,
         resolver=RestyResolver("landoapi.api"),
         options={"swagger_ui": False},
     )

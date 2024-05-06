@@ -26,6 +26,10 @@ from landoapi.systems import Subsystem
 
 logger = logging.getLogger(__name__)
 
+MOZILLIANS_PREFIX = "mozilliansorg_"
+TREESTATUS_USERS = f"{MOZILLIANS_PREFIX}treestatus_users"
+TREESTATUS_ADMIN = f"{MOZILLIANS_PREFIX}treestatus_admins"
+
 ALGORITHMS = ["RS256"]
 mock_auth0 = MockAuth0()
 
@@ -309,6 +313,20 @@ class A0User:
 
         return set(args).issubset(self.groups)
 
+    def user_id(self) -> str:
+        """Return the user ID for the authenticated user."""
+        if not self._userinfo:
+            raise ValueError("User ID requested for user without userinfo.")
+
+        # "sub" here means the "subject" of the JWT, i.e. the user. See below:
+        # https://auth0.com/docs/secure/tokens/
+        #   json-web-tokens/json-web-token-claims#registered-claims
+        # https://www.rfc-editor.org/rfc/rfc7519.html#section-4.1.2
+        if "sub" not in self._userinfo:
+            raise ValueError("User does not have username available.")
+
+        return self._userinfo["sub"]
+
 
 def _mock_userinfo_claims(userinfo: dict):
     """Partially mocks Auth0 userinfo by only injecting ldap claims
@@ -354,7 +372,15 @@ class require_auth0:
     accessed using flask.g.auth0_user.
     """
 
-    def __init__(self, scopes: Iterable[str], userinfo: bool = False):
+    def __init__(
+        self,
+        scopes: Iterable[str],
+        groups: Optional[Iterable[str]] = None,
+        userinfo: bool = False,
+    ):
+        assert not groups or userinfo, "Requiring `groups` implies `userinfo`."
+
+        self.groups = groups
         self.userinfo = userinfo
         self.scopes = scopes
 
@@ -396,6 +422,26 @@ class require_auth0:
                 _mock_userinfo_claims(userinfo)
 
             g.auth0_user = A0User(g.access_token, userinfo)
+            return f(*args, **kwargs)
+
+        return wrapped
+
+    def _require_groups(self, f: Callable) -> Callable:
+        """Decorator which verifies membership in required access groups."""
+
+        @functools.wraps(f)
+        def wrapped(*args, **kwargs):
+            if self.groups and not g.auth0_user.is_in_groups(*self.groups):
+                missing_groups = {
+                    group for group in self.groups if group not in g.auth0_user.groups
+                }
+                raise ProblemException(
+                    400,
+                    "Invalid Authorization",
+                    f"User does not have required groups (missing {missing_groups}).",
+                    type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+                )
+
             return f(*args, **kwargs)
 
         return wrapped
@@ -485,6 +531,9 @@ class require_auth0:
         return wrapped
 
     def __call__(self, f: Callable) -> Callable:
+        if self.groups:
+            f = self._require_groups(f)
+
         if self.userinfo:
             f = self._require_userinfo(f)
 
