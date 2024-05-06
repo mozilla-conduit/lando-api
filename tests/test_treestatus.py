@@ -22,9 +22,6 @@ from landoapi.treestatus import (
     is_open,
 )
 
-# Used to load the Treestatus app in tests instead of LandoAPI.
-TREESTATUS_APP = True
-
 
 class IncreasingDatetime:
     """Return an object that returns datetimes with increasing times."""
