@@ -177,13 +177,8 @@ def docker_env_vars(request, versionfile, monkeypatch):
     monkeypatch.setenv("MAIL_SERVER", "localhost")
     monkeypatch.delenv("MAIL_SUPPRESS_SEND", raising=False)
 
-    treestatus_app = (
-        "1"
-        if hasattr(request.module, "TREESTATUS_APP")
-        and request.module.TREESTATUS_APP is True
-        else ""
-    )
-    monkeypatch.setenv("TREESTATUS_APP", treestatus_app)
+    if request.module.__name__ == "tests.test_treestatus":
+        monkeypatch.setenv("TREESTATUS_APP", "1")
 
 
 @pytest.fixture
