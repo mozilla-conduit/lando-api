@@ -54,7 +54,7 @@ def load_config() -> dict[str, Any]:
         "MAIL_USE_TLS": bool(os.getenv("MAIL_USE_TLS")),
         "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL"),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
-        "APP_SPEC": "treestatus.yml"
+        "API_SPEC": "treestatus.yml"
         if os.getenv("TREESTATUS_APP") == "1"
         else "swagger.yml",
         "VERSION": version(),

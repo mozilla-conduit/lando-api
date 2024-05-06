@@ -150,7 +150,7 @@ EXTERNAL_SERVICES_SHOULD_BE_PRESENT = (
 
 
 @pytest.fixture
-def docker_env_vars(versionfile, monkeypatch):
+def docker_env_vars(request, versionfile, monkeypatch):
     """Monkeypatch environment variables that we'd get running under docker."""
     monkeypatch.setenv("ENV", "test")
     monkeypatch.setenv("VERSION_PATH", str(versionfile))
@@ -176,6 +176,14 @@ def docker_env_vars(versionfile, monkeypatch):
     # real attempt would fail.
     monkeypatch.setenv("MAIL_SERVER", "localhost")
     monkeypatch.delenv("MAIL_SUPPRESS_SEND", raising=False)
+
+    treestatus_app = (
+        "1"
+        if hasattr(request.module, "TREESTATUS_APP")
+        and request.module.TREESTATUS_APP is True
+        else ""
+    )
+    monkeypatch.setenv("TREESTATUS_APP", treestatus_app)
 
 
 @pytest.fixture
@@ -253,12 +261,7 @@ def disable_migrations(monkeypatch):
 @pytest.fixture
 def app(request, versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     """Needed for pytest-flask."""
-    module = request.module
-
     config = load_config()
-    config["API_SPEC"] = (
-        "swagger.yml" if not hasattr(module, "TREESTATUS_APP") else "treestatus.yml"
-    )
     # We need the TESTING setting turned on to get tracebacks when testing API
     # endpoints with the TestClient.
     config["TESTING"] = True
