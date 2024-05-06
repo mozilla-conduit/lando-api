@@ -31,7 +31,7 @@ setup(
     ],
     keywords="mozilla commits development conduit",
     packages=find_packages(exclude=["docs", "tests"]),
-    package_data={"landoapi": ["spec/swagger.yml"]},
+    package_data={"landoapi": ["spec/swagger.yml", "spec/treestatus.yml"]},
     install_requires=[],
     extras_require={},
     entry_points={"console_scripts": ["lando-cli = landoapi.cli:cli"]},

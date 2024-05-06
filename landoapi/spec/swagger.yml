@@ -348,6 +348,7 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
+
   /try/patches:
     post:
       operationId: landoapi.api.try_push.post_patches
@@ -388,6 +389,7 @@ paths:
       responses:
         201:
           description: Push was submitted successfully.
+
 definitions:
   LandingPath:
     type: array

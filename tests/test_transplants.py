@@ -863,7 +863,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     phabdouble,
     hg_server,
     hg_clone,
-    treestatusdouble,
+    new_treestatus_tree,
     auth0_mock,
     release_management_project,
     needs_data_classification_project,
@@ -871,8 +871,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     monkeypatch,
     normal_patch,
 ):
-    treestatus = treestatusdouble.get_treestatus_client()
-    treestatusdouble.open_tree("mozilla-central")
+    new_treestatus_tree(tree="mozilla-central", status="open")
     repo = Repo(
         tree="mozilla-central",
         url=hg_server,
@@ -937,7 +936,7 @@ def test_integrated_transplant_records_approvers_peers_and_owners(
     assert approved_by == [[101], [102]]
 
     worker = LandingWorker(sleep_seconds=0.01)
-    assert worker.run_job(job, repo, hgrepo, treestatus)
+    assert worker.run_job(job, repo, hgrepo)
     for revision in job.revisions:
         if revision.revision_id == 1:
             assert revision.data["peers_and_owners"] == [101]
