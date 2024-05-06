@@ -18,7 +18,6 @@ from flask import (
 from landoapi.models.configuration import ConfigurationKey, ConfigurationVariable
 from landoapi.phabricator import PhabricatorAPIException
 from landoapi.sentry import sentry_sdk
-from landoapi.treestatus import TreeStatusException
 
 logger = logging.getLogger(__name__)
 request_logger = logging.getLogger("request.summary")
@@ -30,6 +29,18 @@ def check_maintenance() -> Optional[Response]:
         "dockerflow.heartbeat",
         "dockerflow.version",
         "dockerflow.lbheartbeat",
+        "landoapi_api_treestatus_delete_stack",
+        "landoapi_api_treestatus_delete_tree",
+        "landoapi_api_treestatus_get_logs",
+        "landoapi_api_treestatus_get_logs_all",
+        "landoapi_api_treestatus_get_stack",
+        "landoapi_api_treestatus_get_tree",
+        "landoapi_api_treestatus_get_trees",
+        "landoapi_api_treestatus_get_trees2",
+        "landoapi_api_treestatus_make_tree",
+        "landoapi_api_treestatus_update_log",
+        "landoapi_api_treestatus_update_stack",
+        "landoapi_api_treestatus_update_trees",
     )
     if request.endpoint in excepted_endpoints:
         return
@@ -128,25 +139,6 @@ def handle_phabricator_api_exception(exc: PhabricatorAPIException) -> Response:
     )
 
 
-def handle_treestatus_exception(exc: TreeStatusException) -> Response:
-    sentry_sdk.capture_exception()
-    logger.error("Tree Status exception", exc_info=exc)
-
-    if current_app.propagate_exceptions:
-        # Mimic the behaviour of Flask.handle_exception() and re-raise the full
-        # traceback in test and debug environments.
-        raise exc
-
-    return FlaskApi.get_response(
-        problem(
-            500,
-            "Tree Status Error",
-            "An unexpected error was received from Tree Status",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500",
-        )
-    )
-
-
 def initialize_hooks(flask_app: Flask):
     flask_app.after_request(set_app_wide_headers)
     flask_app.before_request(check_maintenance)
@@ -156,4 +148,3 @@ def initialize_hooks(flask_app: Flask):
     flask_app.register_error_handler(
         PhabricatorAPIException, handle_phabricator_api_exception
     )
-    flask_app.register_error_handler(TreeStatusException, handle_treestatus_exception)

@@ -1,6 +1,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 import logging
 import os
 import subprocess
@@ -38,7 +39,7 @@ def create_lando_api_app() -> connexion.App:
     from landoapi.app import construct_app, load_config
 
     config = load_config()
-    app = construct_app(config)
+    app = construct_app(config, spec=config["API_SPEC"])
     for system in get_subsystems():
         system.init_app(app.app)
 
