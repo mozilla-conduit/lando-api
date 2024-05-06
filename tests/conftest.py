@@ -254,14 +254,16 @@ def disable_migrations(monkeypatch):
 def app(request, versionfile, docker_env_vars, disable_migrations, mocked_repo_config):
     """Needed for pytest-flask."""
     module = request.module
-    spec = "swagger.yml" if not hasattr(module, "TREESTATUS_APP") else "treestatus.yml"
 
     config = load_config()
+    config["API_SPEC"] = (
+        "swagger.yml" if not hasattr(module, "TREESTATUS_APP") else "treestatus.yml"
+    )
     # We need the TESTING setting turned on to get tracebacks when testing API
     # endpoints with the TestClient.
     config["TESTING"] = True
     config["CACHE_DISABLED"] = True
-    app = construct_app(config, spec=spec)
+    app = construct_app(config, spec=config["API_SPEC"])
     flask_app = app.app
     flask_app.test_client_class = JSONClient
     for system in SUBSYSTEMS:

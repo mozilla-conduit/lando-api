@@ -46,13 +46,8 @@ def get_subsystems(exclude: Optional[list[Subsystem]] = None) -> list[Subsystem]
 def create_lando_api_app() -> connexion.App:
     from landoapi.app import construct_app, load_config
 
-    # Determine which app to construct by looking for a Treestatus specific env variable.
-    spec = (
-        "treestatus.yml" if os.getenv("TREESTATUS_APP") is not None else "swagger.yml"
-    )
-
     config = load_config()
-    app = construct_app(config, spec=spec)
+    app = construct_app(config, spec=config["API_SPEC"])
     for system in get_subsystems():
         system.init_app(app.app)
 
