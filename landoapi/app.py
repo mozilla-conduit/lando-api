@@ -55,7 +55,7 @@ def load_config() -> dict[str, Any]:
         "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL"),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
         "APP_SPEC": "treestatus.yml"
-        if os.getenv("TREESTATUS_APP") is not None
+        if os.getenv("TREESTATUS_APP") == "1"
         else "swagger.yml",
         "VERSION": version(),
     }
