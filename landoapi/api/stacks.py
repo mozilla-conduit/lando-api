@@ -35,12 +35,11 @@ from landoapi.revisions import (
     serialize_status,
 )
 from landoapi.stacks import (
+    RevisionStack,
     build_stack_graph,
-    calculate_landable_subgraphs,
-    get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
-from landoapi.transplants import get_blocker_checks
+from landoapi.transplants import assess_stack_state
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
@@ -77,7 +76,6 @@ def get(phab: PhabricatorClient, revision_id: str):
         return not_found_problem
 
     supported_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
-    landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     release_managers = get_release_managers(phab)
     if not release_managers:
@@ -91,16 +89,16 @@ def get(phab: PhabricatorClient, revision_id: str):
 
     relman_group_phid = str(phab.expect(release_managers, "phid"))
 
-    other_checks = get_blocker_checks(
-        data_policy_review_phid=data_policy_review_phid,
-        relman_group_phid=relman_group_phid,
-        repositories=supported_repos,
-        stack_data=stack_data,
+    stack = RevisionStack(set(stack_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        stack_data,
+        stack,
+        relman_group_phid,
+        data_policy_review_phid,
     )
-
-    landable, blocked = calculate_landable_subgraphs(
-        stack_data, edges, landable_repos, other_checks=other_checks
-    )
+    landable = stack_state.landable_stack.landable_paths()
     uplift_repos = [
         name for name, repo in supported_repos.items() if repo.approval_required
     ]
@@ -175,12 +173,14 @@ def get(phab: PhabricatorClient, revision_id: str):
         )
         author_response = serialize_author(phab.expect(fields, "authorPHID"), users)
 
+        blocked_reasons = stack_state.stack.nodes[revision_phid].get("blocked")
+
         revisions_response.append(
             {
                 "id": human_revision_id,
                 "phid": revision_phid,
                 "status": serialize_status(phab_revision),
-                "blocked_reason": blocked.get(revision_phid, ""),
+                "blocked_reasons": blocked_reasons,
                 "bug_id": bug_id,
                 "title": commit_description.title,
                 "url": revision_url,

@@ -9,10 +9,10 @@ from landoapi.repos import get_repos_for_env
 from landoapi.stacks import (
     RevisionStack,
     build_stack_graph,
-    calculate_landable_subgraphs,
     get_landable_repos_for_revision_data,
     request_extended_revision_data,
 )
+from landoapi.transplants import assess_stack_state
 
 
 def test_build_stack_graph_single_node(phabdouble):
@@ -279,48 +279,94 @@ def test_request_extended_revision_data_raises_value_error(phabdouble):
     assert e.value.args[0] == "Mismatch in size of returned data."
 
 
-def test_calculate_landable_subgraphs_no_edges_open(phabdouble):
+def test_calculate_landable_subgraphs_no_edges_open(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
     revision = phabdouble.revision(repo=repo)
+    revision_obj = phabdouble.api_object_for(revision)
     ext_data = request_extended_revision_data(phab, [revision["phid"]])
 
-    landable, _ = calculate_landable_subgraphs(ext_data, set(), {repo["phid"]})
+    supported_repos = get_repos_for_env("test")
+
+    nodes, edges = build_stack_graph(revision_obj)
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
+    )
+    landable = stack_state.landable_stack.landable_paths()
 
     assert len(landable) == 1
     assert landable[0] == [revision["phid"]]
 
 
-def test_calculate_landable_subgraphs_no_edges_closed(phabdouble):
+def test_calculate_landable_subgraphs_no_edges_closed(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
     revision = phabdouble.revision(
         repo=repo, status=PhabricatorRevisionStatus.PUBLISHED
     )
+    revision_obj = phabdouble.api_object_for(revision)
     ext_data = request_extended_revision_data(phab, [revision["phid"]])
 
-    landable, _ = calculate_landable_subgraphs(ext_data, set(), {repo["phid"]})
+    supported_repos = get_repos_for_env("test")
+
+    nodes, edges = build_stack_graph(revision_obj)
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
+    )
+    landable = stack_state.landable_stack.landable_paths()
 
     assert not landable
 
 
-def test_calculate_landable_subgraphs_closed_root(phabdouble):
+def test_calculate_landable_subgraphs_closed_root(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
     r1 = phabdouble.revision(repo=repo, status=PhabricatorRevisionStatus.PUBLISHED)
     r2 = phabdouble.revision(repo=repo, depends_on=[r1])
+    revision_obj = phabdouble.api_object_for(r1)
 
-    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(phab, [r1["phid"], r2["phid"]])
 
-    landable, _ = calculate_landable_subgraphs(ext_data, edges, {repo["phid"]})
+    supported_repos = get_repos_for_env("test")
+
+    nodes, edges = build_stack_graph(revision_obj)
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
+    )
+    landable = stack_state.landable_stack.landable_paths()
     assert landable == [[r2["phid"]]]
 
 
-def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble):
+def test_calculate_landable_subgraphs_closed_root_child_merges(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -328,113 +374,171 @@ def test_calculate_landable_subgraphs_closed_root_child_merges(phabdouble):
     r2 = phabdouble.revision(repo=repo, depends_on=[r1])
     r3 = phabdouble.revision(repo=repo, status=PhabricatorRevisionStatus.PUBLISHED)
     r4 = phabdouble.revision(repo=repo, depends_on=[r2, r3])
+    revision_obj = phabdouble.api_object_for(r1)
 
-    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
+    supported_repos = get_repos_for_env("test")
+
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"], r4["phid"]]
     )
 
-    landable, _ = calculate_landable_subgraphs(ext_data, edges, {repo["phid"]})
+    nodes, edges = build_stack_graph(revision_obj)
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
+    )
+    landable = stack_state.landable_stack.landable_paths()
     assert [r3["phid"]] not in landable
     assert [r3["phid"], r4["phid"]] not in landable
     assert [r4["phid"]] not in landable
     assert landable == [[r1["phid"], r2["phid"], r4["phid"]]]
 
 
-def test_calculate_landable_subgraphs_stops_multiple_repo_paths(phabdouble):
+def test_calculate_landable_subgraphs_stops_multiple_repo_paths(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
-    repo1 = phabdouble.repo(name="repo1")
-    repo2 = phabdouble.repo(name="repo2")
+    repo1 = phabdouble.repo(name="mozilla-central")
+    repo2 = phabdouble.repo(name="mozilla-new")
     r1 = phabdouble.revision(repo=repo1)
     r2 = phabdouble.revision(repo=repo1, depends_on=[r1])
     r3 = phabdouble.revision(repo=repo2, depends_on=[r2])
+    revision_obj = phabdouble.api_object_for(r1)
 
-    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
+    supported_repos = get_repos_for_env("test")
+
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"]]
     )
-
-    landable, _ = calculate_landable_subgraphs(
-        ext_data, edges, {repo1["phid"], repo2["phid"]}
+    nodes, edges = build_stack_graph(revision_obj)
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
     )
+    landable = stack_state.landable_stack.landable_paths()
+
     assert landable == [[r1["phid"], r2["phid"]]]
 
 
-def test_calculate_landable_subgraphs_allows_distinct_repo_paths(phabdouble):
+def test_calculate_landable_subgraphs_allows_distinct_repo_paths(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
-    repo1 = phabdouble.repo(name="repo1")
+    repo1 = phabdouble.repo(name="mozilla-central")
     r1 = phabdouble.revision(repo=repo1)
     r2 = phabdouble.revision(repo=repo1, depends_on=[r1])
 
-    repo2 = phabdouble.repo(name="repo2")
+    repo2 = phabdouble.repo(name="mozilla-new")
     r3 = phabdouble.revision(repo=repo2)
     r4 = phabdouble.revision(repo=repo2, depends_on=[r3])
 
     r5 = phabdouble.revision(repo=repo1, depends_on=[r2, r4])
 
+    supported_repos = get_repos_for_env("test")
+
     nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"], r4["phid"], r5["phid"]]
     )
-
-    landable, _ = calculate_landable_subgraphs(
-        ext_data, edges, {repo1["phid"], repo2["phid"]}
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
     )
+    landable = stack_state.landable_stack.landable_paths()
     assert len(landable) == 2
     assert [r1["phid"], r2["phid"]] in landable
     assert [r3["phid"], r4["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_different_repo_parents(phabdouble):
+def test_calculate_landable_subgraphs_different_repo_parents(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
-    repo1 = phabdouble.repo(name="repo1")
+    repo1 = phabdouble.repo(name="mozilla-central")
     r1 = phabdouble.revision(repo=repo1)
 
-    repo2 = phabdouble.repo(name="repo2")
+    repo2 = phabdouble.repo(name="mozilla-new")
     r2 = phabdouble.revision(repo=repo2)
 
     r3 = phabdouble.revision(repo=repo2, depends_on=[r1, r2])
+
+    supported_repos = get_repos_for_env("test")
 
     nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"]]
     )
 
-    landable, _ = calculate_landable_subgraphs(
-        ext_data, edges, {repo1["phid"], repo2["phid"]}
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
     )
+    landable = stack_state.landable_stack.landable_paths()
     assert len(landable) == 2
     assert [r1["phid"]] in landable
     assert [r2["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_different_repo_closed_parent(phabdouble):
+def test_calculate_landable_subgraphs_different_repo_closed_parent(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
-    repo1 = phabdouble.repo(name="repo1")
+    repo1 = phabdouble.repo(name="mozilla-central")
     r1 = phabdouble.revision(repo=repo1, status=PhabricatorRevisionStatus.PUBLISHED)
 
-    repo2 = phabdouble.repo(name="repo2")
+    repo2 = phabdouble.repo(name="mozilla-new")
     r2 = phabdouble.revision(repo=repo2)
 
     r3 = phabdouble.revision(repo=repo2, depends_on=[r1, r2])
+
+    supported_repos = get_repos_for_env("test")
 
     nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab, [r1["phid"], r2["phid"], r3["phid"]]
     )
 
-    landable, _ = calculate_landable_subgraphs(
-        ext_data, edges, {repo1["phid"], repo2["phid"]}
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
     )
+    landable = stack_state.landable_stack.landable_paths()
     assert len(landable) == 1
     assert [r2["phid"], r3["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble):
+def test_calculate_landable_subgraphs_diverging_paths_merge(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
     repo = phabdouble.repo()
@@ -450,6 +554,8 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble):
 
     r7 = phabdouble.revision(repo=repo, depends_on=[r3, r5, r6])
 
+    supported_repos = get_repos_for_env("test")
+
     nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     ext_data = request_extended_revision_data(
         phab,
@@ -464,19 +570,30 @@ def test_calculate_landable_subgraphs_diverging_paths_merge(phabdouble):
         ],
     )
 
-    landable, _ = calculate_landable_subgraphs(ext_data, edges, {repo["phid"]})
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
+    )
+    landable = stack_state.landable_stack.landable_paths()
     assert len(landable) == 3
     assert [r1["phid"], r2["phid"], r3["phid"]] in landable
     assert [r1["phid"], r4["phid"], r5["phid"]] in landable
     assert [r1["phid"], r6["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_complex_graph(phabdouble):
+def test_calculate_landable_subgraphs_complex_graph(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     phab = phabdouble.get_phabricator_client()
 
-    repoA = phabdouble.repo(name="repoA")
-    repoB = phabdouble.repo(name="repoB")
-    repoC = phabdouble.repo(name="repoC")
+    repoA = phabdouble.repo(name="mozilla-central")
+    repoB = phabdouble.repo(name="mozilla-new")
+    repoC = phabdouble.repo(name="try")
 
     # Revision stack to construct:
     # *         rB4
@@ -545,56 +662,49 @@ def test_calculate_landable_subgraphs_complex_graph(phabdouble):
         ],
     )
 
-    landable, _ = calculate_landable_subgraphs(
-        ext_data, edges, {repoA["phid"], repoB["phid"]}
+    supported_repos = get_repos_for_env("test")
+
+    stack = RevisionStack(set(ext_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        ext_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
     )
+    landable = stack_state.landable_stack.landable_paths()
+
     assert len(landable) == 3
     assert [rA2["phid"], rA4["phid"], rA5["phid"], rA6["phid"], rA7["phid"]] in landable
     assert [rA2["phid"], rA4["phid"], rA5["phid"], rA6["phid"], rA8["phid"]] in landable
     assert [rB1["phid"]] in landable
 
 
-def test_calculate_landable_subgraphs_extra_check(phabdouble):
-    phab = phabdouble.get_phabricator_client()
-
-    repo = phabdouble.repo()
-    r1 = phabdouble.revision(repo=repo)
-    r2 = phabdouble.revision(repo=repo, depends_on=[r1])
-    r3 = phabdouble.revision(repo=repo, depends_on=[r2])
-    r4 = phabdouble.revision(repo=repo, depends_on=[r3])
-
-    nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
-    ext_data = request_extended_revision_data(
-        phab, [r1["phid"], r2["phid"], r3["phid"], r4["phid"]]
-    )
-
-    REASON = "Blocked by custom check."
-
-    def custom_check(*, revision, diff, repo):
-        return REASON if revision["id"] == r3["id"] else None
-
-    landable, blocked = calculate_landable_subgraphs(
-        ext_data, edges, {repo["phid"]}, other_checks=[custom_check]
-    )
-    assert landable == [[r1["phid"], r2["phid"]]]
-    assert r3["phid"] in blocked and r4["phid"] in blocked
-    assert blocked[r3["phid"]] == REASON
-
-
-def test_calculate_landable_subgraphs_missing_repo(phabdouble):
+def test_calculate_landable_subgraphs_missing_repo(
+    phabdouble, app, db, release_management_project, needs_data_classification_project
+):
     """Test to assert a missing repository for a revision is
     blocked with an appropriate error
     """
     phab = phabdouble.get_phabricator_client()
-    repo1 = phabdouble.repo()
     r1 = phabdouble.revision(repo=None)
+
+    supported_repos = get_repos_for_env("test")
 
     nodes, edges = build_stack_graph(phabdouble.api_object_for(r1))
     revision_data = request_extended_revision_data(phab, [r1["phid"]])
 
-    landable, blocked = calculate_landable_subgraphs(
-        revision_data, edges, {repo1["phid"]}
+    stack = RevisionStack(set(revision_data.revisions.keys()), edges)
+    assessment, stack_state = assess_stack_state(
+        phab,
+        supported_repos,
+        revision_data,
+        stack,
+        release_management_project["phid"],
+        needs_data_classification_project["phid"],
     )
+    landable = stack_state.landable_stack.landable_paths()
 
     repo_unset_warning = (
         "Revision's repository unset. Specify a target using"
@@ -602,8 +712,8 @@ def test_calculate_landable_subgraphs_missing_repo(phabdouble):
     )
 
     assert not landable
-    assert r1["phid"] in blocked
-    assert blocked[r1["phid"]] == repo_unset_warning
+    assert r1["phid"] not in stack_state.landable_stack
+    assert repo_unset_warning in stack_state.stack.nodes[r1["phid"]]["blocked"]
 
 
 def test_get_landable_repos_for_revision_data(phabdouble, mocked_repo_config):
@@ -661,9 +771,9 @@ def test_integrated_stack_endpoint_simple(
     assert r3["phid"] in revisions
     assert r4["phid"] in revisions
 
-    assert revisions[r4["phid"]]["blocked_reason"] == (
+    assert revisions[r4["phid"]]["blocked_reasons"] == [
         "Repository is not supported by Lando."
-    )
+    ]
 
 
 def test_integrated_stack_endpoint_repos(
@@ -784,6 +894,10 @@ def test_revisionstack_stack():
     assert list(stack.root_revisions()) == [
         "789"
     ], "Node `789` should be the root revision."
+
+    assert list(stack.leaf_revisions()) == [
+        "123"
+    ], "Node `123` should be the only leaf revisions."
 
     assert list(stack.iter_stack_from_root("123")) == ["789", "456", "123"], (
         "Iterating over the stack from the root to the tip should "
