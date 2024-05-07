@@ -1,11 +1,13 @@
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
 
+from landoapi.auth import A0User
 from landoapi.hg import HgRepo
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing_job import (
@@ -15,13 +17,23 @@ from landoapi.models.landing_job import (
 )
 from landoapi.models.revisions import Revision
 from landoapi.models.transplant import Transplant
-from landoapi.phabricator import PhabricatorRevisionStatus, ReviewerStatus
-from landoapi.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo
+from landoapi.phabricator import (
+    PhabricatorClient,
+    PhabricatorRevisionStatus,
+    ReviewerStatus,
+)
+from landoapi.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo, get_repos_for_env
 from landoapi.reviews import get_collated_reviewers
+from landoapi.stacks import RevisionData, RevisionStack, request_extended_revision_data
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
+    LandingAssessmentState,
     RevisionWarning,
-    TransplantAssessment,
+    StackAssessment,
+    StackAssessmentState,
+    blocker_author_planned_changes,
+    blocker_revision_data_classification,
+    blocker_uplift_approval,
     warning_not_accepted,
     warning_previously_landed,
     warning_reviews_not_current,
@@ -99,6 +111,49 @@ def _create_landing_job_with_no_linked_revisions(
     return job
 
 
+def create_landing_state(**kwargs):
+    state = {
+        "auth0_user": A0User("", {}),
+        "revision_to_diff_id": {},
+        "to_land": [],
+        "landing_repo": None,
+    }
+
+    if not any(kwarg in state for kwarg in kwargs.keys()):
+        # Keep the landing assessment state as `None` for irrelevant checks.
+        return None
+
+    state.update({key: value for key, value in kwargs.items() if key in state})
+
+    return LandingAssessmentState(**state)
+
+
+def create_state(**kwargs):
+    landing_state = create_landing_state(**kwargs)
+
+    state = {
+        "phab": PhabricatorClient("testing123", "testing123"),
+        "stack_data": RevisionData({}, {}, {}),
+        "stack": RevisionStack([], []),
+        "statuses": {},
+        "landable_stack": RevisionStack([], []),
+        "landable_repos": {},
+        "reviewers": {},
+        "users": {},
+        "projects": {},
+        "supported_repos": {},
+        "data_policy_review_phid": "",
+        "relman_group_phid": "",
+        "secure_project_phid": "",
+        "testing_tag_project_phids": [],
+        "testing_policy_phid": "",
+        "landing_assessment": landing_state,
+    }
+    state.update(kwargs)
+
+    return StackAssessmentState(**state)
+
+
 def test_dryrun_no_warnings_or_blockers(
     client,
     db,
@@ -158,7 +213,10 @@ def test_dryrun_invalid_path_blocks(
 
     assert 200 == response.status_code
     assert "application/json" == response.content_type
-    assert response.json["blocker"] is not None
+    assert (
+        "Depends on D1 which is open and has a different repository"
+        in response.json["blocker"]
+    )
 
 
 def test_dryrun_in_progress_transplant_blocks(
@@ -400,7 +458,7 @@ def test_integrated_dryrun_blocks_for_bad_userinfo(
     )
 
     assert response.status_code == status
-    assert response.json["blocker"] == blocker
+    assert blocker in response.json["blocker"]
 
 
 def test_get_transplants_for_entire_stack(db, client, phabdouble):
@@ -490,7 +548,8 @@ def test_warning_previously_landed_no_landings(db, phabdouble):
         r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
-    assert warning_previously_landed(revision=revision, diff=diff) is None
+    stack_state = create_state()
+    assert warning_previously_landed(revision, diff, stack_state) is None
 
 
 @pytest.mark.parametrize(
@@ -512,7 +571,9 @@ def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    assert warning_previously_landed(revision=revision, diff=diff) is None
+    stack_state = create_state()
+
+    assert warning_previously_landed(revision, diff, stack_state) is None
 
 
 @pytest.mark.parametrize(
@@ -534,7 +595,9 @@ def test_warning_previously_landed_landed_landing(db, phabdouble, create_landing
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    assert warning_previously_landed(revision=revision, diff=diff) is not None
+    stack_state = create_state()
+
+    assert warning_previously_landed(revision, diff, stack_state) is not None
 
 
 def test_warning_revision_secure_project_none(phabdouble):
@@ -543,7 +606,9 @@ def test_warning_revision_secure_project_none(phabdouble):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    assert warning_revision_secure(revision=revision, secure_project_phid=None) is None
+    stack_state = create_state(secure_project_phid=None)
+
+    assert warning_revision_secure(revision, {}, stack_state) is None
 
 
 def test_warning_revision_secure_is_secure(phabdouble, secure_project):
@@ -552,12 +617,9 @@ def test_warning_revision_secure_is_secure(phabdouble, secure_project):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    assert (
-        warning_revision_secure(
-            revision=revision, secure_project_phid=secure_project["phid"]
-        )
-        is not None
-    )
+    stack_state = create_state(secure_project_phid=secure_project["phid"])
+
+    assert warning_revision_secure(revision, {}, stack_state) is not None
 
 
 def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
@@ -567,12 +629,9 @@ def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    assert (
-        warning_revision_secure(
-            revision=revision, secure_project_phid=secure_project["phid"]
-        )
-        is None
-    )
+    stack_state = create_state(secure_project_phid=secure_project["phid"])
+
+    assert warning_revision_secure(revision, {}, stack_state) is None
 
 
 @pytest.mark.parametrize(
@@ -589,7 +648,9 @@ def test_warning_not_accepted_warns_on_other_status(phabdouble, status):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    assert warning_not_accepted(revision=revision) is not None
+    stack_state = create_state()
+
+    assert warning_not_accepted(revision, {}, stack_state) is not None
 
 
 def test_warning_not_accepted_no_warning_when_accepted(phabdouble):
@@ -598,7 +659,9 @@ def test_warning_not_accepted_no_warning_when_accepted(phabdouble):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    assert warning_not_accepted(revision=revision) is None
+    stack_state = create_state()
+
+    assert warning_not_accepted(revision, {}, stack_state) is None
 
 
 def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
@@ -617,10 +680,9 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
     reviewers = get_collated_reviewers(revision)
     diff = phabdouble.api_object_for(d_new, attachments={"commits": True})
 
-    assert (
-        warning_reviews_not_current(revision=revision, diff=diff, reviewers=reviewers)
-        is not None
-    )
+    stack_state = create_state(reviewers={revision["phid"]: reviewers})
+
+    assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
 def test_warning_reviews_not_current_warns_on_unreviewed_revision(phabdouble):
@@ -634,10 +696,9 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(phabdouble):
     reviewers = get_collated_reviewers(revision)
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    assert (
-        warning_reviews_not_current(revision=revision, diff=diff, reviewers=reviewers)
-        is not None
-    )
+    stack_state = create_state(reviewers={revision["phid"]: reviewers})
+
+    assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
 def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
@@ -656,10 +717,9 @@ def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
     reviewers = get_collated_reviewers(revision)
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    assert (
-        warning_reviews_not_current(revision=revision, diff=diff, reviewers=reviewers)
-        is None
-    )
+    stack_state = create_state(reviewers={revision["phid"]: reviewers})
+
+    assert warning_reviews_not_current(revision, diff, stack_state) is None
 
 
 def test_confirmation_token_warning_order():
@@ -679,8 +739,8 @@ def test_confirmation_token_warning_order():
     ]
 
     assert all(
-        TransplantAssessment.confirmation_token(warnings_a)
-        == TransplantAssessment.confirmation_token(w)
+        StackAssessment.confirmation_token(warnings_a)
+        == StackAssessment.confirmation_token(w)
         for w in (warnings_b, reversed(warnings_a), reversed(warnings_b))
     )
 
@@ -1149,10 +1209,10 @@ def test_integrated_transplant_without_auth0_permissions(
     )
 
     assert response.status_code == 400
-    assert response.json["blocker"] == (
+    assert (
         "You have insufficient permissions to land. "
         "Level 3 Commit Access is required. See the FAQ for help."
-    )
+    ) in response.json["blocker"]
 
 
 def test_transplant_wrong_landing_path_format(db, client, auth0_mock):
@@ -1202,7 +1262,7 @@ def test_integrated_transplant_diff_not_in_revision(
         headers=auth0_mock.mock_headers,
     )
     assert response.status_code == 400
-    assert response.json["blocker"] == "A requested diff is not the latest."
+    assert "A requested diff is not the latest." in response.json["blocker"]
 
 
 def test_transplant_nonexisting_revision_returns_404(
@@ -1245,9 +1305,7 @@ def test_integrated_transplant_revision_with_no_repo(
     )
     assert response.status_code == 400
     assert response.json["title"] == "Landing is Blocked"
-    assert response.json["blocker"] == (
-        "The requested set of revisions are not landable."
-    )
+    assert "Landing repository is missing for this landing." in response.json["blocker"]
 
 
 def test_integrated_transplant_revision_with_unmapped_repo(
@@ -1273,9 +1331,7 @@ def test_integrated_transplant_revision_with_unmapped_repo(
     )
     assert response.status_code == 400
     assert response.json["title"] == "Landing is Blocked"
-    assert response.json["blocker"] == (
-        "The requested set of revisions are not landable."
-    )
+    assert "Landing repository is missing for this landing." in response.json["blocker"]
 
 
 def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_list(
@@ -1323,7 +1379,9 @@ def test_warning_wip_commit_message(phabdouble):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    assert warning_wip_commit_message(revision=revision) is not None
+    stack_state = create_state()
+
+    assert warning_wip_commit_message(revision, {}, stack_state) is not None
 
 
 def test_display_branch_head():
@@ -1479,3 +1537,152 @@ def test_unresolved_comment_stack(
     assert (
         response.json["warnings"][0]["id"] == 9
     ), "the warning ID should match the ID for warning_unresolved_comments"
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        s
+        for s in PhabricatorRevisionStatus
+        if s is not PhabricatorRevisionStatus.CHANGES_PLANNED
+    ],
+)
+def test_check_author_planned_changes_changes_not_planned(phabdouble, status):
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(status=status),
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    stack_state = create_state()
+    assert (
+        blocker_author_planned_changes(
+            revision=revision, diff={}, stack_state=stack_state
+        )
+        is None
+    )
+
+
+def test_check_author_planned_changes_changes_planned(phabdouble):
+    revision = phabdouble.api_object_for(
+        phabdouble.revision(status=PhabricatorRevisionStatus.CHANGES_PLANNED),
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    stack_state = create_state()
+    assert (
+        blocker_author_planned_changes(
+            revision=revision, diff={}, stack_state=stack_state
+        )
+        is not None
+    )
+
+
+@pytest.mark.parametrize("status", list(ReviewerStatus))
+def test_relman_approval_status(
+    status, phabdouble, release_management_project, needs_data_classification_project
+):
+    """Check only an approval from relman allows landing"""
+    repo = phabdouble.repo(name="uplift-target")
+    repos = get_repos_for_env("localdev")
+    assert repos["uplift-target"].approval_required is True
+
+    # Add relman as reviewer with specified status
+    revision = phabdouble.revision(repo=repo, uplift="blah blah")
+    phabdouble.reviewer(
+        revision,
+        release_management_project,
+        status=status,
+    )
+
+    # Add a some extra reviewers
+    for i in range(3):
+        phabdouble.reviewer(revision, phabdouble.user(username=f"reviewer-{i}"))
+
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+
+    phab_client = phabdouble.get_phabricator_client()
+    stack_data = request_extended_revision_data(phab_client, [revision["phid"]])
+
+    stack_state = create_state(
+        relman_group_phid=release_management_project["phid"],
+        supported_repos=repos,
+        stack_data=stack_data,
+    )
+    output = blocker_uplift_approval(
+        revision=phab_revision, diff={}, stack_state=stack_state
+    )
+    if status == ReviewerStatus.ACCEPTED:
+        assert output is None
+    else:
+        assert output == (
+            "The release-managers group did not accept the stack: you need to wait "
+            "for a group approval from release-managers, or request a new review."
+        )
+
+
+def test_relman_approval_missing(
+    phabdouble, release_management_project, needs_data_classification_project
+):
+    """A repo with an approval required needs relman as reviewer"""
+    repo = phabdouble.repo(name="uplift-target")
+    repos = get_repos_for_env("localdev")
+    assert repos["uplift-target"].approval_required is True
+
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+
+    phab_client = phabdouble.get_phabricator_client()
+    stack_data = request_extended_revision_data(phab_client, [revision["phid"]])
+
+    stack_state = create_state(
+        relman_group_phid=release_management_project["phid"],
+        supported_repos=repos,
+        stack_data=stack_data,
+    )
+    assert blocker_uplift_approval(
+        revision=phab_revision, diff={}, stack_state=stack_state
+    ) == (
+        "The release-managers group did not accept the stack: "
+        "you need to wait for a group approval from release-managers, "
+        "or request a new review."
+    )
+
+
+def test_revision_has_data_classification_tag(
+    phabdouble, needs_data_classification_project
+):
+    repo = phabdouble.repo()
+    revision = phabdouble.revision(
+        repo=repo, projects=[needs_data_classification_project]
+    )
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+
+    stack_state = create_state(
+        data_policy_review_phid=needs_data_classification_project["phid"]
+    )
+
+    assert blocker_revision_data_classification(
+        revision=phab_revision, diff={}, stack_state=stack_state
+    ) == (
+        "Revision makes changes to data collection and "
+        "should have its data classification assessed before landing."
+    ), "Revision with data classification project tag should be blocked from landing."
+
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    assert (
+        blocker_revision_data_classification(
+            revision=phab_revision, diff={}, stack_state=stack_state
+        )
+        is None
+    ), "Revision with no data classification tag should not be blocked from landing."

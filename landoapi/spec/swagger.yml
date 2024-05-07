@@ -40,7 +40,7 @@ paths:
         200:
           description: OK
           schema:
-            $ref: '#/definitions/TransplantAssessment'
+            $ref: '#/definitions/StackAssessment'
         default:
           description: Unexpected error
           schema:
@@ -114,7 +114,7 @@ paths:
           schema:
             allOf:
               - $ref: '#/definitions/Error'
-              - $ref: '#/definitions/TransplantAssessment'
+              - $ref: '#/definitions/StackAssessment'
         default:
           description: Error
           schema:
@@ -740,7 +740,7 @@ definitions:
             type: string
           email:
             type: string
-  TransplantAssessment:
+  StackAssessment:
     type: object
     properties:
       confirmation_token:
@@ -753,11 +753,13 @@ definitions:
           warnings to the end user and have the user acknowledge the warnings
           with a checkbox. Once acknowledged, the UI can pass the confirmation
           token to the transplant endpoint so the transplant can proceed.
-      blocker:
-        type: string
+      blockers:
+        type: array
         description: |
-          A description of why landing is blocked. Only contains data when
+          A list of descriptions of why landing is blocked. Only contains data when
           the landing is blocked.
+        items:
+          type: string
       warnings:
         type: array
         description: |
