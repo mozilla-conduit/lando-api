@@ -1708,7 +1708,7 @@ index 0000000..55faaf5
 """.lstrip()
 
 
-def test_blocker_prevent_symlinks(phabdouble, needs_data_classification_project):
+def test_blocker_prevent_symlinks(phabdouble):
     repo = phabdouble.repo()
 
     # Create a revision/diff pair without a symlink.
