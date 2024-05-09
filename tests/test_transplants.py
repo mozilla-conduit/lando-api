@@ -33,8 +33,10 @@ from landoapi.transplants import (
     StackAssessment,
     StackAssessmentState,
     blocker_author_planned_changes,
+    blocker_prevent_symlinks,
     blocker_revision_data_classification,
     blocker_uplift_approval,
+    get_parsed_diffs,
     warning_not_accepted,
     warning_previously_landed,
     warning_reviews_not_current,
@@ -132,6 +134,7 @@ def create_state(landing_state: Optional[LandingAssessmentState] = None, **kwarg
         "phab": PhabricatorClient("testing123", "testing123"),
         "stack_data": RevisionData({}, {}, {}),
         "stack": RevisionStack([], []),
+        "parsed_diffs": {},
         "statuses": {},
         "landable_stack": RevisionStack([], []),
         "landable_repos": {},
@@ -1682,3 +1685,66 @@ def test_revision_has_data_classification_tag(
         )
         is None
     ), "Revision with no data classification tag should not be blocked from landing."
+
+
+SYMLINK_DIFF = """
+diff --git a/blahfile_real b/blahfile_real
+new file mode 100644
+index 0000000..907b308
+--- /dev/null
++++ b/blahfile_real
+@@ -0,0 +1 @@
++blah
+diff --git a/blahfile_symlink b/blahfile_symlink
+new file mode 120000
+index 0000000..55faaf5
+--- /dev/null
++++ b/blahfile_symlink
+@@ -0,0 +1 @@
++/home/sheehan/blahfile
+""".lstrip()
+
+
+def test_blocker_prevent_symlinks(phabdouble):
+    repo = phabdouble.repo()
+
+    # Create a revision/diff pair without a symlink.
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_normal = phabdouble.diff(revision=revision)
+
+    # Create a revision/diff pair with a symlink.
+    revision_symlink = phabdouble.revision(repo=repo)
+    phab_revision_symlink = phabdouble.api_object_for(
+        revision_symlink,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff_symlink = phabdouble.diff(rawdiff=SYMLINK_DIFF, revision=revision_symlink)
+
+    # Collect extended revision data for both revisions.
+    phab_client = phabdouble.get_phabricator_client()
+    stack_data = request_extended_revision_data(
+        phab_client, [revision["phid"], revision_symlink["phid"]]
+    )
+
+    # Parse diffs into `rs_parsepatch` format.
+    parsed_diffs = get_parsed_diffs(phab_client, stack_data)
+
+    stack_state = create_state(stack_data=stack_data, parsed_diffs=parsed_diffs)
+
+    assert (
+        blocker_prevent_symlinks(
+            revision=phab_revision, diff=diff_normal, stack_state=stack_state
+        )
+        is None
+    ), "Diff without symlinks present should pass the check."
+
+    assert (
+        blocker_prevent_symlinks(
+            revision=phab_revision_symlink, diff=diff_symlink, stack_state=stack_state
+        )
+        == "Revision introduces symlinks in the files `blahfile_symlink`."
+    ), "Diff with symlinks present should fail the check."
