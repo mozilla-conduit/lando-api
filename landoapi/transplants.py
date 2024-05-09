@@ -932,7 +932,7 @@ def run_landing_checks(stack_state: StackAssessmentState) -> StackAssessment:
 def get_parsed_diffs(
     phab: PhabricatorClient, stack_data: RevisionData
 ) -> dict[int, dict]:
-    """Return a mapping of diff PHID to raw `diff --git` content."""
+    """Return a mapping of diff PHID to `rs-parsepatch` parsed `diff --git` content."""
     raw_diffs = {}
     for diff in stack_data.diffs.values():
         diff_id = phab.expect(diff, "id")
