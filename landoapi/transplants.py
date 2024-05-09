@@ -20,6 +20,7 @@ from connexion import ProblemException
 from flask import current_app
 
 from landoapi.auth import A0User
+from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import (
@@ -929,6 +930,23 @@ def run_landing_checks(stack_state: StackAssessmentState) -> StackAssessment:
     return assessment
 
 
+def get_raw_diff_by_id(phab: PhabricatorClient, diff_id: int) -> str:
+    """Get a `differential.rawdiff` response for the given diff ID.
+
+    Handles retrieving and setting responses from Phabricator in the cache.
+    """
+    # Check for data in the cache.
+    cache_key = f"raw_diff_{diff_id}"
+    if cache.has(cache_key):
+        return cache.get(cache_key)
+
+    # Request data from Phabricator and set in the cache.
+    raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff_id)
+
+    cache.set(cache_key, raw_diff, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
+    return raw_diff
+
+
 def get_parsed_diffs(
     phab: PhabricatorClient, stack_data: RevisionData
 ) -> dict[int, dict]:
@@ -936,8 +954,8 @@ def get_parsed_diffs(
     raw_diffs = {}
     for diff in stack_data.diffs.values():
         diff_id = phab.expect(diff, "id")
-        raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff_id)
-        raw_diffs[diff_id] = raw_diff
+
+        raw_diffs[diff_id] = get_raw_diff_by_id(phab, diff_id)
 
     return {
         diff_id: rs_parsepatch.get_diffs(diff) for diff_id, diff in raw_diffs.items()
