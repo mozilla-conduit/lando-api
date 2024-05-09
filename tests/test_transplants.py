@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from datetime import datetime, timezone
+from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
@@ -114,22 +115,18 @@ def _create_landing_job_with_no_linked_revisions(
 def create_landing_state(**kwargs):
     state = {
         "auth0_user": A0User("", {}),
-        "revision_to_diff_id": {},
+        "landing_path_by_phid": [],
         "to_land": [],
         "landing_repo": None,
     }
 
-    if not any(kwarg in state for kwarg in kwargs.keys()):
-        # Keep the landing assessment state as `None` for irrelevant checks.
-        return None
-
-    state.update({key: value for key, value in kwargs.items() if key in state})
+    state.update(kwargs)
 
     return LandingAssessmentState(**state)
 
 
-def create_state(**kwargs):
-    landing_state = create_landing_state(**kwargs)
+def create_state(landing_state: Optional[LandingAssessmentState] = None, **kwargs):
+    landing_state = landing_state or create_landing_state()
 
     state = {
         "phab": PhabricatorClient("testing123", "testing123"),
