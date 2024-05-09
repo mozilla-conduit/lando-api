@@ -15,10 +15,12 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import requests
+import rs_parsepatch
 from connexion import ProblemException
 from flask import current_app
 
 from landoapi.auth import A0User
+from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import (
@@ -122,6 +124,7 @@ class StackAssessmentState:
     phab: PhabricatorClient
     stack_data: RevisionData
     stack: RevisionStack
+    parsed_diffs: dict[int, dict]
     landable_stack: RevisionStack
     statuses: dict[str, PhabricatorRevisionStatus]
     landable_repos: dict[str, Repo]
@@ -144,6 +147,7 @@ class StackAssessmentState:
         phab: PhabricatorClient,
         stack_data: RevisionData,
         stack: RevisionStack,
+        parsed_diffs: dict[int, dict],
         landable_repos: dict[str, Repo],
         supported_repos: dict[str, Repo],
         reviewers: dict,
@@ -179,6 +183,7 @@ class StackAssessmentState:
             stack_data=stack_data,
             stack=stack,
             statuses=statuses,
+            parsed_diffs=parsed_diffs,
             landable_stack=landable_stack,
             landable_repos=landable_repos,
             supported_repos=supported_repos,
@@ -809,6 +814,34 @@ def blocker_single_landing_repo(
     stack_state.landing_assessment.landing_repo = landing_repo
 
 
+# Decimal notation for the `symlink` file mode.
+SYMLINK_MODE = 40960
+
+
+def blocker_prevent_symlinks(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+) -> Optional[str]:
+    """Assert a revision does not add a symlink to the repo."""
+    diff_id = PhabricatorClient.expect(diff, "id")
+    parsed_diff = stack_state.parsed_diffs[diff_id]
+
+    symlinked_files = []
+    for parsed in parsed_diff:
+        modes = parsed["modes"]
+
+        # Check the file mode on each file and ensure the file is not a symlink.
+        # `rs_parsepatch` has a `new` and `old` mode key, we are interested in
+        # only the newly introduced modes.
+        if "new" in modes and modes["new"] == SYMLINK_MODE:
+            symlinked_files.append(parsed["filename"])
+
+    if symlinked_files:
+        wrapped_filenames = (f"`{filename}`" for filename in symlinked_files)
+        return (
+            f"Revision introduces symlinks in the files {','.join(wrapped_filenames)}."
+        )
+
+
 STACK_BLOCKER_CHECKS = [
     # This check needs to be first.
     blocker_stack_landable,
@@ -827,6 +860,7 @@ REVISION_BLOCKER_CHECKS = [
     blocker_diff_author_is_known,
     blocker_uplift_approval,
     blocker_revision_data_classification,
+    blocker_prevent_symlinks,
     # This check needs to be last.
     blocker_open_ancestor,
 ]
@@ -896,6 +930,38 @@ def run_landing_checks(stack_state: StackAssessmentState) -> StackAssessment:
     return assessment
 
 
+def get_raw_diff_by_id(phab: PhabricatorClient, diff_id: int) -> str:
+    """Get a `differential.rawdiff` response for the given diff ID.
+
+    Handles retrieving and setting responses from Phabricator in the cache.
+    """
+    # Check for data in the cache.
+    cache_key = f"raw_diff_{diff_id}"
+    if cache.has(cache_key):
+        return cache.get(cache_key)
+
+    # Request data from Phabricator and set in the cache.
+    raw_diff = phab.call_conduit("differential.getrawdiff", diffID=diff_id)
+
+    cache.set(cache_key, raw_diff, timeout=DEFAULT_CACHE_KEY_TIMEOUT_SECONDS)
+    return raw_diff
+
+
+def get_parsed_diffs(
+    phab: PhabricatorClient, stack_data: RevisionData
+) -> dict[int, dict]:
+    """Return a mapping of diff PHID to `rs-parsepatch` parsed `diff --git` content."""
+    raw_diffs = {}
+    for diff in stack_data.diffs.values():
+        diff_id = phab.expect(diff, "id")
+
+        raw_diffs[diff_id] = get_raw_diff_by_id(phab, diff_id)
+
+    return {
+        diff_id: rs_parsepatch.get_diffs(diff) for diff_id, diff in raw_diffs.items()
+    }
+
+
 def assess_stack_state(
     phab: PhabricatorClient,
     supported_repos: dict[str, Repo],
@@ -912,6 +978,9 @@ def assess_stack_state(
     `StackAssessmentState`.
     """
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
+
+    # Retrieve and parse diffs from Phabricator.
+    parsed_diffs = get_parsed_diffs(phab, stack_data)
 
     involved_phids = set()
     reviewers = {}
@@ -932,6 +1001,7 @@ def assess_stack_state(
         phab=phab,
         stack_data=stack_data,
         stack=stack,
+        parsed_diffs=parsed_diffs,
         landable_repos=landable_repos,
         supported_repos=supported_repos,
         reviewers=reviewers,
