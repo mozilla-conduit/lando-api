@@ -10,19 +10,12 @@ from typing import Optional
 
 import click
 import connexion
-import requests
 from flask.cli import FlaskGroup
 
 from landoapi.models.configuration import (
     ConfigurationKey,
     ConfigurationVariable,
     VariableType,
-)
-from landoapi.models.treestatus import (
-    Log,
-    Tree,
-    TreeCategory,
-    TreeStatus,
 )
 from landoapi.systems import Subsystem
 
@@ -165,99 +158,6 @@ def ruff():
 def test(pytest_arguments):
     """Run the tests."""
     os.execvp("pytest", ("pytest",) + pytest_arguments)
-
-
-def get_category_for_tree(tree: str) -> TreeCategory:
-    """Return the `TreeCategory` for a tree given its name."""
-    if tree.startswith("try"):
-        return TreeCategory.TRY
-
-    if tree.startswith("comm-"):
-        return TreeCategory.COMM_REPOS
-
-    if tree in {"autoland", "mozilla-central"}:
-        return TreeCategory.DEVELOPMENT
-
-    if tree in {"mozilla-beta", "mozilla-esr115", "mozilla-release"}:
-        return TreeCategory.RELEASE_STABILIZATION
-
-    return TreeCategory.OTHER
-
-
-def ensure_status_correct(status: str) -> TreeStatus:
-    """Paper over some of bad data in the "status" field.
-
-    The set of values present as `status` in the existing Treestatus is:
-        {'added', 'approval require', 'approval required', 'closed', 'motd', 'open'}
-    """
-    try:
-        return TreeStatus(status)
-    except ValueError:
-        if status == "approval require":
-            return TreeStatus.APPROVAL_REQUIRED
-
-    return TreeStatus.OPEN
-
-
-@cli.command("import-treestatus")
-def import_treestatus_data():
-    """Import Treestatus data into the database.
-
-    NOTE: this command is used as a one-time only import of the existing
-    Treestatus data. It should be removed after changes are landed.
-    See bug 1894984.
-    """
-    from landoapi.storage import db_subsystem
-
-    db_subsystem.ensure_ready()
-
-    from landoapi.storage import db
-
-    trees = requests.get("https://treestatus.mozilla-releng.net/trees")
-    trees_data = trees.json()
-    tree_logs = {}
-
-    # Create all new trees.
-    for tree in trees_data["result"].keys():
-        print(f"Creating tree {tree}.")
-        new_tree = Tree(
-            tree=tree,
-            status=TreeStatus.OPEN,
-            reason="",
-            message_of_the_day="",
-            category=get_category_for_tree(tree),
-        )
-        db.session.add(new_tree)
-
-        print(f"Saving logs for {tree}.")
-        logs = requests.get(
-            f"https://treestatus.mozilla-releng.net/trees/{tree}/logs_all"
-        ).json()
-        tree_logs[tree] = logs
-
-    db.session.flush()
-    print("Flushing.")
-
-    # Create log entries for each update in the trees file
-    for tree, logs in tree_logs.items():
-        print(f"Importing logs for {tree}.")
-        for log_entry in reversed(logs["result"]):
-            log = Log(
-                tree=log_entry["tree"],
-                changed_by=log_entry["who"],
-                status=ensure_status_correct(log_entry["status"]),
-                reason=log_entry["reason"],
-                tags=log_entry["tags"],
-                created_at=log_entry["when"],
-                updated_at=log_entry["when"],
-            )
-            db.session.add(log)
-
-        # Commit log entries for this tree.
-        print(f"Created log entries for {tree}.")
-
-    db.session.commit()
-    print("Finished importing Treestatus data.")
 
 
 if __name__ == "__main__":
