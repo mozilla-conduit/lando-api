@@ -1855,4 +1855,4 @@ def test_blocker_try_task_config_landing_state_try(phabdouble, mocked_repo_confi
             revision=phab_revision, diff=diff, stack_state=stack_state
         )
         is None
-    ), "`try_task_config.json` should be rejected."
+    ), "`try_task_config.json` should not be rejected."
