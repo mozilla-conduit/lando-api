@@ -30,7 +30,10 @@ def check_maintenance() -> Optional[Response]:
         "dockerflow.version",
         "dockerflow.lbheartbeat",
     )
-    if request.endpoint in excepted_endpoints:
+    treestatus_api_prefix = "landoapi_api_treestatus"
+    if request.endpoint in excepted_endpoints or request.endpoint.startswith(
+        treestatus_api_prefix
+    ):
         return
 
     in_maintenance = ConfigurationVariable.get(
