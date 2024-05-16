@@ -34,6 +34,7 @@ def check_maintenance() -> Optional[Response]:
     if request.endpoint in excepted_endpoints or request.endpoint.startswith(
         treestatus_api_prefix
     ):
+        logger.info(f"Skipping maintenance mode check for {request.endpoint} endpoints")
         return
 
     in_maintenance = ConfigurationVariable.get(
