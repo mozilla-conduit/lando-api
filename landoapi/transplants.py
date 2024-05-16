@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+import networkx as nx
 import requests
 import rs_parsepatch
 from connexion import ProblemException
@@ -198,6 +199,16 @@ class StackAssessmentState:
             landing_assessment=landing_assessment,
         )
 
+    def assessment_blocking_pairs(self) -> set[str]:
+        """Return the set of revisions which should be considered as blockers."""
+        if self.landing_assessment:
+            return {
+                revision_phid["phid"]
+                for revision_phid, diff_id in self.landing_assessment.to_land
+            }
+
+        return set(self.stack_data.revisions.keys())
+
     def revision_check_pairs(self) -> list[tuple[dict, dict]]:
         """Return the appropriate list of `revision, diff` pairs for assessing.
 
@@ -205,11 +216,6 @@ class StackAssessmentState:
         for the landing path being assessed. Otherwise, return the pairs for every
         revision in the stack.
         """
-        if self.landing_assessment:
-            # Only return the revisions in `landing_assessment.to_land` for checking.
-            return self.landing_assessment.to_land
-
-        # Return all revisions for checking.
         return [
             (
                 revision,
@@ -626,7 +632,7 @@ def blocker_latest_diffs(
 
     revision_to_diff_id = dict(stack_state.landing_assessment.landing_path_by_phid)
 
-    if latest_diff_id != revision_to_diff_id[revision_phid]:
+    if latest_diff_id != revision_to_diff_id.get(revision_phid):
         return "A requested diff is not the latest."
 
 
@@ -657,15 +663,34 @@ def blocker_landing_already_requested(
         return "A landing for revisions in this stack is already in progress."
 
 
-def blocker_stack_landable(
+def blocker_stack_landing_path_valid(
     stack_state: StackAssessmentState,
 ) -> Optional[str]:
-    """Assert the stack has a landable path."""
+    """Assert the landing path is an actual path in the stack.
+
+    Enforce the provided landing path is an actual path within the stack.
+    """
     if not stack_state.landing_assessment:
         # If no revision path is specified, we don't need to check if the path is landable.
         return None
 
-    # Check that the provided path is a prefix to, or equal to, a landable path.
+    # Check that the provided path is a valid path in the landable stack.
+    revision_path = [
+        revision_phid
+        for revision_phid, diff_id in stack_state.landing_assessment.landing_path_by_phid
+    ]
+    if not nx.is_simple_path(stack_state.landable_stack, revision_path):
+        return "The requested set of revisions is not a valid stack."
+
+
+def blocker_stack_landing_path_landable(
+    stack_state: StackAssessmentState,
+) -> Optional[str]:
+    """Assert the landing path is landable."""
+    if not stack_state.landing_assessment:
+        return None
+
+    # Check that the provided path is a valid path in the landable stack.
     revision_path = [
         revision_phid
         for revision_phid, diff_id in stack_state.landing_assessment.landing_path_by_phid
@@ -844,7 +869,7 @@ def blocker_prevent_symlinks(
 
 STACK_BLOCKER_CHECKS = [
     # This check needs to be first.
-    blocker_stack_landable,
+    blocker_stack_landing_path_valid,
     blocker_landing_already_requested,
     blocker_user_no_auth0_email,
     blocker_single_landing_repo,
@@ -905,27 +930,41 @@ def run_landing_checks(stack_state: StackAssessmentState) -> StackAssessment:
 
     # Get the appropriate list of pairs to run checks against.
     revision_check_pairs = stack_state.revision_check_pairs()
+    assessment_blocking_phids = stack_state.assessment_blocking_pairs()
 
     # Run revision-level blockers checks.
     for revision, diff in revision_check_pairs:
         phid = revision["phid"]
         for block in REVISION_BLOCKER_CHECKS:
-            if reason := block(
+            reason = block(
                 revision=revision,
                 diff=diff,
                 stack_state=stack_state,
-            ):
+            )
+
+            # Without a reason for blocking, move to the next check.
+            if not reason:
+                continue
+
+            # If the checked revision should block a landing, add the reason
+            # to the assessment.
+            if phid in assessment_blocking_phids:
                 assessment.blockers.append(reason)
 
-                if phid is not None and phid in stack_state.landable_stack:
-                    stack_state.landable_stack.remove_node(phid)
-                    stack_state.stack.nodes[phid]["blocked"].append(reason)
+            # Remove the node from the landable stack.
+            if phid is not None and phid in stack_state.landable_stack:
+                stack_state.landable_stack.remove_node(phid)
+                stack_state.stack.nodes[phid]["blocked"].append(reason)
 
     # Run revision-level warning checks.
     for revision, diff in revision_check_pairs:
         for check in WARNING_CHECKS:
             if reason := check(revision=revision, diff=diff, stack_state=stack_state):
                 assessment.warnings.append(reason)
+
+    # Run check to assert landing path is valid.
+    if reason := blocker_stack_landing_path_landable(stack_state=stack_state):
+        assessment.blockers.append(reason)
 
     return assessment
 
