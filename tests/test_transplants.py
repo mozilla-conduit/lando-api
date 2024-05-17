@@ -3,12 +3,10 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 from datetime import datetime, timezone
-from typing import Optional
 from unittest.mock import MagicMock
 
 import pytest
 
-from landoapi.auth import A0User
 from landoapi.hg import HgRepo
 from landoapi.mocks.canned_responses.auth0 import CANNED_USERINFO
 from landoapi.models.landing_job import (
@@ -19,24 +17,18 @@ from landoapi.models.landing_job import (
 from landoapi.models.revisions import Revision
 from landoapi.models.transplant import Transplant
 from landoapi.phabricator import (
-    PhabricatorClient,
     PhabricatorRevisionStatus,
     ReviewerStatus,
 )
 from landoapi.repos import DONTBUILD, SCM_CONDUIT, SCM_LEVEL_3, Repo, get_repos_for_env
-from landoapi.reviews import get_collated_reviewers
-from landoapi.stacks import RevisionData, RevisionStack, request_extended_revision_data
 from landoapi.tasks import admin_remove_phab_project
 from landoapi.transplants import (
-    LandingAssessmentState,
     RevisionWarning,
     StackAssessment,
-    StackAssessmentState,
     blocker_author_planned_changes,
     blocker_prevent_symlinks,
     blocker_revision_data_classification,
     blocker_uplift_approval,
-    get_parsed_diffs,
     warning_not_accepted,
     warning_previously_landed,
     warning_reviews_not_current,
@@ -112,46 +104,6 @@ def _create_landing_job_with_no_linked_revisions(
     job.revision_order = [str(revision.revision_id) for revision in revisions]
     db.session.commit()
     return job
-
-
-def create_landing_state(**kwargs):
-    state = {
-        "auth0_user": A0User("", {}),
-        "landing_path_by_phid": [],
-        "to_land": [],
-        "landing_repo": None,
-    }
-
-    state.update(kwargs)
-
-    return LandingAssessmentState(**state)
-
-
-def create_state(landing_state: Optional[LandingAssessmentState] = None, **kwargs):
-    landing_state = landing_state or create_landing_state()
-
-    state = {
-        "phab": PhabricatorClient("testing123", "testing123"),
-        "stack_data": RevisionData({}, {}, {}),
-        "stack": RevisionStack([], []),
-        "parsed_diffs": {},
-        "statuses": {},
-        "landable_stack": RevisionStack([], []),
-        "landable_repos": {},
-        "reviewers": {},
-        "users": {},
-        "projects": {},
-        "supported_repos": {},
-        "data_policy_review_phid": "",
-        "relman_group_phid": "",
-        "secure_project_phid": "",
-        "testing_tag_project_phids": [],
-        "testing_policy_phid": "",
-        "landing_assessment": landing_state,
-    }
-    state.update(kwargs)
-
-    return StackAssessmentState(**state)
 
 
 def test_dryrun_no_warnings_or_blockers(
@@ -541,14 +493,14 @@ def test_get_transplant_not_authorized_to_view_revision(db, client, phabdouble):
     assert response.status_code == 404
 
 
-def test_warning_previously_landed_no_landings(db, phabdouble):
+def test_warning_previously_landed_no_landings(db, phabdouble, create_state):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
     revision = phabdouble.api_object_for(
         r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
-    stack_state = create_state()
+    stack_state = create_state(revision)
     assert warning_previously_landed(revision, diff, stack_state) is None
 
 
@@ -556,7 +508,9 @@ def test_warning_previously_landed_no_landings(db, phabdouble):
     "create_landing_job",
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
-def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing_job):
+def test_warning_previously_landed_failed_landing(
+    db, phabdouble, create_landing_job, create_state
+):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
@@ -571,7 +525,7 @@ def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    stack_state = create_state()
+    stack_state = create_state(revision)
 
     assert warning_previously_landed(revision, diff, stack_state) is None
 
@@ -580,7 +534,9 @@ def test_warning_previously_landed_failed_landing(db, phabdouble, create_landing
     "create_landing_job",
     (_create_landing_job, _create_landing_job_with_no_linked_revisions),
 )
-def test_warning_previously_landed_landed_landing(db, phabdouble, create_landing_job):
+def test_warning_previously_landed_landed_landing(
+    db, phabdouble, create_landing_job, create_state
+):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
 
@@ -595,41 +551,43 @@ def test_warning_previously_landed_landed_landing(db, phabdouble, create_landing
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    stack_state = create_state()
+    stack_state = create_state(revision)
 
     assert warning_previously_landed(revision, diff, stack_state) is not None
 
 
-def test_warning_revision_secure_project_none(phabdouble):
+def test_warning_revision_secure_project_none(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state(secure_project_phid=None)
+    stack_state = create_state(revision)
 
     assert warning_revision_secure(revision, {}, stack_state) is None
 
 
-def test_warning_revision_secure_is_secure(phabdouble, secure_project):
+def test_warning_revision_secure_is_secure(phabdouble, secure_project, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(projects=[secure_project]),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state(secure_project_phid=secure_project["phid"])
+    stack_state = create_state(revision)
 
     assert warning_revision_secure(revision, {}, stack_state) is not None
 
 
-def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
+def test_warning_revision_secure_is_not_secure(
+    phabdouble, secure_project, create_state
+):
     not_secure_project = phabdouble.project("not_secure_project")
     revision = phabdouble.api_object_for(
         phabdouble.revision(projects=[not_secure_project]),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state(secure_project_phid=secure_project["phid"])
+    stack_state = create_state(revision)
 
     assert warning_revision_secure(revision, {}, stack_state) is None
 
@@ -642,29 +600,29 @@ def test_warning_revision_secure_is_not_secure(phabdouble, secure_project):
         if s is not PhabricatorRevisionStatus.ACCEPTED
     ],
 )
-def test_warning_not_accepted_warns_on_other_status(phabdouble, status):
+def test_warning_not_accepted_warns_on_other_status(phabdouble, status, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=status),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state()
+    stack_state = create_state(revision)
 
     assert warning_not_accepted(revision, {}, stack_state) is not None
 
 
-def test_warning_not_accepted_no_warning_when_accepted(phabdouble):
+def test_warning_not_accepted_no_warning_when_accepted(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=PhabricatorRevisionStatus.ACCEPTED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state()
+    stack_state = create_state(revision)
 
     assert warning_not_accepted(revision, {}, stack_state) is None
 
 
-def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
+def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create_state):
     d_reviewed = phabdouble.diff()
     r = phabdouble.revision(diff=d_reviewed)
     phabdouble.reviewer(
@@ -677,15 +635,16 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble):
     revision = phabdouble.api_object_for(
         r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
     )
-    reviewers = get_collated_reviewers(revision)
     diff = phabdouble.api_object_for(d_new, attachments={"commits": True})
 
-    stack_state = create_state(reviewers={revision["phid"]: reviewers})
+    stack_state = create_state(revision)
 
     assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
-def test_warning_reviews_not_current_warns_on_unreviewed_revision(phabdouble):
+def test_warning_reviews_not_current_warns_on_unreviewed_revision(
+    phabdouble, create_state
+):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
     # Don't create any reviewers.
@@ -693,15 +652,16 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(phabdouble):
     revision = phabdouble.api_object_for(
         r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
     )
-    reviewers = get_collated_reviewers(revision)
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    stack_state = create_state(reviewers={revision["phid"]: reviewers})
+    stack_state = create_state(revision)
 
     assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
 
-def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
+def test_warning_reviews_not_current_no_warning_on_accepted_diff(
+    phabdouble, create_state
+):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
     phabdouble.reviewer(
@@ -714,10 +674,9 @@ def test_warning_reviews_not_current_no_warning_on_accepted_diff(phabdouble):
     revision = phabdouble.api_object_for(
         r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
     )
-    reviewers = get_collated_reviewers(revision)
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    stack_state = create_state(reviewers={revision["phid"]: reviewers})
+    stack_state = create_state(revision)
 
     assert warning_reviews_not_current(revision, diff, stack_state) is None
 
@@ -1370,7 +1329,7 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
     assert sec_approval_project["name"] not in transplanted_patch.patch_string
 
 
-def test_warning_wip_commit_message(phabdouble):
+def test_warning_wip_commit_message(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(
             title="WIP: Bug 123: test something r?reviewer",
@@ -1379,7 +1338,7 @@ def test_warning_wip_commit_message(phabdouble):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state()
+    stack_state = create_state(revision)
 
     assert warning_wip_commit_message(revision, {}, stack_state) is not None
 
@@ -1547,12 +1506,14 @@ def test_unresolved_comment_stack(
         if s is not PhabricatorRevisionStatus.CHANGES_PLANNED
     ],
 )
-def test_check_author_planned_changes_changes_not_planned(phabdouble, status):
+def test_check_author_planned_changes_changes_not_planned(
+    phabdouble, status, create_state
+):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=status),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    stack_state = create_state()
+    stack_state = create_state(revision)
     assert (
         blocker_author_planned_changes(
             revision=revision, diff={}, stack_state=stack_state
@@ -1561,12 +1522,12 @@ def test_check_author_planned_changes_changes_not_planned(phabdouble, status):
     )
 
 
-def test_check_author_planned_changes_changes_planned(phabdouble):
+def test_check_author_planned_changes_changes_planned(phabdouble, create_state):
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=PhabricatorRevisionStatus.CHANGES_PLANNED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    stack_state = create_state()
+    stack_state = create_state(revision)
     assert (
         blocker_author_planned_changes(
             revision=revision, diff={}, stack_state=stack_state
@@ -1580,6 +1541,7 @@ def test_relman_approval_status(
     status,
     phabdouble,
     mocked_repo_config,
+    create_state,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1605,14 +1567,7 @@ def test_relman_approval_status(
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    phab_client = phabdouble.get_phabricator_client()
-    stack_data = request_extended_revision_data(phab_client, [revision["phid"]])
-
-    stack_state = create_state(
-        relman_group_phid=release_management_project["phid"],
-        supported_repos=repos,
-        stack_data=stack_data,
-    )
+    stack_state = create_state(phab_revision)
     output = blocker_uplift_approval(
         revision=phab_revision, diff={}, stack_state=stack_state
     )
@@ -1628,6 +1583,7 @@ def test_relman_approval_status(
 def test_relman_approval_missing(
     phabdouble,
     mocked_repo_config,
+    create_state,
     release_management_project,
     needs_data_classification_project,
 ):
@@ -1642,14 +1598,7 @@ def test_relman_approval_missing(
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    phab_client = phabdouble.get_phabricator_client()
-    stack_data = request_extended_revision_data(phab_client, [revision["phid"]])
-
-    stack_state = create_state(
-        relman_group_phid=release_management_project["phid"],
-        supported_repos=repos,
-        stack_data=stack_data,
-    )
+    stack_state = create_state(phab_revision)
     assert blocker_uplift_approval(
         revision=phab_revision, diff={}, stack_state=stack_state
     ) == (
@@ -1660,7 +1609,7 @@ def test_relman_approval_missing(
 
 
 def test_revision_has_data_classification_tag(
-    phabdouble, needs_data_classification_project
+    phabdouble, create_state, needs_data_classification_project
 ):
     repo = phabdouble.repo()
     revision = phabdouble.revision(
@@ -1671,9 +1620,7 @@ def test_revision_has_data_classification_tag(
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state(
-        data_policy_review_phid=needs_data_classification_project["phid"]
-    )
+    stack_state = create_state(phab_revision)
 
     assert blocker_revision_data_classification(
         revision=phab_revision, diff={}, stack_state=stack_state
@@ -1687,6 +1634,7 @@ def test_revision_has_data_classification_tag(
         revision,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
+    stack_state = create_state(phab_revision)
     assert (
         blocker_revision_data_classification(
             revision=phab_revision, diff={}, stack_state=stack_state
@@ -1713,7 +1661,7 @@ index 0000000..55faaf5
 """.lstrip()
 
 
-def test_blocker_prevent_symlinks(phabdouble):
+def test_blocker_prevent_symlinks(phabdouble, create_state):
     repo = phabdouble.repo()
 
     # Create a revision/diff pair without a symlink.
@@ -1725,23 +1673,14 @@ def test_blocker_prevent_symlinks(phabdouble):
     diff_normal = phabdouble.diff(revision=revision)
 
     # Create a revision/diff pair with a symlink.
-    revision_symlink = phabdouble.revision(repo=repo)
+    revision_symlink = phabdouble.revision(repo=repo, depends_on=[revision])
     phab_revision_symlink = phabdouble.api_object_for(
         revision_symlink,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
     diff_symlink = phabdouble.diff(rawdiff=SYMLINK_DIFF, revision=revision_symlink)
 
-    # Collect extended revision data for both revisions.
-    phab_client = phabdouble.get_phabricator_client()
-    stack_data = request_extended_revision_data(
-        phab_client, [revision["phid"], revision_symlink["phid"]]
-    )
-
-    # Parse diffs into `rs_parsepatch` format.
-    parsed_diffs = get_parsed_diffs(phab_client, stack_data)
-
-    stack_state = create_state(stack_data=stack_data, parsed_diffs=parsed_diffs)
+    stack_state = create_state(phab_revision_symlink)
 
     assert (
         blocker_prevent_symlinks(

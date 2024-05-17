@@ -29,10 +29,15 @@ from landoapi.projects import (
     SEC_APPROVAL_PROJECT_SLUG,
     SEC_PROJ_SLUG,
 )
-from landoapi.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo
+from landoapi.repos import SCM_LEVEL_1, SCM_LEVEL_3, Repo, get_repos_for_env
+from landoapi.stacks import (
+    RevisionStack,
+    build_stack_graph,
+    request_extended_revision_data,
+)
 from landoapi.storage import db as _db
 from landoapi.tasks import celery
-from landoapi.transplants import CODE_FREEZE_OFFSET
+from landoapi.transplants import CODE_FREEZE_OFFSET, build_stack_assessment_state
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
 PATCH_NORMAL_1 = r"""
@@ -502,3 +507,35 @@ def codefreeze_datetime(request_mocker):
             return dates[f"{date_string}"]
 
     return Mockdatetime
+
+
+@pytest.fixture
+def create_state(
+    app,
+    phabdouble,
+    mocked_repo_config,
+    release_management_project,
+    needs_data_classification_project,
+):
+    """Create a `StackAssessmentState`."""
+
+    def create_state_handler(revision, landing_assessment=None):
+        phab = phabdouble.get_phabricator_client()
+        supported_repos = get_repos_for_env("test")
+        nodes, edges = build_stack_graph(revision)
+        stack_data = request_extended_revision_data(phab, list(nodes))
+        stack = RevisionStack(set(stack_data.revisions.keys()), edges)
+        relman_group_phid = release_management_project["phid"]
+        data_policy_review_phid = needs_data_classification_project["phid"]
+
+        return build_stack_assessment_state(
+            phab,
+            supported_repos,
+            stack_data,
+            stack,
+            relman_group_phid,
+            data_policy_review_phid,
+            landing_assessment=landing_assessment,
+        )
+
+    return create_state_handler
