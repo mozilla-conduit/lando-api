@@ -962,7 +962,7 @@ def get_parsed_diffs(
     }
 
 
-def assess_stack_state(
+def build_stack_assessment_state(
     phab: PhabricatorClient,
     supported_repos: dict[str, Repo],
     stack_data: RevisionData,
@@ -970,13 +970,8 @@ def assess_stack_state(
     relman_group_phid: str,
     data_policy_review_phid: str,
     landing_assessment: Optional[LandingAssessmentState] = None,
-) -> tuple[StackAssessment, StackAssessmentState]:
-    """Assess the state of a given stack.
-
-    Given the required state information for a stack, build a `StackAssessmentState`
-    and run stack checks, returning a `StackAssessment` and the built
-    `StackAssessmentState`.
-    """
+) -> StackAssessmentState:
+    """Given the required state information for a stack, build a `StackAssessmentState`"""
     landable_repos = get_landable_repos_for_revision_data(stack_data, supported_repos)
 
     # Retrieve and parse diffs from Phabricator.
@@ -1014,10 +1009,7 @@ def assess_stack_state(
         testing_policy_phid=testing_policy_phid,
         landing_assessment=landing_assessment,
     )
-    # Where we check the landing blockers.
-    assessment = run_landing_checks(stack_state)
-
-    return assessment, stack_state
+    return stack_state
 
 
 def convert_path_id_to_phid(
