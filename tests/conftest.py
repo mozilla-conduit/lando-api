@@ -538,7 +538,8 @@ def create_state(
 ):
     """Create a `StackAssessmentState`."""
 
-    def create_state_handler(phab, revision, landing_assessment=None):
+    def create_state_handler(revision, landing_assessment=None):
+        phab = phabdouble.get_phabricator_client()
         supported_repos = get_repos_for_env("test")
         nodes, edges = build_stack_graph(revision)
         stack_data = request_extended_revision_data(phab, list(nodes))

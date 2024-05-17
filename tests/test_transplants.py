@@ -496,12 +496,11 @@ def test_get_transplant_not_authorized_to_view_revision(db, client, phabdouble):
 def test_warning_previously_landed_no_landings(db, phabdouble, create_state):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
-    phab = phabdouble.get_phabricator_client()
     revision = phabdouble.api_object_for(
         r, attachments={"reviewers": True, "reviewers-extra": True, "projects": True}
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
     assert warning_previously_landed(revision, diff, stack_state) is None
 
 
@@ -514,7 +513,6 @@ def test_warning_previously_landed_failed_landing(
 ):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
-    phab = phabdouble.get_phabricator_client()
 
     create_landing_job(
         db,
@@ -527,7 +525,7 @@ def test_warning_previously_landed_failed_landing(
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_previously_landed(revision, diff, stack_state) is None
 
@@ -541,7 +539,6 @@ def test_warning_previously_landed_landed_landing(
 ):
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
-    phab = phabdouble.get_phabricator_client()
 
     create_landing_job(
         db,
@@ -554,7 +551,7 @@ def test_warning_previously_landed_landed_landing(
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_previously_landed(revision, diff, stack_state) is not None
 
@@ -564,9 +561,8 @@ def test_warning_revision_secure_project_none(phabdouble, create_state):
         phabdouble.revision(),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    phab = phabdouble.get_phabricator_client()
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_revision_secure(revision, {}, stack_state) is None
 
@@ -576,9 +572,8 @@ def test_warning_revision_secure_is_secure(phabdouble, secure_project, create_st
         phabdouble.revision(projects=[secure_project]),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    phab = phabdouble.get_phabricator_client()
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_revision_secure(revision, {}, stack_state) is not None
 
@@ -591,9 +586,8 @@ def test_warning_revision_secure_is_not_secure(
         phabdouble.revision(projects=[not_secure_project]),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    phab = phabdouble.get_phabricator_client()
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_revision_secure(revision, {}, stack_state) is None
 
@@ -611,9 +605,8 @@ def test_warning_not_accepted_warns_on_other_status(phabdouble, status, create_s
         phabdouble.revision(status=status),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    phab = phabdouble.get_phabricator_client()
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_not_accepted(revision, {}, stack_state) is not None
 
@@ -623,15 +616,13 @@ def test_warning_not_accepted_no_warning_when_accepted(phabdouble, create_state)
         phabdouble.revision(status=PhabricatorRevisionStatus.ACCEPTED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    phab = phabdouble.get_phabricator_client()
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_not_accepted(revision, {}, stack_state) is None
 
 
 def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create_state):
-    phab = phabdouble.get_phabricator_client()
     d_reviewed = phabdouble.diff()
     r = phabdouble.revision(diff=d_reviewed)
     phabdouble.reviewer(
@@ -646,7 +637,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create
     )
     diff = phabdouble.api_object_for(d_new, attachments={"commits": True})
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
@@ -654,7 +645,6 @@ def test_warning_reviews_not_current_warns_on_unreviewed_diff(phabdouble, create
 def test_warning_reviews_not_current_warns_on_unreviewed_revision(
     phabdouble, create_state
 ):
-    phab = phabdouble.get_phabricator_client()
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
     # Don't create any reviewers.
@@ -664,7 +654,7 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_reviews_not_current(revision, diff, stack_state) is not None
 
@@ -672,7 +662,6 @@ def test_warning_reviews_not_current_warns_on_unreviewed_revision(
 def test_warning_reviews_not_current_no_warning_on_accepted_diff(
     phabdouble, create_state
 ):
-    phab = phabdouble.get_phabricator_client()
     d = phabdouble.diff()
     r = phabdouble.revision(diff=d)
     phabdouble.reviewer(
@@ -687,7 +676,7 @@ def test_warning_reviews_not_current_no_warning_on_accepted_diff(
     )
     diff = phabdouble.api_object_for(d, attachments={"commits": True})
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_reviews_not_current(revision, diff, stack_state) is None
 
@@ -1340,7 +1329,6 @@ def test_integrated_transplant_sec_approval_group_is_excluded_from_reviewers_lis
 
 
 def test_warning_wip_commit_message(phabdouble, create_state):
-    phab = phabdouble.get_phabricator_client()
     revision = phabdouble.api_object_for(
         phabdouble.revision(
             title="WIP: Bug 123: test something r?reviewer",
@@ -1349,7 +1337,7 @@ def test_warning_wip_commit_message(phabdouble, create_state):
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
 
     assert warning_wip_commit_message(revision, {}, stack_state) is not None
 
@@ -1520,12 +1508,11 @@ def test_unresolved_comment_stack(
 def test_check_author_planned_changes_changes_not_planned(
     phabdouble, status, create_state
 ):
-    phab = phabdouble.get_phabricator_client()
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=status),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
     assert (
         blocker_author_planned_changes(
             revision=revision, diff={}, stack_state=stack_state
@@ -1535,12 +1522,11 @@ def test_check_author_planned_changes_changes_not_planned(
 
 
 def test_check_author_planned_changes_changes_planned(phabdouble, create_state):
-    phab = phabdouble.get_phabricator_client()
     revision = phabdouble.api_object_for(
         phabdouble.revision(status=PhabricatorRevisionStatus.CHANGES_PLANNED),
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    stack_state = create_state(phab, revision)
+    stack_state = create_state(revision)
     assert (
         blocker_author_planned_changes(
             revision=revision, diff={}, stack_state=stack_state
@@ -1559,8 +1545,6 @@ def test_relman_approval_status(
     needs_data_classification_project,
 ):
     """Check only an approval from relman allows landing"""
-    phab = phabdouble.get_phabricator_client()
-
     repo = phabdouble.repo(name="uplift-target")
     repos = get_repos_for_env("test")
     assert repos["uplift-target"].approval_required is True
@@ -1582,7 +1566,7 @@ def test_relman_approval_status(
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state(phab, phab_revision)
+    stack_state = create_state(phab_revision)
     output = blocker_uplift_approval(
         revision=phab_revision, diff={}, stack_state=stack_state
     )
@@ -1603,8 +1587,6 @@ def test_relman_approval_missing(
     needs_data_classification_project,
 ):
     """A repo with an approval required needs relman as reviewer"""
-    phab = phabdouble.get_phabricator_client()
-
     repo = phabdouble.repo(name="uplift-target")
     repos = get_repos_for_env("test")
     assert repos["uplift-target"].approval_required is True
@@ -1615,7 +1597,7 @@ def test_relman_approval_missing(
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state(phab, phab_revision)
+    stack_state = create_state(phab_revision)
     assert blocker_uplift_approval(
         revision=phab_revision, diff={}, stack_state=stack_state
     ) == (
@@ -1628,8 +1610,6 @@ def test_relman_approval_missing(
 def test_revision_has_data_classification_tag(
     phabdouble, create_state, needs_data_classification_project
 ):
-    phab = phabdouble.get_phabricator_client()
-
     repo = phabdouble.repo()
     revision = phabdouble.revision(
         repo=repo, projects=[needs_data_classification_project]
@@ -1639,7 +1619,7 @@ def test_revision_has_data_classification_tag(
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
 
-    stack_state = create_state(phab, phab_revision)
+    stack_state = create_state(phab_revision)
 
     assert blocker_revision_data_classification(
         revision=phab_revision, diff={}, stack_state=stack_state
@@ -1653,7 +1633,7 @@ def test_revision_has_data_classification_tag(
         revision,
         attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
     )
-    stack_state = create_state(phab, phab_revision)
+    stack_state = create_state(phab_revision)
     assert (
         blocker_revision_data_classification(
             revision=phab_revision, diff={}, stack_state=stack_state
@@ -1681,7 +1661,6 @@ index 0000000..55faaf5
 
 
 def test_blocker_prevent_symlinks(phabdouble, create_state):
-    phab = phabdouble.get_phabricator_client()
     repo = phabdouble.repo()
 
     # Create a revision/diff pair without a symlink.
@@ -1700,7 +1679,7 @@ def test_blocker_prevent_symlinks(phabdouble, create_state):
     )
     diff_symlink = phabdouble.diff(rawdiff=SYMLINK_DIFF, revision=revision_symlink)
 
-    stack_state = create_state(phab, phab_revision_symlink)
+    stack_state = create_state(phab_revision_symlink)
 
     assert (
         blocker_prevent_symlinks(
