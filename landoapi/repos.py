@@ -205,14 +205,6 @@ REPO_CONFIG = {
             approval_required=True,
             milestone_tracking_flag_template="cf_status_firefox{milestone}",
         ),
-        # Approval is required for the uplift dev repo
-        "uplift-target": Repo(
-            tree="uplift-target",
-            url="http://hg.test",  # TODO: fix this? URL is probably incorrect.
-            access_group=SCM_LEVEL_1,
-            approval_required=True,
-            milestone_tracking_flag_template="cf_status_firefox{milestone}",
-        ),
     },
     "devsvcdev": {
         "test-repo": Repo(

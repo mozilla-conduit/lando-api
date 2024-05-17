@@ -344,6 +344,14 @@ def mocked_repo_config(mock_repo_config):
                     is_phabricator_repo=False,
                     force_push=True,
                 ),
+                # Approval is required for the uplift dev repo
+                "uplift-target": Repo(
+                    tree="uplift-target",
+                    url="http://hg.test",
+                    access_group=SCM_LEVEL_1,
+                    approval_required=True,
+                    milestone_tracking_flag_template="cf_status_firefox{milestone}",
+                ),
             }
         }
     )

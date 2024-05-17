@@ -1576,11 +1576,15 @@ def test_check_author_planned_changes_changes_planned(phabdouble):
 
 @pytest.mark.parametrize("status", list(ReviewerStatus))
 def test_relman_approval_status(
-    status, phabdouble, release_management_project, needs_data_classification_project
+    status,
+    phabdouble,
+    mocked_repo_config,
+    release_management_project,
+    needs_data_classification_project,
 ):
     """Check only an approval from relman allows landing"""
     repo = phabdouble.repo(name="uplift-target")
-    repos = get_repos_for_env("localdev")
+    repos = get_repos_for_env("test")
     assert repos["uplift-target"].approval_required is True
 
     # Add relman as reviewer with specified status
@@ -1621,11 +1625,14 @@ def test_relman_approval_status(
 
 
 def test_relman_approval_missing(
-    phabdouble, release_management_project, needs_data_classification_project
+    phabdouble,
+    mocked_repo_config,
+    release_management_project,
+    needs_data_classification_project,
 ):
     """A repo with an approval required needs relman as reviewer"""
     repo = phabdouble.repo(name="uplift-target")
-    repos = get_repos_for_env("localdev")
+    repos = get_repos_for_env("test")
     assert repos["uplift-target"].approval_required is True
 
     revision = phabdouble.revision(repo=repo)
