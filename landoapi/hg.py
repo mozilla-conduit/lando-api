@@ -70,7 +70,10 @@ class HgCommandError(HgException):
 class TreeClosed(HgException):
     """Exception when pushing failed due to a closed tree."""
 
-    SNIPPETS = (b"is CLOSED!",)
+    SNIPPETS = (
+        b"is CLOSED!",
+        b"treating as if CLOSED.",
+    )
 
 
 class TreeApprovalRequired(HgException):
