@@ -30,11 +30,14 @@ def check_maintenance() -> Optional[Response]:
         "dockerflow.version",
         "dockerflow.lbheartbeat",
     )
+    if request.endpoint in excepted_endpoints:
+        return
+
     treestatus_api_prefix = "landoapi_api_treestatus"
-    if request.endpoint in excepted_endpoints or request.endpoint.startswith(
-        treestatus_api_prefix
-    ):
-        logger.info(f"Skipping maintenance mode check for {request.endpoint} endpoints")
+    if request.endpoint.startswith(treestatus_api_prefix):
+        logger.info(
+            f"Skipping maintenance mode check for Treestatus endpoint {request.endpoint}."
+        )
         return
 
     in_maintenance = ConfigurationVariable.get(
