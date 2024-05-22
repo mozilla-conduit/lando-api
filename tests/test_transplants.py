@@ -135,7 +135,7 @@ def test_dryrun_no_warnings_or_blockers(
     assert response.json == expected_json
 
 
-def test_dryrun_invalid_path_blocks(
+def test_dryrun_invalid_repo_blocks(
     client,
     db,
     phabdouble,
@@ -169,6 +169,130 @@ def test_dryrun_invalid_path_blocks(
         "Depends on D1 which is open and has a different repository"
         in response.json["blocker"]
     )
+
+
+def test_dryrun_published_parent(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
+):
+    d1 = phabdouble.diff()
+    d2 = phabdouble.diff()
+
+    repo = phabdouble.repo()
+
+    reviewer = phabdouble.user(username="reviewer")
+
+    r1 = phabdouble.revision(
+        diff=d1, repo=repo, status=PhabricatorRevisionStatus.PUBLISHED
+    )
+    r2 = phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
+
+    phabdouble.reviewer(r1, reviewer)
+    phabdouble.reviewer(r2, reviewer)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert 200 == response.status_code
+    assert "application/json" == response.content_type
+    assert response.json["blocker"] is None
+
+
+def test_dryrun_open_parent(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
+):
+    d1 = phabdouble.diff()
+    d2 = phabdouble.diff()
+
+    repo = phabdouble.repo()
+
+    reviewer = phabdouble.user(username="reviewer")
+
+    r1 = phabdouble.revision(
+        diff=d1, repo=repo, status=PhabricatorRevisionStatus.ACCEPTED
+    )
+    r2 = phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
+
+    phabdouble.reviewer(r1, reviewer)
+    phabdouble.reviewer(r2, reviewer)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                # Set the landing path to try and land only r2, despite r1 being open
+                # and part of the stack.
+                {"revision_id": "D{}".format(r2["id"]), "diff_id": d2["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert 200 == response.status_code
+    assert "application/json" == response.content_type
+    assert (
+        "The requested set of revisions are not landable." in response.json["blocker"]
+    ), "Landing should be blocked due to r1 still being open and part of the stack."
+
+
+def test_dryrun_invalid_path_blocks(
+    client,
+    db,
+    phabdouble,
+    auth0_mock,
+    release_management_project,
+    needs_data_classification_project,
+):
+    d1 = phabdouble.diff()
+    d2 = phabdouble.diff()
+    d3 = phabdouble.diff()
+
+    repo = phabdouble.repo()
+
+    reviewer = phabdouble.user(username="reviewer")
+
+    r1 = phabdouble.revision(diff=d1, repo=repo)
+    r2 = phabdouble.revision(diff=d2, repo=repo, depends_on=[r1])
+    r3 = phabdouble.revision(diff=d3, repo=repo, depends_on=[r2])
+
+    phabdouble.reviewer(r1, reviewer)
+    phabdouble.reviewer(r2, reviewer)
+    phabdouble.reviewer(r3, reviewer)
+
+    response = client.post(
+        "/transplants/dryrun",
+        json={
+            "landing_path": [
+                # Set the landing path to an invalid path.
+                {"revision_id": f"D{r1['id']}", "diff_id": d2["id"]},
+                {"revision_id": f"D{r3['id']}", "diff_id": d2["id"]},
+            ]
+        },
+        headers=auth0_mock.mock_headers,
+    )
+
+    assert 200 == response.status_code
+    assert "application/json" == response.content_type
+    assert (
+        "The requested set of revisions is not a valid stack."
+        in response.json["blocker"]
+    ), "Invalid paths in the stack should be rejected."
 
 
 def test_dryrun_in_progress_transplant_blocks(
