@@ -1839,7 +1839,9 @@ index 0000000..e44d36d
 """.lstrip()
 
 
-def test_blocker_try_task_config_no_landing_state(phabdouble):
+def test_blocker_try_task_config_no_landing_state(
+    phabdouble, mocked_repo_config, create_state
+):
     repo = phabdouble.repo()
 
     revision = phabdouble.revision(repo=repo)
@@ -1849,12 +1851,7 @@ def test_blocker_try_task_config_no_landing_state(phabdouble):
     )
     diff = phabdouble.diff(revision=revision, rawdiff=TRY_TASK_CONFIG_DIFF)
 
-    phab_client = phabdouble.get_phabricator_client()
-    stack_data = request_extended_revision_data(phab_client, [revision["phid"]])
-
-    # Parse diffs into `rs_parsepatch` format.
-    parsed_diffs = get_parsed_diffs(phab_client, stack_data)
-    stack_state = create_state(stack_data=stack_data, parsed_diffs=parsed_diffs)
+    stack_state = create_state(phab_revision)
 
     assert (
         blocker_try_task_config(
