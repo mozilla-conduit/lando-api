@@ -871,14 +871,6 @@ def blocker_try_task_config(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> Optional[str]:
     """Block revisions which contain the `try_task_config.json` file."""
-    if (
-        stack_state.landing_assessment
-        and stack_state.landing_assessment.landing_repo
-        and stack_state.landing_assessment.landing_repo.tree == "try"
-    ):
-        # `try_task_config.json` is allowed to be pushed to try.
-        return
-
     diff_id = PhabricatorClient.expect(diff, "id")
     parsed_diff = stack_state.parsed_diffs[diff_id]
 

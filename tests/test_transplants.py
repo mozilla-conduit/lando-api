@@ -1881,35 +1881,3 @@ def test_blocker_try_task_config_landing_state_non_try(
         )
         == "Revision introduces the `try_task_config.json` file into a non-try repo."
     ), "`try_task_config.json` should be rejected."
-
-
-def test_blocker_try_task_config_landing_state_try(phabdouble, mocked_repo_config):
-    repo = phabdouble.repo()
-
-    revision = phabdouble.revision(repo=repo)
-    phab_revision = phabdouble.api_object_for(
-        revision,
-        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
-    )
-    diff = phabdouble.diff(revision=revision, rawdiff=TRY_TASK_CONFIG_DIFF)
-
-    phab_client = phabdouble.get_phabricator_client()
-    stack_data = request_extended_revision_data(phab_client, [revision["phid"]])
-
-    # Parse diffs into `rs_parsepatch` format.
-    parsed_diffs = get_parsed_diffs(phab_client, stack_data)
-
-    try_repo = get_repos_for_env("test")["try"]
-
-    stack_state = create_state(
-        stack_data=stack_data,
-        parsed_diffs=parsed_diffs,
-        landing_state=create_landing_state(landing_repo=try_repo),
-    )
-
-    assert (
-        blocker_try_task_config(
-            revision=phab_revision, diff=diff, stack_state=stack_state
-        )
-        is None
-    ), "`try_task_config.json` should not be rejected."
