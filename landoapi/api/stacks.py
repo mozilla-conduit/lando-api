@@ -39,7 +39,7 @@ from landoapi.stacks import (
     build_stack_graph,
     request_extended_revision_data,
 )
-from landoapi.transplants import assess_stack_state
+from landoapi.transplants import build_stack_assessment_state, run_landing_checks
 from landoapi.users import user_search
 from landoapi.validation import revision_id_to_int
 
@@ -90,7 +90,7 @@ def get(phab: PhabricatorClient, revision_id: str):
     relman_group_phid = str(phab.expect(release_managers, "phid"))
 
     stack = RevisionStack(set(stack_data.revisions.keys()), edges)
-    assessment, stack_state = assess_stack_state(
+    stack_state = build_stack_assessment_state(
         phab,
         supported_repos,
         stack_data,
@@ -98,6 +98,8 @@ def get(phab: PhabricatorClient, revision_id: str):
         relman_group_phid,
         data_policy_review_phid,
     )
+    # Run landing checks and update the stack state.
+    run_landing_checks(stack_state)
     landable = stack_state.landable_stack.landable_paths()
     uplift_repos = [
         name for name, repo in supported_repos.items() if repo.approval_required
