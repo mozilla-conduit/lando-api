@@ -1864,7 +1864,9 @@ def test_blocker_try_task_config_no_landing_state(phabdouble):
     ), "`try_task_config.json` should be rejected."
 
 
-def test_blocker_try_task_config_landing_state_non_try(phabdouble, mocked_repo_config):
+def test_blocker_try_task_config_landing_state_non_try(
+    phabdouble, mocked_repo_config, create_state
+):
     repo = phabdouble.repo()
 
     revision = phabdouble.revision(repo=repo)
@@ -1874,19 +1876,7 @@ def test_blocker_try_task_config_landing_state_non_try(phabdouble, mocked_repo_c
     )
     diff = phabdouble.diff(revision=revision, rawdiff=TRY_TASK_CONFIG_DIFF)
 
-    phab_client = phabdouble.get_phabricator_client()
-    stack_data = request_extended_revision_data(phab_client, [revision["phid"]])
-
-    # Parse diffs into `rs_parsepatch` format.
-    parsed_diffs = get_parsed_diffs(phab_client, stack_data)
-
-    mc_repo = get_repos_for_env("test")["mozilla-central"]
-
-    stack_state = create_state(
-        stack_data=stack_data,
-        parsed_diffs=parsed_diffs,
-        landing_state=create_landing_state(landing_repo=mc_repo),
-    )
+    stack_state = create_state(phab_revision)
 
     assert (
         blocker_try_task_config(
