@@ -971,8 +971,17 @@ def run_landing_checks(stack_state: StackAssessmentState) -> StackAssessment:
 
     # Run revision-level warning checks.
     for revision, diff in revision_check_pairs:
+        phid = revision["phid"]
         for check in WARNING_CHECKS:
-            if reason := check(revision=revision, diff=diff, stack_state=stack_state):
+            reason = check(revision=revision, diff=diff, stack_state=stack_state)
+
+            # Without a reason for warning, move to the next check.
+            if not reason:
+                continue
+
+            # Add the warning to the assessment warnings if the PHID
+            # should block landings.
+            if phid in assessment_blocking_phids:
                 assessment.warnings.append(reason)
 
     # Run check to assert landing path is valid.
