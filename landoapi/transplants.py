@@ -876,7 +876,7 @@ def blocker_try_task_config(
 
     for parsed in parsed_diff:
         if parsed["filename"] == "try_task_config.json":
-            return "Revision introduces the `try_task_config.json` file into a non-try repo."
+            return "Revision introduces the `try_task_config.json` file."
 
 
 STACK_BLOCKER_CHECKS = [

@@ -1857,7 +1857,7 @@ def test_blocker_try_task_config_no_landing_state(
         blocker_try_task_config(
             revision=phab_revision, diff=diff, stack_state=stack_state
         )
-        == "Revision introduces the `try_task_config.json` file into a non-try repo."
+        == "Revision introduces the `try_task_config.json` file."
     ), "`try_task_config.json` should be rejected."
 
 
@@ -1879,5 +1879,5 @@ def test_blocker_try_task_config_landing_state_non_try(
         blocker_try_task_config(
             revision=phab_revision, diff=diff, stack_state=stack_state
         )
-        == "Revision introduces the `try_task_config.json` file into a non-try repo."
+        == "Revision introduces the `try_task_config.json` file."
     ), "`try_task_config.json` should be rejected."
