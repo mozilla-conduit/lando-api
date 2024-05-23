@@ -34,6 +34,13 @@ def check_maintenance() -> Optional[Response]:
     if request.endpoint in excepted_endpoints:
         return
 
+    treestatus_api_prefix = "landoapi_api_treestatus"
+    if request.endpoint and request.endpoint.startswith(treestatus_api_prefix):
+        logger.info(
+            f"Skipping maintenance mode check for Treestatus endpoint {request.endpoint}."
+        )
+        return
+
     in_maintenance = ConfigurationVariable.get(
         ConfigurationKey.API_IN_MAINTENANCE, False
     )
