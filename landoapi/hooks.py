@@ -29,15 +29,20 @@ def check_maintenance() -> Optional[Response]:
         "dockerflow.heartbeat",
         "dockerflow.version",
         "dockerflow.lbheartbeat",
+        "landoapi_api_treestatus_delete_stack",
+        "landoapi_api_treestatus_delete_tree",
+        "landoapi_api_treestatus_get_logs",
+        "landoapi_api_treestatus_get_logs_all",
+        "landoapi_api_treestatus_get_stack",
+        "landoapi_api_treestatus_get_tree",
+        "landoapi_api_treestatus_get_trees",
+        "landoapi_api_treestatus_get_trees2",
+        "landoapi_api_treestatus_make_tree",
+        "landoapi_api_treestatus_update_log",
+        "landoapi_api_treestatus_update_stack",
+        "landoapi_api_treestatus_update_trees",
     )
     if request.endpoint in excepted_endpoints:
-        return
-
-    treestatus_api_prefix = "landoapi_api_treestatus"
-    if request.endpoint and request.endpoint.startswith(treestatus_api_prefix):
-        logger.info(
-            f"Skipping maintenance mode check for Treestatus endpoint {request.endpoint}."
-        )
         return
 
     in_maintenance = ConfigurationVariable.get(
