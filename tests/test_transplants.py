@@ -28,6 +28,7 @@ from landoapi.transplants import (
     blocker_author_planned_changes,
     blocker_prevent_symlinks,
     blocker_revision_data_classification,
+    blocker_try_task_config,
     blocker_uplift_approval,
     warning_not_accepted,
     warning_previously_landed,
@@ -1819,3 +1820,65 @@ def test_blocker_prevent_symlinks(phabdouble, create_state):
         )
         == "Revision introduces symlinks in the files `blahfile_symlink`."
     ), "Diff with symlinks present should fail the check."
+
+
+TRY_TASK_CONFIG_DIFF = """
+diff --git a/blah.json b/blah.json
+new file mode 100644
+index 0000000..663cbc2
+--- /dev/null
++++ b/blah.json
+@@ -0,0 +1 @@
++{"123":"456"}
+diff --git a/try_task_config.json b/try_task_config.json
+new file mode 100644
+index 0000000..e44d36d
+--- /dev/null
++++ b/try_task_config.json
+@@ -0,0 +1 @@
++{"env": {"TRY_SELECTOR": "fuzzy"}, "version": 1, "tasks": ["source-test-cram-tryselect"]}
+""".lstrip()
+
+
+def test_blocker_try_task_config_no_landing_state(
+    phabdouble, mocked_repo_config, create_state
+):
+    repo = phabdouble.repo()
+
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff = phabdouble.diff(revision=revision, rawdiff=TRY_TASK_CONFIG_DIFF)
+
+    stack_state = create_state(phab_revision)
+
+    assert (
+        blocker_try_task_config(
+            revision=phab_revision, diff=diff, stack_state=stack_state
+        )
+        == "Revision introduces the `try_task_config.json` file."
+    ), "`try_task_config.json` should be rejected."
+
+
+def test_blocker_try_task_config_landing_state_non_try(
+    phabdouble, mocked_repo_config, create_state
+):
+    repo = phabdouble.repo()
+
+    revision = phabdouble.revision(repo=repo)
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+    diff = phabdouble.diff(revision=revision, rawdiff=TRY_TASK_CONFIG_DIFF)
+
+    stack_state = create_state(phab_revision)
+
+    assert (
+        blocker_try_task_config(
+            revision=phab_revision, diff=diff, stack_state=stack_state
+        )
+        == "Revision introduces the `try_task_config.json` file."
+    ), "`try_task_config.json` should be rejected."
