@@ -22,6 +22,7 @@ from flask import current_app
 
 from landoapi.auth import A0User
 from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
+from landoapi.hgexports import DiffAssessor
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import (
@@ -125,7 +126,7 @@ class StackAssessmentState:
     phab: PhabricatorClient
     stack_data: RevisionData
     stack: RevisionStack
-    parsed_diffs: dict[int, dict]
+    parsed_diffs: dict[int, list[dict]]
     landable_stack: RevisionStack
     statuses: dict[str, PhabricatorRevisionStatus]
     landable_repos: dict[str, Repo]
@@ -225,6 +226,16 @@ class StackAssessmentState:
             )
             for revision in self.stack_data.revisions.values()
         ]
+
+    def get_repo_for_revision(self, revision: dict) -> Optional[Repo]:
+        """Given a revision object, return the associated `Repo` in Lando."""
+        repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
+
+        repo = self.stack_data.repositories.get(repo_phid)
+        if not repo or not self.supported_repos:
+            return None
+
+        return self.supported_repos.get(repo["fields"]["shortName"])
 
 
 class StackAssessment:
@@ -775,14 +786,10 @@ def blocker_uplift_approval(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> Optional[str]:
     """Check that Release Managers group approved a revision"""
-    repo_phid = PhabricatorClient.expect(revision, "fields", "repositoryPHID")
-    repo = stack_state.stack_data.repositories.get(repo_phid)
-    if not repo or not stack_state.supported_repos:
-        return None
+    local_repo = stack_state.get_repo_for_revision(revision)
 
     # Check if this repository needs an approval from relman.
-    local_repo = stack_state.supported_repos.get(repo["fields"]["shortName"])
-    if not local_repo or local_repo.approval_required is False:
+    if not local_repo or not local_repo.approval_required:
         return None
 
     # Check that relman approval was requested and that the
@@ -839,10 +846,6 @@ def blocker_single_landing_repo(
     stack_state.landing_assessment.landing_repo = landing_repo
 
 
-# Decimal notation for the `symlink` file mode.
-SYMLINK_MODE = 40960
-
-
 def blocker_prevent_symlinks(
     revision: dict, diff: dict, stack_state: StackAssessmentState
 ) -> Optional[str]:
@@ -850,21 +853,7 @@ def blocker_prevent_symlinks(
     diff_id = PhabricatorClient.expect(diff, "id")
     parsed_diff = stack_state.parsed_diffs[diff_id]
 
-    symlinked_files = []
-    for parsed in parsed_diff:
-        modes = parsed["modes"]
-
-        # Check the file mode on each file and ensure the file is not a symlink.
-        # `rs_parsepatch` has a `new` and `old` mode key, we are interested in
-        # only the newly introduced modes.
-        if "new" in modes and modes["new"] == SYMLINK_MODE:
-            symlinked_files.append(parsed["filename"])
-
-    if symlinked_files:
-        wrapped_filenames = (f"`{filename}`" for filename in symlinked_files)
-        return (
-            f"Revision introduces symlinks in the files {','.join(wrapped_filenames)}."
-        )
+    return DiffAssessor(parsed_diff).check_prevent_symlinks()
 
 
 def blocker_try_task_config(
@@ -874,9 +863,9 @@ def blocker_try_task_config(
     diff_id = PhabricatorClient.expect(diff, "id")
     parsed_diff = stack_state.parsed_diffs[diff_id]
 
-    for parsed in parsed_diff:
-        if parsed["filename"] == "try_task_config.json":
-            return "Revision introduces the `try_task_config.json` file."
+    local_repo = stack_state.get_repo_for_revision(revision)
+
+    return DiffAssessor(parsed_diff).check_try_task_config(repo=local_repo)
 
 
 STACK_BLOCKER_CHECKS = [

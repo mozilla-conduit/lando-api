@@ -8,6 +8,7 @@ import enum
 import io
 import logging
 
+import rs_parsepatch
 from connexion import ProblemException
 from flask import (
     current_app,
@@ -16,6 +17,7 @@ from flask import (
 
 from landoapi import auth
 from landoapi.hgexports import (
+    DiffAssessor,
     GitPatchHelper,
     HgPatchHelper,
     PatchHelper,
@@ -26,6 +28,7 @@ from landoapi.models.landing_job import (
 )
 from landoapi.models.revisions import Revision
 from landoapi.repos import (
+    Repo,
     get_repos_for_env,
 )
 
@@ -46,7 +49,7 @@ PATCH_HELPER_MAPPING = {
 }
 
 
-def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
+def build_revision_from_patch_helper(helper: PatchHelper, repo: Repo) -> Revision:
     author, email = helper.parse_author_information()
 
     timestamp = helper.get_timestamp()
@@ -55,8 +58,16 @@ def build_revision_from_patch_helper(helper: PatchHelper) -> Revision:
     if not commit_message:
         raise ValueError("Patch does not have a commit description.")
 
+    raw_diff = helper.get_diff()
+
+    # Check diff for errors.
+    parsed_diff = rs_parsepatch.get_diffs(raw_diff)
+    errors = DiffAssessor(parsed_diff).run_diff_checks(repo)
+    if errors:
+        raise ValueError(f"Patch failed checks: {' '.join(errors)}")
+
     return Revision.new_from_patch(
-        raw_diff=helper.get_diff(),
+        raw_diff=raw_diff,
         patch_data={
             "author_name": author,
             "author_email": email,
@@ -80,7 +91,7 @@ def decode_json_patch_to_text(patch: str) -> str:
 
 
 def parse_revisions_from_request(
-    patches: list[str], patch_format: PatchFormat
+    patches: list[str], patch_format: PatchFormat, repo: Repo
 ) -> list[Revision]:
     """Convert a set of base64 encoded patches to `Revision` objects."""
     patches_io = (io.StringIO(decode_json_patch_to_text(patch)) for patch in patches)
@@ -89,7 +100,7 @@ def parse_revisions_from_request(
 
     try:
         return [
-            build_revision_from_patch_helper(patch_helper)
+            build_revision_from_patch_helper(patch_helper, repo)
             for patch_helper in patch_helpers
         ]
     except ValueError as exc:
@@ -122,7 +133,7 @@ def post_patches(data: dict):
 
     # Add a landing job for this try push.
     ldap_username = g.auth0_user.email
-    revisions = parse_revisions_from_request(patches, patch_format)
+    revisions = parse_revisions_from_request(patches, patch_format, try_repo)
     job = add_job_with_revisions(
         revisions,
         repository_name=try_repo.short_name,
