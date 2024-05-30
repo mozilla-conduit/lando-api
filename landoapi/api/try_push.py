@@ -62,7 +62,7 @@ def build_revision_from_patch_helper(helper: PatchHelper, repo: Repo) -> Revisio
 
     # Check diff for errors.
     parsed_diff = rs_parsepatch.get_diffs(raw_diff)
-    errors = DiffAssessor(parsed_diff).run_diff_checks(repo)
+    errors = DiffAssessor(parsed_diff=parsed_diff, repo=repo).run_diff_checks()
     if errors:
         raise ValueError(f"Patch failed checks: {' '.join(errors)}")
 

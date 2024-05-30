@@ -853,7 +853,7 @@ def blocker_prevent_symlinks(
     diff_id = PhabricatorClient.expect(diff, "id")
     parsed_diff = stack_state.parsed_diffs[diff_id]
 
-    return DiffAssessor(parsed_diff).check_prevent_symlinks()
+    return DiffAssessor(parsed_diff=parsed_diff).check_prevent_symlinks()
 
 
 def blocker_try_task_config(
@@ -865,7 +865,9 @@ def blocker_try_task_config(
 
     local_repo = stack_state.get_repo_for_revision(revision)
 
-    return DiffAssessor(parsed_diff).check_try_task_config(repo=local_repo)
+    return DiffAssessor(
+        parsed_diff=parsed_diff, repo=local_repo
+    ).check_try_task_config()
 
 
 STACK_BLOCKER_CHECKS = [

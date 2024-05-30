@@ -405,8 +405,9 @@ class DiffAssessor:
     """
 
     parsed_diff: list[dict]
+    repo: Optional[Repo] = None
 
-    def check_prevent_symlinks(self, **kwargs) -> Optional[str]:
+    def check_prevent_symlinks(self) -> Optional[str]:
         """Check for symlinks introduced in the diff."""
         symlinked_files = []
         for parsed in self.parsed_diff:
@@ -422,22 +423,20 @@ class DiffAssessor:
             wrapped_filenames = (f"`{filename}`" for filename in symlinked_files)
             return f"Revision introduces symlinks in the files {','.join(wrapped_filenames)}."
 
-    def check_try_task_config(
-        self, repo: Optional[Repo] = None, **kwargs
-    ) -> Optional[str]:
+    def check_try_task_config(self) -> Optional[str]:
         """Check for `try_task_config.json` introduced in the diff."""
-        if repo and repo.tree == "try":
+        if self.repo and self.repo.tree == "try":
             return
 
         for parsed in self.parsed_diff:
             if parsed["filename"] == "try_task_config.json":
                 return "Revision introduces the `try_task_config.json` file."
 
-    def run_diff_checks(self, repo: Repo) -> list[str]:
+    def run_diff_checks(self) -> list[str]:
         """Execute the set of checks on the diffs."""
         issues = []
         for check in (self.check_prevent_symlinks, self.check_try_task_config):
-            if issue := check(repo=repo):
+            if issue := check():
                 issues.append(issue)
 
         return issues
