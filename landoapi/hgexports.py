@@ -8,6 +8,7 @@ import email
 import io
 import math
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from email.policy import (
     default as default_email_policy,
@@ -18,6 +19,8 @@ from email.utils import (
 from typing import (
     Optional,
 )
+
+from landoapi.repos import Repo
 
 HG_HEADER_NAMES = (
     "User",
@@ -388,3 +391,52 @@ class GitPatchHelper(PatchHelper):
             raise ValueError("Patch does not have a `Date:` header.")
 
         return get_timestamp_from_git_date_header(date)
+
+
+# Decimal notation for the `symlink` file mode.
+SYMLINK_MODE = 40960
+
+
+@dataclass
+class DiffAssessor:
+    """Assess diffs for landing issues.
+
+    Diffs should be passed in `rs-parsepatch` format.
+    """
+
+    parsed_diff: list[dict]
+    repo: Optional[Repo] = None
+
+    def check_prevent_symlinks(self) -> Optional[str]:
+        """Check for symlinks introduced in the diff."""
+        symlinked_files = []
+        for parsed in self.parsed_diff:
+            modes = parsed["modes"]
+
+            # Check the file mode on each file and ensure the file is not a symlink.
+            # `rs_parsepatch` has a `new` and `old` mode key, we are interested in
+            # only the newly introduced modes.
+            if "new" in modes and modes["new"] == SYMLINK_MODE:
+                symlinked_files.append(parsed["filename"])
+
+        if symlinked_files:
+            wrapped_filenames = (f"`{filename}`" for filename in symlinked_files)
+            return f"Revision introduces symlinks in the files {','.join(wrapped_filenames)}."
+
+    def check_try_task_config(self) -> Optional[str]:
+        """Check for `try_task_config.json` introduced in the diff."""
+        if self.repo and self.repo.tree == "try":
+            return
+
+        for parsed in self.parsed_diff:
+            if parsed["filename"] == "try_task_config.json":
+                return "Revision introduces the `try_task_config.json` file."
+
+    def run_diff_checks(self) -> list[str]:
+        """Execute the set of checks on the diffs."""
+        issues = []
+        for check in (self.check_prevent_symlinks, self.check_try_task_config):
+            if issue := check():
+                issues.append(issue)
+
+        return issues
