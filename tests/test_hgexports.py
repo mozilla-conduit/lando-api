@@ -4,12 +4,15 @@
 import io
 
 import pytest
+import rs_parsepatch
 
 from landoapi.hgexports import (
+    DiffAssessor,
     GitPatchHelper,
     HgPatchHelper,
     build_patch_for_revision,
 )
+from landoapi.repos import get_repos_for_env
 
 GIT_DIFF_FROM_REVISION = """diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
@@ -431,3 +434,150 @@ def test_strip_git_version_info_lines():
         "blah",
         "blah",
     ]
+
+
+def test_check_commit_message_api_states(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    parsed_diff = rs_parsepatch.get_diffs(GIT_DIFF_FROM_REVISION)
+
+    # Test check doesn't run on try.
+    try_repo = supported_repos["try"]
+    diff_assessor = DiffAssessor(
+        parsed_diff=parsed_diff, repo=try_repo, commit_message=COMMIT_MESSAGE
+    )
+    assert (
+        diff_assessor.check_commit_message() is None
+    ), "Commit message check should pass when repo is `try`."
+
+    # Test check doesn't run for null commit message.
+    valid_repo = supported_repos["mozilla-central"]
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff, repo=valid_repo)
+    assert (
+        diff_assessor.check_commit_message() is None
+    ), "Commit message check should pass if `commit_message` is `None`."
+
+    # Test check fails for empty commit message.
+    diff_assessor = DiffAssessor(
+        parsed_diff=parsed_diff, repo=valid_repo, commit_message=""
+    )
+    assert (
+        diff_assessor.check_commit_message() == "Revision has an empty commit message."
+    ), "Commit message check should fail if a commit message is passed but it is empty."
+
+    # Test check passed for merge automation user.
+    diff_assessor = DiffAssessor(
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message=COMMIT_MESSAGE,
+        author="ffxbld",
+    )
+    assert (
+        diff_assessor.check_commit_message() is None
+    ), "Commit message check should pass if a merge automation user is the author."
+
+
+@pytest.mark.parametrize(
+    "commit_message,error_message",
+    [
+        (
+            "Bug 123: this message has a bug number",
+            "Bug XYZ syntax is accepted.",
+        ),
+        (
+            "No bug: this message has a bug number",
+            "'No bug' syntax is accepted.",
+        ),
+        (
+            "Backed out changeset 4910f543acd8",
+            "'Backed out' backout syntax is accepted.",
+        ),
+        (
+            "Backout of ceac31c0ce89 due to bustage",
+            "'Backout of' backout syntax is accepted.",
+        ),
+        (
+            "Revert to changeset 41f80b316d60 due to incomplete backout",
+            "'Revert to' backout syntax is accepted.",
+        ),
+        (
+            "Backout changesets  9e4ab3907b29, 3abc0dbbf710 due to m-oth permaorange",
+            "Multiple changesets are allowed for backout syntax.",
+        ),
+        (
+            "Added tag AURORA_BASE_20110412 for changeset 2d4e565cf83f",
+            "Tag syntax should be allowed.",
+        ),
+    ],
+)
+def test_check_commit_message_valid_message(
+    mocked_repo_config, commit_message, error_message
+):
+    supported_repos = get_repos_for_env("test")
+    parsed_diff = rs_parsepatch.get_diffs(GIT_DIFF_FROM_REVISION)
+    valid_repo = supported_repos["mozilla-central"]
+
+    diff_assessor = DiffAssessor(
+        parsed_diff=parsed_diff, repo=valid_repo, commit_message=commit_message
+    )
+    assert diff_assessor.check_commit_message() is None, error_message
+
+
+@pytest.mark.parametrize(
+    "commit_message,return_string,error_message",
+    [
+        (
+            "this message is missing the bug.",
+            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Commit message is rejected without a bug number.",
+        ),
+        (
+            "Mass revert m-i to the last known good state",
+            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision missing a bug number or no bug should result in a failed check.",
+        ),
+        (
+            "update revision of Add-on SDK tests to latest tip; test-only",
+            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Revision missing a bug number or no bug should result in a failed check.",
+        ),
+        (
+            "Fix stupid bug in foo::bar()",
+            "Revision needs 'Bug N' or 'No bug' in the commit message.",
+            "Commit message with 'bug' bug in improper format should result in a failed check.",
+        ),
+        (
+            "Back out Dao's push because of build bustage",
+            "Revision is a backout but commit message does not indicate backed out revisions.",
+            "Backout should be rejected when a reference to the original patch is missing.",
+        ),
+        (
+            "Bug 100 - Foo. r?bar",
+            "Revision contains 'r?' in the commit message. Please use 'r=' instead.",
+            "Improper review specifier should be rejected.",
+        ),
+        (
+            "WIP: bug 123: this is a wip r=reviewer",
+            "Revision seems to be marked as WIP.",
+            "WIP revisions should be rejected.",
+        ),
+        (
+            "[PATCH 1/2] first part of my git patch",
+            (
+                "Revision contains git-format-patch '[PATCH]' cruft. "
+                "Use git-format-patch -k to avoid this."
+            ),
+            "`git-format-patch` cruft should result in a failed check.",
+        ),
+    ],
+)
+def test_check_commit_message_invalid_message(
+    mocked_repo_config, commit_message, return_string, error_message
+):
+    supported_repos = get_repos_for_env("test")
+    parsed_diff = rs_parsepatch.get_diffs(GIT_DIFF_FROM_REVISION)
+    valid_repo = supported_repos["mozilla-central"]
+
+    diff_assessor = DiffAssessor(
+        parsed_diff=parsed_diff, repo=valid_repo, commit_message=commit_message
+    )
+    assert diff_assessor.check_commit_message() == return_string, error_message
