@@ -403,6 +403,15 @@ REPO_CONFIG = {
             milestone_tracking_flag_template="cf_status_firefox_esr{milestone}",
             commit_flags=[DONTBUILD],
         ),
+        "esr128": Repo(
+            tree="mozilla-esr128",
+            short_name="esr128",
+            url="https://hg.mozilla.org/releases/mozilla-esr128",
+            access_group=SCM_ALLOW_DIRECT_PUSH,
+            approval_required=True,
+            milestone_tracking_flag_template="cf_status_firefox_esr{milestone}",
+            commit_flags=[DONTBUILD],
+        ),
     },
 }
 
