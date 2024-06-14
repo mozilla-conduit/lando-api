@@ -489,6 +489,8 @@ def parse_bugs(commit_desc: str, conservative: bool = False) -> list[int]:
     bugs_seen = set()
     bugs_seen_add = bugs_seen.add
     bugs = [x for x in bugs_with_duplicates if not (x in bugs_seen or bugs_seen_add(x))]
+
+    # Filter out very large numbers since those are certainly not actual bugs.
     return [bug for bug in bugs if bug < 100000000]
 
 
