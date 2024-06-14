@@ -508,7 +508,7 @@ def parse_backouts(
     being backed out).
     """
     if not is_backout(commit_desc):
-        return None
+        return
 
     lines = commit_desc.splitlines()
     first_line = lines[0]
@@ -530,7 +530,7 @@ def parse_backouts(
         if strict:
             # The correct number of nodes must be specified.
             if expected != len(nodes):
-                return None
+                return
         return nodes, parse_bugs(commit_desc)
 
     # Multiple backouts, with nodes listed on the first line
@@ -538,7 +538,7 @@ def parse_backouts(
     if m:
         return SHORT_NODE_RE.findall(m.group("nodes")), parse_bugs(first_line)
 
-    return None
+    return
 
 
 # Decimal notation for the `symlink` file mode.
