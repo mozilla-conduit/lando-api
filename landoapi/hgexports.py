@@ -468,6 +468,11 @@ def is_backout(commit_desc: str) -> bool:
 
 
 def parse_bugs(commit_desc: str, conservative: bool = False) -> list[int]:
+    """Parse a list of `int` bug IDs from a commit description.
+
+    If `conservative` is `True`, use a more conservative regex for finding
+    bug numbers.
+    """
     m = RE_SOURCE_REPO.search(commit_desc)
     if m:
         source_repo = m.group(1)
