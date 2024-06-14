@@ -473,9 +473,9 @@ def parse_bugs(commit_desc: str, conservative: bool = False) -> list[int]:
     If `conservative` is `True`, use a more conservative regex for finding
     bug numbers.
     """
-    m = RE_SOURCE_REPO.search(commit_desc)
-    if m:
-        source_repo = m.group(1)
+    source_repo_match = RE_SOURCE_REPO.search(commit_desc)
+    if source_repo_match:
+        source_repo = source_repo_match.group(1)
 
         if source_repo.startswith("https://github.com/"):
             conservative = True
@@ -485,10 +485,14 @@ def parse_bugs(commit_desc: str, conservative: bool = False) -> list[int]:
 
     bugzilla_re = BUG_CONSERVATIVE_RE if conservative else BUG_RE
 
-    bugs_with_duplicates = [int(m[1]) for m in bugzilla_re.findall(commit_desc)]
+    bugs_with_duplicates = [int(match[1]) for match in bugzilla_re.findall(commit_desc)]
     bugs_seen = set()
     bugs_seen_add = bugs_seen.add
-    bugs = [x for x in bugs_with_duplicates if not (x in bugs_seen or bugs_seen_add(x))]
+    bugs = [
+        bug
+        for bug in bugs_with_duplicates
+        if not (bug in bugs_seen or bugs_seen_add(bug))
+    ]
 
     # Filter out very large numbers since those are certainly not actual bugs.
     return [bug for bug in bugs if bug < 100000000]
@@ -514,29 +518,33 @@ def parse_backouts(
     first_line = lines[0]
 
     # Single backout.
-    m = BACKOUT_SINGLE_RE.match(first_line)
-    if m:
-        return [m.group("node")], parse_bugs(first_line)
+    backout_match = BACKOUT_SINGLE_RE.match(first_line)
+    if backout_match:
+        return [backout_match.group("node")], parse_bugs(first_line)
 
     # Multiple backouts, with nodes listed in commit description.
-    m = BACKOUT_MULTI_SPLIT_RE.match(first_line)
-    if m:
-        expected = int(m.group("count"))
+    backout_match = BACKOUT_MULTI_SPLIT_RE.match(first_line)
+    if backout_match:
+        expected = int(backout_match.group("count"))
         nodes = []
         for line in lines[1:]:
-            single_m = BACKOUT_SINGLE_RE.match(line)
-            if single_m:
-                nodes.append(single_m.group("node"))
+            single_match = BACKOUT_SINGLE_RE.match(line)
+            if single_match:
+                nodes.append(single_match.group("node"))
+
         if strict:
             # The correct number of nodes must be specified.
             if expected != len(nodes):
                 return
+
         return nodes, parse_bugs(commit_desc)
 
     # Multiple backouts, with nodes listed on the first line
-    m = BACKOUT_MULTI_ONELINE_RE.match(first_line)
-    if m:
-        return SHORT_NODE_RE.findall(m.group("nodes")), parse_bugs(first_line)
+    backout_match = BACKOUT_MULTI_ONELINE_RE.match(first_line)
+    if backout_match:
+        return SHORT_NODE_RE.findall(backout_match.group("nodes")), parse_bugs(
+            first_line
+        )
 
     return
 
