@@ -20,6 +20,12 @@ from typing import (
     Optional,
 )
 
+from landoapi.commit_message import (
+    ACCEPTABLE_MESSAGE_FORMAT_RES,
+    INVALID_REVIEW_FLAG_RE,
+    is_backout,
+    parse_backouts,
+)
 from landoapi.repos import Repo
 
 HG_HEADER_NAMES = (
@@ -391,162 +397,6 @@ class GitPatchHelper(PatchHelper):
             raise ValueError("Patch does not have a `Date:` header.")
 
         return get_timestamp_from_git_date_header(date)
-
-
-ACCEPTABLE_MESSAGE_FORMAT_RES = [
-    re.compile(format, re.I)
-    for format in [
-        r"bug [0-9]+",
-        r"no bug",
-        r"^(back(ing|ed)?\s+out|backout).*(\s+|\:)[0-9a-f]{12}",
-        r"^(revert(ed|ing)?).*(\s+|\:)[0-9a-f]{12}",
-        r"^add(ed|ing)? tag",
-    ]
-]
-INVALID_REVIEW_FLAG_RE = re.compile(r"[\s.;]r\?(?:\w|$)")
-
-CHANGESET_KEYWORD = r"(?:\b(?:changeset|revision|change|cset|of)\b)"
-CHANGESETS_KEYWORD = r"(?:\b(?:changesets|revisions|changes|csets|of)\b)"
-SHORT_NODE = r"([0-9a-f]{12}\b)"
-SHORT_NODE_RE = re.compile(SHORT_NODE, re.I)
-BACKOUT_KEYWORD = r"^(?:backed out|backout|back out)\b"
-BACKOUT_KEYWORD_RE = re.compile(BACKOUT_KEYWORD, re.I)
-BACKOUT_SINGLE_RE = re.compile(
-    BACKOUT_KEYWORD
-    + r"\s+"
-    + CHANGESET_KEYWORD
-    + r"?\s*"
-    + r"(?P<node>"
-    + SHORT_NODE
-    + r")",
-    re.I,
-)
-BACKOUT_MULTI_SPLIT_RE = re.compile(
-    BACKOUT_KEYWORD + r"\s+(?P<count>\d+)\s+" + CHANGESETS_KEYWORD, re.I
-)
-BACKOUT_MULTI_ONELINE_RE = re.compile(
-    BACKOUT_KEYWORD
-    + r"\s+"
-    + CHANGESETS_KEYWORD
-    + r"?\s*"
-    + r"(?P<nodes>(?:(?:\s+|and|,)+"
-    + SHORT_NODE
-    + r")+)",
-    re.I,
-)
-RE_SOURCE_REPO = re.compile(r"^Source-Repo: (https?:\/\/.*)$", re.MULTILINE)
-RE_SOURCE_REVISION = re.compile(r"^Source-Revision: (.*)$", re.MULTILINE)
-# Like BUG_RE except it doesn't flag sequences of numbers, only positive
-# "bug" syntax like "bug X" or "b=".
-BUG_CONSERVATIVE_RE = re.compile(r"""(\b(?:bug|b=)\b(?:\s*)(\d+)(?=\b))""", re.I | re.X)
-BUG_RE = re.compile(
-    r"""# bug followed by any sequence of numbers, or
-        # a standalone sequence of numbers
-         (
-           (?:
-             bug |
-             b= |
-             # a sequence of 5+ numbers preceded by whitespace
-             (?=\b\#?\d{5,}) |
-             # numbers at the very beginning
-             ^(?=\d)
-           )
-           (?:\s*\#?)(\d+)(?=\b)
-         )""",
-    re.I | re.X,
-)
-
-
-def is_backout(commit_desc: str) -> bool:
-    """Returns True if commit description indicates the changeset is a backout.
-
-    Backout commits should always result in is_backout() returning True,
-    and parse_backouts() not returning None.  Malformed backouts may return
-    True here and None from parse_backouts().
-    """
-    return BACKOUT_KEYWORD_RE.match(commit_desc) is not None
-
-
-def parse_bugs(commit_desc: str, conservative: bool = False) -> list[int]:
-    """Parse a list of `int` bug IDs from a commit description.
-
-    If `conservative` is `True`, use a more conservative regex for finding
-    bug numbers.
-    """
-    source_repo_match = RE_SOURCE_REPO.search(commit_desc)
-    if source_repo_match:
-        source_repo = source_repo_match.group(1)
-
-        if source_repo.startswith("https://github.com/"):
-            conservative = True
-
-    if commit_desc.startswith("Bumping gaia.json"):
-        conservative = True
-
-    bugzilla_re = BUG_CONSERVATIVE_RE if conservative else BUG_RE
-
-    bugs_with_duplicates = [int(match[1]) for match in bugzilla_re.findall(commit_desc)]
-    bugs_seen = set()
-    bugs_seen_add = bugs_seen.add
-    bugs = [
-        bug
-        for bug in bugs_with_duplicates
-        if not (bug in bugs_seen or bugs_seen_add(bug))
-    ]
-
-    # Filter out very large numbers since those are certainly not actual bugs.
-    return [bug for bug in bugs if bug < 100000000]
-
-
-def parse_backouts(
-    commit_desc: str, strict: bool = False
-) -> Optional[tuple[list[str], list[int]]]:
-    """Look for backout annotations in a string.
-
-    Returns a 2-tuple of (nodes, bugs) where each entry is an iterable of
-    changeset identifiers and bug numbers that were backed out, respectively.
-    Or return None if no backout info is available.
-
-    Setting `strict` to True will enable stricter validation of the commit
-    description (eg. ensuring N commits are provided when given N commits are
-    being backed out).
-    """
-    if not is_backout(commit_desc):
-        return
-
-    lines = commit_desc.splitlines()
-    first_line = lines[0]
-
-    # Single backout.
-    backout_match = BACKOUT_SINGLE_RE.match(first_line)
-    if backout_match:
-        return [backout_match.group("node")], parse_bugs(first_line)
-
-    # Multiple backouts, with nodes listed in commit description.
-    backout_match = BACKOUT_MULTI_SPLIT_RE.match(first_line)
-    if backout_match:
-        expected = int(backout_match.group("count"))
-        nodes = []
-        for line in lines[1:]:
-            single_match = BACKOUT_SINGLE_RE.match(line)
-            if single_match:
-                nodes.append(single_match.group("node"))
-
-        if strict:
-            # The correct number of nodes must be specified.
-            if expected != len(nodes):
-                return
-
-        return nodes, parse_bugs(commit_desc)
-
-    # Multiple backouts, with nodes listed on the first line
-    backout_match = BACKOUT_MULTI_ONELINE_RE.match(first_line)
-    if backout_match:
-        return SHORT_NODE_RE.findall(backout_match.group("nodes")), parse_bugs(
-            first_line
-        )
-
-    return
 
 
 # Decimal notation for the `symlink` file mode.
