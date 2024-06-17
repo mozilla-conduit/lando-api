@@ -402,6 +402,11 @@ class GitPatchHelper(PatchHelper):
 # Decimal notation for the `symlink` file mode.
 SYMLINK_MODE = 40960
 
+# WPT Sync bot is restricted to paths matching this regex.
+WPT_SYNC_ALLOWED_PATHS_RE = re.compile(
+    r"testing/web-platform/(?:moz\.build|meta/.*|tests/.*)$"
+)
+
 
 @dataclass
 class DiffAssessor:
@@ -496,6 +501,33 @@ class DiffAssessor:
 
         return "Revision needs 'Bug N' or 'No bug' in the commit message."
 
+    def check_wpt_sync(self) -> Optional[str]:
+        """Check the WPT Sync bot has only made changes to relevant subset of the tree."""
+        if self.author != "wptsync@mozilla.com":
+            return
+
+        if not self.repo:
+            return
+
+        if self.repo.tree == "try":
+            return
+
+        if self.repo.tree != "mozilla-central":
+            return f"WPT Sync bot can not push to {self.repo.tree}."
+
+        disallowed_files = []
+        for parsed in self.parsed_diff:
+            filename = parsed["filename"]
+            if not WPT_SYNC_ALLOWED_PATHS_RE.match(filename):
+                disallowed_files.append(filename)
+
+        if disallowed_files:
+            wrapped_filenames = (f"`{filename}`" for filename in disallowed_files)
+            return (
+                f"Revision allows WPTSync bot to make changes to disallowed files "
+                f"{','.join(wrapped_filenames)}."
+            )
+
     def run_diff_checks(self) -> list[str]:
         """Execute the set of checks on the diffs."""
         issues = []
@@ -503,6 +535,7 @@ class DiffAssessor:
             self.check_prevent_symlinks,
             self.check_try_task_config,
             self.check_commit_message,
+            self.check_wpt_sync,
         ):
             if issue := check():
                 issues.append(issue)

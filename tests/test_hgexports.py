@@ -142,6 +142,19 @@ unavailable at the moment and is not broken.
 2.31.1
 """.strip()
 
+GIT_DIFF_FILENAME_TEMPLATE = """
+diff --git a/{filename} b/{filename}
+--- a/{filename}
++++ b/{filename}
+@@ -12,5 +12,6 @@
+ int main(int argc, char **argv)
+ {{
+        printf("hello, world!\n");
++       printf("sure am glad I'm using Mercurial!\n");
+        return 0;
+ }}
+""".lstrip()
+
 
 def test_build_patch():
     patch = build_patch_for_revision(
@@ -581,3 +594,106 @@ def test_check_commit_message_invalid_message(
         parsed_diff=parsed_diff, repo=valid_repo, commit_message=commit_message
     )
     assert diff_assessor.check_commit_message() == return_string, error_message
+
+
+def test_check_wpt_sync_irrelevant_user(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    valid_repo = supported_repos["mozilla-central"]
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
+    )
+    diff_assessor = DiffAssessor(
+        author="sheehan@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message=COMMIT_MESSAGE,
+    )
+    assert (
+        diff_assessor.check_wpt_sync() is None
+    ), "Check should pass when user is not `wptsync@mozilla.com`."
+
+
+def test_check_wpt_sync_no_repo():
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
+    )
+    diff_assessor = DiffAssessor(
+        author="wptsync@mozilla.com",
+        parsed_diff=parsed_diff,
+        commit_message=COMMIT_MESSAGE,
+    )
+    assert (
+        diff_assessor.check_wpt_sync() is None
+    ), "Check should pass without repo information."
+
+
+def test_check_wpt_sync_try(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    try_repo = supported_repos["try"]
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
+    )
+    diff_assessor = DiffAssessor(
+        author="wptsync@mozilla.com",
+        parsed_diff=parsed_diff,
+        commit_message=COMMIT_MESSAGE,
+        repo=try_repo,
+    )
+    assert diff_assessor.check_wpt_sync() is None, "Check should pass for try repo."
+
+
+def test_check_wpt_sync_non_central_repo(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    invalid_repo = supported_repos["mozilla-new"]
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
+    )
+    diff_assessor = DiffAssessor(
+        author="wptsync@mozilla.com",
+        parsed_diff=parsed_diff,
+        commit_message=COMMIT_MESSAGE,
+        repo=invalid_repo,
+    )
+    assert (
+        diff_assessor.check_wpt_sync() == "WPT Sync bot can not push to mozilla-new."
+    ), "Check should fail if WPTSync bot pushes to disallowed repo."
+
+
+def test_check_wpt_sync_invalid_paths(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    valid_repo = supported_repos["mozilla-central"]
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
+    )
+    diff_assessor = DiffAssessor(
+        author="wptsync@mozilla.com",
+        parsed_diff=parsed_diff,
+        commit_message=COMMIT_MESSAGE,
+        repo=valid_repo,
+    )
+    assert diff_assessor.check_wpt_sync() == (
+        "Revision allows WPTSync bot to make changes to disallowed "
+        "files `somefile.txt`."
+    ), "Check should fail if WPTSync bot pushes to disallowed repo."
+
+
+def test_check_wpt_sync_valid_paths(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    valid_repo = supported_repos["mozilla-central"]
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="testing/web-platform/moz.build")
+    )
+    diff_assessor = DiffAssessor(
+        author="wptsync@mozilla.com",
+        parsed_diff=parsed_diff,
+        commit_message=COMMIT_MESSAGE,
+        repo=valid_repo,
+    )
+    assert (
+        diff_assessor.check_wpt_sync() is None
+    ), "Check should pass if WPTSync bot makes changes to allowed files."
