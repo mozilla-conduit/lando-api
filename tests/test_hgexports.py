@@ -697,3 +697,158 @@ def test_check_wpt_sync_valid_paths(mocked_repo_config):
     assert (
         diff_assessor.check_wpt_sync() is None
     ), "Check should pass if WPTSync bot makes changes to allowed files."
+
+
+def test_check_prevent_nspr_nss_missing_fields(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    valid_repo = supported_repos["mozilla-central"]
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
+    )
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+    )
+    assert (
+        diff_assessor.check_prevent_nspr_nss() is None
+    ), "Missing commit message should result in passing check."
+
+    diff_assessor = DiffAssessor(
+        author="wptsync@mozilla.com",
+        parsed_diff=parsed_diff,
+        commit_message=COMMIT_MESSAGE,
+    )
+    assert (
+        diff_assessor.check_prevent_nspr_nss() is None
+    ), "Missing repo should result in passing check."
+
+
+def test_check_prevent_nspr_nss_try_allowed(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    valid_repo = supported_repos["try"]
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
+    )
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message=COMMIT_MESSAGE,
+    )
+    assert (
+        diff_assessor.check_prevent_nspr_nss() is None
+    ), "Check should pass for disallowed changes pushed to try."
+
+
+def test_check_prevent_nspr_nss_nss(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    valid_repo = supported_repos["mozilla-central"]
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
+    )
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message=COMMIT_MESSAGE,
+    )
+    assert diff_assessor.check_prevent_nspr_nss() == (
+        "Revision makes changes to restricted directories: vendored NSS directories: "
+        "`security/nss/testfile.txt`."
+    ), "Check should disallow changes to NSS without proper commit message."
+
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE",
+    )
+    assert (
+        diff_assessor.check_prevent_nspr_nss() is None
+    ), "Check should allow changes to NSS with proper commit message."
+
+
+def test_check_prevent_nspr_nss_nspr(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    valid_repo = supported_repos["mozilla-central"]
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt")
+    )
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message=COMMIT_MESSAGE,
+    )
+    assert diff_assessor.check_prevent_nspr_nss() == (
+        "Revision makes changes to restricted directories: vendored NSPR directories: "
+        "`nsprpub/testfile.txt`."
+    ), "Check should disallow changes to NSPR without proper commit message."
+
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message="bug 123: upgrade NSS UPGRADE_NSPR_RELEASE",
+    )
+    assert (
+        diff_assessor.check_prevent_nspr_nss() is None
+    ), "Check should allow changes to NSPR with proper commit message."
+
+
+def test_check_prevent_nspr_nss_combined(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    valid_repo = supported_repos["mozilla-central"]
+
+    nspr_patch = GIT_DIFF_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt")
+    nss_patch = GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
+    combined_patch = "\n".join((nspr_patch, nss_patch))
+
+    parsed_diff = rs_parsepatch.get_diffs(combined_patch)
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message=COMMIT_MESSAGE,
+    )
+    assert diff_assessor.check_prevent_nspr_nss() == (
+        "Revision makes changes to restricted directories: vendored NSS directories: "
+        "`security/nss/testfile.txt` vendored NSPR directories: `nsprpub/testfile.txt`."
+    ), "Check should disallow changes to both NSS and NSPR without proper commit message."
+
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message="bug 123: upgrade NSS UPGRADE_NSPR_RELEASE",
+    )
+    assert diff_assessor.check_prevent_nspr_nss() == (
+        "Revision makes changes to restricted directories: "
+        "vendored NSS directories: `security/nss/testfile.txt`."
+    ), "Check should allow changes to NSPR with proper commit message."
+
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE",
+    )
+    assert diff_assessor.check_prevent_nspr_nss() == (
+        "Revision makes changes to restricted directories: "
+        "vendored NSPR directories: `nsprpub/testfile.txt`."
+    ), "Check should allow changes to NSPR with proper commit message."
+
+    diff_assessor = DiffAssessor(
+        author="testuser@mozilla.com",
+        parsed_diff=parsed_diff,
+        repo=valid_repo,
+        commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE UPGRADE_NSPR_RELEASE",
+    )
+    assert (
+        diff_assessor.check_prevent_nspr_nss() is None
+    ), "Check should allow changes to NSPR with proper commit message."

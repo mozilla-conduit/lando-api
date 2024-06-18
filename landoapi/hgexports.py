@@ -528,6 +528,66 @@ class DiffAssessor:
                 f"{','.join(wrapped_filenames)}."
             )
 
+    def build_prevent_nspr_nss_error_message(
+        self, nss_disallowed_changes: list[str], nspr_disallowed_changes: list[str]
+    ) -> str:
+        """Build the `check_prevent_nspr_nss` error message.
+
+        Assumes at least one of `nss_disallowed_changes` or `nspr_disallowed_changes`
+        are non-empty lists.
+        """
+        # Build the error message.
+        return_error_message = ["Revision makes changes to restricted directories:"]
+
+        if nss_disallowed_changes:
+            return_error_message.append("vendored NSS directories:")
+
+            wrapped_filenames = (f"`{filename}`" for filename in nss_disallowed_changes)
+            return_error_message.append(",".join(wrapped_filenames))
+
+        if nspr_disallowed_changes:
+            return_error_message.append("vendored NSPR directories:")
+
+            wrapped_filenames = (
+                f"`{filename}`" for filename in nspr_disallowed_changes
+            )
+            return_error_message.append(",".join(wrapped_filenames))
+
+        return " ".join(return_error_message) + "."
+
+    def check_prevent_nspr_nss(self) -> Optional[str]:
+        """Prevent changes to vendored NSPR directories."""
+        if not self.repo or not self.commit_message:
+            return
+
+        if self.repo.tree == "try":
+            return
+
+        nss_disallowed_changes = []
+        nspr_disallowed_changes = []
+        for parsed in self.parsed_diff:
+            filename = parsed["filename"]
+
+            if (
+                filename.startswith("security/nss/")
+                and "UPGRADE_NSS_RELEASE" not in self.commit_message
+            ):
+                nss_disallowed_changes.append(filename)
+
+            if (
+                filename.startswith("nsprpub/")
+                and "UPGRADE_NSPR_RELEASE" not in self.commit_message
+            ):
+                nspr_disallowed_changes.append(filename)
+
+        if not nss_disallowed_changes and not nspr_disallowed_changes:
+            # Return early if no disallowed changes were found.
+            return
+
+        return self.build_prevent_nspr_nss_error_message(
+            nss_disallowed_changes, nspr_disallowed_changes
+        )
+
     def run_diff_checks(self) -> list[str]:
         """Execute the set of checks on the diffs."""
         issues = []
@@ -536,6 +596,7 @@ class DiffAssessor:
             self.check_try_task_config,
             self.check_commit_message,
             self.check_wpt_sync,
+            self.check_prevent_nspr_nss,
         ):
             if issue := check():
                 issues.append(issue)
