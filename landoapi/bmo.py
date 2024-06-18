@@ -6,6 +6,43 @@ import requests
 from flask import current_app
 
 
+def bmo_search_bug_endpoint() -> str:
+    """Returns the BMO bug search endpoint URL."""
+    return f"{current_app.config['BUGZILLA_URL']}/rest/bug"
+
+
+def search_bugs(bug_ids: set[int]) -> set[int]:
+    """Search for bugs with given IDs on BMO."""
+    bug_search_endpoint = bmo_search_bug_endpoint()
+    params = {
+        "id": ",".join(str(bug) for bug in sorted(bug_ids)),
+        "include_fields": "id",
+    }
+
+    resp = requests.get(
+        bug_search_endpoint,
+        headers=bmo_default_headers(),
+        params=params,
+    )
+
+    bugs = resp.json()["bugs"]
+
+    return {int(bug["id"]) for bug in bugs}
+
+
+def get_status_code_for_bug(bug_id: int) -> int:
+    """Given a bug ID, get the status code returned from BMO when attempting to access the bug."""
+    bug_endpoint = f"{bmo_search_bug_endpoint()}/{bug_id}"
+
+    try:
+        resp = requests.get(bug_endpoint)
+        code = resp.status_code
+    except requests.exceptions.HTTPError as exc:
+        code = exc.response.status_code
+
+    return code
+
+
 def bmo_uplift_endpoint() -> str:
     """Returns the BMO uplift endpoint url for bugs."""
     return f"{current_app.config['BUGZILLA_URL']}/rest/lando/uplift"
