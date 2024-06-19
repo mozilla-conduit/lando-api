@@ -552,7 +552,7 @@ class DiffAssessor:
 
             return_error_message.append(wrap_filenames(nspr_disallowed_changes))
 
-        return " ".join(return_error_message) + "."
+        return f"{' '.join(return_error_message)}."
 
     def check_prevent_nspr_nss(self) -> Optional[str]:
         """Prevent changes to vendored NSPR directories."""
