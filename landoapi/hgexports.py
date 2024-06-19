@@ -408,6 +408,11 @@ WPT_SYNC_ALLOWED_PATHS_RE = re.compile(
 )
 
 
+def wrap_filenames(filenames: list[str]) -> str:
+    """Convert a list of filenames to a string with names wrapped in backticks."""
+    return ",".join(f"`{filename}`" for filename in filenames)
+
+
 @dataclass
 class DiffAssessor:
     """Assess diffs for landing issues.
@@ -433,8 +438,7 @@ class DiffAssessor:
                 symlinked_files.append(parsed["filename"])
 
         if symlinked_files:
-            wrapped_filenames = (f"`{filename}`" for filename in symlinked_files)
-            return f"Revision introduces symlinks in the files {','.join(wrapped_filenames)}."
+            return f"Revision introduces symlinks in the files {wrap_filenames(symlinked_files)}."
 
     def check_try_task_config(self) -> Optional[str]:
         """Check for `try_task_config.json` introduced in the diff."""
@@ -522,10 +526,9 @@ class DiffAssessor:
                 disallowed_files.append(filename)
 
         if disallowed_files:
-            wrapped_filenames = (f"`{filename}`" for filename in disallowed_files)
             return (
-                f"Revision allows WPTSync bot to make changes to disallowed files "
-                f"{','.join(wrapped_filenames)}."
+                "Revision allows WPTSync bot to make changes to disallowed files "
+                f"{wrap_filenames(disallowed_files)}."
             )
 
     def build_prevent_nspr_nss_error_message(
@@ -542,16 +545,12 @@ class DiffAssessor:
         if nss_disallowed_changes:
             return_error_message.append("vendored NSS directories:")
 
-            wrapped_filenames = (f"`{filename}`" for filename in nss_disallowed_changes)
-            return_error_message.append(",".join(wrapped_filenames))
+            return_error_message.append(wrap_filenames(nss_disallowed_changes))
 
         if nspr_disallowed_changes:
             return_error_message.append("vendored NSPR directories:")
 
-            wrapped_filenames = (
-                f"`{filename}`" for filename in nspr_disallowed_changes
-            )
-            return_error_message.append(",".join(wrapped_filenames))
+            return_error_message.append(wrap_filenames(nspr_disallowed_changes))
 
         return " ".join(return_error_message) + "."
 
