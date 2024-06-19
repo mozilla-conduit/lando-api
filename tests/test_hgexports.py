@@ -851,3 +851,24 @@ def test_check_prevent_nspr_nss_combined(mocked_repo_config):
     assert (
         diff_assessor.check_prevent_nspr_nss() is None
     ), "Check should allow changes to NSPR with proper commit message."
+
+
+def test_check_prevent_submodules():
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
+    )
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff)
+
+    assert (
+        diff_assessor.check_prevent_submodules() is None
+    ), "Check should pass when no submodules are introduced."
+
+    parsed_diff = rs_parsepatch.get_diffs(
+        GIT_DIFF_FILENAME_TEMPLATE.format(filename=".gitmodules")
+    )
+    diff_assessor = DiffAssessor(parsed_diff=parsed_diff)
+
+    assert (
+        diff_assessor.check_prevent_submodules()
+        == "Revision introduces a Git submodule into the repository."
+    ), "Check should prevent revisions from introducing submodules."
