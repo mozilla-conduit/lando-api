@@ -524,7 +524,7 @@ class DiffAssessor:
 
         if disallowed_files:
             return (
-                "Revision allows WPTSync bot to make changes to disallowed files "
+                "Revision has WPTSync bot making changes to disallowed files "
                 f"{wrap_filenames(disallowed_files)}."
             )
 

@@ -676,9 +676,8 @@ def test_check_wpt_sync_invalid_paths(mocked_repo_config):
         repo=valid_repo,
     )
     assert diff_assessor.check_wpt_sync() == (
-        "Revision allows WPTSync bot to make changes to disallowed "
-        "files `somefile.txt`."
-    ), "Check should fail if WPTSync bot pushes to disallowed repo."
+        "Revision has WPTSync bot making changes to disallowed " "files `somefile.txt`."
+    ), "Check should fail if WPTSync bot pushes disallowed files."
 
 
 def test_check_wpt_sync_valid_paths(mocked_repo_config):
