@@ -510,10 +510,7 @@ class DiffAssessor:
         if self.author != "wptsync@mozilla.com":
             return
 
-        if not self.repo:
-            return
-
-        if self.repo.tree == "try":
+        if not self.repo or self.repo.tree == "try":
             return
 
         if self.repo.tree != "mozilla-central":
