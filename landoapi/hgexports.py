@@ -584,6 +584,12 @@ class DiffAssessor:
             nss_disallowed_changes, nspr_disallowed_changes
         )
 
+    def check_prevent_submodules(self) -> Optional[str]:
+        """Prevent introduction of Git submodules into the repository."""
+        for parsed in self.parsed_diff:
+            if parsed["filename"] == ".gitmodules":
+                return "Revision introduces a Git submodule into the repository."
+
     def run_diff_checks(self) -> list[str]:
         """Execute the set of checks on the diffs."""
         issues = []
@@ -593,6 +599,7 @@ class DiffAssessor:
             self.check_commit_message,
             self.check_wpt_sync,
             self.check_prevent_nspr_nss,
+            self.check_prevent_submodules,
         ):
             if issue := check():
                 issues.append(issue)
