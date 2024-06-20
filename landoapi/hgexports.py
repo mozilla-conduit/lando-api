@@ -402,6 +402,16 @@ class GitPatchHelper(PatchHelper):
 # Decimal notation for the `symlink` file mode.
 SYMLINK_MODE = 40960
 
+# WPT Sync bot is restricted to paths matching this regex.
+WPT_SYNC_ALLOWED_PATHS_RE = re.compile(
+    r"testing/web-platform/(?:moz\.build|meta/.*|tests/.*)$"
+)
+
+
+def wrap_filenames(filenames: list[str]) -> str:
+    """Convert a list of filenames to a string with names wrapped in backticks."""
+    return ",".join(f"`{filename}`" for filename in filenames)
+
 
 @dataclass
 class DiffAssessor:
@@ -428,8 +438,7 @@ class DiffAssessor:
                 symlinked_files.append(parsed["filename"])
 
         if symlinked_files:
-            wrapped_filenames = (f"`{filename}`" for filename in symlinked_files)
-            return f"Revision introduces symlinks in the files {','.join(wrapped_filenames)}."
+            return f"Revision introduces symlinks in the files {wrap_filenames(symlinked_files)}."
 
     def check_try_task_config(self) -> Optional[str]:
         """Check for `try_task_config.json` introduced in the diff."""
@@ -496,6 +505,85 @@ class DiffAssessor:
 
         return "Revision needs 'Bug N' or 'No bug' in the commit message."
 
+    def check_wpt_sync(self) -> Optional[str]:
+        """Check the WPT Sync bot has only made changes to relevant subset of the tree."""
+        if self.author != "wptsync@mozilla.com":
+            return
+
+        if not self.repo or self.repo.tree == "try":
+            return
+
+        if self.repo.tree != "mozilla-central":
+            return f"WPT Sync bot can not push to {self.repo.tree}."
+
+        disallowed_files = []
+        for parsed in self.parsed_diff:
+            filename = parsed["filename"]
+            if not WPT_SYNC_ALLOWED_PATHS_RE.match(filename):
+                disallowed_files.append(filename)
+
+        if disallowed_files:
+            return (
+                "Revision has WPTSync bot making changes to disallowed files "
+                f"{wrap_filenames(disallowed_files)}."
+            )
+
+    def build_prevent_nspr_nss_error_message(
+        self, nss_disallowed_changes: list[str], nspr_disallowed_changes: list[str]
+    ) -> str:
+        """Build the `check_prevent_nspr_nss` error message.
+
+        Assumes at least one of `nss_disallowed_changes` or `nspr_disallowed_changes`
+        are non-empty lists.
+        """
+        # Build the error message.
+        return_error_message = ["Revision makes changes to restricted directories:"]
+
+        if nss_disallowed_changes:
+            return_error_message.append("vendored NSS directories:")
+
+            return_error_message.append(wrap_filenames(nss_disallowed_changes))
+
+        if nspr_disallowed_changes:
+            return_error_message.append("vendored NSPR directories:")
+
+            return_error_message.append(wrap_filenames(nspr_disallowed_changes))
+
+        return f"{' '.join(return_error_message)}."
+
+    def check_prevent_nspr_nss(self) -> Optional[str]:
+        """Prevent changes to vendored NSPR directories."""
+        if not self.repo or not self.commit_message:
+            return
+
+        if self.repo.tree == "try":
+            return
+
+        nss_disallowed_changes = []
+        nspr_disallowed_changes = []
+        for parsed in self.parsed_diff:
+            filename = parsed["filename"]
+
+            if (
+                filename.startswith("security/nss/")
+                and "UPGRADE_NSS_RELEASE" not in self.commit_message
+            ):
+                nss_disallowed_changes.append(filename)
+
+            if (
+                filename.startswith("nsprpub/")
+                and "UPGRADE_NSPR_RELEASE" not in self.commit_message
+            ):
+                nspr_disallowed_changes.append(filename)
+
+        if not nss_disallowed_changes and not nspr_disallowed_changes:
+            # Return early if no disallowed changes were found.
+            return
+
+        return self.build_prevent_nspr_nss_error_message(
+            nss_disallowed_changes, nspr_disallowed_changes
+        )
+
     def run_diff_checks(self) -> list[str]:
         """Execute the set of checks on the diffs."""
         issues = []
@@ -503,6 +591,8 @@ class DiffAssessor:
             self.check_prevent_symlinks,
             self.check_try_task_config,
             self.check_commit_message,
+            self.check_wpt_sync,
+            self.check_prevent_nspr_nss,
         ):
             if issue := check():
                 issues.append(issue)
