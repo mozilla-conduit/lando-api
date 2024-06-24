@@ -63,7 +63,7 @@ def worker(celery_arguments):
 
     from landoapi.celery import celery
 
-    celery.worker_main((sys.argv[0],) + celery_arguments)
+    celery.worker_main((sys.argv[0], "worker") + celery_arguments)
 
 
 @cli.command(name="landing-worker")
