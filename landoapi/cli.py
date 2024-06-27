@@ -5,7 +5,6 @@
 import logging
 import os
 import subprocess
-import sys
 from typing import Optional
 
 import click
@@ -63,7 +62,7 @@ def worker(celery_arguments):
 
     from landoapi.celery import celery
 
-    celery.worker_main((sys.argv[0],) + celery_arguments)
+    celery.worker_main(argv=("worker",) + celery_arguments)
 
 
 @cli.command(name="landing-worker")
@@ -119,7 +118,7 @@ def celery(celery_arguments):
 
     from landoapi.celery import celery
 
-    celery.start([sys.argv[0]] + list(celery_arguments))
+    celery.start(argv=list(celery_arguments))
 
 
 @cli.command()
