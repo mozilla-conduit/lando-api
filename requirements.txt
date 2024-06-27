@@ -1131,8 +1131,8 @@ urllib3==1.26.19 \
     # via
     #   requests
     #   sentry-sdk
-uwsgi==2.0.20 \
-    --hash=sha256:88ab9867d8973d8ae84719cf233b7dafc54326fcaec89683c3f9f77c002cdff9
+uwsgi==2.0.26 \
+    --hash=sha256:86e6bfcd4dc20529665f5b7777193cdc48622fb2c59f0a7f1e3dc32b3882e7f9
     # via -r requirements.in
 vine==5.1.0 \
     --hash=sha256:40fdf3c48b2cfe1c38a49e9ae2da6fda88e4794c810050a728bd7413811fb1dc \
