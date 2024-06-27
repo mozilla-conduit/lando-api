@@ -142,7 +142,10 @@ class CelerySubsystem(Subsystem):
 
         celery.init_app(
             self.flask_app,
-            config={"broker_url": self.flask_app.config.get("CELERY_BROKER_URL")},
+            config={
+                "broker_url": self.flask_app.config.get("CELERY_BROKER_URL"),
+                "result_backend": self.flask_app.config.get("CELERY_BROKER_URL"),
+            },
         )
         celery.log.setup()
 

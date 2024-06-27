@@ -40,6 +40,9 @@ from landoapi.tasks import celery
 from landoapi.transplants import CODE_FREEZE_OFFSET, build_stack_assessment_state
 from tests.mocks import PhabricatorDouble, TreeStatusDouble
 
+# Required to enable the Celery pytest fixtures.
+pytest_plugins = ("celery.contrib.pytest",)
+
 PATCH_NORMAL_1 = r"""
 # HG changeset patch
 # User Test User <test@example.com>
