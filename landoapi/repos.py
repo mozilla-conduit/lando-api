@@ -385,15 +385,6 @@ REPO_CONFIG = {
             milestone_tracking_flag_template="cf_status_firefox{milestone}",
             commit_flags=[DONTBUILD],
         ),
-        "esr102": Repo(
-            tree="mozilla-esr102",
-            short_name="esr102",
-            url="https://hg.mozilla.org/releases/mozilla-esr102",
-            access_group=SCM_ALLOW_DIRECT_PUSH,
-            approval_required=True,
-            milestone_tracking_flag_template="cf_status_firefox_esr{milestone}",
-            commit_flags=[DONTBUILD],
-        ),
         "esr115": Repo(
             tree="mozilla-esr115",
             short_name="esr115",
