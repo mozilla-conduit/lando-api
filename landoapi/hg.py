@@ -638,7 +638,10 @@ class HgRepo:
 
     def get_remote_head(self, source: str) -> bytes:
         # Obtain remote head. We assume there is only a single head.
-        cset = self.run_hg(["identify", source, "-r", "default", "--id"]).strip()
+        try:
+            cset = self.run_hg(["identify", source, "-r", "default", "--id"]).strip()
+        except hglib.error.CommandError as e:
+            raise HgException.from_hglib_error(e)
 
         assert len(cset) == 12, cset
         return cset
