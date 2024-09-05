@@ -7,23 +7,25 @@ from typing import Optional
 from flask import current_app
 
 
-def bmo_default_headers() -> dict[str, str]:
-    """Returns a `dict` containing the default REST API headers."""
-    return {
-        "User-Agent": "Lando-API",
-        "X-Bugzilla-API-Key": current_app.config["BUGZILLA_API_KEY"],
-    }
-
-
-def bugzilla(
-    method: str, path: str, *args, headers: Optional[dict] = None, **kwargs
+def api_request(
+    method: str,
+    path: str,
+    *args,
+    authenticated: bool = False,
+    headers: Optional[dict] = None,
+    **kwargs,
 ) -> requests.Response:
     """Send an HTTP `GET` request to BMO."""
     url = f"{current_app.config['BUGZILLA_URL']}/rest/{path}"
 
-    common_headers = bmo_default_headers()
+    common_headers = {
+        "User-Agent": "Lando-API",
+    }
     if headers:
         common_headers.update(headers)
+
+    if authenticated:
+        common_headers["X-Bugzilla-API-Key"] = current_app.config["BUGZILLA_API_KEY"]
 
     return requests.request(method, url, *args, headers=headers, **kwargs)
 
@@ -35,10 +37,9 @@ def search_bugs(bug_ids: set[int]) -> set[int]:
         "include_fields": "id",
     }
 
-    resp = bugzilla(
+    resp = api_request(
         "GET",
         "bug",
-        headers=bmo_default_headers(),
         params=params,
     )
 
@@ -50,7 +51,7 @@ def search_bugs(bug_ids: set[int]) -> set[int]:
 def get_status_code_for_bug(bug_id: int) -> int:
     """Given a bug ID, get the status code returned from BMO when attempting to access the bug."""
     try:
-        resp = bugzilla("GET", f"bug/{bug_id}")
+        resp = api_request("GET", f"bug/{bug_id}")
         code = resp.status_code
     except requests.exceptions.HTTPError as exc:
         code = exc.response.status_code
@@ -60,7 +61,7 @@ def get_status_code_for_bug(bug_id: int) -> int:
 
 def uplift_get_bug(params: dict) -> dict:
     """Retrieve bug information from the BMO REST API endpoint."""
-    resp_get = bugzilla("GET", "lando/uplift", params=params)
+    resp_get = api_request("GET", "lando/uplift", authenticated=True, params=params)
     resp_get.raise_for_status()
 
     return resp_get.json()
@@ -71,7 +72,7 @@ def uplift_update_bug(json: dict) -> requests.Response:
     if "ids" not in json or not json["ids"]:
         raise ValueError("Need bug values to be able to update!")
 
-    resp_put = bugzilla("PUT", "lando/uplift", json=json)
+    resp_put = api_request("PUT", "lando/uplift", authenticated=True, json=json)
     resp_put.raise_for_status()
 
     return resp_put
