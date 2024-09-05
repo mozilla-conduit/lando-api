@@ -636,7 +636,7 @@ class PushCheck:
         raise NotImplementedError()
 
     def next_diff(self, patch_helper: PatchHelper):
-        """Pass the next diff to be checked into the check and run."""
+        """Pass the next `PatchHelper` into the check."""
         raise NotImplementedError()
 
     def result(self) -> Optional[str]:
