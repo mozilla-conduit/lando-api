@@ -15,7 +15,16 @@ def api_request(
     headers: Optional[dict] = None,
     **kwargs,
 ) -> requests.Response:
-    """Send an HTTP `GET` request to BMO."""
+    """Send an HTTP request to BMO.
+
+    `method` is the HTTP method to use, ie `GET`, `POST`, etc.
+    `path` is the REST API endpoint to send the request to.
+    `authenticated` indicates if the privileged Lando Automation API key should be
+      used.
+    `headers` is the set of HTTP headers to pass to the request.
+
+    All other arguments in *args and **kwargs are passed through to `requests.request`.
+    """
     url = f"{current_app.config['BUGZILLA_URL']}/rest/{path}"
 
     common_headers = {
