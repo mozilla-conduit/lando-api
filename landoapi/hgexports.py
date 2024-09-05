@@ -676,7 +676,7 @@ class BugReferencesCheck(PushCheck):
         if not invalid_bugs:
             return
 
-        # Check a single bug only.
+        # Check a single bug to determine which error to return.
         bug_id = invalid_bugs.pop()
         try:
             status_code = get_status_code_for_bug(bug_id)
