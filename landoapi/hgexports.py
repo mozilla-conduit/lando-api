@@ -633,7 +633,7 @@ class PushCheck:
         raise NotImplementedError()
 
     def result(self) -> Optional[str]:
-        """Return the result of the check."""
+        """Calcuate and return the result of the check."""
         raise NotImplementedError()
 
 
