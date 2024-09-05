@@ -58,7 +58,7 @@ def get_status_code_for_bug(bug_id: int) -> int:
     return code
 
 
-def get_bug(params: dict) -> dict:
+def uplift_get_bug(params: dict) -> dict:
     """Retrieve bug information from the BMO REST API endpoint."""
     resp_get = bugzilla("GET", "lando/uplift", params=params)
     resp_get.raise_for_status()
@@ -66,7 +66,7 @@ def get_bug(params: dict) -> dict:
     return resp_get.json()
 
 
-def update_bug(json: dict) -> requests.Response:
+def uplift_update_bug(json: dict) -> requests.Response:
     """Update a BMO bug."""
     if "ids" not in json or not json["ids"]:
         raise ValueError("Need bug values to be able to update!")
