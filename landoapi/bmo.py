@@ -4,6 +4,7 @@
 
 import requests
 from typing import Optional
+
 from flask import current_app
 
 
