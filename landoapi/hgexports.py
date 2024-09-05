@@ -623,10 +623,9 @@ class PushCheck:
     """Provides an interface to implement push-wide checks.
 
     Each check implements a `relevant` function, which can be called to determine
-    if a check is relevant for a configurated repo. When looping over each patch in
-    the push, `next_diff` is called to give the current diff to the patch as a
-    `PatchHelper` subclass. Then, `result` is called to receive the result of the
-    check.
+    if a check is relevant. When looping over each patch in the push, `next_diff`
+    is called to give the current diff to the patch as a `PatchHelper` subclass.
+    Then, `result` is called to receive the result of the check.
     """
 
     repo: Repo
