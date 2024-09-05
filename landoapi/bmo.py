@@ -15,7 +15,7 @@ def api_request(
     headers: Optional[dict] = None,
     **kwargs,
 ) -> requests.Response:
-    """Send an HTTP request to BMO.
+    """Send an HTTP request to the BMO REST API.
 
     `method` is the HTTP method to use, ie `GET`, `POST`, etc.
     `path` is the REST API endpoint to send the request to.
