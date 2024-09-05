@@ -444,7 +444,7 @@ def update_bugs_for_uplift(
     }
 
     # Get information about the parsed bugs.
-    bugs = bmo.get_bug(params).json()["bugs"]
+    bugs = bmo.get_bug(params)["bugs"]
 
     # Get the major release number from `config/milestone.txt`.
     milestone = parse_milestone_version(milestone_file_contents)
