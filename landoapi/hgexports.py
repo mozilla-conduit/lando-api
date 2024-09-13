@@ -628,12 +628,6 @@ class PushCheck:
     Then, `result` is called to receive the result of the check.
     """
 
-    repo: Repo
-
-    def relevant(self) -> bool:
-        """Return `True` if the check is relevant for the given repo."""
-        raise NotImplementedError()
-
     def next_diff(self, patch_helper: PatchHelper):
         """Pass the next `PatchHelper` into the check."""
         raise NotImplementedError()
@@ -649,12 +643,6 @@ class BugReferencesCheck(PushCheck):
 
     bug_ids: set[int] = field(default_factory=set)
     skip_check: bool = False
-
-    def relevant(self) -> bool:
-        if self.repo.tree == "try":
-            return True
-
-        return False
 
     def next_diff(self, patch_helper: PatchHelper):
         commit_message = patch_helper.get_commit_description()
@@ -726,11 +714,7 @@ class PushAssessor:
         """
         issues = []
 
-        checks = [
-            check(repo=self.repo)
-            for check in push_checks
-            if check(repo=self.repo).relevant()
-        ]
+        checks = [check() for check in push_checks]
 
         for patch_helper in self.patch_helpers:
             # Pass the patch information into the push-wide check.
