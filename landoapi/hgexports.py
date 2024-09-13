@@ -645,6 +645,11 @@ class BugReferencesCheck(PushCheck):
     skip_check: bool = False
 
     def next_diff(self, patch_helper: PatchHelper):
+        """Parse each diff for bug references information.
+
+        If `SKIP_BMO_CHECK` is detected in any commit message, set the
+        `skip_check` flag so the flag is disabled.
+        """
         commit_message = patch_helper.get_commit_description()
 
         # Skip the check if the `skip_check` flag is set.
@@ -655,6 +660,7 @@ class BugReferencesCheck(PushCheck):
         self.bug_ids |= set(parse_bugs(commit_message))
 
     def result(self) -> Optional[str]:
+        """Ensure all bug numbers detected in commit messages reference public bugs."""
         if self.skip_check or not self.bug_ids:
             return
 
