@@ -16,6 +16,7 @@ from flask import (
 
 from landoapi import auth
 from landoapi.hgexports import (
+    BugReferencesCheck,
     GitPatchHelper,
     HgPatchHelper,
     PatchHelper,
@@ -102,7 +103,9 @@ def parse_revisions_from_request(
         )
 
     try:
-        errors = PushAssessor(patch_helpers=patch_helpers, repo=repo).run_push_checks()
+        errors = PushAssessor(patch_helpers=patch_helpers, repo=repo).run_push_checks(
+            push_checks=[BugReferencesCheck]
+        )
     except ValueError as exc:
         raise ProblemException(
             400,

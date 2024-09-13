@@ -718,18 +718,13 @@ class PushAssessor:
     patch_helpers: Iterable[PatchHelper]
     repo: Repo
 
-    def run_push_checks(
-        self, push_checks: Optional[list[Type[PushCheck]]] = None
-    ) -> list[str]:
+    def run_push_checks(self, push_checks: list[Type[PushCheck]]) -> list[str]:
         """Execute the set of checks on the diffs, returning a list of issues.
 
         `push_checks` specifies the push-wide checks to run on the push, otherwise
         all checks will be run.
         """
         issues = []
-
-        if not push_checks:
-            push_checks = [BugReferencesCheck]
 
         checks = [
             check(repo=self.repo)
