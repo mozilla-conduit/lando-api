@@ -637,6 +637,12 @@ class PushCheck:
         raise NotImplementedError()
 
 
+BUG_REFERENCES_BMO_ERROR_TEMPLATE = (
+    "Could not contact BMO to check for security bugs referenced in commit message. "
+    "Use `SKIP_BMO_CHECK` in your commit message to push anyway. Error: {error}."
+)
+
+
 @dataclass
 class BugReferencesCheck(PushCheck):
     """Prevent commit messages referencing non-public bugs from try."""
@@ -667,10 +673,7 @@ class BugReferencesCheck(PushCheck):
         try:
             found_bugs = search_bugs(self.bug_ids)
         except requests.exceptions.RequestException as exc:
-            return (
-                "Could not contact BMO to check for security bugs referenced in commit message. "
-                f"Use `SKIP_BMO_CHECK` in your commit message to push anyways. Error: {str(exc)}."
-            )
+            return BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))
 
         invalid_bugs = self.bug_ids - found_bugs
         if not invalid_bugs:
@@ -681,10 +684,7 @@ class BugReferencesCheck(PushCheck):
         try:
             status_code = get_status_code_for_bug(bug_id)
         except requests.exceptions.RequestException as exc:
-            return (
-                "Could not contact BMO to check for security bugs referenced in commit message. "
-                f"Use `SKIP_BMO_CHECK` in your commit message to push anyways. Error: {str(exc)}."
-            )
+            return BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))
 
         if status_code == 401:
             return (
