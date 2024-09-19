@@ -19,8 +19,8 @@ from landoapi.hgexports import (
     BugReferencesCheck,
     GitPatchHelper,
     HgPatchHelper,
+    PatchCollectionAssessor,
     PatchHelper,
-    PushAssessor,
 )
 from landoapi.models.landing_job import (
     LandingJobStatus,
@@ -103,9 +103,9 @@ def parse_revisions_from_request(
         )
 
     try:
-        errors = PushAssessor(patch_helpers=patch_helpers, repo=repo).run_push_checks(
-            push_checks=[BugReferencesCheck]
-        )
+        errors = PatchCollectionAssessor(
+            patch_helpers=patch_helpers, repo=repo
+        ).run_patch_collection_checks(push_checks=[BugReferencesCheck])
     except ValueError as exc:
         raise ProblemException(
             400,

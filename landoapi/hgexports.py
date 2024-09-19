@@ -619,13 +619,12 @@ class DiffAssessor:
 
 
 @dataclass
-class PushCheck:
-    """Provides an interface to implement push-wide checks.
+class PatchCollectionCheck:
+    """Provides an interface to implement patch collection checks.
 
-    Each check implements a `relevant` function, which can be called to determine
-    if a check is relevant. When looping over each patch in the push, `next_diff`
-    is called to give the current diff to the patch as a `PatchHelper` subclass.
-    Then, `result` is called to receive the result of the check.
+    When looping over each patch in the collection, `next_diff` is called to give the
+    current diff to the patch as a `PatchHelper` subclass. Then, `result` is
+    called to receive the result of the check.
     """
 
     def next_diff(self, patch_helper: PatchHelper):
@@ -644,7 +643,7 @@ BUG_REFERENCES_BMO_ERROR_TEMPLATE = (
 
 
 @dataclass
-class BugReferencesCheck(PushCheck):
+class BugReferencesCheck(PatchCollectionCheck):
     """Prevent commit messages referencing non-public bugs from try."""
 
     bug_ids: set[int] = field(default_factory=set)
@@ -706,13 +705,15 @@ class BugReferencesCheck(PushCheck):
 
 
 @dataclass
-class PushAssessor:
+class PatchCollectionAssessor:
     """Assess pushes for landing issues."""
 
     patch_helpers: Iterable[PatchHelper]
     repo: Repo
 
-    def run_push_checks(self, push_checks: list[Type[PushCheck]]) -> list[str]:
+    def run_patch_collection_checks(
+        self, push_checks: list[Type[PatchCollectionCheck]]
+    ) -> list[str]:
         """Execute the set of checks on the diffs, returning a list of issues.
 
         `push_checks` specifies the push-wide checks to run on the push, otherwise

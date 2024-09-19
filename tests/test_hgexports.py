@@ -13,7 +13,7 @@ from landoapi.hgexports import (
     DiffAssessor,
     GitPatchHelper,
     HgPatchHelper,
-    PushAssessor,
+    PatchCollectionAssessor,
     build_patch_for_revision,
 )
 from landoapi.repos import get_repos_for_env
@@ -913,9 +913,11 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         # Mock out the status code check to simulate a public bug.
         mock_status_code.return_value = 200
 
-        assessor = PushAssessor(repo=repo, patch_helpers=patch_helpers)
+        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
 
-        assert assessor.run_push_checks(push_checks=[BugReferencesCheck]) == []
+        assert (
+            assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck]) == []
+        )
 
 
 def test_check_bug_references_private_bugs(mocked_repo_config):
@@ -947,8 +949,8 @@ Bug 999999: Fix issue with feature X
         # Mock out the status code check to simulate a private bug.
         mock_status_code.return_value = 401
 
-        assessor = PushAssessor(repo=repo, patch_helpers=patch_helpers)
-        issues = assessor.run_push_checks(push_checks=[BugReferencesCheck])
+        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
+        issues = assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck])
 
         assert (
             "Your commit message references bug 999999, which is currently private."
@@ -986,8 +988,8 @@ SKIP_BMO_CHECK
         # Mock out the status code check to simulate a private bug.
         mock_status_code.return_value = 401
 
-        assessor = PushAssessor(repo=repo, patch_helpers=patch_helpers)
-        issues = assessor.run_push_checks(push_checks=[BugReferencesCheck])
+        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
+        issues = assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck])
 
         assert (
             issues == []
@@ -1024,8 +1026,8 @@ Bug 123456: Fix issue with feature Y
 
         mock_status_code.side_effect = status_error
 
-        assessor = PushAssessor(repo=repo, patch_helpers=patch_helpers)
-        issues = assessor.run_push_checks(push_checks=[BugReferencesCheck])
+        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
+        issues = assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck])
 
         assert (
             issues
