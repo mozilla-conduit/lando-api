@@ -12,7 +12,7 @@ def api_request(
     method: str,
     path: str,
     *args,
-    authenticated: bool = False,
+    use_api_key: bool = False,
     headers: Optional[dict] = None,
     **kwargs,
 ) -> requests.Response:
@@ -34,7 +34,7 @@ def api_request(
     if headers:
         common_headers.update(headers)
 
-    if authenticated:
+    if use_api_key:
         common_headers["X-Bugzilla-API-Key"] = current_app.config["BUGZILLA_API_KEY"]
 
     return requests.request(method, url, *args, headers=headers, **kwargs)
@@ -71,7 +71,7 @@ def get_status_code_for_bug(bug_id: int) -> int:
 
 def uplift_get_bug(params: dict) -> dict:
     """Retrieve bug information from the Lando Uplift Automation endpoint."""
-    resp_get = api_request("GET", "lando/uplift", authenticated=True, params=params)
+    resp_get = api_request("GET", "lando/uplift", use_api_key=True, params=params)
     resp_get.raise_for_status()
 
     return resp_get.json()
@@ -82,7 +82,7 @@ def uplift_update_bug(json: dict) -> requests.Response:
     if "ids" not in json or not json["ids"]:
         raise ValueError("Need bug values to be able to update!")
 
-    resp_put = api_request("PUT", "lando/uplift", authenticated=True, json=json)
+    resp_put = api_request("PUT", "lando/uplift", use_api_key=True, json=json)
     resp_put.raise_for_status()
 
     return resp_put
