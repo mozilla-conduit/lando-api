@@ -287,6 +287,7 @@ class GitPatchHelper(PatchHelper):
         self.message = email.message_from_string(
             self.patch.read(), policy=default_email_policy
         )
+        self.message.set_charset("utf-8")
         self.commit_message, self.diff = self.parse_email_body(
             self.message.get_content()
         )
