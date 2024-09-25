@@ -350,7 +350,10 @@ class GitPatchHelper(PatchHelper):
             # must be an empty commit. Discard the last two lines of the
             # constructed commit message which are Git version info and return
             # an empty diff.
-            commit_message = "\n".join(commit_message_lines[:-2])
+            commit_message_lines = GitPatchHelper.strip_git_version_info_lines(
+                commit_message_lines
+            )
+            commit_message = "\n".join(commit_message_lines)
             return commit_message, ""
 
         commit_message = "\n".join(commit_message_lines)
