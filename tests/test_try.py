@@ -254,10 +254,10 @@ def test_symlink_diff_inspect(
         response.status_code == 400
     ), "Try push which fails diff checks should return 400."
 
-    assert response.json["title"] == "Improper patch format."
+    assert response.json["title"] == "Errors found in pre-submission patch checks."
     assert response.json["detail"] == (
-        "Patch does not match expected format `git-format-patch`: "
-        "Patch failed checks: Revision introduces symlinks in the files `blahfile_symlink`."
+        "Patch failed checks:\n\n"
+        "  - Revision introduces symlinks in the files `blahfile_symlink`."
     ), "Details message should indicate an introduced symlink."
 
 
