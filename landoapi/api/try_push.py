@@ -109,19 +109,17 @@ def parse_revisions_from_request(
     except ValueError as exc:
         raise ProblemException(
             400,
-            "Improper patch format.",
-            f"Patch does not match expected format `{patch_format.value}`: {str(exc)}",
+            "Error running checks on patch collection.",
+            f"Error running checks on patch collection: {str(exc)}",
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
 
     if errors:
-        error_message = (
-            f"Patch does not match expected format `{patch_format.value}`: "
-            f"Patch failed checks: {' '.join(errors)}"
-        )
+        bulleted_errors = "\n  - ".join(errors)
+        error_message = f"Patch failed checks:\n\n  - {bulleted_errors}"
         raise ProblemException(
             400,
-            "Improper patch format.",
+            "Errors found in pre-submission patch checks.",
             error_message,
             type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
         )
