@@ -224,6 +224,9 @@ class HgPatchHelper(PatchHelper):
         finally:
             self.patch.seek(0)
 
+        if not self.headers:
+            raise ValueError("Failed to parse headers from patch.")
+
     def get_commit_description(self) -> str:
         """Returns the commit description."""
         commit_desc = []
