@@ -301,6 +301,7 @@ def test_patchhelper_no_header():
     patch = HgPatchHelper(
         io.StringIO(
             """
+# Date 1523427125 -28800
 WIP transplant and diff-start-line
 
 diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
