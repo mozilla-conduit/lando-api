@@ -8,7 +8,6 @@ import enum
 import io
 import logging
 
-import rs_parsepatch
 from connexion import ProblemException
 from flask import (
     current_app,
@@ -17,9 +16,10 @@ from flask import (
 
 from landoapi import auth
 from landoapi.hgexports import (
-    DiffAssessor,
+    BugReferencesCheck,
     GitPatchHelper,
     HgPatchHelper,
+    PatchCollectionAssessor,
     PatchHelper,
 )
 from landoapi.models.landing_job import (
@@ -60,14 +60,6 @@ def build_revision_from_patch_helper(helper: PatchHelper, repo: Repo) -> Revisio
 
     raw_diff = helper.get_diff()
 
-    # Check diff for errors.
-    parsed_diff = rs_parsepatch.get_diffs(raw_diff)
-    errors = DiffAssessor(
-        author=author, commit_message=commit_message, parsed_diff=parsed_diff, repo=repo
-    ).run_diff_checks()
-    if errors:
-        raise ValueError(f"Patch failed checks: {' '.join(errors)}")
-
     return Revision.new_from_patch(
         raw_diff=raw_diff,
         patch_data={
@@ -98,7 +90,39 @@ def parse_revisions_from_request(
     """Convert a set of base64 encoded patches to `Revision` objects."""
     patches_io = (io.StringIO(decode_json_patch_to_text(patch)) for patch in patches)
 
-    patch_helpers = (PATCH_HELPER_MAPPING[patch_format](patch) for patch in patches_io)
+    try:
+        patch_helpers = [
+            PATCH_HELPER_MAPPING[patch_format](patch) for patch in patches_io
+        ]
+    except ValueError as exc:
+        raise ProblemException(
+            400,
+            "Improper patch format.",
+            f"Patch does not match expected format `{patch_format.value}`: {str(exc)}",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
+
+    try:
+        errors = PatchCollectionAssessor(
+            patch_helpers=patch_helpers, repo=repo
+        ).run_patch_collection_checks(push_checks=[BugReferencesCheck])
+    except ValueError as exc:
+        raise ProblemException(
+            400,
+            "Error running checks on patch collection.",
+            f"Error running checks on patch collection: {str(exc)}",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
+
+    if errors:
+        bulleted_errors = "\n  - ".join(errors)
+        error_message = f"Patch failed checks:\n\n  - {bulleted_errors}"
+        raise ProblemException(
+            400,
+            "Errors found in pre-submission patch checks.",
+            error_message,
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400",
+        )
 
     try:
         return [

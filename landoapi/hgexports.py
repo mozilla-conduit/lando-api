@@ -8,7 +8,7 @@ import email
 import io
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from email.policy import (
     default as default_email_policy,
@@ -17,14 +17,24 @@ from email.utils import (
     parseaddr,
 )
 from typing import (
+    Iterable,
     Optional,
+    Type,
 )
 
+import requests
+import rs_parsepatch
+
+from landoapi.bmo import (
+    get_status_code_for_bug,
+    search_bugs,
+)
 from landoapi.commit_message import (
     ACCEPTABLE_MESSAGE_FORMAT_RES,
     INVALID_REVIEW_FLAG_RE,
     is_backout,
     parse_backouts,
+    parse_bugs,
 )
 from landoapi.repos import Repo
 
@@ -213,6 +223,9 @@ class HgPatchHelper(PatchHelper):
                         break
         finally:
             self.patch.seek(0)
+
+        if not self.headers:
+            raise ValueError("Failed to parse headers from patch.")
 
     def get_commit_description(self) -> str:
         """Returns the commit description."""
@@ -425,6 +438,7 @@ class DiffAssessor:
 
     parsed_diff: list[dict]
     author: Optional[str] = None
+    email: Optional[str] = None
     commit_message: Optional[str] = None
     repo: Optional[Repo] = None
 
@@ -510,7 +524,7 @@ class DiffAssessor:
 
     def check_wpt_sync(self) -> Optional[str]:
         """Check the WPT Sync bot has only made changes to relevant subset of the tree."""
-        if self.author != "wptsync@mozilla.com":
+        if self.email != "wptsync@mozilla.com":
             return
 
         if not self.repo or self.repo.tree == "try":
@@ -605,6 +619,141 @@ class DiffAssessor:
             self.check_prevent_submodules,
         ):
             if issue := check():
+                issues.append(issue)
+
+        return issues
+
+
+@dataclass
+class PatchCollectionCheck:
+    """Provides an interface to implement patch collection checks.
+
+    When looping over each patch in the collection, `next_diff` is called to give the
+    current diff to the patch as a `PatchHelper` subclass. Then, `result` is
+    called to receive the result of the check.
+    """
+
+    def next_diff(self, patch_helper: PatchHelper):
+        """Pass the next `PatchHelper` into the check."""
+        raise NotImplementedError()
+
+    def result(self) -> Optional[str]:
+        """Calcuate and return the result of the check."""
+        raise NotImplementedError()
+
+
+BMO_SKIP_HINT = "Use `SKIP_BMO_CHECK` in your commit message to push anyway."
+
+BUG_REFERENCES_BMO_ERROR_TEMPLATE = (
+    "Could not contact BMO to check for security bugs referenced in commit message. "
+    f"{BMO_SKIP_HINT}. Error: {{error}}."
+)
+
+
+@dataclass
+class BugReferencesCheck(PatchCollectionCheck):
+    """Prevent commit messages referencing non-public bugs from try."""
+
+    bug_ids: set[int] = field(default_factory=set)
+    skip_check: bool = False
+
+    def next_diff(self, patch_helper: PatchHelper):
+        """Parse each diff for bug references information.
+
+        If `SKIP_BMO_CHECK` is detected in any commit message, set the
+        `skip_check` flag so the flag is disabled.
+        """
+        commit_message = patch_helper.get_commit_description()
+
+        # Skip the check if the `skip_check` flag is set.
+        if self.skip_check or "SKIP_BMO_CHECK" in commit_message:
+            self.skip_check = True
+            return
+
+        self.bug_ids |= set(parse_bugs(commit_message))
+
+    def result(self) -> Optional[str]:
+        """Ensure all bug numbers detected in commit messages reference public bugs."""
+        if self.skip_check or not self.bug_ids:
+            return
+
+        try:
+            found_bugs = search_bugs(self.bug_ids)
+        except requests.exceptions.RequestException as exc:
+            return BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))
+
+        invalid_bugs = self.bug_ids - found_bugs
+        if not invalid_bugs:
+            return
+
+        # Check a single bug to determine which error to return.
+        bug_id = invalid_bugs.pop()
+        try:
+            status_code = get_status_code_for_bug(bug_id)
+        except requests.exceptions.RequestException as exc:
+            return BUG_REFERENCES_BMO_ERROR_TEMPLATE.format(error=str(exc))
+
+        if status_code == 401:
+            return (
+                f"Your commit message references bug {bug_id}, which is currently private. To avoid "
+                "disclosing the nature of this bug publicly, please remove the affected bug ID "
+                f"from the commit message. {BMO_SKIP_HINT}"
+            )
+
+        if status_code == 404:
+            return (
+                f"Your commit message references bug {bug_id}, which does not exist. "
+                f"Please check your commit message and try again. {BMO_SKIP_HINT}"
+            )
+
+        return (
+            f"While checking if bug {bug_id} in your commit message is a security bug, "
+            f"an error occurred and the bug could not be verified. {BMO_SKIP_HINT}"
+        )
+
+
+@dataclass
+class PatchCollectionAssessor:
+    """Assess pushes for landing issues."""
+
+    patch_helpers: Iterable[PatchHelper]
+    repo: Repo
+
+    def run_patch_collection_checks(
+        self, push_checks: list[Type[PatchCollectionCheck]]
+    ) -> list[str]:
+        """Execute the set of checks on the diffs, returning a list of issues.
+
+        `push_checks` specifies the push-wide checks to run on the push, otherwise
+        all checks will be run.
+        """
+        issues = []
+
+        checks = [check() for check in push_checks]
+
+        for patch_helper in self.patch_helpers:
+            # Pass the patch information into the push-wide check.
+            for check in checks:
+                check.next_diff(patch_helper)
+
+            parsed_diff = rs_parsepatch.get_diffs(patch_helper.get_diff())
+
+            author, email = patch_helper.parse_author_information()
+
+            # Run diff-wide checks.
+            diff_assessor = DiffAssessor(
+                author=author,
+                email=email,
+                commit_message=patch_helper.get_commit_description(),
+                parsed_diff=parsed_diff,
+                repo=self.repo,
+            )
+            if diff_issues := diff_assessor.run_diff_checks():
+                issues.extend(diff_issues)
+
+        # Collect the result of the push-wide checks.
+        for check in checks:
+            if issue := check.result():
                 issues.append(issue)
 
         return issues
