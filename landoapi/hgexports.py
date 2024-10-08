@@ -642,9 +642,11 @@ class PatchCollectionCheck:
         raise NotImplementedError()
 
 
+BMO_SKIP_HINT = "Use `SKIP_BMO_CHECK` in your commit message to push anyway."
+
 BUG_REFERENCES_BMO_ERROR_TEMPLATE = (
     "Could not contact BMO to check for security bugs referenced in commit message. "
-    "Use `SKIP_BMO_CHECK` in your commit message to push anyway. Error: {error}."
+    f"{BMO_SKIP_HINT}. Error: {{error}}."
 )
 
 
@@ -695,18 +697,18 @@ class BugReferencesCheck(PatchCollectionCheck):
             return (
                 f"Your commit message references bug {bug_id}, which is currently private. To avoid "
                 "disclosing the nature of this bug publicly, please remove the affected bug ID "
-                "from the commit message."
+                f"from the commit message. {BMO_SKIP_HINT}"
             )
 
         if status_code == 404:
             return (
-                f"Your commit message references bug {bug_id}, which does not exist. Please check your "
-                "commit message and try again."
+                f"Your commit message references bug {bug_id}, which does not exist. "
+                f"Please check your commit message and try again. {BMO_SKIP_HINT}"
             )
 
         return (
-            f"While checking if bug {bug_id} in your commit message is a security bug, an error occurred "
-            "and the bug could not be verified."
+            f"While checking if bug {bug_id} in your commit message is a security bug, "
+            f"an error occurred and the bug could not be verified. {BMO_SKIP_HINT}"
         )
 
 
