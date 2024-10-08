@@ -2,14 +2,18 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import io
+from unittest.mock import patch
 
 import pytest
+import requests
 import rs_parsepatch
 
 from landoapi.hgexports import (
+    BugReferencesCheck,
     DiffAssessor,
     GitPatchHelper,
     HgPatchHelper,
+    PatchCollectionAssessor,
     build_patch_for_revision,
 )
 from landoapi.repos import get_repos_for_env
@@ -297,6 +301,7 @@ def test_patchhelper_no_header():
     patch = HgPatchHelper(
         io.StringIO(
             """
+# Date 1523427125 -28800
 WIP transplant and diff-start-line
 
 diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
@@ -667,7 +672,7 @@ def test_check_wpt_sync_irrelevant_user(mocked_repo_config):
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
     )
     diff_assessor = DiffAssessor(
-        author="sheehan@mozilla.com",
+        email="sheehan@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message=COMMIT_MESSAGE,
@@ -682,7 +687,7 @@ def test_check_wpt_sync_no_repo():
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
     )
     diff_assessor = DiffAssessor(
-        author="wptsync@mozilla.com",
+        email="wptsync@mozilla.com",
         parsed_diff=parsed_diff,
         commit_message=COMMIT_MESSAGE,
     )
@@ -699,7 +704,7 @@ def test_check_wpt_sync_try(mocked_repo_config):
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
     )
     diff_assessor = DiffAssessor(
-        author="wptsync@mozilla.com",
+        email="wptsync@mozilla.com",
         parsed_diff=parsed_diff,
         commit_message=COMMIT_MESSAGE,
         repo=try_repo,
@@ -715,7 +720,7 @@ def test_check_wpt_sync_non_central_repo(mocked_repo_config):
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
     )
     diff_assessor = DiffAssessor(
-        author="wptsync@mozilla.com",
+        email="wptsync@mozilla.com",
         parsed_diff=parsed_diff,
         commit_message=COMMIT_MESSAGE,
         repo=invalid_repo,
@@ -733,7 +738,7 @@ def test_check_wpt_sync_invalid_paths(mocked_repo_config):
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
     )
     diff_assessor = DiffAssessor(
-        author="wptsync@mozilla.com",
+        email="wptsync@mozilla.com",
         parsed_diff=parsed_diff,
         commit_message=COMMIT_MESSAGE,
         repo=valid_repo,
@@ -751,7 +756,7 @@ def test_check_wpt_sync_valid_paths(mocked_repo_config):
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="testing/web-platform/moz.build")
     )
     diff_assessor = DiffAssessor(
-        author="wptsync@mozilla.com",
+        email="wptsync@mozilla.com",
         parsed_diff=parsed_diff,
         commit_message=COMMIT_MESSAGE,
         repo=valid_repo,
@@ -769,7 +774,7 @@ def test_check_prevent_nspr_nss_missing_fields(mocked_repo_config):
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
     )
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
     )
@@ -778,7 +783,7 @@ def test_check_prevent_nspr_nss_missing_fields(mocked_repo_config):
     ), "Missing commit message should result in passing check."
 
     diff_assessor = DiffAssessor(
-        author="wptsync@mozilla.com",
+        email="wptsync@mozilla.com",
         parsed_diff=parsed_diff,
         commit_message=COMMIT_MESSAGE,
     )
@@ -795,7 +800,7 @@ def test_check_prevent_nspr_nss_try_allowed(mocked_repo_config):
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
     )
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message=COMMIT_MESSAGE,
@@ -813,7 +818,7 @@ def test_check_prevent_nspr_nss_nss(mocked_repo_config):
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
     )
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message=COMMIT_MESSAGE,
@@ -824,7 +829,7 @@ def test_check_prevent_nspr_nss_nss(mocked_repo_config):
     ), "Check should disallow changes to NSS without proper commit message."
 
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE",
@@ -842,7 +847,7 @@ def test_check_prevent_nspr_nss_nspr(mocked_repo_config):
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt")
     )
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message=COMMIT_MESSAGE,
@@ -853,7 +858,7 @@ def test_check_prevent_nspr_nss_nspr(mocked_repo_config):
     ), "Check should disallow changes to NSPR without proper commit message."
 
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSPR_RELEASE",
@@ -873,7 +878,7 @@ def test_check_prevent_nspr_nss_combined(mocked_repo_config):
 
     parsed_diff = rs_parsepatch.get_diffs(combined_patch)
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message=COMMIT_MESSAGE,
@@ -884,7 +889,7 @@ def test_check_prevent_nspr_nss_combined(mocked_repo_config):
     ), "Check should disallow changes to both NSS and NSPR without proper commit message."
 
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSPR_RELEASE",
@@ -895,7 +900,7 @@ def test_check_prevent_nspr_nss_combined(mocked_repo_config):
     ), "Check should allow changes to NSPR with proper commit message."
 
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE",
@@ -906,7 +911,7 @@ def test_check_prevent_nspr_nss_combined(mocked_repo_config):
     ), "Check should allow changes to NSPR with proper commit message."
 
     diff_assessor = DiffAssessor(
-        author="testuser@mozilla.com",
+        email="testuser@mozilla.com",
         parsed_diff=parsed_diff,
         repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE UPGRADE_NSPR_RELEASE",
@@ -935,3 +940,161 @@ def test_check_prevent_submodules():
         diff_assessor.check_prevent_submodules()
         == "Revision introduces a Git submodule into the repository."
     ), "Check should prevent revisions from introducing submodules."
+
+
+def test_check_bug_references_public_bugs(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    repo = supported_repos["try"]
+
+    patch_helper = HgPatchHelper(
+        io.StringIO(
+            """
+# HG changeset patch
+# User byron jones <glob@mozilla.com>
+# Date 1523427125 -28800
+#      Wed Apr 11 14:12:05 2018 +0800
+# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
+# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
+bug 123: WIP transplant and diff-start-line
+
+diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
+--- a/autoland/autoland/transplant.py
++++ b/autoland/autoland/transplant.py
+@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
+# instead of passing the url to 'hg import' to make
+...
+""".strip()
+        )
+    )
+    patch_helpers = [patch_helper]
+
+    # Simulate contacting BMO returning a public bug state.
+    with patch("landoapi.hgexports.get_status_code_for_bug") as mock_status_code, patch(
+        "landoapi.hgexports.search_bugs"
+    ) as mock_bug_search:
+        mock_bug_search.side_effect = lambda bug_ids: bug_ids
+
+        # Mock out the status code check to simulate a public bug.
+        mock_status_code.return_value = 200
+
+        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
+
+        assert (
+            assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck]) == []
+        )
+
+
+def test_check_bug_references_private_bugs(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    repo = supported_repos["try"]
+
+    # Simulate a patch that references a private bug.
+    patch_helper = HgPatchHelper(
+        io.StringIO(
+            """
+# HG changeset patch
+# User byron jones <glob@mozilla.com>
+# Date 1523427125 -28800
+# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
+# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
+Bug 999999: Fix issue with feature X
+""".strip()
+        )
+    )
+    patch_helpers = [patch_helper]
+
+    # Simulate Bugzilla (BMO) responding that the bug is private.
+    with patch("landoapi.hgexports.get_status_code_for_bug") as mock_status_code, patch(
+        "landoapi.hgexports.search_bugs"
+    ) as mock_bug_search:
+        # Mock out bug search to simulate our bug not being found.
+        mock_bug_search.return_value = set()
+
+        # Mock out the status code check to simulate a private bug.
+        mock_status_code.return_value = 401
+
+        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
+        issues = assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck])
+
+        assert (
+            "Your commit message references bug 999999, which is currently private."
+            in issues[0]
+        )
+
+
+def test_check_bug_references_skip_check(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    repo = supported_repos["try"]
+
+    # Simulate a patch with SKIP_BMO_CHECK in the commit message.
+    patch_helper = HgPatchHelper(
+        io.StringIO(
+            """
+# HG changeset patch
+# User byron jones <glob@mozilla.com>
+# Date 1523427125 -28800
+# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
+# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
+Bug 999999: Fix issue with feature X
+SKIP_BMO_CHECK
+""".strip()
+        )
+    )
+    patch_helpers = [patch_helper]
+
+    # Simulate Bugzilla (BMO) responding that the bug is private.
+    with patch("landoapi.hgexports.get_status_code_for_bug") as mock_status_code, patch(
+        "landoapi.hgexports.search_bugs"
+    ) as mock_bug_search:
+        # Mock out bug search to simulate our bug not being found.
+        mock_bug_search.return_value = set()
+
+        # Mock out the status code check to simulate a private bug.
+        mock_status_code.return_value = 401
+
+        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
+        issues = assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck])
+
+        assert (
+            issues == []
+        ), "Check should always pass when `SKIP_BMO_CHECK` is present."
+
+
+def test_check_bug_references_bmo_error(mocked_repo_config):
+    supported_repos = get_repos_for_env("test")
+    repo = supported_repos["try"]
+
+    # Simulate a patch that references a bug.
+    patch_helper = HgPatchHelper(
+        io.StringIO(
+            """
+# HG changeset patch
+# User byron jones <glob@mozilla.com>
+# Date 1523427125 -28800
+# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
+# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
+Bug 123456: Fix issue with feature Y
+""".strip()
+        )
+    )
+    patch_helpers = [patch_helper]
+
+    # Simulate an error occurring when trying to contact BMO.
+    with patch("landoapi.hgexports.get_status_code_for_bug") as mock_status_code, patch(
+        "landoapi.hgexports.search_bugs"
+    ) as mock_bug_search:
+        mock_bug_search.return_value = set()
+
+        def status_error(*args, **kwargs):
+            raise requests.exceptions.RequestException("BMO connection failed")
+
+        mock_status_code.side_effect = status_error
+
+        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
+        issues = assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck])
+
+        assert (
+            issues
+            and "Could not contact BMO to check for security bugs referenced in commit message."
+            in issues[0]
+        )

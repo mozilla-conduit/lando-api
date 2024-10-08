@@ -2,41 +2,87 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+from typing import Optional
+
 import requests
 from flask import current_app
 
 
-def bmo_uplift_endpoint() -> str:
-    """Returns the BMO uplift endpoint url for bugs."""
-    return f"{current_app.config['BUGZILLA_URL']}/rest/lando/uplift"
+def api_request(
+    method: str,
+    path: str,
+    *args,
+    use_api_key: bool = False,
+    headers: Optional[dict] = None,
+    **kwargs,
+) -> requests.Response:
+    """Send an HTTP request to the BMO REST API.
 
+    `method` is the HTTP method to use, ie `GET`, `POST`, etc.
+    `path` is the REST API endpoint to send the request to.
+    `authenticated` indicates if the privileged Lando Automation API key should be
+      used.
+    `headers` is the set of HTTP headers to pass to the request.
 
-def bmo_default_headers() -> dict[str, str]:
-    """Returns a `dict` containing the default REST API headers."""
-    return {
+    All other arguments in *args and **kwargs are passed through to `requests.request`.
+    """
+    url = f"{current_app.config['BUGZILLA_URL']}/rest/{path}"
+
+    common_headers = {
         "User-Agent": "Lando-API",
-        "X-Bugzilla-API-Key": current_app.config["BUGZILLA_API_KEY"],
+    }
+    if headers:
+        common_headers.update(headers)
+
+    if use_api_key:
+        common_headers["X-Bugzilla-API-Key"] = current_app.config["BUGZILLA_API_KEY"]
+
+    return requests.request(method, url, *args, headers=headers, **kwargs)
+
+
+def search_bugs(bug_ids: set[int]) -> set[int]:
+    """Search for bugs with given IDs on BMO."""
+    params = {
+        "id": ",".join(str(bug) for bug in sorted(bug_ids)),
+        "include_fields": "id",
     }
 
-
-def get_bug(params: dict) -> requests.Response:
-    """Retrieve bug information from the BMO REST API endpoint."""
-    resp_get = requests.get(
-        bmo_uplift_endpoint(), headers=bmo_default_headers(), params=params
+    resp = api_request(
+        "GET",
+        "bug",
+        params=params,
     )
+
+    bugs = resp.json()["bugs"]
+
+    return {int(bug["id"]) for bug in bugs}
+
+
+def get_status_code_for_bug(bug_id: int) -> int:
+    """Given a bug ID, get the status code returned from BMO when attempting to access the bug."""
+    try:
+        resp = api_request("GET", f"bug/{bug_id}")
+        code = resp.status_code
+    except requests.exceptions.HTTPError as exc:
+        code = exc.response.status_code
+
+    return code
+
+
+def uplift_get_bug(params: dict) -> dict:
+    """Retrieve bug information from the Lando Uplift Automation endpoint."""
+    resp_get = api_request("GET", "lando/uplift", use_api_key=True, params=params)
     resp_get.raise_for_status()
 
-    return resp_get
+    return resp_get.json()
 
 
-def update_bug(json: dict) -> requests.Response:
-    """Update a BMO bug."""
+def uplift_update_bug(json: dict) -> requests.Response:
+    """Update a BMO bug via the Lando Uplift Automation endpoint."""
     if "ids" not in json or not json["ids"]:
         raise ValueError("Need bug values to be able to update!")
 
-    resp_put = requests.put(
-        bmo_uplift_endpoint(), headers=bmo_default_headers(), json=json
-    )
+    resp_put = api_request("PUT", "lando/uplift", use_api_key=True, json=json)
     resp_put.raise_for_status()
 
     return resp_put
