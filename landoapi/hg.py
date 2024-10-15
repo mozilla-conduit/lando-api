@@ -425,7 +425,6 @@ class HgRepo:
         supported_formatters = [
             "black",
             "clang-format",
-            "eslint",
             "rustfmt",
         ]
 
