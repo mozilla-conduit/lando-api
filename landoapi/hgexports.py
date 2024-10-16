@@ -36,7 +36,6 @@ from landoapi.commit_message import (
     parse_backouts,
     parse_bugs,
 )
-from landoapi.repos import Repo
 
 HG_HEADER_NAMES = (
     "User",
@@ -438,6 +437,165 @@ def wrap_filenames(filenames: list[str]) -> str:
 
 
 @dataclass
+class PatchCheck:
+    """Provides an interface to implement patch checks.
+
+    When looping over each diff in the patch, `next_diff` is called to give the
+    current diff to the patch as a `rs_parsepatch` diff `dict`. Then, `result` is
+    called to receive the result of the check.
+    """
+
+    author: Optional[str] = None
+    email: Optional[str] = None
+    commit_message: Optional[str] = None
+
+    def next_diff(self, diff: dict):
+        """Pass the next `rs_parsepatch` diff `dict` into the check."""
+        raise NotImplementedError()
+
+    def result(self) -> Optional[str]:
+        """Calcuate and return the result of the check."""
+        raise NotImplementedError()
+
+
+@dataclass
+class PreventSymlinksCheck(PatchCheck):
+    """Check for symlinks introduced in the diff."""
+
+    symlinked_files: list[str] = field(default_factory=list)
+
+    def next_diff(self, diff: dict):
+        modes = diff["modes"]
+
+        # Check the file mode on each file and ensure the file is not a symlink.
+        # `rs_parsepatch` has a `new` and `old` mode key, we are interested in
+        # only the newly introduced modes.
+        if "new" in modes and modes["new"] == SYMLINK_MODE:
+            self.symlinked_files.append(diff["filename"])
+
+    def result(self) -> Optional[str]:
+        if self.symlinked_files:
+            return (
+                "Revision introduces symlinks in the files "
+                f"{wrap_filenames(self.symlinked_files)}."
+            )
+
+
+@dataclass
+class TryTaskConfigCheck(PatchCheck):
+    """Check for `try_task_config.json` introduced in the diff."""
+
+    includes_try_task_config: bool = False
+
+    def next_diff(self, diff: dict):
+        """Check each diff for the `try_task_config.json` file."""
+        if diff["filename"] == "try_task_config.json":
+            self.includes_try_task_config = True
+
+    def result(self) -> Optional[str]:
+        """Return an error if the `try_task_config.json` was found."""
+        if self.includes_try_task_config:
+            return "Revision introduces the `try_task_config.json` file."
+
+
+@dataclass
+class PreventNSPRNSSCheck(PatchCheck):
+    """Prevent changes to vendored NSPR directories."""
+
+    nss_disallowed_changes: list[str] = field(default_factory=list)
+    nspr_disallowed_changes: list[str] = field(default_factory=list)
+
+    def build_prevent_nspr_nss_error_message(self) -> str:
+        """Build the `check_prevent_nspr_nss` error message.
+
+        Assumes at least one of `nss_disallowed_changes` or `nspr_disallowed_changes`
+        are non-empty lists.
+        """
+        # Build the error message.
+        return_error_message = ["Revision makes changes to restricted directories:"]
+
+        if self.nss_disallowed_changes:
+            return_error_message.append("vendored NSS directories:")
+
+            return_error_message.append(wrap_filenames(self.nss_disallowed_changes))
+
+        if self.nspr_disallowed_changes:
+            return_error_message.append("vendored NSPR directories:")
+
+            return_error_message.append(wrap_filenames(self.nspr_disallowed_changes))
+
+        return f"{' '.join(return_error_message)}."
+
+    def next_diff(self, diff: dict):
+        """Pass the next `rs_parsepatch` diff `dict` into the check."""
+        if not self.commit_message:
+            return
+
+        filename = diff["filename"]
+
+        if (
+            filename.startswith("security/nss/")
+            and "UPGRADE_NSS_RELEASE" not in self.commit_message
+        ):
+            self.nss_disallowed_changes.append(filename)
+
+        if (
+            filename.startswith("nsprpub/")
+            and "UPGRADE_NSPR_RELEASE" not in self.commit_message
+        ):
+            self.nspr_disallowed_changes.append(filename)
+
+    def result(self) -> Optional[str]:
+        """Calcuate and return the result of the check."""
+        if not self.nss_disallowed_changes and not self.nspr_disallowed_changes:
+            # Return early if no disallowed changes were found.
+            return
+
+        return self.build_prevent_nspr_nss_error_message()
+
+
+@dataclass
+class PreventSubmodulesCheck(PatchCheck):
+    """Prevent introduction of Git submodules into the repository."""
+
+    includes_gitmodules: bool = False
+
+    def next_diff(self, diff: dict):
+        """Check if a diff adds the `.gitmodules` file."""
+        if diff["filename"] == ".gitmodules":
+            self.includes_gitmodules = True
+
+    def result(self) -> Optional[str]:
+        """Return an error if the `.gitmodules` file was found."""
+        if self.includes_gitmodules:
+            return "Revision introduces a Git submodule into the repository."
+
+
+@dataclass
+class WPTSyncCheck(PatchCheck):
+    """Check the WPT Sync bot has only made changes to relevant subset of the tree."""
+
+    wpt_disallowed_files: list[str] = field(default_factory=list)
+
+    def next_diff(self, diff: dict):
+        """Check each diff to assert the WPT-Sync bot is only updating allowed files."""
+        if self.email != "wptsync@mozilla.com":
+            return
+
+        filename = diff["filename"]
+        if not WPT_SYNC_ALLOWED_PATHS_RE.match(filename):
+            self.wpt_disallowed_files.append(filename)
+
+    def result(self) -> Optional[str]:
+        """Return an error if the WPT-Sync bot touched disallowed files."""
+        if self.wpt_disallowed_files:
+            return (
+                "Revision has WPTSync bot making changes to disallowed files "
+                f"{wrap_filenames(self.wpt_disallowed_files)}."
+            )
+
+
+@dataclass
 class DiffAssessor:
     """Assess diffs for landing issues.
 
@@ -448,185 +606,28 @@ class DiffAssessor:
     author: Optional[str] = None
     email: Optional[str] = None
     commit_message: Optional[str] = None
-    repo: Optional[Repo] = None
 
-    def check_prevent_symlinks(self) -> Optional[str]:
-        """Check for symlinks introduced in the diff."""
-        symlinked_files = []
-        for parsed in self.parsed_diff:
-            modes = parsed["modes"]
-
-            # Check the file mode on each file and ensure the file is not a symlink.
-            # `rs_parsepatch` has a `new` and `old` mode key, we are interested in
-            # only the newly introduced modes.
-            if "new" in modes and modes["new"] == SYMLINK_MODE:
-                symlinked_files.append(parsed["filename"])
-
-        if symlinked_files:
-            return f"Revision introduces symlinks in the files {wrap_filenames(symlinked_files)}."
-
-    def check_try_task_config(self) -> Optional[str]:
-        """Check for `try_task_config.json` introduced in the diff."""
-        if self.repo and self.repo.tree == "try":
-            return
-
-        for parsed in self.parsed_diff:
-            if parsed["filename"] == "try_task_config.json":
-                return "Revision introduces the `try_task_config.json` file."
-
-    def check_commit_message(self, is_merge: bool = False) -> Optional[str]:
-        """Check the format of the passed commit message for issues."""
-        if self.repo and self.repo.tree == "try":
-            return
-
-        if self.commit_message is None:
-            return
-
-        if not self.commit_message:
-            return "Revision has an empty commit message."
-
-        firstline = self.commit_message.splitlines()[0]
-
-        # Ensure backout commit descriptions are well formed.
-        if is_backout(firstline):
-            backouts = parse_backouts(firstline, strict=True)
-            if not backouts or not backouts[0]:
-                return "Revision is a backout but commit message does not indicate backed out revisions."
-
-        # Avoid checks for the merge automation user.
-        if self.author in {"ffxbld", "seabld", "tbirdbld", "cltbld"}:
-            return
-
-        # Match against [PATCH] and [PATCH n/m].
-        if "[PATCH" in firstline:
-            return (
-                "Revision contains git-format-patch '[PATCH]' cruft. Use "
-                "git-format-patch -k to avoid this."
-            )
-
-        if INVALID_REVIEW_FLAG_RE.search(firstline):
-            return (
-                "Revision contains 'r?' in the commit message. Please use 'r=' instead."
-            )
-
-        if firstline.lower().startswith("wip:"):
-            return "Revision seems to be marked as WIP."
-
-        if any(regex.search(firstline) for regex in ACCEPTABLE_MESSAGE_FORMAT_RES):
-            # Exit if the commit message matches any of our acceptable formats.
-            # Conditions after this are failure states.
-            return
-
-        if firstline.lower().startswith(("merge", "merging", "automated merge")):
-            if is_merge:
-                return
-
-            return "Revision claims to be a merge, but it has only one parent."
-
-        if firstline.lower().startswith(("back", "revert")):
-            # Purposely ambiguous: it's ok to say "backed out rev N" or
-            # "reverted to rev N-1"
-            return "Backout revision needs a bug number or a rev id."
-
-        return "Revision needs 'Bug N' or 'No bug' in the commit message."
-
-    def check_wpt_sync(self) -> Optional[str]:
-        """Check the WPT Sync bot has only made changes to relevant subset of the tree."""
-        if self.email != "wptsync@mozilla.com":
-            return
-
-        if not self.repo or self.repo.tree == "try":
-            return
-
-        if self.repo.tree != "mozilla-central":
-            return f"WPT Sync bot can not push to {self.repo.tree}."
-
-        disallowed_files = []
-        for parsed in self.parsed_diff:
-            filename = parsed["filename"]
-            if not WPT_SYNC_ALLOWED_PATHS_RE.match(filename):
-                disallowed_files.append(filename)
-
-        if disallowed_files:
-            return (
-                "Revision has WPTSync bot making changes to disallowed files "
-                f"{wrap_filenames(disallowed_files)}."
-            )
-
-    def build_prevent_nspr_nss_error_message(
-        self, nss_disallowed_changes: list[str], nspr_disallowed_changes: list[str]
-    ) -> str:
-        """Build the `check_prevent_nspr_nss` error message.
-
-        Assumes at least one of `nss_disallowed_changes` or `nspr_disallowed_changes`
-        are non-empty lists.
-        """
-        # Build the error message.
-        return_error_message = ["Revision makes changes to restricted directories:"]
-
-        if nss_disallowed_changes:
-            return_error_message.append("vendored NSS directories:")
-
-            return_error_message.append(wrap_filenames(nss_disallowed_changes))
-
-        if nspr_disallowed_changes:
-            return_error_message.append("vendored NSPR directories:")
-
-            return_error_message.append(wrap_filenames(nspr_disallowed_changes))
-
-        return f"{' '.join(return_error_message)}."
-
-    def check_prevent_nspr_nss(self) -> Optional[str]:
-        """Prevent changes to vendored NSPR directories."""
-        if not self.repo or not self.commit_message:
-            return
-
-        if self.repo.tree == "try":
-            return
-
-        nss_disallowed_changes = []
-        nspr_disallowed_changes = []
-        for parsed in self.parsed_diff:
-            filename = parsed["filename"]
-
-            if (
-                filename.startswith("security/nss/")
-                and "UPGRADE_NSS_RELEASE" not in self.commit_message
-            ):
-                nss_disallowed_changes.append(filename)
-
-            if (
-                filename.startswith("nsprpub/")
-                and "UPGRADE_NSPR_RELEASE" not in self.commit_message
-            ):
-                nspr_disallowed_changes.append(filename)
-
-        if not nss_disallowed_changes and not nspr_disallowed_changes:
-            # Return early if no disallowed changes were found.
-            return
-
-        return self.build_prevent_nspr_nss_error_message(
-            nss_disallowed_changes, nspr_disallowed_changes
-        )
-
-    def check_prevent_submodules(self) -> Optional[str]:
-        """Prevent introduction of Git submodules into the repository."""
-        for parsed in self.parsed_diff:
-            if parsed["filename"] == ".gitmodules":
-                return "Revision introduces a Git submodule into the repository."
-
-    def run_diff_checks(self) -> list[str]:
+    def run_diff_checks(self, patch_checks: list[Type[PatchCheck]]) -> list[str]:
         """Execute the set of checks on the diffs."""
         issues = []
-        for check in (
-            self.check_prevent_symlinks,
-            self.check_try_task_config,
-            self.check_commit_message,
-            self.check_wpt_sync,
-            self.check_prevent_nspr_nss,
-            self.check_prevent_submodules,
-        ):
-            if issue := check():
+
+        checks = [
+            check(
+                author=self.author,
+                commit_message=self.commit_message,
+                email=self.email,
+            )
+            for check in patch_checks
+        ]
+
+        # Iterate through each diff in the patch and pass it into each check.
+        for parsed in self.parsed_diff:
+            for check in checks:
+                check.next_diff(parsed)
+
+        # Collect the results from each check.
+        for check in checks:
+            if issue := check.result():
                 issues.append(issue)
 
         return issues
@@ -648,6 +649,84 @@ class PatchCollectionCheck:
     def result(self) -> Optional[str]:
         """Calcuate and return the result of the check."""
         raise NotImplementedError()
+
+
+@dataclass
+class CommitMessagesCheck(PatchCollectionCheck):
+    """Check the format of the passed commit message for issues."""
+
+    ignore_bad_commit_message: bool = False
+    commit_message_issues: list[str] = field(default_factory=list)
+
+    def next_diff(self, patch_helper: PatchHelper):
+        """Pass the next `rs_parsepatch` diff `dict` into the check."""
+        commit_message = patch_helper.get_commit_description()
+        author, _email = patch_helper.parse_author_information()
+
+        if not commit_message:
+            self.commit_message_issues.append("Revision has an empty commit message.")
+            return
+
+        firstline = commit_message.splitlines()[0]
+
+        if self.ignore_bad_commit_message or "IGNORE BAD COMMIT MESSAGES" in firstline:
+            self.ignore_bad_commit_message = True
+            return
+
+        # Ensure backout commit descriptions are well formed.
+        if is_backout(firstline):
+            backouts = parse_backouts(firstline, strict=True)
+            if not backouts or not backouts[0]:
+                self.commit_message_issues.append(
+                    "Revision is a backout but commit message "
+                    "does not indicate backed out revisions."
+                )
+                return
+
+        # Avoid checks for the merge automation users.
+        if author in {"ffxbld", "seabld", "tbirdbld", "cltbld"}:
+            return
+
+        # Match against [PATCH] and [PATCH n/m].
+        if "[PATCH" in firstline:
+            self.commit_message_issues.append(
+                "Revision contains git-format-patch '[PATCH]' cruft. Use "
+                "git-format-patch -k to avoid this."
+            )
+            return
+
+        if INVALID_REVIEW_FLAG_RE.search(firstline):
+            self.commit_message_issues.append(
+                "Revision contains 'r?' in the commit message. "
+                "Please use 'r=' instead."
+            )
+            return
+
+        if firstline.lower().startswith("wip:"):
+            self.commit_message_issues.append("Revision seems to be marked as WIP.")
+            return
+
+        if any(regex.search(firstline) for regex in ACCEPTABLE_MESSAGE_FORMAT_RES):
+            # Exit if the commit message matches any of our acceptable formats.
+            # Conditions after this are failure states.
+            return
+
+        if firstline.lower().startswith(("back", "revert")):
+            # Purposely ambiguous: it's ok to say "backed out rev N" or
+            # "reverted to rev N-1"
+            self.commit_message_issues.append(
+                "Backout revision needs a bug number or a rev id."
+            )
+            return
+
+        self.commit_message_issues.append(
+            "Revision needs 'Bug N' or 'No bug' in the commit message."
+        )
+
+    def result(self) -> Optional[str]:
+        """Calcuate and return the result of the check."""
+        if not self.ignore_bad_commit_message and self.commit_message_issues:
+            return ", ".join(self.commit_message_issues)
 
 
 BMO_SKIP_HINT = "Use `SKIP_BMO_CHECK` in your commit message to push anyway."
@@ -725,10 +804,11 @@ class PatchCollectionAssessor:
     """Assess pushes for landing issues."""
 
     patch_helpers: Iterable[PatchHelper]
-    repo: Repo
 
     def run_patch_collection_checks(
-        self, push_checks: list[Type[PatchCollectionCheck]]
+        self,
+        patch_collection_checks: list[Type[PatchCollectionCheck]],
+        patch_checks: list[Type[PatchCheck]],
     ) -> list[str]:
         """Execute the set of checks on the diffs, returning a list of issues.
 
@@ -737,7 +817,7 @@ class PatchCollectionAssessor:
         """
         issues = []
 
-        checks = [check() for check in push_checks]
+        checks = [check() for check in patch_collection_checks]
 
         for patch_helper in self.patch_helpers:
             # Pass the patch information into the push-wide check.
@@ -754,9 +834,8 @@ class PatchCollectionAssessor:
                 email=email,
                 commit_message=patch_helper.get_commit_description(),
                 parsed_diff=parsed_diff,
-                repo=self.repo,
             )
-            if diff_issues := diff_assessor.run_diff_checks():
+            if diff_issues := diff_assessor.run_diff_checks(patch_checks):
                 issues.extend(diff_issues)
 
         # Collect the result of the push-wide checks.

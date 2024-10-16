@@ -22,7 +22,10 @@ from flask import current_app
 
 from landoapi.auth import A0User
 from landoapi.cache import DEFAULT_CACHE_KEY_TIMEOUT_SECONDS, cache
-from landoapi.hgexports import DiffAssessor
+from landoapi.hgexports import (
+    PreventSymlinksCheck,
+    TryTaskConfigCheck,
+)
 from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.models.revisions import DiffWarning, DiffWarningStatus
 from landoapi.phabricator import (
@@ -878,7 +881,11 @@ def blocker_prevent_symlinks(
     diff_id = PhabricatorClient.expect(diff, "id")
     parsed_diff = stack_state.parsed_diffs[diff_id]
 
-    return DiffAssessor(parsed_diff=parsed_diff).check_prevent_symlinks()
+    symlink_check = PreventSymlinksCheck()
+    for diff in parsed_diff:
+        symlink_check.next_diff(diff)
+
+    return symlink_check.result()
 
 
 def blocker_try_task_config(
@@ -888,11 +895,11 @@ def blocker_try_task_config(
     diff_id = PhabricatorClient.expect(diff, "id")
     parsed_diff = stack_state.parsed_diffs[diff_id]
 
-    local_repo = stack_state.get_repo_for_revision(revision)
+    try_task_config_check = TryTaskConfigCheck()
+    for diff in parsed_diff:
+        try_task_config_check.next_diff(diff)
 
-    return DiffAssessor(
-        parsed_diff=parsed_diff, repo=local_repo
-    ).check_try_task_config()
+    return try_task_config_check.result()
 
 
 STACK_BLOCKER_CHECKS = [
