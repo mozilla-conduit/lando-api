@@ -37,7 +37,7 @@ def api_request(
     if use_api_key:
         common_headers["X-Bugzilla-API-Key"] = current_app.config["BUGZILLA_API_KEY"]
 
-    return requests.request(method, url, *args, headers=headers, **kwargs)
+    return requests.request(method, url, *args, headers=common_headers, **kwargs)
 
 
 def search_bugs(bug_ids: set[int]) -> set[int]:
