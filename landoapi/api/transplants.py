@@ -255,7 +255,7 @@ def post(phab: PhabricatorClient, data: dict):
     revisions = [r[0] for r in to_land]
 
     for revision in revisions:
-        involved_phids.update(gather_involved_phids(revision))
+        involved_phids.update(gather_involved_phids(revision, stack_data.diffs))
 
     involved_phids = list(involved_phids)
     users = user_search(phab, involved_phids)

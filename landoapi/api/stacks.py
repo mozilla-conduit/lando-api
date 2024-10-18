@@ -107,7 +107,7 @@ def get(phab: PhabricatorClient, revision_id: str):
 
     involved_phids = set()
     for revision in stack_data.revisions.values():
-        involved_phids.update(gather_involved_phids(revision))
+        involved_phids.update(gather_involved_phids(revision, stack_data.diffs))
 
     involved_phids = list(involved_phids)
 

@@ -75,7 +75,9 @@ def request_extended_revision_data(
     diffs = phab.call_conduit(
         "differential.diff.search",
         constraints={
-            "phids": [phab.expect(r, "fields", "diffPHID") for r in revs.values()]
+            "revisionPHIDs": [
+                phab.expect(revision, "phid") for revision in revs.values()
+            ]
         },
         attachments={"commits": True},
         limit=len(revs),
