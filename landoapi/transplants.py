@@ -1029,7 +1029,14 @@ def get_parsed_diffs(
 ) -> dict[int, dict]:
     """Return a mapping of diff PHID to `rs-parsepatch` parsed `diff --git` content."""
     raw_diffs = {}
-    for diff in stack_data.diffs.values():
+
+    # Get the latest diffs for each revision.
+    latest_diffs = [
+        stack_data.diffs[phab.expect(revision, "fields", "diffPHID")]
+        for revision in stack_data.revisions.values()
+    ]
+
+    for diff in latest_diffs:
         diff_id = phab.expect(diff, "id")
 
         raw_diffs[diff_id] = get_raw_diff_by_id(phab, diff_id)
