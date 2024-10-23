@@ -6,6 +6,7 @@ import pytest
 from landoapi.commit_message import (
     bug_list_to_commit_string,
     format_commit_message,
+    parse_bugs,
     split_title_and_summary,
 )
 
@@ -218,3 +219,19 @@ def test_bug_list_to_commit_string():
     assert (
         bug_list_to_commit_string(["123", "123"]) == "Bug 123"
     ), "Multiple bugs should be deduplicated."
+
+
+BUG_COMMIT_MESSAGE = """
+Bug 1803416 - Part 1: WindowsAppSDK toolchain. r?glandium
+
+This follows an approach suggested
+[here](https://github.com/microsoft/WindowsAppSDK/discussions/1891#discussioncomment-2043601).
+
+Differential Revision: https://phabricator.services.mozilla.com/D223371
+""".lstrip()
+
+
+def test_parse_bugs():
+    assert parse_bugs(BUG_COMMIT_MESSAGE) == [
+        1803416
+    ], "`parse_bugs` should only return the appropriate bug numbers."
