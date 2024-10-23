@@ -52,6 +52,7 @@ from landoapi.revisions import (
 from landoapi.stacks import (
     RevisionData,
     RevisionStack,
+    get_diffs_for_revision,
     get_landable_repos_for_revision_data,
 )
 from landoapi.transactions import get_inline_comments
@@ -1064,7 +1065,8 @@ def build_stack_assessment_state(
     involved_phids = set()
     reviewers = {}
     for revision in stack_data.revisions.values():
-        involved_phids.update(gather_involved_phids(revision, stack_data.diffs))
+        revision_diffs = get_diffs_for_revision(revision, stack_data.diffs)
+        involved_phids.update(gather_involved_phids(revision, revision_diffs))
         reviewers[revision["phid"]] = get_collated_reviewers(revision)
 
     # Get more Phabricator data.

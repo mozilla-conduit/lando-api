@@ -37,6 +37,7 @@ from landoapi.revisions import (
 from landoapi.stacks import (
     RevisionStack,
     build_stack_graph,
+    get_diffs_for_revision,
     request_extended_revision_data,
 )
 from landoapi.transplants import build_stack_assessment_state, run_landing_checks
@@ -107,7 +108,8 @@ def get(phab: PhabricatorClient, revision_id: str):
 
     involved_phids = set()
     for revision in stack_data.revisions.values():
-        involved_phids.update(gather_involved_phids(revision, stack_data.diffs))
+        revision_diffs = get_diffs_for_revision(revision, stack_data.diffs)
+        involved_phids.update(gather_involved_phids(revision, revision_diffs))
 
     involved_phids = list(involved_phids)
 
