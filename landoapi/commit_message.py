@@ -12,7 +12,7 @@ REVISION_URL_TEMPLATE = "Differential Revision: {url}"
 
 # Like BUG_RE except it doesn't flag sequences of numbers, only positive
 # "bug" syntax like "bug X" or "b=".
-BUG_CONSERVATIVE_RE = re.compile(r"""((?:bug|b=)(?:\s*)(\d+)(?=\b))""", re.I | re.X)
+BUG_CONSERVATIVE_RE = re.compile(r"""(\b(?:bug|b=)\b(?:\s*)(\d+)(?=\b))""", re.I | re.X)
 
 SPECIFIER = r"\b(?:r|a|sr|rs|ui-r)[=?]"
 SPECIFIER_RE = re.compile(SPECIFIER)
