@@ -48,6 +48,7 @@ from landoapi.revisions import (
 from landoapi.stacks import (
     RevisionStack,
     build_stack_graph,
+    get_diffs_for_revision,
     request_extended_revision_data,
 )
 from landoapi.storage import db
@@ -255,7 +256,8 @@ def post(phab: PhabricatorClient, data: dict):
     revisions = [r[0] for r in to_land]
 
     for revision in revisions:
-        involved_phids.update(gather_involved_phids(revision))
+        revision_diffs = get_diffs_for_revision(revision, stack_data.diffs)
+        involved_phids.update(gather_involved_phids(revision, revision_diffs))
 
     involved_phids = list(involved_phids)
     users = user_search(phab, involved_phids)

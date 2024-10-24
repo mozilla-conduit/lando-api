@@ -52,6 +52,7 @@ from landoapi.revisions import (
 from landoapi.stacks import (
     RevisionData,
     RevisionStack,
+    get_diffs_for_revision,
     get_landable_repos_for_revision_data,
 )
 from landoapi.transactions import get_inline_comments
@@ -583,6 +584,30 @@ def warning_unresolved_comments(
         return "Revision has unresolved comments."
 
 
+@RevisionWarningCheck(10, "Revision has multiple authors.")
+def warning_multiple_authors(
+    revision: dict, diff: dict, stack_state: StackAssessmentState
+):
+    """Warn the landing user when a revision has updates from multiple authors."""
+    revision_phid = PhabricatorClient.expect(revision, "phid")
+
+    # Get the author PHID for each diff associated with this revision.
+    author_phids = {
+        PhabricatorClient.expect(diff, "fields", "authorPHID")
+        for diff in stack_state.stack_data.diffs.values()
+        if PhabricatorClient.expect(diff, "fields", "revisionPHID") == revision_phid
+    }
+
+    if len(author_phids) > 1:
+        author_usernames = sorted(
+            reviewer_identity(
+                author_phid, stack_state.users, stack_state.projects
+            ).identifier
+            for author_phid in author_phids
+        )
+        return f"Revision has multiple authors: {', '.join(author_usernames)}."
+
+
 def blocker_user_no_auth0_email(
     stack_state: StackAssessmentState,
 ) -> Optional[str]:
@@ -905,6 +930,7 @@ WARNING_CHECKS = [
     warning_wip_commit_message,
     warning_code_freeze,
     warning_unresolved_comments,
+    warning_multiple_authors,
 ]
 
 
@@ -1004,7 +1030,14 @@ def get_parsed_diffs(
 ) -> dict[int, dict]:
     """Return a mapping of diff PHID to `rs-parsepatch` parsed `diff --git` content."""
     raw_diffs = {}
-    for diff in stack_data.diffs.values():
+
+    # Get the latest diffs for each revision.
+    latest_diffs = [
+        stack_data.diffs[phab.expect(revision, "fields", "diffPHID")]
+        for revision in stack_data.revisions.values()
+    ]
+
+    for diff in latest_diffs:
         diff_id = phab.expect(diff, "id")
 
         raw_diffs[diff_id] = get_raw_diff_by_id(phab, diff_id)
@@ -1032,11 +1065,13 @@ def build_stack_assessment_state(
     involved_phids = set()
     reviewers = {}
     for revision in stack_data.revisions.values():
-        involved_phids.update(gather_involved_phids(revision))
+        revision_diffs = get_diffs_for_revision(revision, stack_data.diffs)
+        involved_phids.update(gather_involved_phids(revision, revision_diffs))
         reviewers[revision["phid"]] = get_collated_reviewers(revision)
 
     # Get more Phabricator data.
     involved_phids = list(involved_phids)
+
     users = user_search(phab, involved_phids)
     projects = project_search(phab, involved_phids)
 
