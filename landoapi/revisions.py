@@ -25,15 +25,25 @@ from landoapi.secapproval import (
 logger = logging.getLogger(__name__)
 
 
-def gather_involved_phids(revision: dict) -> set[str]:
+def gather_involved_phids(revision: dict, revision_diffs: list[dict]) -> set[str]:
     """Return the set of Phobject phids involved in a revision.
 
-    At the time of writing Users and Projects are the type of Phobjects
-    which may author or review a revision.
+    Receives a dict representing the revision, and a list of dicts representing every
+    diff that is associated with that revision.
+
+    Gathers the PHID of the author of the revision, the set of all reviewers on the
+    revision, and any user who has pushed a diff to a revision.
     """
     attachments = PhabricatorClient.expect(revision, "attachments")
 
     entities = {PhabricatorClient.expect(revision, "fields", "authorPHID")}
+    entities.update(
+        {
+            PhabricatorClient.expect(diff, "fields", "authorPHID")
+            for diff in revision_diffs
+        }
+    )
+
     entities.update(
         {
             PhabricatorClient.expect(r, "reviewerPHID")
