@@ -10,29 +10,9 @@ from typing import (
 
 REVISION_URL_TEMPLATE = "Differential Revision: {url}"
 
-# These regular expressions are not very robust. Specifically, they fail to
-# handle lists well.
-BUG_RE = re.compile(
-    r"""
-    # bug followed by any sequence of numbers, or
-    # a standalone sequence of numbers
-    (
-        (?:
-            bug |
-            b= |
-            # a sequence of 5+ numbers preceded by whitespace
-            (?=\b\#?\d{5,}) |
-            # numbers at the very beginning
-            ^(?=\d)
-        )
-        (?:\s*\#?)(\d+)(?=\b)
-    )""",
-    re.I | re.X,
-)
-
 # Like BUG_RE except it doesn't flag sequences of numbers, only positive
 # "bug" syntax like "bug X" or "b=".
-BUG_CONSERVATIVE_RE = re.compile(r"""((?:bug|b=)(?:\s*)(\d+)(?=\b))""", re.I | re.X)
+BUG_CONSERVATIVE_RE = re.compile(r"""(\b(?:bug|b=)\b(?:\s*)(\d+)(?=\b))""", re.I | re.X)
 
 SPECIFIER = r"\b(?:r|a|sr|rs|ui-r)[=?]"
 SPECIFIER_RE = re.compile(SPECIFIER)
@@ -109,25 +89,6 @@ BACKOUT_MULTI_ONELINE_RE = re.compile(
 )
 RE_SOURCE_REPO = re.compile(r"^Source-Repo: (https?:\/\/.*)$", re.MULTILINE)
 RE_SOURCE_REVISION = re.compile(r"^Source-Revision: (.*)$", re.MULTILINE)
-# Like BUG_RE except it doesn't flag sequences of numbers, only positive
-# "bug" syntax like "bug X" or "b=".
-BUG_CONSERVATIVE_RE = re.compile(r"""(\b(?:bug|b=)\b(?:\s*)(\d+)(?=\b))""", re.I | re.X)
-BUG_RE = re.compile(
-    r"""# bug followed by any sequence of numbers, or
-        # a standalone sequence of numbers
-         (
-           (?:
-             bug |
-             b= |
-             # a sequence of 5+ numbers preceded by whitespace
-             (?=\b\#?\d{5,}) |
-             # numbers at the very beginning
-             ^(?=\d)
-           )
-           (?:\s*\#?)(\d+)(?=\b)
-         )""",
-    re.I | re.X,
-)
 
 
 def is_backout(commit_desc: str) -> bool:
@@ -256,7 +217,7 @@ def format_commit_message(
 
 def parse_bugs(message: str) -> list[int]:
     """Parse `commit_message` and return a list of `int` bug numbers."""
-    bugs_with_duplicates = [int(m[1]) for m in BUG_RE.findall(message)]
+    bugs_with_duplicates = [int(m[1]) for m in BUG_CONSERVATIVE_RE.findall(message)]
     bugs_seen = set()
     bugs_seen_add = bugs_seen.add
     bugs = [x for x in bugs_with_duplicates if not (x in bugs_seen or bugs_seen_add(x))]

@@ -170,7 +170,7 @@ def test_request_extended_revision_data_no_revisions(phabdouble):
     assert not data.repositories
 
 
-def test_request_extended_revision_data_gets_latest_diff(phabdouble):
+def test_request_extended_revision_data_gets_all_diffs(phabdouble):
     phab = phabdouble.get_phabricator_client()
 
     first_diff = phabdouble.diff()
@@ -179,7 +179,7 @@ def test_request_extended_revision_data_gets_latest_diff(phabdouble):
     data = request_extended_revision_data(phab, [revision["phid"]])
 
     assert revision["phid"] in data.revisions
-    assert first_diff["phid"] not in data.diffs
+    assert first_diff["phid"] in data.diffs
     assert latest_diff["phid"] in data.diffs
 
 

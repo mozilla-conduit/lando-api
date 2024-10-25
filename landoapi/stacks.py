@@ -41,6 +41,16 @@ def build_stack_graph(revision: dict) -> tuple[set[str], set[tuple[str, str]]]:
     return phids, edges
 
 
+def get_diffs_for_revision(revision: dict, all_diffs: dict[str, dict]) -> list[dict]:
+    """Return diffs associated with the given revision."""
+    return [
+        diff
+        for diff in all_diffs.values()
+        if PhabricatorClient.expect(revision, "phid")
+        == PhabricatorClient.expect(diff, "fields", "revisionPHID")
+    ]
+
+
 RevisionData = namedtuple("RevisionData", ("revisions", "diffs", "repositories"))
 
 
@@ -74,11 +84,8 @@ def request_extended_revision_data(
 
     diffs = phab.call_conduit(
         "differential.diff.search",
-        constraints={
-            "phids": [phab.expect(r, "fields", "diffPHID") for r in revs.values()]
-        },
+        constraints={"revisionPHIDs": revision_phids},
         attachments={"commits": True},
-        limit=len(revs),
     )
     phab.expect(diffs, "data", len(revision_phids) - 1)
     diffs = result_list_to_phid_dict(phab.expect(diffs, "data"))
