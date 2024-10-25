@@ -86,7 +86,6 @@ def request_extended_revision_data(
         "differential.diff.search",
         constraints={"revisionPHIDs": revision_phids},
         attachments={"commits": True},
-        limit=len(revs),
     )
     phab.expect(diffs, "data", len(revision_phids) - 1)
     diffs = result_list_to_phid_dict(phab.expect(diffs, "data"))
