@@ -279,26 +279,6 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             push_bookmark="@",
         ),
-        "build-tools": Repo(
-            tree="build-tools",
-            url="https://hg.mozilla.org/build/tools/",
-            access_group=SCM_LEVEL_3,
-        ),
-        "ci-admin": Repo(
-            tree="ci-admin",
-            url="https://hg.mozilla.org/ci/ci-admin",
-            access_group=SCM_FIREFOXCI,
-        ),
-        "ci-configuration": Repo(
-            tree="ci-configuration",
-            url="https://hg.mozilla.org/ci/ci-configuration",
-            access_group=SCM_FIREFOXCI,
-        ),
-        "fluent-migration": Repo(
-            tree="fluent-migration",
-            url="https://hg.mozilla.org/l10n/fluent-migration",
-            access_group=SCM_L10N_INFRA,
-        ),
         "mozilla-central": Repo(
             tree="autoland",
             url="https://hg.mozilla.org/integration/autoland",
@@ -333,11 +313,6 @@ REPO_CONFIG = {
             tree="nspr",
             url="https://hg.mozilla.org/projects/nspr",
             access_group=SCM_NSS,
-        ),
-        "taskgraph": Repo(
-            tree="taskgraph",
-            url="https://hg.mozilla.org/ci/taskgraph",
-            access_group=SCM_LEVEL_3,
         ),
         "nss": Repo(
             tree="nss", url="https://hg.mozilla.org/projects/nss", access_group=SCM_NSS
