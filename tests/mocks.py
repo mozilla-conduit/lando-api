@@ -405,6 +405,7 @@ class PhabricatorDouble:
         rawdiff=CANNED_RAW_DEFAULT_DIFF,
         changes=None,
         repo=None,
+        author=None,
         commits=[
             {
                 "identifier": "b15b8fbc79c2c3977aff9e17f0dfcc34c66ec29f",
@@ -428,7 +429,12 @@ class PhabricatorDouble:
         uri = "http://phabricator.test/differential/diff/{}/".format(diff_id)
         revision_id = revision["id"] if revision is not None else None
         revision_phid = revision["phid"] if revision is not None else None
-        author_phid = revision["authorPHID"] if revision is not None else None
+
+        if author:
+            author_phid = author["phid"]
+        else:
+            author_phid = revision["authorPHID"] if revision is not None else None
+
         repo_phid = (
             repo["phid"]
             if repo is not None

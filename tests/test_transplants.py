@@ -30,6 +30,7 @@ from landoapi.transplants import (
     blocker_revision_data_classification,
     blocker_try_task_config,
     blocker_uplift_approval,
+    warning_multiple_authors,
     warning_not_accepted,
     warning_previously_landed,
     warning_reviews_not_current,
@@ -1882,3 +1883,31 @@ def test_blocker_try_task_config_landing_state_non_try(
         )
         == "Revision introduces the `try_task_config.json` file."
     ), "`try_task_config.json` should be rejected."
+
+
+def test_warning_multiple_authors(phabdouble, mocked_repo_config, create_state):
+    repo = phabdouble.repo()
+
+    # Create two users.
+    alice = phabdouble.user(username="alice")
+    bob = phabdouble.user(username="bob")
+
+    # Create one revision.
+    revision = phabdouble.revision(repo=repo, author=alice)
+
+    # Create multiple diffs on the revision, one from each author.
+    phabdouble.diff(revision=revision, author=alice)
+    diff2 = phabdouble.diff(revision=revision, author=bob)
+
+    phab_revision = phabdouble.api_object_for(
+        revision,
+        attachments={"reviewers": True, "reviewers-extra": True, "projects": True},
+    )
+
+    stack_state = create_state(phab_revision)
+
+    warning = warning_multiple_authors(phab_revision, diff2, stack_state)
+    assert warning is not None
+    assert (
+        warning.details == "Revision has multiple authors: alice, bob."
+    ), "Multiple authors on a revision should return a warning."
