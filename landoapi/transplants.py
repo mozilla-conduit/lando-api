@@ -591,12 +591,17 @@ def warning_multiple_authors(
     """Warn the landing user when a revision has updates from multiple authors."""
     revision_phid = PhabricatorClient.expect(revision, "phid")
 
+    logger.warning(f"{revision_phid=}")
+    logger.warning(f"{stack_state.stack_data.diffs.values()}")
+
     # Get the author PHID for each diff associated with this revision.
     author_phids = {
         PhabricatorClient.expect(diff, "fields", "authorPHID")
         for diff in stack_state.stack_data.diffs.values()
         if PhabricatorClient.expect(diff, "fields", "revisionPHID") == revision_phid
     }
+
+    logger.warning(f"{author_phids=}")
 
     if len(author_phids) > 1:
         author_usernames = sorted(
