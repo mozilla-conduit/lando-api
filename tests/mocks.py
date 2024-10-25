@@ -842,6 +842,9 @@ class PhabricatorDouble:
 
             items = [i for i in items if i["slug"] in constraints["slugs"]]
 
+        if limit:
+            items = items[:limit]
+
         return {
             "data": [to_response(i) for i in items],
             "maps": {"slugMap": {}},
@@ -903,6 +906,9 @@ class PhabricatorDouble:
             items = [
                 i for i in items if i["revisionPHID"] in constraints["revisionPHIDs"]
             ]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -978,6 +984,9 @@ class PhabricatorDouble:
 
         if destinationPHIDs:
             items = [i for i in items if i["destinationPHID"] in destinationPHIDs]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -1100,6 +1109,9 @@ class PhabricatorDouble:
                 )
 
             items = [i for i in items if i["status"].value in status_set]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -1342,6 +1354,9 @@ class PhabricatorDouble:
         if phids:
             items = [i for i in items if i["phid"] in phids]
 
+        if limit:
+            items = items[:limit]
+
         return [to_response(i) for i in items]
 
     @conduit_method("diffusion.repository.search")
@@ -1396,6 +1411,9 @@ class PhabricatorDouble:
 
         if "shortNames" in constraints:
             items = [i for i in items if i["shortName"] in constraints["shortNames"]]
+
+        if limit:
+            items = items[:limit]
 
         return {
             "data": [to_response(i) for i in items],
@@ -1673,6 +1691,9 @@ class PhabricatorDouble:
         if "nameLike" in constraints:
             items = [i for i in items if constraints["nameLike"] in i["userName"]]
 
+        if limit:
+            items = items[:limit]
+
         return {
             "data": [to_response(i) for i in items],
             "maps": {},
@@ -1725,6 +1746,9 @@ class PhabricatorDouble:
 
         if ids:
             items = [i for i in items if i["id"] in ids]
+
+        if limit:
+            items = items[:limit]
 
         return [to_response(i) for i in items]
 
