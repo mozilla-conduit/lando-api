@@ -66,11 +66,18 @@ def test_get_timestamp_from_date():
     ), "Timestamp from `git format-patch` should properly convert to `str`."
 
 
-def test_parse_git_author_information():
+def test_parse_git_author_information_well_formed():
     assert parse_git_author_information("User Name <user@example.com>") == (
         "User Name",
         "user@example.com",
     ), "Name and email information should be parsed into separate strings."
+
+
+def test_parse_git_author_information_no_email():
+    assert parse_git_author_information("ffxbld") == (
+        "ffxbld",
+        "",
+    ), "Name without email address should return the username and empty email."
 
 
 def test_try_api_requires_data(db, client, auth0_mock, mocked_repo_config):
