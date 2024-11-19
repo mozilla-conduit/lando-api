@@ -103,8 +103,16 @@ def parse_git_author_information(user_header: str) -> tuple[str, str]:
     """Parse user's name and email address from a Git style author header.
 
     Converts a header like 'User Name <user@example.com>' to its separate parts.
+
+    If the parser could not split out the email from the user header,
+    assume it is improperly formatted and return the entire header
+    as the username instead.
     """
     name, email = parseaddr(user_header)
+
+    if not all({name, email}):
+        return user_header, ""
+
     return name, email
 
 
