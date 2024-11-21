@@ -248,11 +248,7 @@ class LandingJob(Base):
             grace_cutoff = now - datetime.timedelta(seconds=grace_seconds)
             q = q.filter(cls.created_at < grace_cutoff)
 
-        # Any `LandingJobStatus.IN_PROGRESS` job is first and there should
-        # be a maximum of one (per repository). For
-        # `LandingJobStatus.SUBMITTED` jobs, higher priority items come first
-        # and then we order by creation time (older first).
-        q = q.order_by(cls.status.desc(), cls.priority.desc(), cls.created_at)
+        q = q.order_by(cls.priority.desc(), cls.status.desc(), cls.created_at)
 
         return q
 
@@ -376,6 +372,8 @@ class LandingJob(Base):
 
         if action in (LandingJobAction.FAIL, LandingJobAction.DEFER):
             self.error = kwargs["message"]
+            if action == LandingJobAction.DEFER:
+                self.priority -= 1
 
         if action == LandingJobAction.LAND:
             self.landed_commit_id = kwargs["commit_id"]
