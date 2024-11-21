@@ -813,8 +813,9 @@ class PatchCollectionAssessor:
     ) -> list[str]:
         """Execute the set of checks on the diffs, returning a list of issues.
 
-        `push_checks` specifies the push-wide checks to run on the push, otherwise
-        all checks will be run.
+        `patch_collection_checks` specifies the collection-wide checks to run on the
+        `patch_helpers`. `patch_checks` specifies the checks to run on individual
+        patches.
         """
         issues = []
 
