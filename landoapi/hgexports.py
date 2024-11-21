@@ -8,6 +8,7 @@ import email
 import io
 import math
 import re
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from email.policy import (
@@ -449,13 +450,13 @@ class PatchCheck:
     email: Optional[str] = None
     commit_message: Optional[str] = None
 
+    @abstractmethod
     def next_diff(self, diff: dict):
         """Pass the next `rs_parsepatch` diff `dict` into the check."""
-        raise NotImplementedError()
 
+    @abstractmethod
     def result(self) -> Optional[str]:
         """Calcuate and return the result of the check."""
-        raise NotImplementedError()
 
 
 @dataclass
@@ -642,13 +643,13 @@ class PatchCollectionCheck:
     called to receive the result of the check.
     """
 
+    @abstractmethod
     def next_diff(self, patch_helper: PatchHelper):
         """Pass the next `PatchHelper` into the check."""
-        raise NotImplementedError()
 
+    @abstractmethod
     def result(self) -> Optional[str]:
         """Calcuate and return the result of the check."""
-        raise NotImplementedError()
 
 
 @dataclass
