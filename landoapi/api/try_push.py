@@ -21,6 +21,7 @@ from landoapi.hgexports import (
     HgPatchHelper,
     PatchCollectionAssessor,
     PatchHelper,
+    PreventSymlinksCheck,
 )
 from landoapi.models.landing_job import (
     LandingJobStatus,
@@ -104,8 +105,11 @@ def parse_revisions_from_request(
 
     try:
         errors = PatchCollectionAssessor(
-            patch_helpers=patch_helpers, repo=repo
-        ).run_patch_collection_checks(push_checks=[BugReferencesCheck])
+            patch_helpers=patch_helpers,
+        ).run_patch_collection_checks(
+            patch_collection_checks=[BugReferencesCheck],
+            patch_checks=[PreventSymlinksCheck],
+        )
     except ValueError as exc:
         raise ProblemException(
             400,
