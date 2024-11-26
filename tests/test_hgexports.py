@@ -10,13 +10,15 @@ import rs_parsepatch
 
 from landoapi.hgexports import (
     BugReferencesCheck,
-    DiffAssessor,
+    CommitMessagesCheck,
     GitPatchHelper,
     HgPatchHelper,
     PatchCollectionAssessor,
+    PreventNSPRNSSCheck,
+    PreventSubmodulesCheck,
+    WPTSyncCheck,
     build_patch_for_revision,
 )
-from landoapi.repos import get_repos_for_env
 
 GIT_DIFF_FROM_REVISION = """diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
@@ -517,43 +519,70 @@ def test_strip_git_version_info_lines():
     ]
 
 
-def test_check_commit_message_api_states(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    parsed_diff = rs_parsepatch.get_diffs(GIT_DIFF_FROM_REVISION)
+def test_check_commit_message_merge_automation_empty_message():
+    patch_helpers = [
+        HgPatchHelper(
+            io.StringIO(
+                """
+# HG changeset patch
+# User ffxbld
+# Date 1523427125 -28800
+#      Wed Apr 11 14:12:05 2018 +0800
+# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
+# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
+diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
+--- a/autoland/autoland/transplant.py
++++ b/autoland/autoland/transplant.py
+@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
+# instead of passing the url to 'hg import' to make
+...
+""".strip()
+            )
+        )
+    ]
 
-    # Test check doesn't run on try.
-    try_repo = supported_repos["try"]
-    diff_assessor = DiffAssessor(
-        parsed_diff=parsed_diff, repo=try_repo, commit_message=COMMIT_MESSAGE
-    )
-    assert (
-        diff_assessor.check_commit_message() is None
-    ), "Commit message check should pass when repo is `try`."
-
-    # Test check doesn't run for null commit message.
-    valid_repo = supported_repos["mozilla-central"]
-    diff_assessor = DiffAssessor(parsed_diff=parsed_diff, repo=valid_repo)
-    assert (
-        diff_assessor.check_commit_message() is None
-    ), "Commit message check should pass if `commit_message` is `None`."
+    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
     # Test check fails for empty commit message.
-    diff_assessor = DiffAssessor(
-        parsed_diff=parsed_diff, repo=valid_repo, commit_message=""
-    )
-    assert (
-        diff_assessor.check_commit_message() == "Revision has an empty commit message."
-    ), "Commit message check should fail if a commit message is passed but it is empty."
+    assert assessor.run_patch_collection_checks(
+        patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+    ) == [
+        "Revision has an empty commit message."
+    ], "Commit message check should fail if a commit message is passed but it is empty."
+
+
+def test_check_commit_message_merge_automation_bad_message():
+    patch_helpers = [
+        HgPatchHelper(
+            io.StringIO(
+                """
+# HG changeset patch
+# User ffxbld
+# Date 1523427125 -28800
+#      Wed Apr 11 14:12:05 2018 +0800
+# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
+# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
+this message is missing the bug.
+
+diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
+--- a/autoland/autoland/transplant.py
++++ b/autoland/autoland/transplant.py
+@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
+# instead of passing the url to 'hg import' to make
+...
+""".strip()
+            )
+        )
+    ]
+
+    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
     # Test check passed for merge automation user.
-    diff_assessor = DiffAssessor(
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
-        commit_message=COMMIT_MESSAGE,
-        author="ffxbld",
-    )
     assert (
-        diff_assessor.check_commit_message() is None
+        assessor.run_patch_collection_checks(
+            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+        )
+        == []
     ), "Commit message check should pass if a merge automation user is the author."
 
 
@@ -590,17 +619,37 @@ def test_check_commit_message_api_states(mocked_repo_config):
         ),
     ],
 )
-def test_check_commit_message_valid_message(
-    mocked_repo_config, commit_message, error_message
-):
-    supported_repos = get_repos_for_env("test")
-    parsed_diff = rs_parsepatch.get_diffs(GIT_DIFF_FROM_REVISION)
-    valid_repo = supported_repos["mozilla-central"]
+def test_check_commit_message_valid_message(commit_message, error_message):
+    patch_helpers = [
+        HgPatchHelper(
+            io.StringIO(
+                f"""
+# HG changeset patch
+# User Connor Sheehan <sheehan@mozilla.com>
+# Date 1523427125 -28800
+#      Wed Apr 11 14:12:05 2018 +0800
+# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
+# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
+{commit_message}
 
-    diff_assessor = DiffAssessor(
-        parsed_diff=parsed_diff, repo=valid_repo, commit_message=commit_message
-    )
-    assert diff_assessor.check_commit_message() is None, error_message
+diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
+--- a/autoland/autoland/transplant.py
++++ b/autoland/autoland/transplant.py
+@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
+# instead of passing the url to 'hg import' to make
+...
+""".strip()
+            )
+        )
+    ]
+    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
+
+    assert (
+        assessor.run_patch_collection_checks(
+            patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+        )
+        == []
+    ), error_message
 
 
 @pytest.mark.parametrize(
@@ -652,272 +701,195 @@ def test_check_commit_message_valid_message(
     ],
 )
 def test_check_commit_message_invalid_message(
-    mocked_repo_config, commit_message, return_string, error_message
+    commit_message, return_string, error_message
 ):
-    supported_repos = get_repos_for_env("test")
-    parsed_diff = rs_parsepatch.get_diffs(GIT_DIFF_FROM_REVISION)
-    valid_repo = supported_repos["mozilla-central"]
+    patch_helpers = [
+        HgPatchHelper(
+            io.StringIO(
+                f"""
+# HG changeset patch
+# User Connor Sheehan <sheehan@mozilla.com>
+# Date 1523427125 -28800
+#      Wed Apr 11 14:12:05 2018 +0800
+# Node ID 3379ea3cea34ecebdcb2cf7fb9f7845861ea8f07
+# Parent  46c36c18528fe2cc780d5206ed80ae8e37d3545d
+{commit_message}
 
-    diff_assessor = DiffAssessor(
-        parsed_diff=parsed_diff, repo=valid_repo, commit_message=commit_message
-    )
-    assert diff_assessor.check_commit_message() == return_string, error_message
+diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
+--- a/autoland/autoland/transplant.py
++++ b/autoland/autoland/transplant.py
+@@ -318,24 +318,58 @@ class PatchTransplant(Transplant):
+# instead of passing the url to 'hg import' to make
+...
+""".strip()
+            )
+        )
+    ]
+    assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
+
+    assert assessor.run_patch_collection_checks(
+        patch_collection_checks=[CommitMessagesCheck], patch_checks=[]
+    ) == [return_string], error_message
 
 
-def test_check_wpt_sync_irrelevant_user(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    valid_repo = supported_repos["mozilla-central"]
-
+def test_check_wpt_sync_irrelevant_user():
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
     )
-    diff_assessor = DiffAssessor(
+    wpt_sync_check = WPTSyncCheck(
         email="sheehan@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
         commit_message=COMMIT_MESSAGE,
     )
+    for diff in parsed_diff:
+        wpt_sync_check.next_diff(diff)
     assert (
-        diff_assessor.check_wpt_sync() is None
+        wpt_sync_check.result() is None
     ), "Check should pass when user is not `wptsync@mozilla.com`."
 
 
-def test_check_wpt_sync_no_repo():
+def test_check_wpt_sync_invalid_paths():
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
     )
-    diff_assessor = DiffAssessor(
+    wpt_sync_check = WPTSyncCheck(
         email="wptsync@mozilla.com",
-        parsed_diff=parsed_diff,
         commit_message=COMMIT_MESSAGE,
     )
-    assert (
-        diff_assessor.check_wpt_sync() is None
-    ), "Check should pass without repo information."
-
-
-def test_check_wpt_sync_try(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    try_repo = supported_repos["try"]
-
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
-    )
-    diff_assessor = DiffAssessor(
-        email="wptsync@mozilla.com",
-        parsed_diff=parsed_diff,
-        commit_message=COMMIT_MESSAGE,
-        repo=try_repo,
-    )
-    assert diff_assessor.check_wpt_sync() is None, "Check should pass for try repo."
-
-
-def test_check_wpt_sync_non_central_repo(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    invalid_repo = supported_repos["mozilla-new"]
-
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
-    )
-    diff_assessor = DiffAssessor(
-        email="wptsync@mozilla.com",
-        parsed_diff=parsed_diff,
-        commit_message=COMMIT_MESSAGE,
-        repo=invalid_repo,
-    )
-    assert (
-        diff_assessor.check_wpt_sync() == "WPT Sync bot can not push to mozilla-new."
-    ), "Check should fail if WPTSync bot pushes to disallowed repo."
-
-
-def test_check_wpt_sync_invalid_paths(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    valid_repo = supported_repos["mozilla-central"]
-
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="somefile.txt")
-    )
-    diff_assessor = DiffAssessor(
-        email="wptsync@mozilla.com",
-        parsed_diff=parsed_diff,
-        commit_message=COMMIT_MESSAGE,
-        repo=valid_repo,
-    )
-    assert diff_assessor.check_wpt_sync() == (
+    for diff in parsed_diff:
+        wpt_sync_check.next_diff(diff)
+    assert wpt_sync_check.result() == (
         "Revision has WPTSync bot making changes to disallowed " "files `somefile.txt`."
     ), "Check should fail if WPTSync bot pushes disallowed files."
 
 
-def test_check_wpt_sync_valid_paths(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    valid_repo = supported_repos["mozilla-central"]
-
+def test_check_wpt_sync_valid_paths():
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="testing/web-platform/moz.build")
     )
-    diff_assessor = DiffAssessor(
+    wpt_sync_check = WPTSyncCheck(
         email="wptsync@mozilla.com",
-        parsed_diff=parsed_diff,
         commit_message=COMMIT_MESSAGE,
-        repo=valid_repo,
     )
+    for diff in parsed_diff:
+        wpt_sync_check.next_diff(diff)
     assert (
-        diff_assessor.check_wpt_sync() is None
+        wpt_sync_check.result() is None
     ), "Check should pass if WPTSync bot makes changes to allowed files."
 
 
-def test_check_prevent_nspr_nss_missing_fields(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    valid_repo = supported_repos["mozilla-central"]
-
+def test_check_prevent_nspr_nss_missing_fields():
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
     )
-    diff_assessor = DiffAssessor(
+    prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
     )
+    for diff in parsed_diff:
+        prevent_nspr_nss_check.next_diff(diff)
     assert (
-        diff_assessor.check_prevent_nspr_nss() is None
+        prevent_nspr_nss_check.result() is None
     ), "Missing commit message should result in passing check."
 
-    diff_assessor = DiffAssessor(
-        email="wptsync@mozilla.com",
-        parsed_diff=parsed_diff,
-        commit_message=COMMIT_MESSAGE,
-    )
-    assert (
-        diff_assessor.check_prevent_nspr_nss() is None
-    ), "Missing repo should result in passing check."
 
-
-def test_check_prevent_nspr_nss_try_allowed(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    valid_repo = supported_repos["try"]
-
+def test_check_prevent_nspr_nss_nss():
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
     )
-    diff_assessor = DiffAssessor(
+    prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
         commit_message=COMMIT_MESSAGE,
     )
-    assert (
-        diff_assessor.check_prevent_nspr_nss() is None
-    ), "Check should pass for disallowed changes pushed to try."
-
-
-def test_check_prevent_nspr_nss_nss(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    valid_repo = supported_repos["mozilla-central"]
-
-    parsed_diff = rs_parsepatch.get_diffs(
-        GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
-    )
-    diff_assessor = DiffAssessor(
-        email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
-        commit_message=COMMIT_MESSAGE,
-    )
-    assert diff_assessor.check_prevent_nspr_nss() == (
+    for diff in parsed_diff:
+        prevent_nspr_nss_check.next_diff(diff)
+    assert prevent_nspr_nss_check.result() == (
         "Revision makes changes to restricted directories: vendored NSS directories: "
         "`security/nss/testfile.txt`."
     ), "Check should disallow changes to NSS without proper commit message."
 
-    diff_assessor = DiffAssessor(
+    prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE",
     )
+    for diff in parsed_diff:
+        prevent_nspr_nss_check.next_diff(diff)
     assert (
-        diff_assessor.check_prevent_nspr_nss() is None
+        prevent_nspr_nss_check.result() is None
     ), "Check should allow changes to NSS with proper commit message."
 
 
-def test_check_prevent_nspr_nss_nspr(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    valid_repo = supported_repos["mozilla-central"]
-
+def test_check_prevent_nspr_nss_nspr():
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt")
     )
-    diff_assessor = DiffAssessor(
+    prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
         commit_message=COMMIT_MESSAGE,
     )
-    assert diff_assessor.check_prevent_nspr_nss() == (
+    for diff in parsed_diff:
+        prevent_nspr_nss_check.next_diff(diff)
+    assert prevent_nspr_nss_check.result() == (
         "Revision makes changes to restricted directories: vendored NSPR directories: "
         "`nsprpub/testfile.txt`."
     ), "Check should disallow changes to NSPR without proper commit message."
 
-    diff_assessor = DiffAssessor(
+    prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSPR_RELEASE",
     )
+    for diff in parsed_diff:
+        prevent_nspr_nss_check.next_diff(diff)
     assert (
-        diff_assessor.check_prevent_nspr_nss() is None
+        prevent_nspr_nss_check.result() is None
     ), "Check should allow changes to NSPR with proper commit message."
 
 
-def test_check_prevent_nspr_nss_combined(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    valid_repo = supported_repos["mozilla-central"]
-
+def test_check_prevent_nspr_nss_combined():
     nspr_patch = GIT_DIFF_FILENAME_TEMPLATE.format(filename="nsprpub/testfile.txt")
     nss_patch = GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
     combined_patch = "\n".join((nspr_patch, nss_patch))
 
     parsed_diff = rs_parsepatch.get_diffs(combined_patch)
-    diff_assessor = DiffAssessor(
+    prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
         commit_message=COMMIT_MESSAGE,
     )
-    assert diff_assessor.check_prevent_nspr_nss() == (
+    for diff in parsed_diff:
+        prevent_nspr_nss_check.next_diff(diff)
+    assert prevent_nspr_nss_check.result() == (
         "Revision makes changes to restricted directories: vendored NSS directories: "
         "`security/nss/testfile.txt` vendored NSPR directories: `nsprpub/testfile.txt`."
     ), "Check should disallow changes to both NSS and NSPR without proper commit message."
 
-    diff_assessor = DiffAssessor(
+    prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSPR_RELEASE",
     )
-    assert diff_assessor.check_prevent_nspr_nss() == (
+    for diff in parsed_diff:
+        prevent_nspr_nss_check.next_diff(diff)
+    assert prevent_nspr_nss_check.result() == (
         "Revision makes changes to restricted directories: "
         "vendored NSS directories: `security/nss/testfile.txt`."
     ), "Check should allow changes to NSPR with proper commit message."
 
-    diff_assessor = DiffAssessor(
+    prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE",
     )
-    assert diff_assessor.check_prevent_nspr_nss() == (
+    for diff in parsed_diff:
+        prevent_nspr_nss_check.next_diff(diff)
+    assert prevent_nspr_nss_check.result() == (
         "Revision makes changes to restricted directories: "
         "vendored NSPR directories: `nsprpub/testfile.txt`."
     ), "Check should allow changes to NSPR with proper commit message."
 
-    diff_assessor = DiffAssessor(
+    prevent_nspr_nss_check = PreventNSPRNSSCheck(
         email="testuser@mozilla.com",
-        parsed_diff=parsed_diff,
-        repo=valid_repo,
         commit_message="bug 123: upgrade NSS UPGRADE_NSS_RELEASE UPGRADE_NSPR_RELEASE",
     )
+    for diff in parsed_diff:
+        prevent_nspr_nss_check.next_diff(diff)
     assert (
-        diff_assessor.check_prevent_nspr_nss() is None
+        prevent_nspr_nss_check.result() is None
     ), "Check should allow changes to NSPR with proper commit message."
 
 
@@ -925,27 +897,28 @@ def test_check_prevent_submodules():
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename="security/nss/testfile.txt")
     )
-    diff_assessor = DiffAssessor(parsed_diff=parsed_diff)
+    prevent_submodules_check = PreventSubmodulesCheck()
+    for diff in parsed_diff:
+        prevent_submodules_check.next_diff(diff)
 
     assert (
-        diff_assessor.check_prevent_submodules() is None
+        prevent_submodules_check.result() is None
     ), "Check should pass when no submodules are introduced."
 
     parsed_diff = rs_parsepatch.get_diffs(
         GIT_DIFF_FILENAME_TEMPLATE.format(filename=".gitmodules")
     )
-    diff_assessor = DiffAssessor(parsed_diff=parsed_diff)
+    prevent_submodules_check = PreventSubmodulesCheck()
+    for diff in parsed_diff:
+        prevent_submodules_check.next_diff(diff)
 
     assert (
-        diff_assessor.check_prevent_submodules()
+        prevent_submodules_check.result()
         == "Revision introduces a Git submodule into the repository."
     ), "Check should prevent revisions from introducing submodules."
 
 
-def test_check_bug_references_public_bugs(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    repo = supported_repos["try"]
-
+def test_check_bug_references_public_bugs():
     patch_helper = HgPatchHelper(
         io.StringIO(
             """
@@ -977,17 +950,18 @@ diff --git a/autoland/autoland/transplant.py b/autoland/autoland/transplant.py
         # Mock out the status code check to simulate a public bug.
         mock_status_code.return_value = 200
 
-        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
+        assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
 
         assert (
-            assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck]) == []
+            assessor.run_patch_collection_checks(
+                patch_collection_checks=[BugReferencesCheck],
+                patch_checks=[],
+            )
+            == []
         )
 
 
-def test_check_bug_references_private_bugs(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    repo = supported_repos["try"]
-
+def test_check_bug_references_private_bugs():
     # Simulate a patch that references a private bug.
     patch_helper = HgPatchHelper(
         io.StringIO(
@@ -1013,8 +987,11 @@ Bug 999999: Fix issue with feature X
         # Mock out the status code check to simulate a private bug.
         mock_status_code.return_value = 401
 
-        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
-        issues = assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck])
+        assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
+        issues = assessor.run_patch_collection_checks(
+            patch_collection_checks=[BugReferencesCheck],
+            patch_checks=[],
+        )
 
         assert (
             "Your commit message references bug 999999, which is currently private."
@@ -1022,10 +999,7 @@ Bug 999999: Fix issue with feature X
         )
 
 
-def test_check_bug_references_skip_check(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    repo = supported_repos["try"]
-
+def test_check_bug_references_skip_check():
     # Simulate a patch with SKIP_BMO_CHECK in the commit message.
     patch_helper = HgPatchHelper(
         io.StringIO(
@@ -1052,18 +1026,18 @@ SKIP_BMO_CHECK
         # Mock out the status code check to simulate a private bug.
         mock_status_code.return_value = 401
 
-        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
-        issues = assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck])
+        assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
+        issues = assessor.run_patch_collection_checks(
+            patch_collection_checks=[BugReferencesCheck],
+            patch_checks=[],
+        )
 
         assert (
             issues == []
         ), "Check should always pass when `SKIP_BMO_CHECK` is present."
 
 
-def test_check_bug_references_bmo_error(mocked_repo_config):
-    supported_repos = get_repos_for_env("test")
-    repo = supported_repos["try"]
-
+def test_check_bug_references_bmo_error():
     # Simulate a patch that references a bug.
     patch_helper = HgPatchHelper(
         io.StringIO(
@@ -1090,8 +1064,11 @@ Bug 123456: Fix issue with feature Y
 
         mock_status_code.side_effect = status_error
 
-        assessor = PatchCollectionAssessor(repo=repo, patch_helpers=patch_helpers)
-        issues = assessor.run_patch_collection_checks(push_checks=[BugReferencesCheck])
+        assessor = PatchCollectionAssessor(patch_helpers=patch_helpers)
+        issues = assessor.run_patch_collection_checks(
+            patch_collection_checks=[BugReferencesCheck],
+            patch_checks=[],
+        )
 
         assert (
             issues
