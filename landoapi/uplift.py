@@ -436,9 +436,6 @@ def update_bugs_for_uplift(
     bug_ids: list[str],
 ):
     """Update Bugzilla bugs for uplift."""
-    if not bug_ids:
-        raise ValueError("No bugs found in uplift landing.")
-
     params = {
         "id": ",".join(bug_ids),
     }
