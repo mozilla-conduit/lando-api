@@ -443,7 +443,7 @@ class LandingWorker(Worker):
             logger.info(f"{mots_path} not found, skipping setting reviewer data.")
 
         # Extra steps for post-uplift landings.
-        if repo.approval_required:
+        if repo.approval_required and bug_ids:
             try:
                 # If we just landed an uplift, update the relevant bugs as appropriate.
                 update_bugs_for_uplift(
