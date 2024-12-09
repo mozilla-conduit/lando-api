@@ -99,6 +99,7 @@ class HgmoInternalServerError(HgException):
 
     SNIPPETS = (
         b"abort: HTTP Error 500:",
+        b"abort: error: Connection timed out",
         b"remote: Connection to hg.mozilla.org closed by remote host",
         b"remote: could not complete push due to pushlog operational errors",
     )
