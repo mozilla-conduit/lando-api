@@ -437,8 +437,12 @@ class LandingWorker(Worker):
         mots_path = Path(hgrepo.path) / "mots.yaml"
         if mots_path.exists():
             logger.info(f"{mots_path} found, setting reviewer data.")
-            job.set_landed_reviewers(mots_path)
-            db.session.commit()
+            try:
+                job.set_landed_reviewers(mots_path)
+                db.session.commit()
+            except Exception as exc:
+                # Catch a wide exception here to work around bug 1936373.
+                logging.info(f"could not set reviewer data, continuing: {str(exc)}")
         else:
             logger.info(f"{mots_path} not found, skipping setting reviewer data.")
 
