@@ -442,7 +442,7 @@ class LandingWorker(Worker):
                 db.session.commit()
             except Exception as exc:
                 # Catch a wide exception here to work around bug 1936373.
-                logging.info(f"could not set reviewer data, continuing: {str(exc)}")
+                logger.info(f"could not set reviewer data, continuing: {str(exc)}")
         else:
             logger.info(f"{mots_path} not found, skipping setting reviewer data.")
 
