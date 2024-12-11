@@ -531,9 +531,9 @@ mercurial==6.1.1 \
     --hash=sha256:d381614c41c80f061c8f2df532e75fb14c440b9c41461848c6a7702df496f237 \
     --hash=sha256:ff338578db5d415a8134d0dc8e5b8f892ca4ea30dc8b4b3eaeef3719a753cc1e
     # via -r requirements.in
-mots==0.13.1 \
-    --hash=sha256:14f6d660f11de7816e5f81fd6567d25997d5c95695d0186dd77d01ad67498606 \
-    --hash=sha256:8b1c49d875d784c1ddb09647ecef3e9f2ffdd5efc5aec982f3b79c48091085d8
+mots==0.13.2 \
+    --hash=sha256:39dc2eddef877d922b4bd71660975ee514f893c9465428aff5364bbcc7fdc357 \
+    --hash=sha256:c433bf5fae7e3b8897b353ef37ac0e19871addee3b391355ea2e11c73c597bd8
     # via -r requirements.in
 multidict==6.1.0 \
     --hash=sha256:052e10d2d37810b99cc170b785945421141bf7bb7d2f8799d431e7db229c385f \

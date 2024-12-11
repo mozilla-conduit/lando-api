@@ -9,7 +9,7 @@ connexion==2.14.2
 datadog==0.44.0
 kombu==5.3.7
 mercurial==6.1.1
-mots==0.13.1
+mots==0.13.2
 networkx==3.0
 packaging==23.1
 psycopg2==2.8.2
