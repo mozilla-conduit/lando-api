@@ -349,15 +349,13 @@ class GitPatchHelper(PatchHelper):
             raise ValueError("No valid subject header for commit message.")
 
         # Start the commit message from the stripped subject line.
-        commit_message_lines = [
-            subject_header.removeprefix("[PATCH] ").removesuffix("\n")
-        ]
+        commit_message_lines = [subject_header.removeprefix("[PATCH] ").rstrip("\r\n")]
 
         # Create an iterator for the lines of the patch.
-        line_iterator = iter(content.splitlines())
+        line_iterator = iter(content.splitlines(keepends=True))
 
         # Add each line to the commit message until we hit `---`.
-        for i, line in enumerate(line_iterator):
+        for i, line in enumerate(line.rstrip("\r\n") for line in line_iterator):
             if line == "---":
                 break
 
@@ -394,7 +392,7 @@ class GitPatchHelper(PatchHelper):
             list(line_iterator)
         )
         diff_lines += remaining_lines
-        diff = "\n".join(diff_lines)
+        diff = "".join(diff_lines)
 
         return commit_message, diff
 

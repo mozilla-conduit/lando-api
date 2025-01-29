@@ -22,7 +22,7 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +adding another line
-""".strip()
+""".lstrip()
 
 PATCH_WITHOUT_STARTLINE = rb"""
 # HG changeset patch
@@ -36,7 +36,7 @@ diff --git a/test.txt b/test.txt
 @@ -1,1 +1,2 @@
  TEST
 +adding another line
-""".strip()
+""".lstrip()
 
 GIT_PATCH = rb"""From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
 From: Connor Sheehan <sheehan@mozilla.com>
@@ -56,7 +56,7 @@ diff --git a/test.txt b/test.txt
 +adding another line
 --
 2.31.1
-""".strip()
+"""
 
 
 def test_get_timestamp_from_date():
@@ -408,7 +408,7 @@ def test_try_api_success_hgexport(
         b"+++ b/test.txt\n"
         b"@@ -1,1 +1,2 @@\n"
         b" TEST\n"
-        b"+adding another line"
+        b"+adding another line\n"
     ), "Patch diff should be parsed from patch body."
 
 
@@ -499,5 +499,5 @@ def test_try_api_success_gitformatpatch(
         b"+++ b/test.txt\n"
         b"@@ -1,1 +1,2 @@\n"
         b" TEST\n"
-        b"+adding another line"
+        b"+adding another line\n"
     ), "Patch diff should be parsed from patch body."
