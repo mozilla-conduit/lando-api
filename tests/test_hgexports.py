@@ -20,7 +20,7 @@ from landoapi.hgexports import (
     build_patch_for_revision,
 )
 
-GIT_DIFF_FROM_REVISION = """diff --git a/hello.c b/hello.c
+GIT_DIFF_FROM_REVISION = r"""diff --git a/hello.c b/hello.c
 --- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
 +++ b/hello.c   Mon May 05 01:20:46 2008 +0200
 @@ -12,5 +12,6 @@
@@ -32,7 +32,19 @@ GIT_DIFF_FROM_REVISION = """diff --git a/hello.c b/hello.c
  }
 """
 
-COMMIT_MESSAGE = """
+GIT_DIFF_CRLF = """diff --git a/hello.c b/hello.c
+--- a/hello.c   Fri Aug 26 01:21:28 2005 -0700
++++ b/hello.c   Mon May 05 01:20:46 2008 +0200
+@@ -12,5 +12,6 @@
+ int main(int argc, char **argv)\r
+ {\r
+        printf("hello, world!\\n");\r
++       printf("sure am glad I'm using Mercurial!\\n");\r
+        return 0;\r
+ }\r
+"""
+
+COMMIT_MESSAGE = """\
 Express great joy at existence of Mercurial
 
 Make sure multiple line breaks are kept:
@@ -40,9 +52,9 @@ Make sure multiple line breaks are kept:
 
 
 Using console to print out the messages.
-""".strip()
+"""
 
-HG_PATCH = """# HG changeset patch
+HG_PATCH = r"""# HG changeset patch
 # User Joe User <joe@example.com>
 # Date 1496239141 +0000
 # Diff Start Line 12
@@ -109,7 +121,7 @@ index f56ba1c..33391ea 100644
 
 """.lstrip()
 
-GIT_PATCH_UTF8 = """
+GIT_PATCH_UTF8 = """\
 diff --git a/testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html b/testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html
 new file mode 100644
 --- /dev/null
@@ -146,9 +158,9 @@ new file mode 100644
 +
 +document.addEventListener("TestRendered", changeContent);
 +</script>
-""".strip()
+"""
 
-GIT_FORMATPATCH_UTF8 = f"""
+GIT_FORMATPATCH_UTF8 = f"""\
 From 71ce7889eaa24616632a455636598d8f5c60b765 Mon Sep 17 00:00:00 2001
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 21 Feb 2024 10:20:49 +0000
@@ -159,10 +171,9 @@ Subject: [PATCH] Bug 1874040 - Move 1103348-1.html to WPT, and expand it.
  .../dir-auto-dynamic-simple-textContent.html  | 31 ++++++++++++++++
  1 files changed, 31 insertions(+), 0 deletions(-)
  create mode 100644 testing/web-platform/tests/html/dom/elements/global-attributes/dir-auto-dynamic-simple-textContent.html
-{GIT_PATCH_UTF8}
---
+{GIT_PATCH_UTF8}--
 2.46.1
-""".strip()
+"""
 
 GIT_PATCH_ONLY_DIFF = """diff --git a/landoui/errorhandlers.py b/landoui/errorhandlers.py
 index f56ba1c..33391ea 100644
@@ -186,9 +197,9 @@ index f56ba1c..33391ea 100644
              message=str(e),
          ),
          500,
-""".rstrip()
+"""
 
-GIT_PATCH_EMPTY = """
+GIT_PATCH_EMPTY = """\
 From 0f5a3c99e12c1e9b0e81bed245fe537961f89e57 Mon Sep 17 00:00:00 2001
 From: Connor Sheehan <sheehan@mozilla.com>
 Date: Wed, 6 Jul 2022 16:36:09 -0400
@@ -201,9 +212,9 @@ returned from Lando. This should inform users that Lando is
 unavailable at the moment and is not broken.
 --
 2.31.1
-""".strip()
+"""
 
-GIT_DIFF_FILENAME_TEMPLATE = """
+GIT_DIFF_FILENAME_TEMPLATE = r"""\
 diff --git a/{filename} b/{filename}
 --- a/{filename}
 +++ b/{filename}
@@ -214,7 +225,7 @@ diff --git a/{filename} b/{filename}
 +       printf("sure am glad I'm using Mercurial!\n");
         return 0;
  }}
-""".lstrip()
+"""
 
 
 def test_build_patch():
@@ -501,6 +512,37 @@ def test_git_formatpatch_helper_utf8():
     assert (
         helper.get_diff() == GIT_PATCH_UTF8
     ), "`get_diff()` should return unescaped unicode and match the original patch."
+
+
+def test_preserves_diff_crlf():
+    hg_patch = build_patch_for_revision(
+        GIT_DIFF_CRLF,
+        "Joe User",
+        "joe@example.com",
+        COMMIT_MESSAGE,
+        "1496239141",
+    )
+
+    hg_helper = HgPatchHelper(io.StringIO(hg_patch))
+
+    assert (
+        hg_helper.get_diff() == "\n" + GIT_DIFF_CRLF
+    ), "`get_diff()` should preserve CRLF."
+
+    git_helper = GitPatchHelper(
+        io.StringIO(
+            f"""\
+From: Connor Sheehan <sheehan@mozilla.com>
+Date: Wed, 6 Jul 2022 16:36:09 -0400
+Subject: {COMMIT_MESSAGE}
+---
+{GIT_DIFF_CRLF}--
+2.47.1
+"""
+        )
+    )
+
+    assert git_helper.get_diff() == GIT_DIFF_CRLF, "`get_diff()` should preserve CRLF."
 
 
 def test_strip_git_version_info_lines():
