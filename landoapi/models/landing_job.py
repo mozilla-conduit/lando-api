@@ -56,6 +56,15 @@ class LandingJobStatus(enum.Enum):
     # Manually cancelled state.
     CANCELLED = "CANCELLED"
 
+    @classmethod
+    @property
+    def ACTIVE_STATUSES(cls):
+        return (
+            cls.SUBMITTED,
+            cls.DEFERRED,
+            cls.IN_PROGRESS,
+        )
+
 
 @enum.unique
 class LandingJobAction(enum.Enum):
@@ -233,12 +242,7 @@ class LandingJob(Base):
             grace_seconds (int): Ignore landing jobs that were submitted after this
                 many seconds ago.
         """
-        applicable_statuses = (
-            LandingJobStatus.SUBMITTED,
-            LandingJobStatus.IN_PROGRESS,
-            LandingJobStatus.DEFERRED,
-        )
-        q = cls.query.filter(cls.status.in_(applicable_statuses))
+        q = cls.query.filter(cls.status.in_(LandingJobStatus.ACTIVE_STATUSES))
 
         if repositories:
             q = q.filter(cls.repository_name.in_(repositories))
