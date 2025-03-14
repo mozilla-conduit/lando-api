@@ -158,3 +158,28 @@ def test_landing_job_acquire_job_job_queue_query(db):
     assert queue_items[0] is jobs[2]
     assert queue_items[1] is jobs[0]
     assert jobs[1] not in queue_items
+
+
+def test_landing_job_commit_id(db, client, landing_job):
+    """Test fetching commit_id of a landing job."""
+
+    # Simple pending job
+    job = landing_job(LandingJobStatus.IN_PROGRESS)
+
+    # Jobs that haven't landed should still give status
+    response = client.get(f"/landing_jobs/{job.id}")
+    assert response.status_code == 200
+    assert response.json["status"] == "IN_PROGRESS"
+
+    # Transition job status to LANDED and insert a hash
+    hash = "5d6625d05dddcb34bc7442f191b865d312b14e1b"
+    job.status = LandingJobStatus.LANDED
+    job.landed_commit_id = hash
+    db.session.add(job)
+    db.session.commit()
+
+    # Landed jobs should have a hash code
+    response = client.get(f"/landing_jobs/{job.id}")
+    assert response.status_code == 200
+    assert response.json["status"] == "LANDED"
+    assert response.json["commit_id"] == hash
