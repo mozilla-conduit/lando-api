@@ -207,7 +207,7 @@ class PhabricatorClient:
         logger.debug("call to conduit", extra=extra_data)
 
         try:
-            response = self.session.get(self.api_url + method, data=data).json()
+            response = self.session.post(self.api_url + method, data=data).json()
         except requests.RequestException as exc:
             raise PhabricatorCommunicationException(
                 "An error occurred when communicating with Phabricator"

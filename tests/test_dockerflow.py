@@ -37,7 +37,7 @@ def test_heartbeat_returns_http_502_if_phabricator_ping_returns_error(
         "error_info": "BOOM",
     }
 
-    request_mocker.get(phab_url("conduit.ping"), status_code=500, json=error_json)
+    request_mocker.post(phab_url("conduit.ping"), status_code=500, json=error_json)
     response = client.get("/__heartbeat__")
 
     assert request_mocker.called
