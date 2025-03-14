@@ -197,6 +197,46 @@ paths:
           schema:
             type: object
   /landing_jobs/{landing_job_id}:
+    get:
+      operationId: landoapi.api.landing_jobs.get
+      description: Gets landing job status
+      parameters:
+        - name: landing_job_id
+          in: path
+          type: string
+          required: true
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            properties:
+              id:
+                type: integer
+                description: Landing Job id
+              status:
+                type: string
+                description: Current job status
+                enum:
+                  - SUBMITTED
+                  - IN_PROGRESS
+                  - DEFERRED
+                  - FAILED
+                  - LANDED
+                  - CANCELLED
+              commit_id:
+                type: string
+                description: Commit identifier (such as hg hash)
+        404:
+          description: Landing job does not exist
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
+        default:
+          description: Unexpected error
+          schema:
+            allOf:
+              - $ref: '#/definitions/Error'
     put:
       operationId: landoapi.api.landing_jobs.put
       description: Updates a request to land (i.e. a landing job)
