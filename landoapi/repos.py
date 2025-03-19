@@ -268,17 +268,6 @@ REPO_CONFIG = {
         ),
     },
     "devsvcprod": {
-        "phabricator-qa-stage": Repo(
-            tree="phabricator-qa-stage",
-            url="https://hg.mozilla.org/automation/phabricator-qa-stage",
-            access_group=SCM_LEVEL_3,
-        ),
-        "version-control-tools": Repo(
-            tree="version-control-tools",
-            url="https://hg.mozilla.org/hgcustom/version-control-tools",
-            access_group=SCM_VERSIONCONTROL,
-            push_bookmark="@",
-        ),
         # Try uses `mozilla-unified` as the `pull_path` as using try
         # proper is exceptionally slow. `mozilla-unified` includes both
         # autoland and central and is the most likely to contain the passed
@@ -292,25 +281,6 @@ REPO_CONFIG = {
             short_name="try",
             is_phabricator_repo=False,
             force_push=True,
-        ),
-        "comm-central": Repo(
-            tree="comm-central",
-            url="https://hg.mozilla.org/comm-central",
-            access_group=SCM_LEVEL_3,
-            commit_flags=[DONTBUILD],
-        ),
-        "nspr": Repo(
-            tree="nspr",
-            url="https://hg.mozilla.org/projects/nspr",
-            access_group=SCM_NSS,
-        ),
-        "nss": Repo(
-            tree="nss", url="https://hg.mozilla.org/projects/nss", access_group=SCM_NSS
-        ),
-        "mozilla-build": Repo(
-            tree="mozilla-build",
-            url="https://hg.mozilla.org/mozilla-build",
-            access_group=SCM_LEVEL_3,
         ),
     },
 }
