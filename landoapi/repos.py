@@ -279,16 +279,6 @@ REPO_CONFIG = {
             access_group=SCM_VERSIONCONTROL,
             push_bookmark="@",
         ),
-        "mozilla-central": Repo(
-            tree="autoland",
-            url="https://hg.mozilla.org/integration/autoland",
-            access_group=SCM_LEVEL_3,
-            short_name="mozilla-central",
-            commit_flags=[DONTBUILD],
-            product_details_url="https://product-details.mozilla.org"
-            "/1.0/firefox_versions.json",
-            autoformat_enabled=True,
-        ),
         # Try uses `mozilla-unified` as the `pull_path` as using try
         # proper is exceptionally slow. `mozilla-unified` includes both
         # autoland and central and is the most likely to contain the passed
@@ -317,66 +307,10 @@ REPO_CONFIG = {
         "nss": Repo(
             tree="nss", url="https://hg.mozilla.org/projects/nss", access_group=SCM_NSS
         ),
-        "pine": Repo(
-            tree="pine",
-            url="https://hg.mozilla.org/projects/pine",
-            access_group=SCM_LEVEL_3,
-        ),
-        "elm": Repo(
-            tree="elm",
-            url="https://hg.mozilla.org/projects/elm",
-            access_group=SCM_LEVEL_3,
-        ),
-        "larch": Repo(
-            tree="larch",
-            url="https://hg.mozilla.org/projects/larch",
-            access_group=SCM_LEVEL_2,
-        ),
-        "cypress": Repo(
-            tree="cypress",
-            url="https://hg.mozilla.org/projects/cypress",
-            access_group=SCM_LEVEL_3,
-        ),
         "mozilla-build": Repo(
             tree="mozilla-build",
             url="https://hg.mozilla.org/mozilla-build",
             access_group=SCM_LEVEL_3,
-        ),
-        "beta": Repo(
-            tree="mozilla-beta",
-            short_name="beta",
-            url="https://hg.mozilla.org/releases/mozilla-beta",
-            access_group=SCM_ALLOW_DIRECT_PUSH,
-            approval_required=True,
-            milestone_tracking_flag_template="cf_status_firefox{milestone}",
-            commit_flags=[DONTBUILD],
-        ),
-        "release": Repo(
-            tree="mozilla-release",
-            short_name="release",
-            url="https://hg.mozilla.org/releases/mozilla-release",
-            access_group=SCM_ALLOW_DIRECT_PUSH,
-            approval_required=True,
-            milestone_tracking_flag_template="cf_status_firefox{milestone}",
-            commit_flags=[DONTBUILD],
-        ),
-        "esr115": Repo(
-            tree="mozilla-esr115",
-            short_name="esr115",
-            url="https://hg.mozilla.org/releases/mozilla-esr115",
-            access_group=SCM_ALLOW_DIRECT_PUSH,
-            approval_required=True,
-            milestone_tracking_flag_template="cf_status_firefox_esr{milestone}",
-            commit_flags=[DONTBUILD],
-        ),
-        "esr128": Repo(
-            tree="mozilla-esr128",
-            short_name="esr128",
-            url="https://hg.mozilla.org/releases/mozilla-esr128",
-            access_group=SCM_ALLOW_DIRECT_PUSH,
-            approval_required=True,
-            milestone_tracking_flag_template="cf_status_firefox_esr{milestone}",
-            commit_flags=[DONTBUILD],
         ),
     },
 }
