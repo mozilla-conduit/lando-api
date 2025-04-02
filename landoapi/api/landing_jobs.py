@@ -13,6 +13,33 @@ from landoapi.storage import db
 logger = logging.getLogger(__name__)
 
 
+def get(landing_job_id: str):
+    """Return status about a landing job
+
+    Args:
+        landing_job_id (str): The unique ID of the LandingJob object.
+
+    Raises:
+        ProblemException: If a LandingJob object corresponding to the landing_job_id
+            is not found.
+    """
+    landing_job = LandingJob.query.get(landing_job_id)
+
+    if not landing_job:
+        raise ProblemException(
+            404,
+            "Landing job not found",
+            f"A landing job with ID {landing_job_id} was not found.",
+            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
+        )
+
+    return {
+        "id": landing_job.id,
+        "status": landing_job.status.value,
+        "commit_id": landing_job.landed_commit_id,
+    }
+
+
 @auth.require_auth0(scopes=("lando", "profile", "email"), userinfo=True)
 def put(landing_job_id: str, data: dict):
     """Update a landing job.
