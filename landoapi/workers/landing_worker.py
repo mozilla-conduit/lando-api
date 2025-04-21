@@ -116,6 +116,7 @@ class LandingWorker(Worker):
             repo = repo_clone_subsystem.repos[job.repository_name]
             hgrepo = HgRepo(
                 str(repo_clone_subsystem.repo_paths[job.repository_name]),
+                native_git_source=repo.native_git_source,
             )
 
             logger.info("Starting landing job", extra={"id": job.id})
@@ -277,7 +278,11 @@ class LandingWorker(Worker):
             # Update local repo.
             repo_pull_info = f"tree: {repo.tree}, pull path: {repo.pull_path}"
             try:
-                hgrepo.update_repo(repo.pull_path, target_cset=job.target_commit_hash)
+                hgrepo.update_repo(
+                    repo.pull_path,
+                    target_cset=job.target_commit_hash,
+                    target_cset_vcs=job.target_commit_hash_vcs,
+                )
             except HgmoInternalServerError as e:
                 message = (
                     f"`Temporary error ({e.__class__}) "

@@ -173,7 +173,7 @@ class HgRepo:
         "extensions.set_landing_system": "/app/hgext/set_landing_system.py",
     }
 
-    def __init__(self, path, config=None):
+    def __init__(self, path, config=None, native_git_source: Optional[str] = None):
         self.path = path
         self.config = copy.copy(self.DEFAULT_CONFIGS)
 
@@ -182,6 +182,14 @@ class HgRepo:
 
         if config:
             self.config.update(config)
+
+        # Set the `native_git_source` and `cinnabar_path` if required.
+        self.native_git_source = native_git_source
+        self.cinnabar_path = None
+        if native_git_source:
+            path = Path(self.path)
+            cinnabar_path_name = f"{path.name}-git"
+            self.cinnabar_path = path.with_name(cinnabar_path_name)
 
     @property
     def mach_path(self) -> Optional[Path]:
@@ -246,6 +254,20 @@ class HgRepo:
             encoding=self.ENCODING,
             configs=self._config_to_list(),
         )
+
+    def clone_cinnabar(self, source):
+        if not self.cinnabar_path or not self.native_git_source:
+            raise Exception("No cinnabar path set, can't create cinnabar clone.")
+
+        # Clone the native Git source repo.
+        self.run_git(
+            ["clone", self.native_git_source, self.cinnabar_path.name],
+            # Run the command from the parent directory.
+            cwd=self.cinnabar_path.parent,
+        )
+
+        # Update the repo and get cinnabar metadata.
+        self.update_cinnabar_repo(source)
 
     def run_hg(self, args: list[str]) -> bytes:
         correlation_id = str(uuid.uuid4())
@@ -613,10 +635,22 @@ class HgRepo:
         except hglib.error.CommandError as exc:
             raise HgException.from_hglib_error(exc) from exc
 
-    def update_repo(self, source, target_cset: Optional[bytes] = None):
+    def update_repo(
+        self,
+        source,
+        target_cset: Optional[str] = None,
+        target_cset_vcs: Optional[str] = None,
+    ):
         # Obtain remote tip if not provided. We assume there is only a single head.
         if not target_cset:
             target_cset = self.get_remote_head(source)
+
+        # When we have a cinnabar clone and the target changeset is a `git` SHA,
+        # use the cinnabar clone to convert it to the hg SHA.
+        if self.cinnabar_path and target_cset_vcs == "git":
+            logger.info(f"Converting git cset {target_cset} to hg")
+            self.update_cinnabar_repo(source)
+            target_cset = self.git_to_hg(target_cset)
 
         # Strip any lingering changes.
         self.clean_repo()
@@ -625,6 +659,60 @@ class HgRepo:
         self.update_from_upstream(source, target_cset)
 
         return target_cset
+
+    def git_to_hg(self, git_sha: str) -> str:
+        """Convert a `git_sha` to a Mercurial SHA."""
+        return self.run_git(["cinnabar", "git2hg", git_sha])
+
+    def run_git(self, args: list[str], cwd: Optional[Path] = None) -> str:
+        """Run a `git` command on the associated Git repo."""
+        correlation_id = str(uuid.uuid4())
+        path = cwd or self.cinnabar_path
+        command = ["git"] + list(args)
+        logger.info(
+            "running git command",
+            extra={
+                "command": command,
+                "command_id": correlation_id,
+                "path": path,
+            },
+        )
+
+        result = subprocess.run(
+            command,
+            cwd=path,
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode:
+            raise Exception(
+                f"Error running git command; {command=}, {path=}, {result.stderr=}",
+                result.stderr,
+            )
+
+        out = result.stdout.strip()
+
+        if out:
+            logger.info(
+                "output from git command",
+                extra={
+                    "command_id": correlation_id,
+                    "output": out,
+                    "path": path,
+                },
+            )
+
+        return out
+
+    def update_cinnabar_repo(self, source: str):
+        """Update the cinnabar repo associated with this repo.
+
+        We simply need to fetch new commits and metadata for the repo,
+        without updating the working copy, since we only need to run
+        `git cinnabar git2hg` on this repo.
+        """
+        self.run_git(["-c", "cinnabar.graft=true", "fetch", f"hg::{source}"])
 
     def dirty_files(self):
         return self.run_hg(
@@ -639,7 +727,7 @@ class HgRepo:
             ]
         )
 
-    def get_remote_head(self, source: str) -> bytes:
+    def get_remote_head(self, source: str) -> str:
         # Obtain remote head. We assume there is only a single head.
         try:
             cset = self.run_hg(["identify", source, "-r", "default", "--id"]).strip()
@@ -647,7 +735,7 @@ class HgRepo:
             raise HgException.from_hglib_error(e)
 
         assert len(cset) == 12, cset
-        return cset
+        return cset.decode("utf-8")
 
     def get_current_node(self) -> bytes:
         """Return the currently checked out node."""

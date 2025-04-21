@@ -501,3 +501,97 @@ def test_try_api_success_gitformatpatch(
         b" TEST\n"
         b"+adding another line\n"
     ), "Patch diff should be parsed from patch body."
+
+
+def test_hgrepo_git2hg_conversion(app, db, tmp_path, monkeypatch):
+    """Test cinnabar git2hg SHA conversion."""
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+    hgrepo = HgRepo(str(repo_path), native_git_source="https://example.com")
+
+    # Simulate cinnabar path
+    hgrepo.cinnabar_path.mkdir()
+
+    # Mock git command
+    monkeypatch.setattr(hgrepo, "run_git", lambda args: "convertedhgsha1234567890")
+
+    result = hgrepo.git_to_hg("gitsha1234567890")
+    assert result == "convertedhgsha1234567890"
+
+
+def test_update_cinnabar_repo_runs_fetch(app, db, tmp_path, monkeypatch):
+    """Ensure cinnabar fetch is called on update."""
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+    hgrepo = HgRepo(str(repo_path), native_git_source="https://example.com")
+    hgrepo.cinnabar_path.mkdir()
+
+    called = {}
+
+    def fake_run_git(args):
+        called["args"] = args
+        return "ok"
+
+    monkeypatch.setattr(hgrepo, "run_git", fake_run_git)
+    hgrepo.update_cinnabar_repo("test_source")
+
+    assert called["args"] == ["-c", "cinnabar.graft=true", "fetch", "hg::test_source"]
+
+
+def test_try_push_git_base_commit_conversion(
+    app,
+    db,
+    client,
+    auth0_mock,
+    monkeypatch,
+    new_treestatus_tree,
+    hg_server,
+    hg_clone,
+    mocked_repo_config,
+):
+    new_treestatus_tree(tree="try", status="open")
+
+    fake_git_sha = "0f5a3c99e12c1e9b0e81bed245fe537961f89e57"
+    fake_hg_sha = "convertedhgsha1234567890"
+
+    try_push_json = {
+        "base_commit": fake_git_sha,
+        "base_commit_vcs": "git",
+        "patch_format": "git-format-patch",
+        "patches": [
+            base64.b64encode(GIT_PATCH).decode("ascii"),
+        ],
+    }
+
+    # Patch git_to_hg to simulate conversion
+    monkeypatch.setattr(
+        HgRepo, "git_to_hg", lambda self, sha: fake_hg_sha.encode("utf-8")
+    )
+    monkeypatch.setattr(HgRepo, "update_cinnabar_repo", lambda self: None)
+
+    response = client.post(
+        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+    )
+
+    assert response.status_code == 201
+    job = LandingJob.query.get(response.json["id"])
+    assert job.target_commit_hash == fake_git_sha
+    assert job.target_commit_hash_vcs == "git"
+
+
+def test_try_push_invalid_base_commit_vcs(app, db, client, auth0_mock):
+    try_push_json = {
+        "base_commit": "a" * 40,
+        "base_commit_vcs": "banana",
+        "patch_format": "git-format-patch",
+        "patches": [
+            base64.b64encode(GIT_PATCH).decode("ascii"),
+        ],
+    }
+
+    response = client.post(
+        "/try/patches", json=try_push_json, headers=auth0_mock.mock_headers
+    )
+
+    assert response.status_code == 400
+    assert "base_commit_vcs" in response.json["detail"]
