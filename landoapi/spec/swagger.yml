@@ -426,6 +426,11 @@ paths:
                 description: |
                   The format of the encoded patches in `patches`. Either `hgexport` or
                   `git-format-patch` are accepted.
+              base_commit_vcs:
+                type: string
+                enum: ["git", "hg"]
+                description : |
+                  The VCS that the `base_commit` hash is based on. Default is `hg`.
       responses:
         201:
           description: Push was submitted successfully.

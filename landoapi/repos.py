@@ -66,6 +66,8 @@ class Repo:
         is_phabricator_repo (bool): Boolean indicating if the repo is available on
             Phabricator or not.
         force_push (bool): Boolean that controls the use of force pushes for a repo.
+        native_git_source (str | None): String URL of a native Git repo to use for
+            `git cinnabar git2hg` lookups for this repo.
     """
 
     tree: str
@@ -82,6 +84,7 @@ class Repo:
     product_details_url: str = ""
     is_phabricator_repo: bool = True
     force_push: bool = False
+    native_git_source: Optional[str] = None
 
     def __post_init__(self):
         """Set defaults based on initial values.
@@ -247,6 +250,7 @@ REPO_CONFIG = {
             short_name="try",
             is_phabricator_repo=False,
             force_push=True,
+            native_git_source="https://github.com/mozilla-firefox/firefox",
         ),
     },
     "devsvcstage": {
@@ -265,6 +269,7 @@ REPO_CONFIG = {
             short_name="try",
             is_phabricator_repo=False,
             force_push=True,
+            native_git_source="https://github.com/mozilla-firefox/firefox",
         ),
     },
     "devsvcprod": {
@@ -281,6 +286,7 @@ REPO_CONFIG = {
             short_name="try",
             is_phabricator_repo=False,
             force_push=True,
+            native_git_source="https://github.com/mozilla-firefox/firefox",
         ),
     },
 }
@@ -329,7 +335,7 @@ class RepoCloneSubsystem(Subsystem):
 
         for name, repo in self.repos.items():
             path = clones_path.joinpath(name)
-            hgrepo = HgRepo(str(path))
+            hgrepo = HgRepo(str(path), native_git_source=repo.native_git_source)
 
             if path.exists():
                 logger.info("Repo exists, pulling.", extra={"repo": name})
@@ -338,6 +344,14 @@ class RepoCloneSubsystem(Subsystem):
             else:
                 logger.info("Cloning repo.", extra={"repo": name})
                 hgrepo.clone(repo.pull_path)
+
+            # Handle cinnabar cloning/updating.
+            if hgrepo.cinnabar_path and hgrepo.cinnabar_path.exists():
+                logger.info("Cinnabar repo exists, fetching.", extra={"repo": name})
+                hgrepo.update_cinnabar_repo(repo.pull_path)
+            elif hgrepo.cinnabar_path:
+                logger.info("Cloning cinnabar repo.", extra={"repo": name})
+                hgrepo.clone_cinnabar(repo.pull_path)
 
             # Ensure packages required for automated code formatting are installed.
             if repo.autoformat_enabled:

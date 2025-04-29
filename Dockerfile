@@ -40,6 +40,11 @@ RUN addgroup --gid 10001 app \
         --gecos "app,,," \
         app
 
+# Install `git-cinnabar`.
+COPY install_git-cinnabar.sh .
+RUN ./install_git-cinnabar.sh \
+    && mv git-cinnabar git-remote-hg /usr/bin/
+
 COPY requirements.txt /python_requirements.txt
 RUN pip install pip --upgrade
 RUN pip install --no-cache -r /python_requirements.txt

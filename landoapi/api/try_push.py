@@ -148,6 +148,7 @@ def parse_revisions_from_request(
 # @auth.enforce_request_scm_level(SCM_LEVEL_1)
 def post_patches(data: dict):
     base_commit = data["base_commit"]
+    base_commit_format = data.get("base_commit_vcs", "hg")
     patches = data["patches"]
     patch_format = PatchFormat(data["patch_format"])
 
@@ -171,6 +172,7 @@ def post_patches(data: dict):
         requester_email=ldap_username,
         status=LandingJobStatus.SUBMITTED,
         target_commit_hash=base_commit,
+        target_commit_hash_vcs=base_commit_format,
     )
     logger.info(
         f"Created try landing job {job.id} with {len(revisions)} "
