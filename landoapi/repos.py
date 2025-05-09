@@ -348,7 +348,8 @@ class RepoCloneSubsystem(Subsystem):
             # Handle cinnabar cloning/updating.
             if hgrepo.cinnabar_path and hgrepo.cinnabar_path.exists():
                 logger.info("Cinnabar repo exists, fetching.", extra={"repo": name})
-                hgrepo.update_cinnabar_repo(repo.pull_path)
+                with hgrepo.for_pull():
+                    hgrepo.update_cinnabar_repo(repo.pull_path)
             elif hgrepo.cinnabar_path:
                 logger.info("Cloning cinnabar repo.", extra={"repo": name})
                 hgrepo.clone_cinnabar(repo.pull_path)
