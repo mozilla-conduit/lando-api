@@ -4,6 +4,7 @@
 import configparser
 import copy
 import io
+import json
 import logging
 import os
 import shlex
@@ -705,6 +706,14 @@ class HgRepo:
 
         return out
 
+    def get_bookmarks(self) -> list[str]:
+        """Retrieve names of all bookmarks on the repo."""
+        output = self.run_hg(["bookmarks", "-T", "json"])
+
+        bookmarks_json = json.loads(output)
+
+        return [entry["bookmark"] for entry in bookmarks_json]
+
     def update_cinnabar_repo(self, source: str):
         """Update the cinnabar repo associated with this repo.
 
@@ -712,7 +721,12 @@ class HgRepo:
         without updating the working copy, since we only need to run
         `git cinnabar git2hg` on this repo.
         """
-        self.run_git(["-c", "cinnabar.graft=true", "fetch", f"hg::{source}"])
+        # Get the latest changes locally before updating cinnabar metadata.
+        self.run_hg(["pull", source])
+
+        bookmarks = self.get_bookmarks()
+
+        self.run_git(["cinnabar", "fetch", f"hg::{source}", *bookmarks])
 
     def dirty_files(self):
         return self.run_hg(

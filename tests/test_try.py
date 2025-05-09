@@ -526,16 +526,34 @@ def test_update_cinnabar_repo_runs_fetch(app, db, tmp_path, monkeypatch):
     hgrepo = HgRepo(str(repo_path), native_git_source="https://example.com")
     hgrepo.cinnabar_path.mkdir()
 
-    called = {}
+    called = {"git": {}, "hg": {}}
 
     def fake_run_git(args):
-        called["args"] = args
+        called["git"]["args"] = args
         return "ok"
 
+    def fake_run_hg(args):
+        called["hg"]["args"] = args
+        return "ok"
+
+    def fake_bookmarks(*args, **kwargs):
+        return ["bookmark1", "bookmark2", "bookmark3"]
+
+    monkeypatch.setattr(hgrepo, "get_bookmarks", fake_bookmarks)
+    monkeypatch.setattr(hgrepo, "run_hg", fake_run_hg)
     monkeypatch.setattr(hgrepo, "run_git", fake_run_git)
     hgrepo.update_cinnabar_repo("test_source")
 
-    assert called["args"] == ["-c", "cinnabar.graft=true", "fetch", "hg::test_source"]
+    assert called["hg"]["args"] == ["pull", "test_source"]
+
+    assert called["git"]["args"] == [
+        "cinnabar",
+        "fetch",
+        "hg::test_source",
+        "bookmark1",
+        "bookmark2",
+        "bookmark3",
+    ]
 
 
 def test_try_push_invalid_base_commit_vcs(app, db, client, auth0_mock):
