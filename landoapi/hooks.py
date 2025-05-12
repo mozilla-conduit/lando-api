@@ -82,6 +82,7 @@ def set_app_wide_headers(response: Response) -> Response:
         csp.append("report-uri {}".format(report_uri))
 
     response.headers["Content-Security-Policy"] = "; ".join(csp)
+    response.headers["Access-Control-Allow-Origin"] = "*"
 
     return response
 
