@@ -3,10 +3,11 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import base64
+import subprocess
 
 import pytest
 
-from landoapi.hg import HgRepo
+from landoapi.hg import CinnabarConversionError, HgRepo
 from landoapi.hgexports import (
     get_timestamp_from_git_date_header,
     parse_git_author_information,
@@ -519,6 +520,18 @@ def test_hgrepo_git2hg_conversion(app, db, tmp_path, monkeypatch):
     assert result == "convertedhgsha1234567890"
 
 
+def test_hgrepo_git2hg_conversion_failure(app, db, tmp_path):
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+    hgrepo = HgRepo(str(repo_path), native_git_source="https://example.com")
+
+    # Simulate cinnabar path
+    subprocess.run(["git", "init", str(hgrepo.cinnabar_path)], check=True)
+
+    with pytest.raises(CinnabarConversionError):
+        hgrepo.git_to_hg("blah")
+
+
 def test_update_cinnabar_repo_runs_fetch(app, db, tmp_path, monkeypatch):
     """Ensure cinnabar fetch is called on update."""
     repo_path = tmp_path / "repo"
@@ -572,3 +585,71 @@ def test_try_push_invalid_base_commit_vcs(app, db, client, auth0_mock):
 
     assert response.status_code == 400
     assert "base_commit_vcs" in response.json["detail"]
+
+
+def test_landing_job_deferred_on_cinnabar_failure(
+    app,
+    db,
+    hg_server,
+    hg_clone,
+    client,
+    auth0_mock,
+    new_treestatus_tree,
+    mocked_repo_config,
+    monkeypatch,
+):
+    """Landing job should be deferred when cinnabar conversion fails."""
+    new_treestatus_tree(tree="try", status="open")
+
+    # Send try push via API
+    response = client.post(
+        "/try/patches",
+        json={
+            "base_commit": "abcabcabcabcabcabcabcabcabcabcabcabcabcd",
+            "base_commit_vcs": "git",
+            "patch_format": "git-format-patch",
+            "patches": [
+                base64.b64encode(GIT_PATCH).decode("ascii"),
+            ],
+        },
+        headers=auth0_mock.mock_headers,
+    )
+    assert (
+        response.status_code == 201
+    ), "Try push should succeed and create a landing job"
+    job_id = response.json["id"]
+
+    # Fetch job from DB
+    job = LandingJob.query.get(job_id)
+
+    # Set up repo + HgRepo
+    repo = Repo(
+        tree="try",
+        url=hg_server,
+        access_group=SCM_LEVEL_1,
+        push_path=hg_server,
+        pull_path=hg_server,
+        short_name="try",
+        is_phabricator_repo=False,
+        force_push=True,
+        native_git_source="https://example.com/",
+    )
+    hgrepo = HgRepo(hg_clone.strpath, native_git_source=repo.native_git_source)
+
+    # Create an empty Git repo at the expected path so `git cinnabar git2hg` works.
+    subprocess.run(["git", "init", str(hgrepo.cinnabar_path)], check=True)
+
+    # Mock out update_cinnabar_repo to skip network fetch.
+    monkeypatch.setattr(hgrepo, "update_cinnabar_repo", lambda _: None)
+
+    # Run the worker
+    worker = LandingWorker(sleep_seconds=0.01)
+    result = worker.run_job(job, repo, hgrepo)
+
+    # Assert job is deferred and error recorded
+    assert result is False, "Job result should indicate a temporary failure."
+    assert job.status == LandingJobStatus.DEFERRED, "Job should be marked as deferred."
+    assert (
+        "Could not convert Git SHA abcabcabcabcabcabcabcabcabcabcabcabcabcd "
+        "to a Mercurial SHA."
+    ) in job.error, "Error message should be saved in job."

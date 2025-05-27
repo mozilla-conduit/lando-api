@@ -109,6 +109,15 @@ class HgmoInternalServerError(HgException):
     )
 
 
+class CinnabarConversionError(Exception):
+    """Exception when a Git SHA cannot be converted to an Hg SHA.
+
+    Typically this occurs when patches are submitted using a native Git repo,
+    where the Git commit the push is based off of is not yet present in the
+    Mercurial repo because it has not yet been synced.
+    """
+
+
 class PatchApplicationFailure(HgException):
     """Exception when there is a failure applying a patch."""
 
@@ -663,7 +672,14 @@ class HgRepo:
 
     def git_to_hg(self, git_sha: str) -> str:
         """Convert a `git_sha` to a Mercurial SHA."""
-        return self.run_git(["cinnabar", "git2hg", git_sha])
+        hg_sha = self.run_git(["cinnabar", "git2hg", git_sha])
+
+        if hg_sha == "0" * 40:
+            raise CinnabarConversionError(
+                f"Could not convert Git SHA {git_sha} to a Mercurial SHA."
+            )
+
+        return hg_sha
 
     def run_git(self, args: list[str], cwd: Optional[Path] = None) -> str:
         """Run a `git` command on the associated Git repo."""

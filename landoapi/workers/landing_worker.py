@@ -18,6 +18,7 @@ from landoapi.commit_message import parse_bugs
 from landoapi.hg import (
     REJECTS_PATH,
     AutoformattingException,
+    CinnabarConversionError,
     HgmoInternalServerError,
     HgRepo,
     LostPushRace,
@@ -295,6 +296,16 @@ class LandingWorker(Worker):
 
                 # Try again, this is a temporary failure.
                 return False
+            except CinnabarConversionError as e:
+                message = str(e)
+                logger.exception(message)
+                job.transition_status(
+                    LandingJobAction.DEFER, message=message, commit=True, db=db
+                )
+
+                # Try again, this is a temporary failure.
+                return False
+
             except Exception as e:
                 message = f"Unexpected error while fetching repo from {repo.pull_path}."
                 logger.exception(message)
