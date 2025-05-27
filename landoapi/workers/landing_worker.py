@@ -299,12 +299,17 @@ class LandingWorker(Worker):
             except CinnabarConversionError as e:
                 message = str(e)
                 logger.exception(message)
-                job.transition_status(
-                    LandingJobAction.DEFER, message=message, commit=True, db=db
+
+                # After 5 attempts, consider this job a permanent failure.
+                status, is_permanent_failure = (
+                    (LandingJobAction.DEFER, False)
+                    if job.attempts < 5
+                    else (LandingJobAction.FAIL, True)
                 )
 
-                # Try again, this is a temporary failure.
-                return False
+                job.transition_status(status, message=message, commit=True, db=db)
+
+                return is_permanent_failure
 
             except Exception as e:
                 message = f"Unexpected error while fetching repo from {repo.pull_path}."
