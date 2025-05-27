@@ -653,3 +653,18 @@ def test_landing_job_deferred_on_cinnabar_failure(
         "Could not convert Git SHA abcabcabcabcabcabcabcabcabcabcabcabcabcd "
         "to a Mercurial SHA."
     ) in job.error, "Error message should be saved in job."
+
+    # Set job attempts to 5.
+    job.attempts = 5
+    db.session.add(job)
+    db.session.commit()
+
+    # Re-run the job.
+    result = worker.run_job(job, repo, hgrepo)
+    # Assert job is failed and error recorded.
+    assert result is True, "Job result should indicate a permanent failure."
+    assert job.status == LandingJobStatus.FAILED, "Job should be marked as failed."
+    assert (
+        "Could not convert Git SHA abcabcabcabcabcabcabcabcabcabcabcabcabcd "
+        "to a Mercurial SHA."
+    ) in job.error, "Error message should be saved in job."
