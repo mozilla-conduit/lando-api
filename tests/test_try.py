@@ -661,7 +661,7 @@ def test_landing_job_deferred_on_cinnabar_failure(
 
     # Re-run the job.
     result = worker.run_job(job, repo, hgrepo)
-    # Assert job is deferred and error recorded
+    # Assert job is failed and error recorded.
     assert result is True, "Job result should indicate a permanent failure."
     assert job.status == LandingJobStatus.FAILED, "Job should be marked as failed."
     assert (
