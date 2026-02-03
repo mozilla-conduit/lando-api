@@ -20,6 +20,7 @@ from typing import (
 )
 
 import hglib
+import rs_parsepatch
 
 from landoapi.commit_message import bug_list_to_commit_string
 from landoapi.hgexports import HgPatchHelper
@@ -409,6 +410,8 @@ class HgRepo:
                     import_cmd += ["--config", "ui.patch=patch"]
                     self.clean_repo(strip_non_public_commits=False)
 
+                    self._prevent_hg_modifications(f_diff.name)
+
                     try:
                         # When using an external patch util mercurial won't
                         # automatically handle add/remove/renames.
@@ -437,6 +440,17 @@ class HgRepo:
                 + ["--landing_system", "lando"]
                 + ["--logfile", f_msg.name]
             )
+
+    def _prevent_hg_modifications(self, diff_name: str) -> None:
+        """Inspect the patch data and raise an exception if any file is in .hg."""
+        with open(diff_name) as f:
+            diff = f.read()
+
+        parsed_diff = rs_parsepatch.get_diffs(diff)
+        filenames = [d["filename"] for d in parsed_diff]
+
+        if any(f == ".hg" or f.startswith(".hg/") for f in filenames):
+            raise ValueError("Patch modifies forbidden path.")
 
     def read_lando_config(self) -> Optional[configparser.ConfigParser]:
         """Attempt to read the `.lando.ini` file."""
