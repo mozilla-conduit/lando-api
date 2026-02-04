@@ -109,6 +109,28 @@ diff --git a/not-real.txt b/not-real.txt
 +This line doesn't exist
 """.strip()
 
+PATCH_WITH_HG_CHANGES = """
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Modify hgrc
+diff --git a/not-real.txt b/not-real.txt
+--- a/not-real.txt
++++ b/not-real.txt
+@@ -1,1 +1,2 @@
+ TEST
++This line doesn't exist
+diff --git a/not-real.txt b/not-real.txt
+--- a/.hg/hgrc
++++ b/.hg/hgrc
+@@ -1,2 +1,3 @@
+ # name and email (local to this repository, optional), e.g.
+ # username = Jane Doe <jdoe@example.com>
++# modified hgrc
+""".strip()
+
 
 PATCH_DELETE_NO_NEWLINE_FILE = """
 # HG changeset patch
@@ -186,6 +208,22 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
     # Patches with conflicts should raise a proper PatchConflict exception.
     with pytest.raises(PatchConflict), repo.for_pull():
         repo.apply_patch(io.StringIO(PATCH_WITH_CONFLICT))
+
+    # Patches with changes in .hg should raise a proper ValueError exception, and not modify
+    # anything.
+    hgrc_file = hg_clone.strpath + "/.hg/hgrc"
+    with open(hgrc_file) as f:
+        hgrc_orig = f.read()
+
+    with pytest.raises(
+        ValueError, match="Patch modifies forbidden path."
+    ), repo.for_pull():
+        repo.apply_patch(io.StringIO(PATCH_WITH_HG_CHANGES))
+
+    with open(hgrc_file) as f:
+        hgrc_new = f.read()
+
+    assert hgrc_new == hgrc_orig, "hgrc file was modified"
 
     with repo.for_pull():
         repo.apply_patch(io.StringIO(PATCH_NORMAL))
