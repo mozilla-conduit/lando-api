@@ -215,7 +215,9 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
     with open(hgrc_file) as f:
         hgrc_orig = f.read()
 
-    with pytest.raises(ValueError), repo.for_pull():
+    with pytest.raises(
+        ValueError, match="Patch modifies forbidden path."
+    ), repo.for_pull():
         repo.apply_patch(io.StringIO(PATCH_WITH_HG_CHANGES))
 
     with open(hgrc_file) as f:
