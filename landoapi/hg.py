@@ -7,6 +7,7 @@ import io
 import json
 import logging
 import os
+import posixpath
 import shlex
 import shutil
 import subprocess
@@ -447,7 +448,7 @@ class HgRepo:
             diff = f.read()
 
         parsed_diff = rs_parsepatch.get_diffs(diff)
-        filenames = [d["filename"] for d in parsed_diff]
+        filenames = [posixpath.normpath(d["filename"]) for d in parsed_diff]
 
         if any(f == ".hg" or f.startswith(".hg/") for f in filenames):
             raise ValueError("Patch modifies forbidden path.")

@@ -3,6 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 import io
 import os
+from pathlib import Path
 
 import pytest
 
@@ -122,9 +123,9 @@ diff --git a/not-real.txt b/not-real.txt
 @@ -1,1 +1,2 @@
  TEST
 +This line doesn't exist
-diff --git a/not-real.txt b/not-real.txt
---- a/.hg/hgrc
-+++ b/.hg/hgrc
+diff --git a/{filename} b/{filename}
+--- a/{filename}
++++ b/{filename}
 @@ -1,2 +1,3 @@
  # name and email (local to this repository, optional), e.g.
  # username = Jane Doe <jdoe@example.com>
@@ -209,22 +210,6 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
     with pytest.raises(PatchConflict), repo.for_pull():
         repo.apply_patch(io.StringIO(PATCH_WITH_CONFLICT))
 
-    # Patches with changes in .hg should raise a proper ValueError exception, and not modify
-    # anything.
-    hgrc_file = hg_clone.strpath + "/.hg/hgrc"
-    with open(hgrc_file) as f:
-        hgrc_orig = f.read()
-
-    with pytest.raises(
-        ValueError, match="Patch modifies forbidden path."
-    ), repo.for_pull():
-        repo.apply_patch(io.StringIO(PATCH_WITH_HG_CHANGES))
-
-    with open(hgrc_file) as f:
-        hgrc_new = f.read()
-
-    assert hgrc_new == hgrc_orig, "hgrc file was modified"
-
     with repo.for_pull():
         repo.apply_patch(io.StringIO(PATCH_NORMAL))
         # Commit created.
@@ -263,6 +248,36 @@ def test_integrated_hgrepo_apply_patch_newline_bug(hg_clone):
         repo.apply_patch(io.StringIO(PATCH_DELETE_NO_NEWLINE_FILE))
         # Commit created.
         assert "file removed" in str(repo.run_hg(["outgoing"]))
+
+
+@pytest.mark.parametrize(
+    "reference",
+    (
+        ".hg/hgrc",
+        "./.hg/hgrc",
+        "./testdir/../.hg/hgrc",
+        "./././.hg/hgrc",
+    ),
+)
+def test_integrated_hgrepo_apply_patch_hgrc(hg_clone, reference):
+    # Patches with changes in .hg should raise a ValueError exception.
+    # .hg/hgrc should also not be modified.
+    repo = HgRepo(hg_clone.strpath)
+
+    hgrc_file = Path(hg_clone.strpath) / ".hg/hgrc"
+    with hgrc_file.open() as f:
+        hgrc_orig = f.read()
+
+    with repo.for_pull():
+        with pytest.raises(ValueError, match="Patch modifies forbidden path."):
+            repo.apply_patch(
+                io.StringIO(PATCH_WITH_HG_CHANGES.format(filename=reference))
+            )
+        with open(hgrc_file) as f:
+            hgrc_new = f.read()
+
+    # hgrc file should not be modified under any circumstances.
+    assert hgrc_new == hgrc_orig, "hgrc file was modified"
 
 
 def test_hg_exceptions():
