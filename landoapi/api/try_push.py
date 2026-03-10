@@ -153,7 +153,7 @@ def post_patches(data: dict):
     patch_format = PatchFormat(data["patch_format"])
 
     environment_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
-    try_repo = environment_repos.get("try")
+    try_repo = environment_repos.get(data.get("try_repo"), "try")
     if not try_repo:
         raise ProblemException(
             500,

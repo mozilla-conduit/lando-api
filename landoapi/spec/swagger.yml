@@ -431,6 +431,11 @@ paths:
                 enum: ["git", "hg"]
                 description : |
                   The VCS that the `base_commit` hash is based on. Default is `hg`.
+              try_repo:
+                type: string
+                enum: ["try", "try-comm-central"]
+                description : |
+                  The try repo to submit the patch to.
       responses:
         201:
           description: Push was submitted successfully.
