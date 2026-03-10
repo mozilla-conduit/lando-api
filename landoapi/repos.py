@@ -288,6 +288,17 @@ REPO_CONFIG = {
             force_push=True,
             native_git_source="https://github.com/mozilla-firefox/firefox",
         ),
+        "try-comm-central": Repo(
+            tree="try-comm-central",
+            url="https://hg.mozilla.org/try-comm-central",
+            push_path="ssh://hg.mozilla.org/try-comm-central",
+            pull_path="https://hg.mozilla.org/comm-unified",
+            access_group=SCM_LEVEL_1,
+            short_name="try-cc",
+            is_phabricator_repo=False,
+            force_push=True,
+            native_git_source="https://github.com/thunderbird/thunderbird-desktop",
+        ),
     },
 }
 
