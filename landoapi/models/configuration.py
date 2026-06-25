@@ -25,6 +25,24 @@ class ConfigurationKey(enum.Enum):
     LANDING_WORKER_STOPPED = "LANDING_WORKER_STOPPED"
     API_IN_MAINTENANCE = "API_IN_MAINTENANCE"
     WORKER_THROTTLE_SECONDS = "WORKER_THROTTLE_SECONDS"
+    TREESTATUS_REQUEST_MODE = "TREESTATUS_REQUEST_MODE"
+
+
+@enum.unique
+class TreestatusRequestMode(enum.Enum):
+    """Determines how old-Lando handles incoming Treestatus requests.
+
+    This is used to migrate Treestatus consumers to new-Lando (see bug 1984161).
+    """
+
+    # Allow the request to be served by old-Lando.
+    ALLOW = "allow"
+
+    # Redirect the request to the new-Lando Treestatus API.
+    REDIRECT = "redirect"
+
+    # Hard-block the request with an error response.
+    BLOCK = "block"
 
 
 @enum.unique

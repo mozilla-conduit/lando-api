@@ -17,10 +17,15 @@ from typing import (
 
 import sqlalchemy as sa
 from connexion import ProblemException
-from flask import g
+from flask import g, redirect, request
 
 from landoapi import auth
 from landoapi.cache import cache
+from landoapi.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    TreestatusRequestMode,
+)
 from landoapi.models.treestatus import (
     Log,
     StatusChange,
@@ -37,6 +42,77 @@ logger = logging.getLogger(__name__)
 
 
 TREE_SUMMARY_LOG_LIMIT = 5
+
+# Base URL of the new-Lando Treestatus API. The new API mirrors the old one,
+# served under a namespaced path on the new host (see bug 1984161).
+TREESTATUS_NEW_BASE_URL = "https://lando.moz.tools/treestatus"
+
+
+def get_treestatus_request_mode() -> TreestatusRequestMode:
+    """Return the configured `TreestatusRequestMode` from the DB.
+
+    Fall back to `TreestatusRequestMode.ALLOW` if the variable is unset or holds
+    an unrecognized value, so that a bad config value cannot take down reads.
+    """
+    raw_mode = ConfigurationVariable.get(
+        ConfigurationKey.TREESTATUS_REQUEST_MODE,
+        TreestatusRequestMode.ALLOW.value,
+    )
+    try:
+        return TreestatusRequestMode(raw_mode)
+    except ValueError:
+        logger.error(
+            f"Unrecognized Treestatus request mode {raw_mode!r}, defaulting to "
+            f"{TreestatusRequestMode.ALLOW.value!r}."
+        )
+        return TreestatusRequestMode.ALLOW
+
+
+def redirect_to_new_treestatus():
+    """Return a redirect to the equivalent new-Lando Treestatus endpoint.
+
+    The current request path and query string are preserved and appended to the
+    new-Lando base URL.
+    """
+    target = f"{TREESTATUS_NEW_BASE_URL}{request.path}"
+    if request.query_string:
+        target = f"{target}?{request.query_string.decode()}"
+
+    logger.info(f"Redirecting Treestatus request for {request.path} to {target}.")
+    return redirect(target, code=302)
+
+
+def block_treestatus_request():
+    """Raise a `ProblemException` that hard-blocks the current request."""
+    logger.info(f"Hard-blocking Treestatus request for {request.path}.")
+    raise ProblemException(
+        503,
+        "Treestatus has moved.",
+        f"This Treestatus API has migrated to {TREESTATUS_NEW_BASE_URL}.",
+        type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503",
+    )
+
+
+def treestatus_request_mode(handler: Callable) -> Callable:
+    """Apply the configured `TreestatusRequestMode` to a request handler.
+
+    Depending on the `TREESTATUS_REQUEST_MODE` configuration variable, allow the
+    request through to `handler`, redirect it to new-Lando, or hard-block it.
+    """
+
+    @functools.wraps(handler)
+    def wrapper(*args, **kwargs):
+        mode = get_treestatus_request_mode()
+
+        if mode == TreestatusRequestMode.REDIRECT:
+            return redirect_to_new_treestatus()
+
+        if mode == TreestatusRequestMode.BLOCK:
+            return block_treestatus_request()
+
+        return handler(*args, **kwargs)
+
+    return wrapper
 
 
 @dataclass
@@ -263,6 +339,7 @@ def update_tree_status(
     cache.delete_memoized(get_tree_by_name, tree.tree)
 
 
+@treestatus_request_mode
 @result_object_wrap
 def get_stack() -> list[dict]:
     """Handler for `GET /stack`."""
@@ -362,6 +439,7 @@ def delete_stack(id: int, revert: Optional[int] = None):
     return revert_change(id, revert=bool(revert))
 
 
+@treestatus_request_mode
 @result_object_wrap
 def get_trees() -> dict:
     """Handler for `GET /trees`."""
@@ -463,6 +541,7 @@ def update_trees(body: dict):
     ], 200
 
 
+@treestatus_request_mode
 @result_object_wrap
 def get_tree(tree: str) -> dict:
     """Handler for `GET /trees/{tree}`."""
@@ -576,18 +655,21 @@ def get_logs_for_tree(tree_name: str, limit_logs: bool = True) -> list[dict]:
     return [log.to_dict() for log in query]
 
 
+@treestatus_request_mode
 @result_object_wrap
 def get_logs_all(tree: str) -> list[dict]:
     """Handler for `GET /trees/{tree}/logs_all`."""
     return get_logs_for_tree(tree, limit_logs=False)
 
 
+@treestatus_request_mode
 @result_object_wrap
 def get_logs(tree: str) -> list[dict]:
     """Handler for `GET /trees/{tree}/logs`."""
     return get_logs_for_tree(tree, limit_logs=True)
 
 
+@treestatus_request_mode
 @result_object_wrap
 def get_trees2() -> list[dict]:
     """Handler for `GET /trees2`."""

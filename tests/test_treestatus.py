@@ -10,9 +10,16 @@ from connexion import ProblemException
 from pydantic import BaseModel
 
 from landoapi.api.treestatus import (
+    TREESTATUS_NEW_BASE_URL,
     CombinedTree,
     get_combined_tree,
     get_tree,
+)
+from landoapi.models.configuration import (
+    ConfigurationKey,
+    ConfigurationVariable,
+    TreestatusRequestMode,
+    VariableType,
 )
 from landoapi.models.treestatus import (
     TreeCategory,
@@ -1113,3 +1120,89 @@ def test_api_get_stack(db, client, new_treestatus_tree, auth0_mock):
     assert result is not None, "Response should contain `result` key."
     for entry in result:
         assert StackEntry(**entry)
+
+
+# All read-only Treestatus GET endpoints subject to the request mode.
+TREESTATUS_GET_ENDPOINTS = [
+    "/stack",
+    "/trees",
+    "/trees/mozilla-central",
+    "/trees/mozilla-central/logs",
+    "/trees/mozilla-central/logs_all",
+    "/trees2",
+]
+
+
+def set_treestatus_request_mode(mode: TreestatusRequestMode):
+    """Set the `TREESTATUS_REQUEST_MODE` configuration variable to `mode`."""
+    ConfigurationVariable.set(
+        ConfigurationKey.TREESTATUS_REQUEST_MODE,
+        VariableType.STR,
+        mode.value,
+    )
+
+
+def test_treestatus_request_mode_allows_by_default(db, client, new_treestatus_tree):
+    """With no request mode configured, GET requests are served normally."""
+    new_treestatus_tree(tree="mozilla-central")
+
+    response = client.get("/trees/mozilla-central")
+    assert (
+        response.status_code == 200
+    ), "Request should be served by old-Lando when no request mode is set."
+
+
+@pytest.mark.parametrize("endpoint", TREESTATUS_GET_ENDPOINTS)
+def test_treestatus_request_mode_redirect(db, client, new_treestatus_tree, endpoint):
+    """In `REDIRECT` mode, GET requests are redirected to new-Lando."""
+    new_treestatus_tree(tree="mozilla-central")
+    set_treestatus_request_mode(TreestatusRequestMode.REDIRECT)
+
+    response = client.get(endpoint)
+    assert (
+        response.status_code == 302
+    ), f"`GET {endpoint}` should redirect in `REDIRECT` mode."
+    assert (
+        response.headers["Location"] == f"{TREESTATUS_NEW_BASE_URL}{endpoint}"
+    ), f"`GET {endpoint}` should redirect to the namespaced new-Lando path."
+
+
+def test_treestatus_request_mode_redirect_preserves_query(db, client):
+    """A redirect in `REDIRECT` mode preserves the original query string."""
+    set_treestatus_request_mode(TreestatusRequestMode.REDIRECT)
+
+    response = client.get("/trees2?foo=bar&baz=qux")
+    assert response.status_code == 302, "Request should redirect in `REDIRECT` mode."
+    assert (
+        response.headers["Location"]
+        == f"{TREESTATUS_NEW_BASE_URL}/trees2?foo=bar&baz=qux"
+    ), "Redirect should preserve the original query string."
+
+
+@pytest.mark.parametrize("endpoint", TREESTATUS_GET_ENDPOINTS)
+def test_treestatus_request_mode_block(db, client, new_treestatus_tree, endpoint):
+    """In `BLOCK` mode, GET requests are hard-blocked with a 503."""
+    new_treestatus_tree(tree="mozilla-central")
+    set_treestatus_request_mode(TreestatusRequestMode.BLOCK)
+
+    response = client.get(endpoint)
+    assert (
+        response.status_code == 503
+    ), f"`GET {endpoint}` should be hard-blocked in `BLOCK` mode."
+
+
+def test_treestatus_request_mode_invalid_defaults_to_allow(
+    db, client, new_treestatus_tree
+):
+    """An unrecognized request mode value fails open and serves the request."""
+    new_treestatus_tree(tree="mozilla-central")
+    ConfigurationVariable.set(
+        ConfigurationKey.TREESTATUS_REQUEST_MODE,
+        VariableType.STR,
+        "not-a-valid-mode",
+    )
+
+    response = client.get("/trees/mozilla-central")
+    assert (
+        response.status_code == 200
+    ), "An invalid request mode should fail open and serve the request."
