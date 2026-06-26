@@ -11,6 +11,7 @@ import click
 import connexion
 from flask.cli import FlaskGroup
 
+from landoapi.api.treestatus import TreestatusRequestMode
 from landoapi.models.configuration import (
     ConfigurationKey,
     ConfigurationVariable,
@@ -105,6 +106,27 @@ def run_post_deploy_sequence():
     ConfigurationVariable.set(
         ConfigurationKey.LANDING_WORKER_PAUSED, VariableType.BOOL, "0"
     )
+
+
+@cli.command(name="set-treestatus-request-mode")
+@click.argument(
+    "mode", type=click.Choice([mode.value for mode in TreestatusRequestMode])
+)
+def set_treestatus_request_mode(mode: str):
+    """Set how old-Lando handles incoming Treestatus requests.
+
+    Swap between serving requests from old-Lando (`allow`), redirecting them to
+    new-Lando (`redirect`), or hard-blocking them (`block`). See bug 1984161.
+    """
+    from landoapi.storage import db_subsystem
+
+    db_subsystem.ensure_ready()
+    ConfigurationVariable.set(
+        ConfigurationKey.TREESTATUS_REQUEST_MODE,
+        VariableType.STR,
+        TreestatusRequestMode(mode).value,
+    )
+    click.echo(f"Treestatus request mode set to {mode!r}.")
 
 
 @cli.command(context_settings={"ignore_unknown_options": True})
