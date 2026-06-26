@@ -129,9 +129,9 @@ def set_treestatus_request_mode(mode: str):
     click.echo(f"Treestatus request mode set to {mode!r}.")
 
 
-@cli.command(name="set-treestatus-new-base-url")
+@cli.command(name="set-treestatus-redirect-url")
 @click.argument("url")
-def set_treestatus_new_base_url(url: str):
+def set_treestatus_redirect_url(url: str):
     """Set the base URL that Treestatus requests are redirected to.
 
     This is the new-Lando Treestatus API the `redirect` request mode points at.
@@ -141,11 +141,11 @@ def set_treestatus_new_base_url(url: str):
 
     db_subsystem.ensure_ready()
     ConfigurationVariable.set(
-        ConfigurationKey.TREESTATUS_NEW_BASE_URL,
+        ConfigurationKey.TREESTATUS_REDIRECT_URL,
         VariableType.STR,
         url,
     )
-    click.echo(f"Treestatus new base URL set to {url!r}.")
+    click.echo(f"Treestatus redirect URL set to {url!r}.")
 
 
 @cli.command(context_settings={"ignore_unknown_options": True})
