@@ -10,7 +10,7 @@ from connexion import ProblemException
 from pydantic import BaseModel
 
 from landoapi.api.treestatus import (
-    TREESTATUS_NEW_BASE_URL,
+    DEFAULT_TREESTATUS_NEW_BASE_URL,
     CombinedTree,
     get_combined_tree,
     get_tree,
@@ -1163,8 +1163,24 @@ def test_treestatus_request_mode_redirect(db, client, new_treestatus_tree, endpo
         response.status_code == 302
     ), f"`GET {endpoint}` should redirect in `REDIRECT` mode."
     assert (
-        response.headers["Location"] == f"{TREESTATUS_NEW_BASE_URL}{endpoint}"
+        response.headers["Location"] == f"{DEFAULT_TREESTATUS_NEW_BASE_URL}{endpoint}"
     ), f"`GET {endpoint}` should redirect to the namespaced new-Lando path."
+
+
+def test_treestatus_redirect_uses_configured_base_url(db, client):
+    """A redirect targets the `TREESTATUS_NEW_BASE_URL` configuration variable."""
+    set_treestatus_request_mode(TreestatusRequestMode.REDIRECT)
+    ConfigurationVariable.set(
+        ConfigurationKey.TREESTATUS_NEW_BASE_URL,
+        VariableType.STR,
+        "https://example.test/treestatus",
+    )
+
+    response = client.get("/trees2")
+    assert response.status_code == 302, "Request should redirect in `REDIRECT` mode."
+    assert (
+        response.headers["Location"] == "https://example.test/treestatus/trees2"
+    ), "Redirect should target the configured new-Lando base URL."
 
 
 def test_treestatus_request_mode_redirect_preserves_query(db, client):
@@ -1175,7 +1191,7 @@ def test_treestatus_request_mode_redirect_preserves_query(db, client):
     assert response.status_code == 302, "Request should redirect in `REDIRECT` mode."
     assert (
         response.headers["Location"]
-        == f"{TREESTATUS_NEW_BASE_URL}/trees2?foo=bar&baz=qux"
+        == f"{DEFAULT_TREESTATUS_NEW_BASE_URL}/trees2?foo=bar&baz=qux"
     ), "Redirect should preserve the original query string."
 
 

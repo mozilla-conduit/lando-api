@@ -43,9 +43,21 @@ logger = logging.getLogger(__name__)
 
 TREE_SUMMARY_LOG_LIMIT = 5
 
-# Base URL of the new-Lando Treestatus API. The new API mirrors the old one,
-# served under a namespaced path on the new host (see bug 1984161).
-TREESTATUS_NEW_BASE_URL = "https://lando.moz.tools/treestatus"
+# Default base URL of the new-Lando Treestatus API. The new API mirrors the old
+# one, served under a namespaced path on the new host (see bug 1984161). This is
+# used when the `TREESTATUS_NEW_BASE_URL` configuration variable is unset.
+DEFAULT_TREESTATUS_NEW_BASE_URL = "https://lando.moz.tools/treestatus"
+
+
+def get_treestatus_new_base_url() -> str:
+    """Return the configured new-Lando Treestatus base URL from the DB.
+
+    Fall back to `DEFAULT_TREESTATUS_NEW_BASE_URL` if the variable is unset.
+    """
+    return ConfigurationVariable.get(
+        ConfigurationKey.TREESTATUS_NEW_BASE_URL,
+        DEFAULT_TREESTATUS_NEW_BASE_URL,
+    )
 
 
 def get_treestatus_request_mode() -> TreestatusRequestMode:
@@ -74,7 +86,7 @@ def redirect_to_new_treestatus():
     The current request path and query string are preserved and appended to the
     new-Lando base URL.
     """
-    target = f"{TREESTATUS_NEW_BASE_URL}{request.path}"
+    target = f"{get_treestatus_new_base_url()}{request.path}"
     if request.query_string:
         target = f"{target}?{request.query_string.decode()}"
 
@@ -88,7 +100,7 @@ def block_treestatus_request():
     raise ProblemException(
         503,
         "Treestatus has moved.",
-        f"This Treestatus API has migrated to {TREESTATUS_NEW_BASE_URL}.",
+        f"This Treestatus API has migrated to {get_treestatus_new_base_url()}.",
         type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503",
     )
 
