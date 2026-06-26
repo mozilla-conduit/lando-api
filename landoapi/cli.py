@@ -129,6 +129,25 @@ def set_treestatus_request_mode(mode: str):
     click.echo(f"Treestatus request mode set to {mode!r}.")
 
 
+@cli.command(name="set-treestatus-new-base-url")
+@click.argument("url")
+def set_treestatus_new_base_url(url: str):
+    """Set the base URL that Treestatus requests are redirected to.
+
+    This is the new-Lando Treestatus API the `redirect` request mode points at.
+    See bug 1984161.
+    """
+    from landoapi.storage import db_subsystem
+
+    db_subsystem.ensure_ready()
+    ConfigurationVariable.set(
+        ConfigurationKey.TREESTATUS_NEW_BASE_URL,
+        VariableType.STR,
+        url,
+    )
+    click.echo(f"Treestatus new base URL set to {url!r}.")
+
+
 @cli.command(context_settings={"ignore_unknown_options": True})
 @click.argument("celery_arguments", nargs=-1, type=click.UNPROCESSED)
 def celery(celery_arguments):
