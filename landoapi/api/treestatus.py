@@ -125,7 +125,7 @@ def block_treestatus_request():
     )
 
 
-def treestatus_request_mode(handler: Callable) -> Callable:
+def treestatus_deprecation_handler(handler: Callable) -> Callable:
     """Apply the configured `TreestatusRequestMode` to a request handler.
 
     Depending on the `TREESTATUS_REQUEST_MODE` configuration variable, allow the
@@ -371,7 +371,7 @@ def update_tree_status(
     cache.delete_memoized(get_tree_by_name, tree.tree)
 
 
-@treestatus_request_mode
+@treestatus_deprecation_handler
 @result_object_wrap
 def get_stack() -> list[dict]:
     """Handler for `GET /stack`."""
@@ -471,7 +471,7 @@ def delete_stack(id: int, revert: Optional[int] = None):
     return revert_change(id, revert=bool(revert))
 
 
-@treestatus_request_mode
+@treestatus_deprecation_handler
 @result_object_wrap
 def get_trees() -> dict:
     """Handler for `GET /trees`."""
@@ -573,7 +573,7 @@ def update_trees(body: dict):
     ], 200
 
 
-@treestatus_request_mode
+@treestatus_deprecation_handler
 @result_object_wrap
 def get_tree(tree: str) -> dict:
     """Handler for `GET /trees/{tree}`."""
@@ -687,21 +687,21 @@ def get_logs_for_tree(tree_name: str, limit_logs: bool = True) -> list[dict]:
     return [log.to_dict() for log in query]
 
 
-@treestatus_request_mode
+@treestatus_deprecation_handler
 @result_object_wrap
 def get_logs_all(tree: str) -> list[dict]:
     """Handler for `GET /trees/{tree}/logs_all`."""
     return get_logs_for_tree(tree, limit_logs=False)
 
 
-@treestatus_request_mode
+@treestatus_deprecation_handler
 @result_object_wrap
 def get_logs(tree: str) -> list[dict]:
     """Handler for `GET /trees/{tree}/logs`."""
     return get_logs_for_tree(tree, limit_logs=True)
 
 
-@treestatus_request_mode
+@treestatus_deprecation_handler
 @result_object_wrap
 def get_trees2() -> list[dict]:
     """Handler for `GET /trees2`."""
