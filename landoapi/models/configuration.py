@@ -30,23 +30,6 @@ class ConfigurationKey(enum.Enum):
 
 
 @enum.unique
-class TreestatusRequestMode(enum.Enum):
-    """Determines how old-Lando handles incoming Treestatus requests.
-
-    This is used to migrate Treestatus consumers to new-Lando (see bug 1984161).
-    """
-
-    # Allow the request to be served by old-Lando.
-    ALLOW = "allow"
-
-    # Redirect the request to the new-Lando Treestatus API.
-    REDIRECT = "redirect"
-
-    # Hard-block the request with an error response.
-    BLOCK = "block"
-
-
-@enum.unique
 class VariableType(enum.Enum):
     """Types that will be used to determine what to parse string values into."""
 

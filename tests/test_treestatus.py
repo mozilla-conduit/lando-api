@@ -12,13 +12,13 @@ from pydantic import BaseModel
 from landoapi.api.treestatus import (
     DEFAULT_TREESTATUS_NEW_BASE_URL,
     CombinedTree,
+    TreestatusRequestMode,
     get_combined_tree,
     get_tree,
 )
 from landoapi.models.configuration import (
     ConfigurationKey,
     ConfigurationVariable,
-    TreestatusRequestMode,
     VariableType,
 )
 from landoapi.models.treestatus import (
