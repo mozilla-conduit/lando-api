@@ -163,6 +163,7 @@ class LandingWorker(Worker):
                         "{node}",
                         "-l",
                         "1",
+                        "--",
                         path,
                     ]
                 ),
