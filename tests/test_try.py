@@ -16,6 +16,8 @@ from landoapi.models.landing_job import LandingJob, LandingJobStatus
 from landoapi.repos import SCM_LEVEL_1, Repo
 from landoapi.workers.landing_worker import LandingWorker
 
+pytest.skip(allow_module_level=True)
+
 PATCH_DIFF = rb"""
 diff --git a/test.txt b/test.txt
 --- a/test.txt

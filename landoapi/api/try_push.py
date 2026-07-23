@@ -9,10 +9,6 @@ import io
 import logging
 
 from connexion import ProblemException
-from flask import (
-    current_app,
-    g,
-)
 
 from landoapi import auth
 from landoapi.hgexports import (
@@ -23,14 +19,9 @@ from landoapi.hgexports import (
     PatchHelper,
     PreventSymlinksCheck,
 )
-from landoapi.models.landing_job import (
-    LandingJobStatus,
-    add_job_with_revisions,
-)
 from landoapi.models.revisions import Revision
 from landoapi.repos import (
     Repo,
-    get_repos_for_env,
 )
 
 logger = logging.getLogger(__name__)
@@ -147,36 +138,9 @@ def parse_revisions_from_request(
 # tokens granted via the Device Authorization flow.
 # @auth.enforce_request_scm_level(SCM_LEVEL_1)
 def post_patches(data: dict):
-    base_commit = data["base_commit"]
-    base_commit_format = data.get("base_commit_vcs", "hg")
-    patches = data["patches"]
-    patch_format = PatchFormat(data["patch_format"])
-
-    environment_repos = get_repos_for_env(current_app.config.get("ENVIRONMENT"))
-    try_repo = environment_repos.get("try")
-    if not try_repo:
-        raise ProblemException(
-            500,
-            "Could not find a `try` repo to submit to.",
-            "Could not find a `try` repo to submit to.",
-            type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500",
-        )
-
-    # Add a landing job for this try push.
-    ldap_username = g.auth0_user.email
-    revisions = parse_revisions_from_request(patches, patch_format, try_repo)
-    job = add_job_with_revisions(
-        revisions,
-        repository_name=try_repo.short_name,
-        repository_url=try_repo.url,
-        requester_email=ldap_username,
-        status=LandingJobStatus.SUBMITTED,
-        target_commit_hash=base_commit,
-        target_commit_hash_vcs=base_commit_format,
+    raise ProblemException(
+        410,
+        "No longer available.",
+        "The legacy try endpoint is no longer available. Please use new Lando.",
+        type="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/410",
     )
-    logger.info(
-        f"Created try landing job {job.id} with {len(revisions)} "
-        f"changesets against {base_commit} for {ldap_username}."
-    )
-
-    return {"id": job.id}, 201
