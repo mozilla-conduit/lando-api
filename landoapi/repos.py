@@ -272,23 +272,7 @@ REPO_CONFIG = {
             native_git_source="https://github.com/mozilla-firefox/firefox",
         ),
     },
-    "devsvcprod": {
-        # Try uses `mozilla-unified` as the `pull_path` as using try
-        # proper is exceptionally slow. `mozilla-unified` includes both
-        # autoland and central and is the most likely to contain the passed
-        # base commit.
-        "try": Repo(
-            tree="try",
-            url="https://hg.mozilla.org/try",
-            push_path="ssh://hg.mozilla.org/try",
-            pull_path="https://hg.mozilla.org/mozilla-unified",
-            access_group=SCM_LEVEL_1,
-            short_name="try",
-            is_phabricator_repo=False,
-            force_push=True,
-            native_git_source="https://github.com/mozilla-firefox/firefox",
-        ),
-    },
+    "devsvcprod": {},
 }
 
 
