@@ -20,7 +20,7 @@ def test(ctx, testargs="", keep=False):
     """Run the test suite."""
     ctx.config.keep_containers = keep  # Stashed for our cleanup tasks
     run(
-        "docker-compose run {rm} lando-api test {args}".format(
+        "docker compose run {rm} lando-api test {args}".format(
             args=testargs, rm=("" if keep else " --rm")
         ),
         pty=USE_PTY,
@@ -31,13 +31,13 @@ def test(ctx, testargs="", keep=False):
 @task(name="ruff")
 def lint_ruff(ctx):
     """Run ruff."""
-    run("docker-compose run --rm lando-api ruff", pty=USE_PTY, echo=True)
+    run("docker compose run --rm lando-api ruff", pty=USE_PTY, echo=True)
 
 
 @task(name="black")
 def lint_black(ctx):
     """Run black."""
-    run("docker-compose run --rm lando-api format", pty=USE_PTY, echo=True)
+    run("docker compose run --rm lando-api format", pty=USE_PTY, echo=True)
 
 
 @task(default=True, name="all", post=[lint_ruff, lint_black])
@@ -49,25 +49,25 @@ def lint_all(ctx):
 @task()
 def format(ctx):
     """Format project sourcecode. (WARNING: rewrites files!)"""
-    run("docker-compose run --rm lando-api format --in-place", echo=True)
+    run("docker compose run --rm lando-api format --in-place", echo=True)
 
 
 @task(name="add-migration")
 def add_migration(ctx, msg):
     """Call Alembic to create a migration revision"""
-    ctx.run("docker-compose run --rm lando-api db revision '%s'" % msg)
+    ctx.run("docker compose run --rm lando-api db revision '%s'" % msg)
 
 
 @task(name="setup-db")
 def setup_db(ctx):
     """Setup the Lando database by upgrading to latest migration file."""
-    ctx.run("docker-compose run --rm lando-api db upgrade")
+    ctx.run("docker compose run --rm lando-api db upgrade")
 
 
 @task
 def upgrade(ctx):
     """Call Alembic to run all available migration upgrades."""
-    ctx.run("docker-compose run --rm lando-api db upgrade")
+    ctx.run("docker compose run --rm lando-api db upgrade")
 
 
 namespace = Collection(

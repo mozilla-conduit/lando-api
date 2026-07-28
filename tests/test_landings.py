@@ -17,6 +17,7 @@ from landoapi.models.landing_job import (
 from landoapi.models.revisions import Revision
 from landoapi.repos import SCM_LEVEL_3, Repo
 from landoapi.workers.landing_worker import LandingWorker
+from tests.test_hg import PATCH_2053996, PATCH_WITH_CONFLICT
 
 
 @pytest.fixture
@@ -361,6 +362,63 @@ def test_integrated_execute_job_with_bookmark(
     assert len(hgrepo.push.call_args[0]) == 1
     assert hgrepo.push.call_args[0][0] == hg_server
     assert hgrepo.push.call_args[1] == {"bookmark": "@", "force_push": False}
+
+
+@pytest.mark.parametrize(
+    "revisions_params,conflicted_path",
+    [
+        ([(1, {"patch": PATCH_WITH_CONFLICT})], "not-real.txt"),
+        ([(1, {"patch": PATCH_2053996})], "--config=alias.log=!/bin/false"),
+    ],
+)
+def test_integrated_execute_job_conflict(
+    app,
+    db,
+    mock_repo_config,
+    hg_server,
+    hg_clone,
+    monkeypatch,
+    new_treestatus_tree,
+    create_patch_revision,
+    normal_patch,
+    revisions_params,
+    conflicted_path,
+):
+    new_treestatus_tree(tree="mozilla-central", status="open")
+
+    repo = Repo(
+        tree="mozilla-central",
+        url=hg_server,
+        access_group=SCM_LEVEL_3,
+        push_path=hg_server,
+        pull_path=hg_server,
+    )
+    hgrepo = HgRepo(hg_clone.strpath)
+    revisions = [
+        create_patch_revision(number, **kwargs) for number, kwargs in revisions_params
+    ]
+    job_params = {
+        "status": LandingJobStatus.IN_PROGRESS,
+        "requester_email": "test@example.com",
+        "repository_name": "mozilla-central",
+        "attempts": 1,
+    }
+    job = add_job_with_revisions(revisions, **job_params)
+
+    worker = LandingWorker(sleep_seconds=0.01)
+
+    # Mock `phab_trigger_repo_update` so we can make sure that it was called.
+    mock_trigger_update = mock.MagicMock()
+    monkeypatch.setattr(
+        "landoapi.workers.landing_worker.LandingWorker.phab_trigger_repo_update",
+        mock_trigger_update,
+    )
+
+    assert worker.run_job(job, repo, hgrepo)
+    assert job.status == LandingJobStatus.FAILED, "Job with conflict should have failed"
+    assert (
+        conflicted_path in job.error_breakdown["reject_paths"]
+    ), "Conflicted path not found in reject_paths"
 
 
 def test_lose_push_race(

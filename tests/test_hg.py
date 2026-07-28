@@ -197,6 +197,21 @@ diff --git a/test.txt b/test.txt
 +adding another line
 """.strip()
 
+PATCH_2053996 = r"""
+# HG changeset patch
+# User Test User <test@example.com>
+# Date 0 0
+#      Thu Jan 01 00:00:00 1970 +0000
+# Diff Start Line 7
+Add to a file that doesn't exist
+diff --git a/--config=alias.log=!/bin/false b/--config=alias.log=!/bin/false
+--- a/--config=alias.log=!/bin/false
++++ b/--config=alias.log=!/bin/false
+@@ -1,1 +1,2 @@
+ TEST
++This line doesn't exist
+""".strip()
+
 
 def test_integrated_hgrepo_apply_patch(hg_clone):
     repo = HgRepo(hg_clone.strpath)
@@ -209,6 +224,10 @@ def test_integrated_hgrepo_apply_patch(hg_clone):
     # Patches with conflicts should raise a proper PatchConflict exception.
     with pytest.raises(PatchConflict), repo.for_pull():
         repo.apply_patch(io.StringIO(PATCH_WITH_CONFLICT))
+
+    # Patches with conflicts should raise a proper PatchConflict exception.
+    with pytest.raises(PatchConflict), repo.for_pull():
+        repo.apply_patch(io.StringIO(PATCH_2053996))
 
     with repo.for_pull():
         repo.apply_patch(io.StringIO(PATCH_NORMAL))
