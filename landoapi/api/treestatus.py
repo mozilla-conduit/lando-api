@@ -66,7 +66,7 @@ class TreestatusRequestMode(Enum):
 # Default base URL of the new-Lando Treestatus API. The new API mirrors the old
 # one, served under a namespaced path on the new host (see bug 1984161). This is
 # used when the `TREESTATUS_REDIRECT_URL` configuration variable is unset.
-DEFAULT_TREESTATUS_REDIRECT_URL = "https://lando.moz.tools/treestatus"
+DEFAULT_TREESTATUS_REDIRECT_URL = "https://lando.moz.tools/api/treestatus"
 
 
 def get_treestatus_redirect_url() -> str:
