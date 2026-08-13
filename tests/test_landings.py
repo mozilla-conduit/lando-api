@@ -414,8 +414,15 @@ def test_integrated_execute_job_conflict(
         mock_trigger_update,
     )
 
+    # Mock `notify_user_of_landing_failure` so the job queue is not required.
+    mock_notify = mock.MagicMock()
+    monkeypatch.setattr(
+        "landoapi.workers.landing_worker.notify_user_of_landing_failure", mock_notify
+    )
+
     assert worker.run_job(job, repo, hgrepo)
     assert job.status == LandingJobStatus.FAILED, "Job with conflict should have failed"
+    assert mock_notify.call_count == 1, "Landing failure notification should be sent"
     assert (
         conflicted_path in job.error_breakdown["reject_paths"]
     ), "Conflicted path not found in reject_paths"

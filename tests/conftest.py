@@ -184,6 +184,9 @@ def docker_env_vars(request, versionfile, monkeypatch):
     # real attempt would fail.
     monkeypatch.setenv("MAIL_SERVER", "localhost")
     monkeypatch.delenv("MAIL_SUPPRESS_SEND", raising=False)
+    # Use an in-memory Celery broker so tests never contact a real job queue,
+    # regardless of the broker available in the environment.
+    monkeypatch.setenv("CELERY_BROKER_URL", "memory://")
 
     if request.module.__name__ == "tests.test_treestatus":
         monkeypatch.setenv("TREESTATUS_APP", "1")
@@ -274,6 +277,10 @@ def app(request, versionfile, docker_env_vars, disable_migrations, mocked_repo_c
     flask_app.test_client_class = JSONClient
     for system in SUBSYSTEMS:
         system.init_app(flask_app)
+
+    # `CelerySubsystem` uses `CELERY_BROKER_URL` as the result backend, and the
+    # in-memory broker used in tests is not a valid result backend.
+    celery.conf.update(result_backend="cache+memory://")
 
     return flask_app
 
@@ -394,11 +401,6 @@ def redis_cache(app):
 @pytest.fixture
 def celery_app(app):
     """Configure our app's Celery instance for use with the celery_worker fixture."""
-    # The test suite will fail if we don't override the default worker and
-    # default task set.
-    # Note: the test worker will fail if we don't specify a result_backend.  The test
-    # harness uses the backend for a custom ping() task that it uses as a health check.
-    celery.conf.update(broker_url="memory://", result_backend="rpc")
     # Workaround for https://github.com/celery/celery/issues/4032.  If 'tasks.ping' is
     # missing from the loaded task list then the test worker will fail with an
     # AssertionError.
