@@ -152,7 +152,6 @@ class Worker:
             for r in self.applicable_repos
             if treestatus.is_open(repo_clone_subsystem.repos[r].tree)
         ]
-        logger.info(f"{len(self.enabled_repos)} enabled repos: {self.enabled_repos}")
 
     def start(self, max_loops: int | None = None):
         """Run setup sequence and start the event loop."""

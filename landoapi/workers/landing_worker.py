@@ -29,7 +29,11 @@ from landoapi.hg import (
     TreeClosed,
 )
 from landoapi.models.configuration import ConfigurationKey
-from landoapi.models.landing_job import LandingJob, LandingJobAction, LandingJobStatus
+from landoapi.models.landing_job import (
+    LandingJob,
+    LandingJobAction,
+    LandingJobStatus,
+)
 from landoapi.notifications import (
     notify_user_of_bug_update_failure,
     notify_user_of_landing_failure,
@@ -69,6 +73,9 @@ def job_processing(worker: LandingWorker, job: LandingJob, db: SQLAlchemy):
 
 
 class LandingWorker(Worker):
+    TOO_MANY_ATTEMPTS_THRESHOLD = 10
+    QUEUE_SIZE_THRESHOLD = 20
+
     @property
     def STOP_KEY(self) -> ConfigurationKey:
         """Return the configuration key that prevents the worker from starting."""
@@ -84,10 +91,31 @@ class LandingWorker(Worker):
         self.last_job_finished = None
         self.refresh_enabled_repos()
 
-    def loop(self):
-        logger.debug(
-            f"{len(self.applicable_repos)} applicable repos: {self.applicable_repos}"
+    def check_landing_worker_warnings(self):
+        """Log messages that show various important statistics about the landing worker."""
+
+        queue_size = LandingJob.query.filter(
+            LandingJob.status.in_(LandingJobStatus.ACTIVE_STATUSES)
+        ).count()
+        if queue_size >= self.QUEUE_SIZE_THRESHOLD:
+            logger.warning(
+                f"The landing queue size of {queue_size} exceeds threshold of "
+                f"{self.QUEUE_SIZE_THRESHOLD}."
+            )
+
+        runaway_jobs = LandingJob.query.filter(
+            LandingJob.status.in_(LandingJobStatus.ACTIVE_STATUSES),
+            LandingJob.attempts >= self.TOO_MANY_ATTEMPTS_THRESHOLD,
         )
+
+        if runaway_jobs.count() > 0:
+            job = runaway_jobs.all()[0]
+            logger.warning(
+                f"Active landing job ({job}) has too many attempts ({job.attempts})"
+            )
+
+    def loop(self):
+        self.check_landing_worker_warnings()
 
         # Check if any closed trees reopened since the beginning of this iteration
         if len(self.enabled_repos) != len(self.applicable_repos):
